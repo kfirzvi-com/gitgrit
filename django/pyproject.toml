@@ -1,0 +1,11 @@
+[project]
+name = "gitgud"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.0.1",
+    "djangorestframework>=3.16.1",
+    "psycopg2-binary>=2.9.11",
+]

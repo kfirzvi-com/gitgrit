@@ -9,3 +9,5 @@ backend/config/tilt.yaml
 .DS_Store
 
 pgdata
+
+__pycache__/
