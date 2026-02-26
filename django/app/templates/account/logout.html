@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Out — GitGud{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-center min-h-[60vh]">
+  <div class="card bg-base-100 shadow-xl w-full max-w-md">
+    <div class="card-body items-center text-center">
+      <h2 class="card-title text-2xl mb-4">Sign Out</h2>
+      <p class="mb-6">Are you sure you want to sign out?</p>
+      <form method="post" action="{% url 'account_logout' %}">
+        {% csrf_token %}
+        <div class="flex gap-3">
+          <a href="{% url 'dashboard' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">Sign Out</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

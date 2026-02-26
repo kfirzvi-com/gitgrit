@@ -1,1 +1,1 @@
-from app.domain.models import User  # noqa: F401
+from app.domain.models import Membership, Tenant, User  # noqa: F401
