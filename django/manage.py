@@ -2,10 +2,16 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def main():
     """Run administrative tasks."""
+    load_dotenv(BASE_DIR / ".env")
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gitgud.settings')
     try:
         from django.core.management import execute_from_command_line

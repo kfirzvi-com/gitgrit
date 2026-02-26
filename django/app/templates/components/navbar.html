@@ -1,0 +1,30 @@
+<div class="navbar bg-base-100 shadow-lg">
+  <div class="flex-1">
+    <a href="{% url 'home' %}" class="btn btn-ghost text-xl">GitGud</a>
+  </div>
+  <div class="flex-none gap-2">
+    {% if user.is_authenticated %}
+      <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm">Dashboard</a>
+      <!-- Tenant switcher placeholder for Phase 2 -->
+      <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+          <div class="w-8 rounded-full">
+            {% if user.avatar_url %}
+              <img alt="Avatar" src="{{ user.avatar_url }}" />
+            {% else %}
+              <div class="bg-neutral text-neutral-content w-8 h-8 rounded-full flex items-center justify-center text-sm">
+                {{ user.email|first|upper }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50">
+          <li class="menu-title"><span>{{ user.email }}</span></li>
+          <li><a href="{% url 'account_logout' %}">Logout</a></li>
+        </ul>
+      </div>
+    {% else %}
+      <a href="{% url 'account_login' %}" class="btn btn-primary btn-sm">Sign In</a>
+    {% endif %}
+  </div>
+</div>

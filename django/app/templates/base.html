@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}GitGud{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2"></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="min-h-screen flex flex-col bg-base-200">
+  {% include "components/navbar.html" %}
+
+  <main class="flex-1 container mx-auto px-4 py-8">
+    {% include "components/flash_messages.html" %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content">
+    <p>GitGud &mdash; Repository Standards & Compliance</p>
+  </footer>
+</body>
+</html>

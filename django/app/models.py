@@ -1,3 +1,1 @@
-from django.db import models
-
-# Create your models here.
+from app.domain.models import User  # noqa: F401
