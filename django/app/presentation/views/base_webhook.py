@@ -6,8 +6,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.engine.engine import PolicyEngine
-from app.webhooks.parsers.registry import get_parser
+from app.application.policy_engine import PolicyEngine
+from app.infrastructure.parsers.registry import get_parser
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +47,3 @@ class BaseWebhookView(APIView):
                 "results": results,
             }
         )
-
-
-class GitHubWebhookView(BaseWebhookView):
-    platform = "github"
-
-
-class GitLabWebhookView(BaseWebhookView):
-    platform = "gitlab"

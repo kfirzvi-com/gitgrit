@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from app.webhooks.parsers.base import BaseWebhookParser
-from app.webhooks.parsers.github import GitHubParser
-from app.webhooks.parsers.gitlab import GitLabParser
+from app.infrastructure.parsers.base import BaseWebhookParser
+from app.infrastructure.parsers.github import GitHubParser
+from app.infrastructure.parsers.gitlab import GitLabParser
 
 PARSERS: dict[str, BaseWebhookParser] = {
     "github": GitHubParser(),

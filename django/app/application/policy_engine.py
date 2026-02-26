@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 
 from app.domain.events import DomainEvent
-from app.engine.policies import POLICIES
-from app.sandbox.runner import SandboxRunner
+from app.domain.policies import POLICIES
+from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
 

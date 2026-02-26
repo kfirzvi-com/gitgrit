@@ -13,12 +13,14 @@ from pathlib import Path
 import docker
 from django.conf import settings
 
+from app.domain.policy_runner import PolicyRunner
+
 logger = logging.getLogger(__name__)
 
 SANDBOX_NETWORK = "gitgud-sandbox"
 
 
-class SandboxRunner:
+class SandboxRunner(PolicyRunner):
     def __init__(self):
         self.client = docker.from_env()
         self.config = settings.SANDBOX

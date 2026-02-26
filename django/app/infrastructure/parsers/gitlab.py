@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.domain.events import DomainEvent
-from app.webhooks.parsers.base import BaseWebhookParser
+from app.infrastructure.parsers.base import BaseWebhookParser
 
 
 class GitLabParser(BaseWebhookParser):
