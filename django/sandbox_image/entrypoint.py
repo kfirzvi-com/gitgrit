@@ -1,18 +1,29 @@
 """Sandbox container entrypoint.
 
-Reads /input.json for context, loads /policy.py and calls evaluate(context),
-then writes the JSON result to stdout.
+Reads /input.json for config (platform, project_id, access_token),
+creates the appropriate provider, wraps it in a ProjectContext,
+loads /policy.py and calls evaluate(project), then writes the JSON result
+to stdout.
 """
 
 import json
-import sys
 import traceback
+
+from project_context import ProjectContext
+from providers.factory import create_provider
 
 
 def main():
     try:
         with open("/input.json") as f:
-            context = json.load(f)
+            config = json.load(f)
+
+        provider = create_provider(
+            platform=config.get("platform", "mock"),
+            project_id=config.get("project_id", ""),
+            access_token=config.get("access_token"),
+        )
+        project = ProjectContext(provider)
 
         policy_globals = {}
         with open("/policy.py") as f:
@@ -22,7 +33,7 @@ def main():
         if evaluate is None:
             raise RuntimeError("Policy does not define an evaluate() function")
 
-        result = evaluate(context)
+        result = evaluate(project)
         print(json.dumps(result))
 
     except Exception:

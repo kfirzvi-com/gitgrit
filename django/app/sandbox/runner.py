@@ -1,4 +1,9 @@
-"""Sandbox runner — executes policy code in a gVisor-sandboxed Docker container."""
+"""Sandbox runner — executes policy code in a gVisor-sandboxed Docker container.
+
+Containers run on a custom Docker bridge network (``gitgud-sandbox``) that
+gives them internet access (for API calls) while keeping them isolated from
+the host machine.
+"""
 
 import json
 import logging
@@ -10,18 +15,30 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+SANDBOX_NETWORK = "gitgud-sandbox"
+
 
 class SandboxRunner:
     def __init__(self):
         self.client = docker.from_env()
         self.config = settings.SANDBOX
+        self._ensure_network()
 
-    def run(self, policy_code: str, context: dict) -> dict:
-        """Run a policy script against the given context in a sandboxed container.
+    def _ensure_network(self) -> None:
+        """Create the sandbox bridge network if it doesn't already exist."""
+        try:
+            self.client.networks.get(SANDBOX_NETWORK)
+        except docker.errors.NotFound:
+            logger.info("Creating Docker network '%s'", SANDBOX_NETWORK)
+            self.client.networks.create(SANDBOX_NETWORK, driver="bridge")
+
+    def run(self, policy_code: str, input_config: dict) -> dict:
+        """Run a policy script in a sandboxed container.
 
         Args:
-            policy_code: Python source defining an evaluate(context) function.
-            context: Dict passed to the policy as input.
+            policy_code: Python source defining an evaluate(project) function.
+            input_config: Dict with platform, project_id, access_token — written
+                to /input.json inside the container.
 
         Returns:
             Policy result dict with passed, score, message, details.
@@ -33,7 +50,7 @@ class SandboxRunner:
 
         try:
             policy_path.write_text(policy_code)
-            input_path.write_text(json.dumps(context))
+            input_path.write_text(json.dumps(input_config))
 
             runtime = self._get_runtime()
             container_kwargs = {
@@ -42,8 +59,7 @@ class SandboxRunner:
                     str(policy_path): {"bind": "/policy.py", "mode": "ro"},
                     str(input_path): {"bind": "/input.json", "mode": "ro"},
                 },
-                "network_mode": "none",
-                "read_only": True,
+                "network": SANDBOX_NETWORK,
                 "tmpfs": {"/tmp": "size=16m"},
                 "mem_limit": self.config["MEMORY_LIMIT"],
                 "nano_cpus": int(self.config["CPU_LIMIT"] * 1e9),
