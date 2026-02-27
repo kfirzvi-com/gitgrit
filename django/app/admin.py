@@ -5,6 +5,7 @@ from app.domain.models import (
     Membership,
     PlatformConnection,
     Policy,
+    PolicyExecution,
     Project,
     ProjectStack,
     Stack,
@@ -82,3 +83,35 @@ class PolicyAdmin(admin.ModelAdmin):
     list_display = ("name", "tenant", "enabled", "draft", "ordinal", "created_at")
     list_filter = ("tenant", "enabled", "draft")
     search_fields = ("name",)
+
+
+@admin.register(PolicyExecution)
+class PolicyExecutionAdmin(admin.ModelAdmin):
+    list_display = (
+        "policy_name",
+        "project",
+        "event_type",
+        "status",
+        "score",
+        "triggered_by",
+        "created_at",
+    )
+    list_filter = ("status", "event_type")
+    search_fields = ("policy_name", "project__name", "triggered_by")
+    readonly_fields = (
+        "id",
+        "project",
+        "policy",
+        "policy_name",
+        "event_type",
+        "status",
+        "score",
+        "message",
+        "details",
+        "triggered_by",
+        "ref",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False

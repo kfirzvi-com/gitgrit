@@ -65,7 +65,95 @@
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <h2 class="card-title">Compliance</h2>
-        <p class="text-sm opacity-70">Policy results will appear here once the pipeline is connected.</p>
+        {% if compliance_score is not None %}
+          <div class="flex items-center gap-6">
+            <div class="radial-progress {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}"
+                 style="--value:{{ compliance_score }}; --size:5rem;" role="progressbar">
+              {{ compliance_score }}%
+            </div>
+            <div>
+              <p class="text-sm opacity-70">Overall score based on {{ latest_executions|length }} polic{{ latest_executions|length|pluralize:"y,ies" }}</p>
+            </div>
+          </div>
+          {% if latest_executions %}
+            <div class="overflow-x-auto mt-4">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Policy</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                    <th>Message</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for ex in latest_executions %}
+                    <tr>
+                      <td>
+                        {% if ex.policy %}
+                          <a href="{% url 'edit_policy' ex.policy.pk %}" class="link link-hover">{{ ex.policy_name }}</a>
+                        {% else %}
+                          {{ ex.policy_name }} <span class="text-xs opacity-50">(deleted)</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                          {{ ex.get_status_display }}
+                        </span>
+                      </td>
+                      <td>{{ ex.score }}</td>
+                      <td class="text-sm max-w-xs truncate">{{ ex.message }}</td>
+                      <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        {% else %}
+          <p class="text-sm opacity-70">No policy results yet. Results will appear after webhooks trigger policy evaluations.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Recent Activity</h2>
+        {% if recent_executions %}
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Policy</th>
+                  <th>Event</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Triggered by</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ex in recent_executions|slice:":20" %}
+                  <tr>
+                    <td>{{ ex.policy_name }}</td>
+                    <td><span class="badge badge-outline badge-sm">{{ ex.event_type }}</span></td>
+                    <td>
+                      <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                        {{ ex.get_status_display }}
+                      </span>
+                    </td>
+                    <td>{{ ex.score }}</td>
+                    <td class="text-sm">{{ ex.triggered_by|default:"—" }}</td>
+                    <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-sm opacity-70">No activity yet.</p>
+        {% endif %}
       </div>
     </div>
   </div>

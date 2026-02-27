@@ -31,11 +31,12 @@
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <h2 class="card-title">Compliance</h2>
-      <p class="text-4xl font-bold text-accent">—</p>
+      {% if compliance_score is not None %}
+        <p class="text-4xl font-bold {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ compliance_score }}%</p>
+      {% else %}
+        <p class="text-4xl font-bold text-accent">—</p>
+      {% endif %}
       <p class="text-sm opacity-70">Overall compliance score</p>
-      <div class="card-actions justify-end mt-2">
-        <button class="btn btn-accent btn-sm" disabled>View Report</button>
-      </div>
     </div>
   </div>
 </div>
@@ -44,7 +45,40 @@
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <h2 class="card-title">Recent Activity</h2>
-      <p class="text-sm opacity-70">No activity yet. Connect a project to get started.</p>
+      {% if recent_executions %}
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Policy</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ex in recent_executions %}
+                <tr>
+                  <td>
+                    <a href="{% url 'project_detail' ex.project.pk %}" class="link link-hover">{{ ex.project.name }}</a>
+                  </td>
+                  <td>{{ ex.policy_name }}</td>
+                  <td>
+                    <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                      {{ ex.get_status_display }}
+                    </span>
+                  </td>
+                  <td>{{ ex.score }}</td>
+                  <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-sm opacity-70">No activity yet. Connect a project to get started.</p>
+      {% endif %}
     </div>
   </div>
 </div>

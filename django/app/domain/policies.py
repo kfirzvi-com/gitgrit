@@ -1,12 +1,15 @@
-"""Hardcoded policy catalog.
+"""Default policy catalog (DEPRECATED).
 
-Each policy defines its ID, display name, which event types trigger it,
-and the Python code that runs inside the sandbox.  Policies receive a
-``ProjectContext`` object (named ``project``) and must define an
-``evaluate(project)`` function that returns a result dict.
+These hardcoded policies are no longer used by the PolicyEngine, which now
+loads tenant-specific policies from the database. This list is retained as
+reference examples for seeding new tenants.
+
+Use Policy model objects (via admin or API) instead.
 """
 
-POLICIES = [
+# DEPRECATED: No longer imported by PolicyEngine.
+# Retained as seed data / reference examples.
+DEFAULT_POLICIES = [
     {
         "id": "check_readme",
         "name": "Check README",

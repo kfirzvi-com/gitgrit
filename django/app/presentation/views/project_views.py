@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
-from app.domain.models import PlatformConnection, Project
+from app.domain.models import PlatformConnection, PolicyExecution, Project
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,34 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         return Project.objects.filter(tenant=tenant).select_related(
             "platform_connection"
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = self.object
+
+        recent_executions = PolicyExecution.objects.filter(
+            project=project
+        ).select_related("policy")[:50]
+        context["recent_executions"] = recent_executions
+
+        # Deduplicate: latest execution per policy
+        seen_policies = {}
+        for ex in recent_executions:
+            key = ex.policy_id or ex.policy_name
+            if key not in seen_policies:
+                seen_policies[key] = ex
+        latest_executions = list(seen_policies.values())
+        context["latest_executions"] = latest_executions
+
+        # Compliance score: average of latest-per-policy scores
+        if latest_executions:
+            context["compliance_score"] = round(
+                sum(ex.score for ex in latest_executions) / len(latest_executions)
+            )
+        else:
+            context["compliance_score"] = None
+
+        return context
 
 
 @login_required

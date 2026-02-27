@@ -223,3 +223,55 @@ class Policy(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PolicyExecution(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "running", "Running"
+        PASSED = "passed", "Passed"
+        FAILED = "failed", "Failed"
+        ERROR = "error", "Error"
+        SKIPPED = "skipped", "Skipped"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="policy_executions",
+    )
+    policy = models.ForeignKey(
+        Policy,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="executions",
+    )
+    policy_name = models.CharField(max_length=255)
+    event_type = models.CharField(max_length=50)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.RUNNING,
+    )
+    score = models.IntegerField(default=0)
+    message = models.TextField(blank=True, default="")
+    details = models.JSONField(default=dict, blank=True)
+    triggered_by = models.CharField(max_length=255, blank=True, default="")
+    ref = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "policy_executions"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["project", "-created_at"],
+                name="idx_policyexec_project_date",
+            ),
+            models.Index(
+                fields=["policy", "-created_at"],
+                name="idx_policyexec_policy_date",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.policy_name} — {self.status} ({self.project})"

@@ -3,6 +3,7 @@ from app.domain.models import (  # noqa: F401
     Platform,
     PlatformConnection,
     Policy,
+    PolicyExecution,
     Project,
     ProjectStack,
     Stack,
