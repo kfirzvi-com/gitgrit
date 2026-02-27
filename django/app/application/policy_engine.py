@@ -66,6 +66,8 @@ class PolicyEngine:
                 "platform": event.platform,
                 "project_id": event.external_project_id,
                 "access_token": access_token,
+                "base_url": project.platform_connection.base_url,
+                "full_path": project.full_path,
             }
 
             for policy in policies:

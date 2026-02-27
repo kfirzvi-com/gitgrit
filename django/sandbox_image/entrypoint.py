@@ -22,6 +22,8 @@ def main():
             platform=config.get("platform", "mock"),
             project_id=config.get("project_id", ""),
             access_token=config.get("access_token"),
+            base_url=config.get("base_url", ""),
+            full_path=config.get("full_path", ""),
         )
         project = ProjectContext(provider)
 
