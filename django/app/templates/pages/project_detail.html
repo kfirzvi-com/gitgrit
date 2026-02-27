@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} — GitGud{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <div>
+    <a href="{% url 'project_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Projects</a>
+    <h1 class="text-3xl font-bold">{{ project.name }}</h1>
+  </div>
+  <div class="flex gap-2">
+    <a href="{{ project.web_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+      Open in {{ project.get_platform_display }} &nearr;
+    </a>
+    <form method="post" action="{% url 'delete_project' project.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm text-error"
+              onclick="return confirm('Remove {{ project.name }}?')">
+        Remove
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Details</h2>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="opacity-70">Platform</span>
+            <p>
+              <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
+                {{ project.get_platform_display }}
+              </span>
+            </p>
+          </div>
+          <div>
+            <span class="opacity-70">Lifecycle</span>
+            <p><span class="badge badge-outline">{{ project.get_lifecycle_display }}</span></p>
+          </div>
+          <div>
+            <span class="opacity-70">Path</span>
+            <p>{{ project.full_path }}</p>
+          </div>
+          <div>
+            <span class="opacity-70">Default Branch</span>
+            <p><code>{{ project.default_branch }}</code></p>
+          </div>
+          <div class="col-span-2">
+            <span class="opacity-70">Connection</span>
+            <p>{{ project.platform_connection.display_name }}</p>
+          </div>
+        </div>
+        {% if project.description %}
+          <div class="mt-4">
+            <span class="text-sm opacity-70">Description</span>
+            <p class="text-sm">{{ project.description }}</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Compliance</h2>
+        <p class="text-sm opacity-70">Policy results will appear here once the pipeline is connected.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    {% if project.tags %}
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-base">Tags</h2>
+          <div class="flex flex-wrap gap-2">
+            {% for tag in project.tags %}
+              <span class="badge badge-sm">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if project.languages %}
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-base">Languages</h2>
+          <div class="flex flex-wrap gap-2">
+            {% for lang in project.languages %}
+              <span class="badge badge-outline badge-sm">{{ lang }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if project.stacks %}
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-base">Stacks</h2>
+          <div class="flex flex-wrap gap-2">
+            {% for stack in project.stacks %}
+              <span class="badge badge-outline badge-sm">{{ stack }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

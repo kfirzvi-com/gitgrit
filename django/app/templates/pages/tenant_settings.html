@@ -64,7 +64,7 @@
   </div>
 
   {% if is_admin %}
-    <div class="card bg-base-100 shadow-xl">
+    <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
         <h2 class="card-title">Invite Member</h2>
         <form method="post" action="{% url 'invite_member' %}" class="flex flex-col sm:flex-row gap-3">
@@ -76,6 +76,91 @@
             <option value="admin">Admin</option>
           </select>
           <button type="submit" class="btn btn-primary">Invite</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+      <h2 class="card-title">Platform Connections</h2>
+      {% if connections %}
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Platform</th>
+                <th>URL</th>
+                <th>Status</th>
+                {% if is_admin %}<th></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for conn in connections %}
+                <tr>
+                  <td>{{ conn.display_name }}</td>
+                  <td>
+                    <span class="badge {% if conn.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
+                      {{ conn.get_platform_display }}
+                    </span>
+                  </td>
+                  <td class="text-sm opacity-70">{{ conn.base_url }}</td>
+                  <td>
+                    <span id="conn-status-{{ conn.id }}">
+                      <button class="btn btn-ghost btn-xs"
+                              hx-post="{% url 'test_connection' conn.id %}"
+                              hx-target="#conn-status-{{ conn.id }}"
+                              hx-swap="innerHTML">
+                        Test
+                      </button>
+                    </span>
+                  </td>
+                  {% if is_admin %}
+                    <td>
+                      <form method="post" action="{% url 'remove_connection' conn.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs text-error"
+                                onclick="return confirm('Remove {{ conn.display_name }}?')">
+                          Remove
+                        </button>
+                      </form>
+                    </td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-sm opacity-70">No platform connections configured. Add one to start importing projects.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if is_admin %}
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Add Connection</h2>
+        <form method="post" action="{% url 'add_connection' %}" class="space-y-3">
+          {% csrf_token %}
+          <div class="flex flex-col sm:flex-row gap-3">
+            <select name="platform" class="select select-bordered" required>
+              <option value="" disabled selected>Platform</option>
+              {% for value, label in platform_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="display_name" required placeholder="Display name (e.g. My GitHub)"
+                   class="input input-bordered flex-1">
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="url" name="base_url" placeholder="Base URL (leave blank for default)"
+                   class="input input-bordered flex-1">
+            <input type="password" name="access_token" required placeholder="Access token"
+                   class="input input-bordered flex-1">
+          </div>
+          <button type="submit" class="btn btn-primary">Add Connection</button>
         </form>
       </div>
     </div>

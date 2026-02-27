@@ -5,6 +5,7 @@
   <div class="flex-none gap-2">
     {% if user.is_authenticated %}
       <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm">Dashboard</a>
+      <a href="{% url 'project_list' %}" class="btn btn-ghost btn-sm">Projects</a>
 
       {% if current_tenant %}
         <div class="dropdown dropdown-end">

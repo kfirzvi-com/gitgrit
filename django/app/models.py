@@ -1,1 +1,8 @@
-from app.domain.models import Membership, Tenant, User  # noqa: F401
+from app.domain.models import (  # noqa: F401
+    Membership,
+    Platform,
+    PlatformConnection,
+    Project,
+    Tenant,
+    User,
+)

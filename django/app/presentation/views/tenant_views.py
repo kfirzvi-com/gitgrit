@@ -7,7 +7,8 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
 
-from app.domain.models import Membership, Tenant
+from app.domain.models import Membership, Platform, PlatformConnection, Tenant
+from app.infrastructure.platform_client import get_platform_client
 
 User = get_user_model()
 
@@ -61,6 +62,10 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 .select_related("user")
                 .order_by("created_at")
             )
+            context["connections"] = PlatformConnection.objects.filter(
+                tenant=tenant
+            ).order_by("created_at")
+            context["platform_choices"] = Platform.choices
             user_membership = Membership.objects.filter(
                 user=self.request.user, tenant=tenant
             ).first()
@@ -135,3 +140,95 @@ def remove_member(request, membership_id):
     target.delete()
     messages.success(request, "Member removed.")
     return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def add_connection(request):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("tenant_settings")
+
+    user_membership = Membership.objects.filter(
+        user=request.user, tenant=tenant
+    ).first()
+    if not user_membership or user_membership.role not in (
+        Membership.Role.OWNER,
+        Membership.Role.ADMIN,
+    ):
+        messages.error(request, "You don't have permission to manage connections.")
+        return redirect("tenant_settings")
+
+    platform = request.POST.get("platform", "")
+    display_name = request.POST.get("display_name", "").strip()
+    base_url = request.POST.get("base_url", "").strip()
+    access_token = request.POST.get("access_token", "").strip()
+
+    if not display_name or not access_token:
+        messages.error(request, "Display name and access token are required.")
+        return redirect("tenant_settings")
+
+    if platform not in (Platform.GITHUB, Platform.GITLAB):
+        messages.error(request, "Invalid platform.")
+        return redirect("tenant_settings")
+
+    connection = PlatformConnection(
+        tenant=tenant,
+        platform=platform,
+        display_name=display_name,
+        base_url=base_url,
+        access_token=access_token,
+    )
+    connection.save()
+    messages.success(request, f'Connection "{display_name}" added.')
+    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def remove_connection(request, connection_id):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("tenant_settings")
+
+    user_membership = Membership.objects.filter(
+        user=request.user, tenant=tenant
+    ).first()
+    if not user_membership or user_membership.role not in (
+        Membership.Role.OWNER,
+        Membership.Role.ADMIN,
+    ):
+        messages.error(request, "You don't have permission to manage connections.")
+        return redirect("tenant_settings")
+
+    connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
+    name = connection.display_name
+    connection.delete()
+    messages.success(request, f'Connection "{name}" removed.')
+    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def test_connection(request, connection_id):
+    from django.http import HttpResponse
+
+    tenant = request.tenant
+    if not tenant:
+        return HttpResponse('<span class="badge badge-error">No workspace</span>')
+
+    connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
+    try:
+        client = get_platform_client(connection)
+        if client.test_token():
+            return HttpResponse('<span class="badge badge-success">Connected</span>')
+        else:
+            return HttpResponse(
+                '<span class="badge badge-error">Invalid token</span>'
+            )
+    except Exception:
+        return HttpResponse(
+            '<span class="badge badge-error">Connection failed</span>'
+        )

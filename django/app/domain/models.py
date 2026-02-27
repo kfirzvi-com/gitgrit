@@ -58,3 +58,90 @@ class Membership(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.tenant} ({self.role})"
+
+
+class Platform(models.TextChoices):
+    GITHUB = "github", "GitHub"
+    GITLAB = "gitlab", "GitLab"
+
+
+class PlatformConnection(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="platform_connections",
+    )
+    platform = models.CharField(max_length=10, choices=Platform.choices)
+    display_name = models.CharField(max_length=255)
+    base_url = models.URLField(max_length=2048)
+    access_token = models.CharField(max_length=512)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "platform_connections"
+
+    def __str__(self):
+        return f"{self.display_name} ({self.platform})"
+
+    def save(self, *args, **kwargs):
+        if not self.base_url:
+            self.base_url = (
+                "https://api.github.com"
+                if self.platform == Platform.GITHUB
+                else "https://gitlab.com"
+            )
+        super().save(*args, **kwargs)
+
+
+class Project(models.Model):
+    class Lifecycle(models.TextChoices):
+        DEVELOPMENT = "development", "Development"
+        STAGING = "staging", "Staging"
+        PRODUCTION = "production", "Production"
+        MAINTENANCE = "maintenance", "Maintenance"
+        DEPRECATED = "deprecated", "Deprecated"
+        ARCHIVED = "archived", "Archived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="projects",
+    )
+    platform_connection = models.ForeignKey(
+        PlatformConnection,
+        on_delete=models.CASCADE,
+        related_name="projects",
+    )
+    platform = models.CharField(max_length=10, choices=Platform.choices)
+    external_id = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    full_path = models.CharField(max_length=2048)
+    web_url = models.URLField(max_length=2048)
+    default_branch = models.CharField(max_length=255, default="main")
+    webhook_id = models.CharField(max_length=255, blank=True, default="")
+    lifecycle = models.CharField(
+        max_length=20,
+        choices=Lifecycle.choices,
+        default=Lifecycle.DEVELOPMENT,
+    )
+    tags = models.JSONField(default=list, blank=True)
+    languages = models.JSONField(default=list, blank=True)
+    stacks = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "projects"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "platform_connection", "external_id"],
+                name="unique_tenant_connection_project",
+            ),
+        ]
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
