@@ -129,7 +129,12 @@ class Project(models.Model):
     )
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
-    stacks = models.JSONField(default=list, blank=True)
+    stacks = models.ManyToManyField(
+        "Stack",
+        through="ProjectStack",
+        blank=True,
+        related_name="projects",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -142,6 +147,79 @@ class Project(models.Model):
             ),
         ]
         ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Stack(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="stacks",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "stacks"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class ProjectStack(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="project_stacks",
+    )
+    stack = models.ForeignKey(
+        Stack,
+        on_delete=models.CASCADE,
+        related_name="project_stacks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "project_stacks"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "stack"], name="unique_project_stack"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project} — {self.stack}"
+
+
+class Policy(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="policies",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    code = models.TextField(
+        default='def evaluate(project):\n    return {"passed": True, "score": 100, "message": "OK", "details": {}}\n'
+    )
+    criteria = models.JSONField(default=dict, blank=True)
+    enabled = models.BooleanField(default=True)
+    draft = models.BooleanField(default=False)
+    ordinal = models.IntegerField(default=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "policies"
+        ordering = ["ordinal", "name"]
 
     def __str__(self):
         return self.name

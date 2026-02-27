@@ -20,10 +20,10 @@
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <h2 class="card-title">Policies</h2>
-      <p class="text-4xl font-bold text-secondary">0</p>
+      <p class="text-4xl font-bold text-secondary">{{ policy_count }}</p>
       <p class="text-sm opacity-70">Active compliance policies</p>
       <div class="card-actions justify-end mt-2">
-        <button class="btn btn-secondary btn-sm" disabled>Create Policy</button>
+        <a href="{% url 'create_policy' %}" class="btn btn-secondary btn-sm">Create Policy</a>
       </div>
     </div>
   </div>

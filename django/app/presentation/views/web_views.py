@@ -2,7 +2,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
-from app.domain.models import Project
+from app.domain.models import Policy, Project
 
 
 class HomeView(TemplateView):
@@ -22,6 +22,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         tenant = self.request.tenant
         if tenant:
             context["project_count"] = Project.objects.filter(tenant=tenant).count()
+            context["policy_count"] = Policy.objects.filter(
+                tenant=tenant, enabled=True
+            ).count()
         else:
             context["project_count"] = 0
+            context["policy_count"] = 0
         return context

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit {{ form.instance.name }}{% else %}New Policy{% endif %} — GitGud{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="{% url 'policy_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Policies</a>
+  <h1 class="text-3xl font-bold mb-6">{% if is_edit %}Edit Policy{% else %}New Policy{% endif %}</h1>
+
+  <form method="post" class="card bg-base-100 shadow-xl">
+    {% csrf_token %}
+    <div class="card-body space-y-4">
+      <div class="form-control">
+        <label class="label" for="id_name">
+          <span class="label-text">Name</span>
+        </label>
+        <input type="text" name="name" id="id_name" required maxlength="255"
+               value="{{ form.instance.name|default:'' }}"
+               class="input input-bordered w-full" placeholder="e.g. Check README" autofocus>
+        {% if form.name.errors %}
+          <label class="label">
+            <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
+          </label>
+        {% endif %}
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_description">
+          <span class="label-text">Description</span>
+        </label>
+        <textarea name="description" id="id_description" rows="2"
+                  class="textarea textarea-bordered w-full"
+                  placeholder="What does this policy check?">{{ form.instance.description|default:'' }}</textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Trigger Events</span>
+        </label>
+        <div class="flex flex-wrap gap-3">
+          {% for event in event_choices %}
+            <label class="label cursor-pointer gap-2">
+              <input type="checkbox" name="events" value="{{ event }}"
+                     class="checkbox checkbox-sm"
+                     {% if event in selected_events %}checked{% endif %}>
+              <span class="label-text">{{ event }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_code">
+          <span class="label-text">Policy Code</span>
+        </label>
+        <textarea name="code" id="id_code" rows="16"
+                  class="textarea textarea-bordered w-full font-mono text-sm leading-relaxed"
+                  spellcheck="false"
+                  placeholder="def evaluate(project):&#10;    ...">{{ form.instance.code }}</textarea>
+        <label class="label">
+          <span class="label-text-alt opacity-60">Define an <code>evaluate(project)</code> function that returns <code>{"passed": bool, "score": int, "message": str, "details": dict}</code></span>
+        </label>
+      </div>
+
+      <div class="flex gap-6">
+        <div class="form-control">
+          <label class="label cursor-pointer gap-2">
+            <input type="checkbox" name="enabled" value="true"
+                   class="toggle toggle-success toggle-sm"
+                   {% if form.instance.enabled|default:True %}checked{% endif %}>
+            <span class="label-text">Enabled</span>
+          </label>
+        </div>
+        <div class="form-control">
+          <label class="label cursor-pointer gap-2">
+            <input type="checkbox" name="draft" value="true"
+                   class="toggle toggle-warning toggle-sm"
+                   {% if form.instance.draft %}checked{% endif %}>
+            <span class="label-text">Draft</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'policy_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{% if is_edit %}Save{% else %}Create{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

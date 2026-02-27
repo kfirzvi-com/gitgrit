@@ -97,13 +97,13 @@
       </div>
     {% endif %}
 
-    {% if project.stacks %}
+    {% if project.stacks.all %}
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title text-base">Stacks</h2>
           <div class="flex flex-wrap gap-2">
-            {% for stack in project.stacks %}
-              <span class="badge badge-outline badge-sm">{{ stack }}</span>
+            {% for stack in project.stacks.all %}
+              <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
             {% endfor %}
           </div>
         </div>

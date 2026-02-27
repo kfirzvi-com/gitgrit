@@ -1,11 +1,27 @@
 from django.urls import path
 
+from app.presentation.views.policy_views import (
+    CreatePolicyView,
+    EditPolicyView,
+    PolicyDetailView,
+    PolicyListView,
+    delete_policy,
+    toggle_policy,
+)
 from app.presentation.views.project_views import (
     ProjectDetailView,
     ProjectListView,
     add_project_search,
     add_project_select,
     delete_project,
+)
+from app.presentation.views.stack_views import (
+    CreateStackView,
+    StackDetailView,
+    StackListView,
+    add_project_to_stack,
+    delete_stack,
+    remove_project_from_stack,
 )
 from app.presentation.views.tenant_views import (
     CreateTenantView,
@@ -54,4 +70,26 @@ urlpatterns = [
     ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
+    # Stacks
+    path("stacks/", StackListView.as_view(), name="stack_list"),
+    path("stacks/new/", CreateStackView.as_view(), name="create_stack"),
+    path("stacks/<uuid:pk>/", StackDetailView.as_view(), name="stack_detail"),
+    path("stacks/<uuid:pk>/delete/", delete_stack, name="delete_stack"),
+    path(
+        "stacks/<uuid:pk>/projects/add/",
+        add_project_to_stack,
+        name="add_project_to_stack",
+    ),
+    path(
+        "stacks/<uuid:stack_pk>/projects/<uuid:project_pk>/remove/",
+        remove_project_from_stack,
+        name="remove_project_from_stack",
+    ),
+    # Policies
+    path("policies/", PolicyListView.as_view(), name="policy_list"),
+    path("policies/new/", CreatePolicyView.as_view(), name="create_policy"),
+    path("policies/<uuid:pk>/", PolicyDetailView.as_view(), name="policy_detail"),
+    path("policies/<uuid:pk>/edit/", EditPolicyView.as_view(), name="edit_policy"),
+    path("policies/<uuid:pk>/delete/", delete_policy, name="delete_policy"),
+    path("policies/<uuid:pk>/toggle/", toggle_policy, name="toggle_policy"),
 ]

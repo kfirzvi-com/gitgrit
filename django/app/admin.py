@@ -1,7 +1,16 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from app.domain.models import Membership, PlatformConnection, Project, Tenant, User
+from app.domain.models import (
+    Membership,
+    PlatformConnection,
+    Policy,
+    Project,
+    ProjectStack,
+    Stack,
+    Tenant,
+    User,
+)
 
 
 @admin.register(User)
@@ -52,3 +61,24 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = ("name", "tenant", "platform", "lifecycle", "full_path", "created_at")
     list_filter = ("platform", "lifecycle", "tenant")
     search_fields = ("name", "full_path")
+
+
+@admin.register(Stack)
+class StackAdmin(admin.ModelAdmin):
+    list_display = ("name", "tenant", "created_at")
+    list_filter = ("tenant",)
+    search_fields = ("name",)
+
+
+@admin.register(ProjectStack)
+class ProjectStackAdmin(admin.ModelAdmin):
+    list_display = ("project", "stack", "created_at")
+    list_filter = ("stack",)
+    search_fields = ("project__name", "stack__name")
+
+
+@admin.register(Policy)
+class PolicyAdmin(admin.ModelAdmin):
+    list_display = ("name", "tenant", "enabled", "draft", "ordinal", "created_at")
+    list_filter = ("tenant", "enabled", "draft")
+    search_fields = ("name",)
