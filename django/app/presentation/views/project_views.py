@@ -1,5 +1,7 @@
 import logging
+import secrets
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -136,6 +138,22 @@ def add_project_search(request, connection_id):
             description=description,
             lifecycle=lifecycle,
         )
+
+        try:
+            client = get_platform_client(connection)
+            webhook_secret = secrets.token_hex(32)
+            target_url = f"{settings.SITE_URL}/api/webhooks/{connection.platform}/"
+            webhook_id = client.create_webhook(external_id, target_url, webhook_secret)
+            project.webhook_id = webhook_id
+            project.webhook_secret = webhook_secret
+            project.save(update_fields=["webhook_id", "webhook_secret"])
+        except Exception:
+            logger.exception("Failed to register webhook for project %s", project.name)
+            messages.warning(
+                request,
+                f'Project added but webhook registration failed. You can retry from the project page.',
+            )
+
         messages.success(request, f'Project "{project.name}" added.')
         return redirect("project_detail", pk=project.pk)
 
@@ -208,6 +226,47 @@ def delete_project(request, pk):
 
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
     name = project.name
+
+    if project.webhook_id:
+        try:
+            client = get_platform_client(project.platform_connection)
+            client.delete_webhook(project.external_id, project.webhook_id)
+        except Exception:
+            logger.exception("Failed to delete webhook for project %s", name)
+
     project.delete()
     messages.success(request, f'Project "{name}" removed.')
     return redirect("project_list")
+
+
+@login_required
+@require_POST
+def retry_webhook(request, pk):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("project_list")
+
+    project = get_object_or_404(Project, pk=pk, tenant=tenant)
+
+    if project.webhook_id:
+        try:
+            client = get_platform_client(project.platform_connection)
+            client.delete_webhook(project.external_id, project.webhook_id)
+        except Exception:
+            logger.exception("Failed to delete old webhook for project %s", project.name)
+
+    try:
+        client = get_platform_client(project.platform_connection)
+        webhook_secret = secrets.token_hex(32)
+        target_url = f"{settings.SITE_URL}/api/webhooks/{project.platform_connection.platform}/"
+        webhook_id = client.create_webhook(project.external_id, target_url, webhook_secret)
+        project.webhook_id = webhook_id
+        project.webhook_secret = webhook_secret
+        project.save(update_fields=["webhook_id", "webhook_secret"])
+        messages.success(request, "Webhook registered successfully.")
+    except Exception:
+        logger.exception("Failed to register webhook for project %s", project.name)
+        messages.error(request, "Webhook registration failed. Check your connection token.")
+
+    return redirect("project_detail", pk=project.pk)

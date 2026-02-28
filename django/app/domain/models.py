@@ -122,6 +122,7 @@ class Project(models.Model):
     web_url = models.URLField(max_length=2048)
     default_branch = models.CharField(max_length=255, default="main")
     webhook_id = models.CharField(max_length=255, blank=True, default="")
+    webhook_secret = models.CharField(max_length=255, blank=True, default="")
     lifecycle = models.CharField(
         max_length=20,
         choices=Lifecycle.choices,

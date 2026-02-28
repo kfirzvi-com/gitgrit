@@ -52,6 +52,21 @@
             <span class="opacity-70">Connection</span>
             <p>{{ project.platform_connection.display_name }}</p>
           </div>
+          <div class="col-span-2">
+            <span class="opacity-70">Webhook</span>
+            <p class="flex items-center gap-2">
+              {% if project.webhook_id %}
+                <span class="badge badge-success badge-sm">Active</span>
+                <span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
+              {% else %}
+                <span class="badge badge-warning badge-sm">Not registered</span>
+                <form method="post" action="{% url 'retry_webhook' project.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-xs btn-ghost">Register now</button>
+                </form>
+              {% endif %}
+            </p>
+          </div>
         </div>
         {% if project.description %}
           <div class="mt-4">
