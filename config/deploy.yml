@@ -1,0 +1,59 @@
+# GitGrit — Kamal deployment configuration
+#
+# This is a template. To deploy:
+# 1. Create config/deploy.<destination>.yml with your real values
+# 2. Create .kamal/secrets with your secrets
+# 3. Run: kamal setup -d <destination>
+
+service: gitgrit
+image: gitgrit
+
+servers:
+  web:
+    hosts:
+      - <SERVER_IP>
+    cmd: gunicorn gitgrit.wsgi --bind 0.0.0.0:3000 --workers 2 --access-logfile -
+
+proxy:
+  ssl: true
+  host: example.com
+  app_port: 3000
+  healthcheck:
+    path: /up/
+
+registry:
+  server: localhost:5050
+  username: ""
+  password: ""
+
+builder:
+  arch: amd64
+
+env:
+  clear:
+    DEBUG: "False"
+    DB_HOST: gitgrit-db
+    DB_PORT: "5432"
+    DB_NAME: gitgrit
+    DB_USER: gitgrit
+    SITE_URL: https://example.com
+  secret:
+    - SECRET_KEY
+    - DB_PASSWORD
+    - GITHUB_CLIENT_ID
+    - GITHUB_CLIENT_SECRET
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
+
+accessories:
+  db:
+    image: postgres:17
+    host: <SERVER_IP>
+    env:
+      clear:
+        POSTGRES_DB: gitgrit
+        POSTGRES_USER: gitgrit
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql/data

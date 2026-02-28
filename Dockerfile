@@ -1,25 +1,23 @@
-# Use a base Node.js image
-FROM node:lts-alpine
+FROM python:3.13-slim AS base
 
-# Set the working directory for backend
-WORKDIR /opt/gitgud/backend
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Copy backend package.json and install dependencies
-COPY ./backend/package.json ./
-RUN npm install
-COPY .backend .
+WORKDIR /app
 
-# Set the working directory for frontend
-WORKDIR /opt/gitgud/frontend
+# Install system dependencies for psycopg2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev gcc && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy frontend package.json and install dependencies
-COPY ./frontend/package.json ./
-RUN npm install
-COPY ./frontned .
-#RUN npm run build
+COPY pyproject.toml uv.lock ./
+RUN pip install uv && uv pip install --system -r pyproject.toml
 
-# Expose ports (adjust as needed)
-EXPOSE 3000 9229
+COPY . .
+RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
 
-# Start the backend in development mode
-CMD ["npm", "start"]
+EXPOSE 3000
+
+HEALTHCHECK --interval=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/up/')"
+
+CMD ["gunicorn", "gitgrit.wsgi", "--bind", "0.0.0.0:3000", "--workers", "2", "--access-logfile", "-"]

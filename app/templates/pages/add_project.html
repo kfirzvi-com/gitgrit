@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Add Project — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="{% url 'project_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Projects</a>
+  <h1 class="text-3xl font-bold mb-6">Add Project</h1>
+
+  {% if step == "select_connection" %}
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Select Platform Connection</h2>
+        <p class="text-sm opacity-70 mb-4">Choose which platform to import from.</p>
+        <div class="space-y-3">
+          {% for conn in connections %}
+            <a href="{% url 'add_project_search' conn.id %}"
+               class="btn btn-outline w-full justify-start gap-3">
+              <span class="badge {% if conn.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
+                {{ conn.get_platform_display }}
+              </span>
+              {{ conn.display_name }}
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  {% elif step == "search" %}
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title">
+          Search {{ connection.get_platform_display }} Projects
+          <span class="badge badge-sm">{{ connection.display_name }}</span>
+        </h2>
+        <div class="form-control">
+          <input type="text" id="project-search" placeholder="Search repositories..."
+                 class="input input-bordered w-full"
+                 hx-get="{% url 'search_projects_api' %}?connection_id={{ connection.id }}"
+                 hx-trigger="input changed delay:300ms, load"
+                 hx-target="#search-results"
+                 hx-swap="innerHTML"
+                 hx-include="this"
+                 name="q"
+                 autofocus>
+        </div>
+        <div id="search-results" class="mt-4 space-y-2">
+          <p class="text-sm opacity-70">Loading repositories...</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" id="add-project-form" class="card bg-base-100 shadow-xl hidden">
+      {% csrf_token %}
+      <div class="card-body">
+        <h2 class="card-title">Project Details</h2>
+        <div id="selected-project-info" class="mb-4"></div>
+        <input type="hidden" name="external_id" id="field-external-id">
+        <input type="hidden" name="name" id="field-name">
+        <input type="hidden" name="full_path" id="field-full-path">
+        <input type="hidden" name="web_url" id="field-web-url">
+        <input type="hidden" name="default_branch" id="field-default-branch">
+        <input type="hidden" name="description" id="field-description">
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Lifecycle</span></label>
+          <select name="lifecycle" class="select select-bordered w-full">
+            {% for value, label in lifecycle_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="card-actions justify-end mt-4">
+          <a href="{% url 'add_project_select' %}" class="btn btn-ghost">Back</a>
+          <button type="submit" class="btn btn-primary">Add Project</button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+</div>
+
+<script>
+function selectProject(data) {
+  document.getElementById('field-external-id').value = data.external_id;
+  document.getElementById('field-name').value = data.name;
+  document.getElementById('field-full-path').value = data.full_path;
+  document.getElementById('field-web-url').value = data.web_url;
+  document.getElementById('field-default-branch').value = data.default_branch;
+  document.getElementById('field-description').value = data.description;
+  document.getElementById('selected-project-info').innerHTML =
+    '<div class="alert">' +
+    '<span><strong>' + data.name + '</strong> — ' + data.full_path + '</span>' +
+    '</div>';
+  document.getElementById('add-project-form').classList.remove('hidden');
+  document.getElementById('add-project-form').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+{% endblock %}

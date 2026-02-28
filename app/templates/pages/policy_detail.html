@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ policy.name }} — GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <div>
+    <a href="{% url 'policy_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Policies</a>
+    <h1 class="text-3xl font-bold">{{ policy.name }}</h1>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'edit_policy' policy.pk %}" class="btn btn-ghost btn-sm">Edit</a>
+    <form method="post" action="{% url 'delete_policy' policy.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm text-error"
+              onclick="return confirm('Delete policy &quot;{{ policy.name }}&quot;?')">
+        Delete
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Code</h2>
+        <pre class="bg-base-300 rounded-lg p-4 overflow-x-auto text-sm font-mono whitespace-pre">{{ policy.code }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Details</h2>
+        <div class="space-y-3 text-sm">
+          {% if policy.description %}
+            <div>
+              <span class="opacity-70">Description</span>
+              <p>{{ policy.description }}</p>
+            </div>
+          {% endif %}
+          <div>
+            <span class="opacity-70">Status</span>
+            <div class="flex gap-1 mt-1">
+              <span class="badge {% if policy.enabled %}badge-success{% else %}badge-ghost{% endif %} badge-sm">
+                {% if policy.enabled %}Enabled{% else %}Disabled{% endif %}
+              </span>
+              {% if policy.draft %}
+                <span class="badge badge-warning badge-sm">Draft</span>
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            <span class="opacity-70">Events</span>
+            <div class="flex flex-wrap gap-1 mt-1">
+              {% for event in policy.criteria.events %}
+                <span class="badge badge-outline badge-sm">{{ event }}</span>
+              {% empty %}
+                <span class="opacity-50">none</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div>
+            <span class="opacity-70">Sort Order</span>
+            <p>{{ policy.ordinal }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

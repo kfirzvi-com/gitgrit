@@ -1,1 +1,0 @@
-ALTER TABLE "projects" ALTER COLUMN "tags" DROP NOT NULL;

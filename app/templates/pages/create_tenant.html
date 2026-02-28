@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}New Workspace — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+  <h1 class="text-3xl font-bold mb-6">Create Workspace</h1>
+
+  <form method="post" class="card bg-base-100 shadow-xl">
+    {% csrf_token %}
+    <div class="card-body">
+      <div class="form-control">
+        <label class="label" for="id_name">
+          <span class="label-text">Workspace Name</span>
+        </label>
+        <input type="text" name="name" id="id_name" required maxlength="255"
+               class="input input-bordered w-full" placeholder="My Team" autofocus>
+        {% if form.name.errors %}
+          <label class="label">
+            <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
+          </label>
+        {% endif %}
+      </div>
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'dashboard' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
