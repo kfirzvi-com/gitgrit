@@ -181,6 +181,7 @@ SOCIALACCOUNT_PROVIDERS = {
     },
     "google": {
         "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"prompt": "select_account"},
         "APP": {
             "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
             "secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
