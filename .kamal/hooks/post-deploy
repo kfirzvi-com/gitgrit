@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+args=()
+[ -n "$KAMAL_DESTINATION" ] && args+=("-d" "$KAMAL_DESTINATION")
+
+echo "Running database migrations..."
+kamal app exec "${args[@]}" -- python manage.py migrate --noinput

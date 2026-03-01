@@ -159,6 +159,11 @@ STORAGES = {
 
 CSRF_TRUSTED_ORIGINS = [SITE_URL]
 
+# kamal-proxy terminates TLS and forwards plain HTTP to the container.
+# This tells Django to trust the X-Forwarded-Proto header so it knows the
+# original request was HTTPS (needed for OAuth redirect URIs, CSRF, etc.).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 # Auth
 AUTH_USER_MODEL = "app.User"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
