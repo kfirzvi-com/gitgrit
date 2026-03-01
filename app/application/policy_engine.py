@@ -13,7 +13,13 @@ logger = logging.getLogger(__name__)
 
 class PolicyEngine:
     def __init__(self) -> None:
-        self.runner = SandboxRunner()
+        self._runner = None
+
+    @property
+    def runner(self) -> SandboxRunner:
+        if self._runner is None:
+            self._runner = SandboxRunner()
+        return self._runner
 
     def resolve_projects(self, event: DomainEvent) -> QuerySet[Project]:
         """Find all projects matching the webhook's platform + external ID."""

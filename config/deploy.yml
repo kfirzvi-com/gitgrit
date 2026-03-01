@@ -13,6 +13,8 @@ servers:
     hosts:
       - <SERVER_IP>
     cmd: gunicorn gitgrit.wsgi --bind 0.0.0.0:3000 --workers 2 --access-logfile -
+    options:
+      volume: /var/run/docker.sock:/var/run/docker.sock
 
 proxy:
   ssl: true
