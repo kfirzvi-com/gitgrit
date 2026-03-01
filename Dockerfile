@@ -18,6 +18,5 @@ RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/up/')"
 
 CMD ["gunicorn", "gitgrit.wsgi", "--bind", "0.0.0.0:3000", "--workers", "2", "--access-logfile", "-"]
