@@ -1,8 +1,8 @@
 """Sandbox runner — executes policy code in a gVisor-sandboxed Docker container.
 
-Containers run on a custom Docker bridge network (``gitgrit-sandbox``) that
-gives them internet access (for API calls) while keeping them isolated from
-the host machine.
+Containers use the default Docker bridge network with explicit DNS servers.
+gVisor's netstack doesn't support the iptables DNAT rules that Docker's
+embedded DNS (127.0.0.11) relies on for custom bridge networks.
 """
 
 import json
@@ -17,7 +17,6 @@ from app.domain.policy_runner import PolicyRunner
 
 logger = logging.getLogger(__name__)
 
-SANDBOX_NETWORK = "gitgrit-sandbox"
 # Shared between the web container and the host so Docker bind mounts work
 # when the web container creates sandbox containers via the host Docker socket.
 SANDBOX_TMP = "/tmp/gitgrit-sandbox"
@@ -27,15 +26,6 @@ class SandboxRunner(PolicyRunner):
     def __init__(self):
         self.client = docker.from_env()
         self.config = settings.SANDBOX
-        self._ensure_network()
-
-    def _ensure_network(self) -> None:
-        """Create the sandbox bridge network if it doesn't already exist."""
-        try:
-            self.client.networks.get(SANDBOX_NETWORK)
-        except docker.errors.NotFound:
-            logger.info("Creating Docker network '%s'", SANDBOX_NETWORK)
-            self.client.networks.create(SANDBOX_NETWORK, driver="bridge")
 
     def run(self, policy_code: str, input_config: dict) -> dict:
         """Run a policy script in a sandboxed container.
@@ -65,7 +55,7 @@ class SandboxRunner(PolicyRunner):
                     str(policy_path): {"bind": "/policy.py", "mode": "ro"},
                     str(input_path): {"bind": "/input.json", "mode": "ro"},
                 },
-                "network": SANDBOX_NETWORK,
+                "dns": ["8.8.8.8", "8.8.4.4"],
                 "tmpfs": {"/tmp": "size=16m"},
                 "mem_limit": self.config["MEMORY_LIMIT"],
                 "nano_cpus": int(self.config["CPU_LIMIT"] * 1e9),
