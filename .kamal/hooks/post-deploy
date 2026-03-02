@@ -6,3 +6,6 @@ args=()
 
 echo "Running database migrations..."
 kamal app exec "${args[@]}" -- python manage.py migrate --noinput
+
+echo "Building sandbox image on server..."
+kamal server exec "${args[@]}" "cd /tmp && docker exec \$(docker ps -q --filter label=service=gitgrit --filter label=role=web -l) tar -cf - -C /app sandbox_image | tar -xf - && docker build -t gitgrit-sandbox:latest /tmp/sandbox_image && rm -rf /tmp/sandbox_image"

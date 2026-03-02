@@ -14,7 +14,9 @@ servers:
       - <SERVER_IP>
     cmd: gunicorn gitgrit.wsgi --bind 0.0.0.0:3000 --workers 2 --access-logfile -
     options:
-      volume: /var/run/docker.sock:/var/run/docker.sock
+      volume:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
 
 proxy:
   ssl: true

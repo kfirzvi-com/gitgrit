@@ -18,6 +18,9 @@ from app.domain.policy_runner import PolicyRunner
 logger = logging.getLogger(__name__)
 
 SANDBOX_NETWORK = "gitgrit-sandbox"
+# Shared between the web container and the host so Docker bind mounts work
+# when the web container creates sandbox containers via the host Docker socket.
+SANDBOX_TMP = "/tmp/gitgrit-sandbox"
 
 
 class SandboxRunner(PolicyRunner):
@@ -45,7 +48,8 @@ class SandboxRunner(PolicyRunner):
         Returns:
             Policy result dict with passed, score, message, details.
         """
-        tmp_dir = tempfile.mkdtemp(prefix="gitgrit-sandbox-")
+        Path(SANDBOX_TMP).mkdir(parents=True, exist_ok=True)
+        tmp_dir = tempfile.mkdtemp(prefix="run-", dir=SANDBOX_TMP)
         policy_path = Path(tmp_dir) / "policy.py"
         input_path = Path(tmp_dir) / "input.json"
         container = None
