@@ -3,6 +3,10 @@
 Containers run on a custom Docker bridge network (``gitgrit-sandbox``) that
 gives them internet access (for API calls) while keeping them isolated from
 the host machine.
+
+DNS: gVisor's netstack can't reach Docker's embedded DNS at 127.0.0.11
+(which relies on iptables DNAT), so we bind-mount a resolv.conf that
+points directly to external DNS servers.
 """
 
 import json
@@ -58,12 +62,18 @@ class SandboxRunner(PolicyRunner):
             policy_path.write_text(policy_code)
             input_path.write_text(json.dumps(input_config))
 
+            # gVisor can't use Docker's embedded DNS (127.0.0.11) on custom
+            # networks, so we provide a resolv.conf pointing to real DNS.
+            resolv_path = Path(tmp_dir) / "resolv.conf"
+            resolv_path.write_text("nameserver 8.8.8.8\nnameserver 8.8.4.4\n")
+
             runtime = self._get_runtime()
             container_kwargs = {
                 "image": self.config["IMAGE"],
                 "volumes": {
                     str(policy_path): {"bind": "/policy.py", "mode": "ro"},
                     str(input_path): {"bind": "/input.json", "mode": "ro"},
+                    str(resolv_path): {"bind": "/etc/resolv.conf", "mode": "ro"},
                 },
                 "network": SANDBOX_NETWORK,
                 "tmpfs": {"/tmp": "size=16m"},
@@ -116,7 +126,7 @@ class SandboxRunner(PolicyRunner):
                 except Exception:
                     logger.warning("Failed to remove container", exc_info=True)
             # Clean up temp files
-            for p in (policy_path, input_path):
+            for p in (policy_path, input_path, Path(tmp_dir) / "resolv.conf"):
                 p.unlink(missing_ok=True)
             Path(tmp_dir).rmdir()
 
