@@ -15,3 +15,18 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "whitenoise>=6.0",
 ]
+
+[dependency-groups]
+dev = [
+    "model-bakery>=1.20",
+    "pytest>=8.0",
+    "pytest-django>=4.9",
+    "testcontainers[postgres]>=4.9",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "gitgrit.settings_test"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--tb=short"
