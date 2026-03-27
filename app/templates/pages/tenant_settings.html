@@ -151,7 +151,7 @@
                 <option value="{{ value }}">{{ label }}</option>
               {% endfor %}
             </select>
-            <input type="text" name="display_name" required placeholder="Display name (e.g. My GitHub)"
+            <input type="text" name="display_name" id="display-name-input" placeholder="Display name (e.g. My GitHub)"
                    class="input input-bordered flex-1">
           </div>
           <div class="flex flex-col sm:flex-row gap-3">
@@ -224,6 +224,25 @@
             var githubHostLabel = document.getElementById('github-host-label');
             var gitlabLink = document.getElementById('gitlab-group-link');
             var gitlabHostLabel = document.getElementById('gitlab-host-label');
+            var displayNameInput = document.getElementById('display-name-input');
+
+            var platformLabels = { github: 'GitHub', gitlab: 'GitLab' };
+            var autoSuggestedValue = '';
+
+            function updateDisplayNameSuggestion(platform) {
+              var label = platformLabels[platform] || '';
+              if (displayNameInput.value === '' || displayNameInput.value === autoSuggestedValue) {
+                autoSuggestedValue = label;
+                displayNameInput.value = label;
+                displayNameInput.placeholder = label || 'Display name (e.g. My GitHub)';
+              }
+            }
+
+            displayNameInput.addEventListener('input', function() {
+              if (displayNameInput.value !== autoSuggestedValue) {
+                autoSuggestedValue = '';
+              }
+            });
 
             function parseOrigin(url) {
               try {
@@ -273,6 +292,7 @@
 
             platformSelect.addEventListener('change', function() {
               tokenHelpHint.classList.add('hidden');
+              updateDisplayNameSuggestion(platformSelect.value);
             });
 
             platformSelect.addEventListener('change', update);
