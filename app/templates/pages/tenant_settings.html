@@ -145,7 +145,7 @@
         <form method="post" action="{% url 'add_connection' %}" class="space-y-3">
           {% csrf_token %}
           <div class="flex flex-col sm:flex-row gap-3">
-            <select name="platform" class="select select-bordered" required>
+            <select name="platform" id="platform-select" class="select select-bordered" required>
               <option value="" disabled selected>Platform</option>
               {% for value, label in platform_choices %}
                 <option value="{{ value }}">{{ label }}</option>
@@ -155,13 +155,131 @@
                    class="input input-bordered flex-1">
           </div>
           <div class="flex flex-col sm:flex-row gap-3">
-            <input type="url" name="base_url" placeholder="Base URL (leave blank for default)"
+            <input type="url" name="base_url" id="base-url-input" placeholder="Base URL (leave blank for default)"
                    class="input input-bordered flex-1">
-            <input type="password" name="access_token" required placeholder="Access token"
-                   class="input input-bordered flex-1">
+            <div class="flex-1">
+              <input type="password" name="access_token" required placeholder="Access token"
+                     class="input input-bordered w-full">
+              <a id="token-help-link" href="#" class="link link-secondary text-xs block mt-1" onclick="event.preventDefault(); handleTokenHelpClick()">How to generate a token?</a>
+              <span id="token-help-hint" class="text-xs text-warning hidden">Select a platform first</span>
+            </div>
           </div>
+          <p id="base-url-hint" class="text-sm text-error hidden">URL must start with https:// (e.g. https://gitlab.example.com)</p>
           <button type="submit" class="btn btn-primary">Add Connection</button>
         </form>
+
+        <dialog id="token-help-modal" class="modal">
+          <div class="modal-box">
+            <form method="dialog">
+              <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">X</button>
+            </form>
+
+            <div id="github-token-help" class="hidden">
+              <h3 class="font-bold text-lg mb-4">Generate a GitHub Access Token</h3>
+              <ol class="list-decimal list-inside space-y-2 text-sm">
+                <li>Open <a id="github-token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="link link-primary">Fine-grained token settings <span id="github-host-label">(github.com)</span></a></li>
+                <li>Under <strong>Resource owner</strong>, select the organization whose repositories you want to connect</li>
+                <li>Set <strong>Repository access</strong> to "All repositories" or select specific ones</li>
+                <li>Under <strong>Permissions &rarr; Repository permissions</strong>, grant:
+                  <ul class="list-disc list-inside ml-4 mt-1">
+                    <li><strong>Contents</strong> — Read-only</li>
+                    <li><strong>Metadata</strong> — Read-only</li>
+                    <li><strong>Webhooks</strong> — Read and write</li>
+                  </ul>
+                </li>
+                <li>Click <strong>Generate token</strong> and copy it</li>
+              </ol>
+              <p class="opacity-70 text-sm mt-3">Tip: Fine-grained tokens are scoped per organization. Create one token per organization you want to connect.</p>
+            </div>
+
+            <div id="gitlab-token-help" class="hidden">
+              <h3 class="font-bold text-lg mb-4">Generate a GitLab Access Token</h3>
+              <ol class="list-decimal list-inside space-y-2 text-sm">
+                <li>Open <a id="gitlab-group-link" href="https://gitlab.com" target="_blank" rel="noopener" class="link link-primary"><span id="gitlab-host-label">gitlab.com</span></a> and navigate to your <strong>Group &rarr; Settings &rarr; Access tokens</strong></li>
+                <li>Click <strong>Add new token</strong></li>
+                <li>Give it a descriptive name (e.g. "GitGrit")</li>
+                <li>Set an expiration date</li>
+                <li>Select the <strong>Developer</strong> role</li>
+                <li>Select scopes:
+                  <ul class="list-disc list-inside ml-4 mt-1">
+                    <li><strong>api</strong> — required for listing projects and managing webhooks</li>
+                  </ul>
+                </li>
+                <li>Click <strong>Create group access token</strong> and copy it</li>
+              </ol>
+              <p class="opacity-70 text-sm mt-3">Tip: Use a group access token rather than a personal token — it scopes access to the group's projects and isn't tied to an individual user account.</p>
+            </div>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+
+        <script>
+          (function() {
+            var platformSelect = document.getElementById('platform-select');
+            var baseUrlInput = document.getElementById('base-url-input');
+            var baseUrlHint = document.getElementById('base-url-hint');
+            var githubHelp = document.getElementById('github-token-help');
+            var gitlabHelp = document.getElementById('gitlab-token-help');
+            var githubLink = document.getElementById('github-token-link');
+            var githubHostLabel = document.getElementById('github-host-label');
+            var gitlabLink = document.getElementById('gitlab-group-link');
+            var gitlabHostLabel = document.getElementById('gitlab-host-label');
+
+            function parseOrigin(url) {
+              try {
+                return new URL(url).origin;
+              } catch (e) {
+                return null;
+              }
+            }
+
+            function update() {
+              var platform = platformSelect.value;
+              var baseUrl = baseUrlInput.value.trim();
+
+              githubHelp.classList.toggle('hidden', platform !== 'github');
+              gitlabHelp.classList.toggle('hidden', platform !== 'gitlab');
+
+              // Show validation hint if URL is entered but missing scheme
+              var showHint = baseUrl && !baseUrl.match(/^https?:\/\//);
+              baseUrlHint.classList.toggle('hidden', !showHint);
+              baseUrlInput.classList.toggle('input-error', showHint);
+
+              if (platform === 'github') {
+                var ghDefault = 'https://github.com';
+                var origin = (!baseUrl || baseUrl === 'https://api.github.com')
+                  ? ghDefault
+                  : (parseOrigin(baseUrl) || ghDefault);
+                githubLink.href = origin + '/settings/personal-access-tokens/new';
+                githubHostLabel.textContent = '(' + origin.replace(/^https?:\/\//, '') + ')';
+              } else if (platform === 'gitlab') {
+                var glDefault = 'https://gitlab.com';
+                var glOrigin = baseUrl ? (parseOrigin(baseUrl) || glDefault) : glDefault;
+                gitlabLink.href = glOrigin;
+                gitlabHostLabel.textContent = glOrigin.replace(/^https?:\/\//, '');
+              }
+            }
+
+            var tokenHelpHint = document.getElementById('token-help-hint');
+
+            window.handleTokenHelpClick = function() {
+              if (!platformSelect.value) {
+                tokenHelpHint.classList.remove('hidden');
+                return;
+              }
+              tokenHelpHint.classList.add('hidden');
+              document.getElementById('token-help-modal').showModal();
+            };
+
+            platformSelect.addEventListener('change', function() {
+              tokenHelpHint.classList.add('hidden');
+            });
+
+            platformSelect.addEventListener('change', update);
+            baseUrlInput.addEventListener('input', update);
+            baseUrlInput.addEventListener('change', update);
+          })();
+        </script>
       </div>
     </div>
   {% endif %}

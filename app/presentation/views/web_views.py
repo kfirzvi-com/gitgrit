@@ -2,7 +2,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
-from app.domain.models import Policy, PolicyExecution, Project
+from app.domain.models import Membership, PlatformConnection, Policy, PolicyExecution, Project
 
 
 class HomeView(TemplateView):
@@ -21,6 +21,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         tenant = self.request.tenant
         if tenant:
+            membership = Membership.objects.filter(
+                user=self.request.user, tenant=tenant
+            ).first()
+            context["is_admin"] = membership and membership.role in (
+                Membership.Role.OWNER,
+                Membership.Role.ADMIN,
+            )
+            context["has_connections"] = PlatformConnection.objects.filter(
+                tenant=tenant
+            ).exists()
             context["project_count"] = Project.objects.filter(tenant=tenant).count()
             context["policy_count"] = Policy.objects.filter(
                 tenant=tenant, enabled=True
