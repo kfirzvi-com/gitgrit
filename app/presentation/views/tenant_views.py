@@ -165,13 +165,29 @@ def add_connection(request):
     base_url = request.POST.get("base_url", "").strip()
     access_token = request.POST.get("access_token", "").strip()
 
-    if not display_name or not access_token:
-        messages.error(request, "Display name and access token are required.")
+    if not access_token:
+        messages.error(request, "Access token is required.")
         return redirect("tenant_settings")
 
     if platform not in (Platform.GITHUB, Platform.GITLAB):
         messages.error(request, "Invalid platform.")
         return redirect("tenant_settings")
+
+    if not display_name:
+        platform_labels = {Platform.GITHUB: "GitHub", Platform.GITLAB: "GitLab"}
+        base_name = platform_labels[platform]
+        existing_names = set(
+            PlatformConnection.objects.filter(tenant=tenant).values_list(
+                "display_name", flat=True
+            )
+        )
+        if base_name not in existing_names:
+            display_name = base_name
+        else:
+            n = 2
+            while f"{base_name} {n}" in existing_names:
+                n += 1
+            display_name = f"{base_name} {n}"
 
     connection = PlatformConnection(
         tenant=tenant,
