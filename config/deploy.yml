@@ -2,8 +2,11 @@
 #
 # This is a template. To deploy:
 # 1. Create config/deploy.<destination>.yml with your real values
-# 2. Create .kamal/secrets with your secrets
+# 2. Create .kamal/secrets.<destination> with your secrets (gitignored)
 # 3. Run: kamal setup -d <destination>
+#
+# Generate a SECRET_KEY (use a static value — regenerating invalidates all sessions):
+#   cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w 50 | head -n 1
 
 service: gitgrit
 image: gitgrit
