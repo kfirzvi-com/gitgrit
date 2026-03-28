@@ -1,20 +1,26 @@
 #!/usr/bin/env bash
-# Runs on the server after Docker is installed (kamal server bootstrap).
-# Installs gVisor runsc as a Docker runtime for sandboxed policy execution.
+# Runs locally after Docker is confirmed on the server.
+# SSHes into each host to install gVisor runsc as a Docker runtime.
 set -e
 
-if command -v runsc > /dev/null 2>&1; then
-  echo "gVisor already installed, skipping."
-  exit 0
-fi
+IFS=',' read -ra HOSTS <<< "$KAMAL_HOSTS"
+for HOST in "${HOSTS[@]}"; do
+  echo "Installing gVisor on $HOST..."
+  ssh root@"$HOST" bash -s <<'REMOTE'
+    if command -v runsc > /dev/null 2>&1; then
+      echo "gVisor already installed, skipping."
+      exit 0
+    fi
 
-echo "Installing gVisor runsc..."
-apt-get update -qq
-apt-get install -y apt-transport-https ca-certificates curl gnupg
-curl -fsSL https://gvisor.dev/archive.key | gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
-  | tee /etc/apt/sources.list.d/gvisor.list > /dev/null
-apt-get update -qq && apt-get install -y runsc
-runsc install
-systemctl reload docker
-echo "gVisor installed successfully."
+    echo "Installing gVisor runsc..."
+    apt-get update -qq
+    apt-get install -y apt-transport-https ca-certificates curl gnupg
+    curl -fsSL https://gvisor.dev/archive.key | gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
+      | tee /etc/apt/sources.list.d/gvisor.list > /dev/null
+    apt-get update -qq && apt-get install -y runsc
+    runsc install
+    systemctl reload docker
+    echo "gVisor installed successfully."
+REMOTE
+done
