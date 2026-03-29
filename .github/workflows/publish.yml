@@ -64,6 +64,8 @@ jobs:
             ${{ steps.meta.outputs.labels }}
             service=gitgrit
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     needs: publish
