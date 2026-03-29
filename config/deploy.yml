@@ -29,9 +29,10 @@ proxy:
     path: /up/
 
 registry:
-  server: localhost:5050
-  username: ""
-  password: ""
+  server: ghcr.io
+  username: zvikfir
+  password:
+    - GHCR_TOKEN
 
 builder:
   arch: amd64

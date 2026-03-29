@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: gitgrit
+          POSTGRES_USER: gitgrit
+          POSTGRES_PASSWORD: testpass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv pip install --system -r pyproject.toml
+
+      - name: Run tests
+        env:
+          SECRET_KEY: test-secret-key
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: gitgrit
+          DB_USER: gitgrit
+          DB_PASSWORD: testpass
+          DEBUG: "True"
+        run: python manage.py test
+
