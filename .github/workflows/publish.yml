@@ -41,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/zvikfir/gitgrit
+          images: ghcr.io/kfirzvi-com/gitgrit
           tags: |
             type=sha,prefix=
             type=semver,pattern={{version}}
@@ -78,5 +78,5 @@ jobs:
               "environment": "${{ needs.publish.outputs.environment }}",
               "version": "${{ github.sha }}",
               "ref": "${{ github.sha }}",
-              "image": "ghcr.io/zvikfir/gitgrit"
+              "image": "ghcr.io/kfirzvi-com/gitgrit"
             }

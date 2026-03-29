@@ -30,7 +30,7 @@ proxy:
 
 registry:
   server: ghcr.io
-  username: zvikfir
+  username: kfirzvi-com
   password:
     - GHCR_TOKEN
 
