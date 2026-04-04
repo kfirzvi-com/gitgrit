@@ -42,7 +42,7 @@
           </div>
           <div>
             <span class="opacity-70">Path</span>
-            <p>{{ project.full_path }}</p>
+            <p class="break-all">{{ project.full_path }}</p>
           </div>
           <div>
             <span class="opacity-70">Default Branch</span>
@@ -71,7 +71,7 @@
         {% if project.description %}
           <div class="mt-4">
             <span class="text-sm opacity-70">Description</span>
-            <p class="text-sm">{{ project.description }}</p>
+            <p class="text-sm break-words">{{ project.description }}</p>
           </div>
         {% endif %}
       </div>
@@ -118,7 +118,7 @@
                         </span>
                       </td>
                       <td>{{ ex.score }}</td>
-                      <td class="text-sm max-w-xs truncate">{{ ex.message }}</td>
+                      <td class="text-sm max-w-xs truncate" title="{{ ex.message }}">{{ ex.message }}</td>
                       <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
                     </tr>
                   {% endfor %}
