@@ -1,18 +1,37 @@
 <div class="navbar bg-base-100 shadow-lg">
-  <div class="flex-1">
+  <div class="navbar-start">
+    {% if user.is_authenticated %}
+      <div class="dropdown">
+        <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" /></svg>
+        </div>
+        <ul tabindex="0" class="dropdown-content menu menu-sm p-2 shadow bg-base-100 rounded-box w-52 z-[1]">
+          <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
+          <li><a href="{% url 'project_list' %}">Projects</a></li>
+          <li><a href="{% url 'stack_list' %}">Stacks</a></li>
+          <li><a href="{% url 'policy_list' %}">Policies</a></li>
+        </ul>
+      </div>
+    {% endif %}
     <a href="{% url 'home' %}" class="btn btn-ghost text-xl">GitGrit</a>
   </div>
-  <div class="flex-none gap-2">
+  <div class="navbar-center hidden lg:flex">
     {% if user.is_authenticated %}
-      <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm">Dashboard</a>
-      <a href="{% url 'project_list' %}" class="btn btn-ghost btn-sm">Projects</a>
-      <a href="{% url 'stack_list' %}" class="btn btn-ghost btn-sm">Stacks</a>
-      <a href="{% url 'policy_list' %}" class="btn btn-ghost btn-sm">Policies</a>
-
+      <ul class="menu menu-horizontal px-1">
+        <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li><a href="{% url 'project_list' %}">Projects</a></li>
+        <li><a href="{% url 'stack_list' %}">Stacks</a></li>
+        <li><a href="{% url 'policy_list' %}">Policies</a></li>
+      </ul>
+    {% endif %}
+  </div>
+  <div class="navbar-end gap-2">
+    {% if user.is_authenticated %}
       {% if current_tenant %}
         <div class="dropdown dropdown-end">
           <div tabindex="0" role="button" class="btn btn-ghost btn-sm gap-1">
-            {{ current_tenant.name }}
+            <span class="hidden sm:inline">{{ current_tenant.name }}</span>
+            <span class="sm:hidden">{{ current_tenant.name|truncatechars:10 }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
           </div>
           <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56 z-[1]">

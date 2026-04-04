@@ -3,24 +3,24 @@
   {% for r in results %}
     {% if r.already_added %}
       <div class="flex items-center justify-between p-3 rounded-lg bg-base-200 opacity-50">
-        <div>
-          <p class="font-medium">{{ r.name }}</p>
-          <p class="text-sm opacity-70">{{ r.full_path }}</p>
+        <div class="min-w-0 flex-1">
+          <p class="font-medium truncate">{{ r.name }}</p>
+          <p class="text-sm opacity-70 truncate">{{ r.full_path }}</p>
         </div>
-        <span class="badge badge-sm">Already added</span>
+        <span class="badge badge-sm shrink-0 ml-2">Already added</span>
       </div>
     {% else %}
       <button type="button"
               class="flex items-center justify-between p-3 rounded-lg bg-base-200 hover:bg-base-300 cursor-pointer w-full text-left transition-colors"
               onclick='selectProject({% to_json r %})'>
-        <div>
-          <p class="font-medium">{{ r.name }}</p>
-          <p class="text-sm opacity-70">{{ r.full_path }}</p>
+        <div class="min-w-0 flex-1">
+          <p class="font-medium truncate">{{ r.name }}</p>
+          <p class="text-sm opacity-70 truncate">{{ r.full_path }}</p>
           {% if r.description %}
-            <p class="text-xs opacity-50 mt-1 truncate max-w-md">{{ r.description }}</p>
+            <p class="text-xs opacity-50 mt-1 truncate">{{ r.description }}</p>
           {% endif %}
         </div>
-        <span class="btn btn-ghost btn-xs">Select</span>
+        <span class="btn btn-ghost btn-xs shrink-0 ml-2">Select</span>
       </button>
     {% endif %}
   {% endfor %}

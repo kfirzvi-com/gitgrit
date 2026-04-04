@@ -24,10 +24,10 @@
           <tbody>
             {% for policy in policies %}
               <tr>
-                <td>
+                <td class="max-w-xs">
                   <a href="{% url 'policy_detail' policy.pk %}" class="link font-medium">{{ policy.name }}</a>
                   {% if policy.description %}
-                    <p class="text-sm opacity-60 truncate max-w-xs">{{ policy.description }}</p>
+                    <p class="text-sm opacity-60 truncate">{{ policy.description }}</p>
                   {% endif %}
                 </td>
                 <td>
