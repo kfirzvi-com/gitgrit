@@ -116,3 +116,66 @@ class PolicyEngine:
                 results.append(result)
 
         return results
+
+    def run_for_project(
+        self, project: Project, policies: list[Policy] | None = None
+    ) -> list[dict]:
+        """Run policies manually for a project (no webhook event needed)."""
+        if policies is None:
+            policies = list(
+                Policy.objects.filter(
+                    tenant=project.tenant, enabled=True, draft=False
+                )
+            )
+
+        if not policies:
+            return []
+
+        access_token = project.platform_connection.access_token
+        input_config = {
+            "platform": project.platform,
+            "project_id": project.external_id,
+            "access_token": access_token,
+            "base_url": project.platform_connection.base_url,
+            "full_path": project.full_path,
+        }
+
+        results = []
+        for policy in policies:
+            logger.info(
+                "Running policy '%s' for project '%s' (manual)",
+                policy.name,
+                project.name,
+            )
+
+            execution = PolicyExecution.objects.create(
+                project=project,
+                policy=policy,
+                policy_name=policy.name,
+                event_type="manual",
+                status=PolicyExecution.Status.RUNNING,
+                triggered_by="manual",
+            )
+
+            result = self.runner.run(policy.code, input_config)
+
+            if result.get("details", {}).get("error"):
+                execution.status = PolicyExecution.Status.ERROR
+            elif result.get("passed"):
+                execution.status = PolicyExecution.Status.PASSED
+            else:
+                execution.status = PolicyExecution.Status.FAILED
+
+            execution.score = result.get("score", 0)
+            execution.message = result.get("message", "")
+            execution.details = result.get("details", {})
+            execution.save()
+
+            result["policy_id"] = str(policy.id)
+            result["policy_name"] = policy.name
+            result["execution_id"] = str(execution.id)
+            result["project_id"] = str(project.id)
+            result["project_name"] = project.name
+            results.append(result)
+
+        return results

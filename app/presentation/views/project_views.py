@@ -10,7 +10,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
-from app.domain.models import PlatformConnection, PolicyExecution, Project
+from app.application.policy_engine import PolicyEngine
+from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,11 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
             )
         else:
             context["compliance_score"] = None
+
+        # Available policies for manual trigger
+        context["policies"] = Policy.objects.filter(
+            tenant=project.tenant, enabled=True, draft=False
+        ).order_by("ordinal", "name")
 
         return context
 
@@ -237,6 +243,47 @@ def delete_project(request, pk):
     project.delete()
     messages.success(request, f'Project "{name}" removed.')
     return redirect("project_list")
+
+
+@login_required
+@require_POST
+def run_project_policies(request, pk):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("project_list")
+
+    project = get_object_or_404(
+        Project.objects.select_related("platform_connection"),
+        pk=pk,
+        tenant=tenant,
+    )
+
+    policy_id = request.POST.get("policy_id")
+    if policy_id:
+        policies = list(
+            Policy.objects.filter(pk=policy_id, tenant=tenant, enabled=True, draft=False)
+        )
+        if not policies:
+            messages.error(request, "Policy not found or not active.")
+            return redirect("project_detail", pk=pk)
+    else:
+        policies = None  # run_for_project will pick all eligible
+
+    engine = PolicyEngine()
+    results = engine.run_for_project(project, policies)
+
+    if results:
+        passed = sum(1 for r in results if r.get("passed"))
+        messages.success(
+            request,
+            f"Ran {len(results)} polic{'y' if len(results) == 1 else 'ies'}: "
+            f"{passed} passed, {len(results) - passed} failed.",
+        )
+    else:
+        messages.warning(request, "No eligible policies to run.")
+
+    return redirect("project_detail", pk=pk)
 
 
 @login_required
