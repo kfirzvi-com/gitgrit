@@ -31,6 +31,7 @@ if not SECRET_KEY:
         raise ValueError("SECRET_KEY environment variable is required in production")
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [
     host for host in [urlparse(SITE_URL).hostname] if host
