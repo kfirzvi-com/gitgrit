@@ -79,6 +79,61 @@
 
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
+        <div class="flex justify-between items-center">
+          <h2 class="card-title">Policies</h2>
+          {% if policies %}
+            <form method="post" action="{% url 'run_project_policies' project.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary btn-sm">Run All</button>
+            </form>
+          {% endif %}
+        </div>
+        {% if policies %}
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Policy</th>
+                  <th>Events</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for policy in policies %}
+                  <tr>
+                    <td>
+                      <a href="{% url 'policy_detail' policy.pk %}" class="link link-hover">{{ policy.name }}</a>
+                      {% if policy.description %}
+                        <p class="text-xs opacity-50 truncate max-w-xs">{{ policy.description }}</p>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% for event in policy.criteria.events %}
+                        <span class="badge badge-outline badge-xs">{{ event }}</span>
+                      {% empty %}
+                        <span class="text-xs opacity-50">none</span>
+                      {% endfor %}
+                    </td>
+                    <td class="text-right">
+                      <form method="post" action="{% url 'run_project_policies' project.pk %}" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="policy_id" value="{{ policy.pk }}">
+                        <button type="submit" class="btn btn-ghost btn-xs">Run</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-sm opacity-70">No active policies. <a href="{% url 'create_policy' %}" class="link">Create one</a> to get started.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
         <h2 class="card-title">Compliance</h2>
         {% if compliance_score is not None %}
           <div class="flex items-center gap-6">

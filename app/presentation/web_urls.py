@@ -15,6 +15,7 @@ from app.presentation.views.project_views import (
     add_project_select,
     delete_project,
     retry_webhook,
+    run_project_policies,
 )
 from app.presentation.views.stack_views import (
     CreateStackView,
@@ -77,6 +78,11 @@ urlpatterns = [
     ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
+    path(
+        "projects/<uuid:pk>/run-policies/",
+        run_project_policies,
+        name="run_project_policies",
+    ),
     path(
         "projects/<uuid:pk>/retry-webhook/",
         retry_webhook,
