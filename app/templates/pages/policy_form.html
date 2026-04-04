@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{% if is_edit %}Edit {{ form.instance.name }}{% else %}New Policy{% endif %} — GitGrit{% endblock %}
 
@@ -86,4 +87,9 @@
     </div>
   </form>
 </div>
+
+<script type="module">
+  import { initPolicyEditor } from "{% static 'app/policy-editor.js' %}";
+  initPolicyEditor("id_code");
+</script>
 {% endblock %}
