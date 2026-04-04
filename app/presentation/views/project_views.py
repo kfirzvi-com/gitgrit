@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
 from app.application.policy_engine import PolicyEngine
-from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project
+from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
@@ -132,6 +132,8 @@ def add_project_search(request, connection_id):
             messages.warning(request, f'"{name}" is already added to this workspace.')
             return redirect("project_list")
 
+        stack_ids = request.POST.getlist("stacks")
+
         project = Project.objects.create(
             tenant=tenant,
             platform_connection=connection,
@@ -144,6 +146,10 @@ def add_project_search(request, connection_id):
             description=description,
             lifecycle=lifecycle,
         )
+
+        if stack_ids:
+            stacks = Stack.objects.filter(pk__in=stack_ids, tenant=tenant)
+            project.stacks.set(stacks)
 
         try:
             client = get_platform_client(connection)
@@ -163,6 +169,8 @@ def add_project_search(request, connection_id):
         messages.success(request, f'Project "{project.name}" added.')
         return redirect("project_detail", pk=project.pk)
 
+    stacks = Stack.objects.filter(tenant=tenant).order_by("name")
+
     return render(
         request,
         "pages/add_project.html",
@@ -170,6 +178,7 @@ def add_project_search(request, connection_id):
             "step": "search",
             "connection": connection,
             "lifecycle_choices": Project.Lifecycle.choices,
+            "stacks": stacks,
         },
     )
 
