@@ -122,13 +122,10 @@
                               onclick="openEditTokenModal('{{ conn.id }}', '{{ conn.display_name }}', '{{ conn.access_token }}')">
                         Edit Token
                       </button>
-                      <form method="post" action="{% url 'remove_connection' conn.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-ghost btn-xs text-error"
-                                onclick="return confirm('Remove {{ conn.display_name }}?')">
-                          Remove
-                        </button>
-                      </form>
+                      <button class="btn btn-ghost btn-xs text-error"
+                              onclick="openRemoveConnectionModal('{{ conn.id }}', '{{ conn.display_name }}', [{% for p in conn.projects.all %}'{{ p.name }}'{% if not forloop.last %},{% endif %}{% endfor %}])">
+                        Remove
+                      </button>
                     </td>
                   {% endif %}
                 </tr>
@@ -168,7 +165,62 @@
       <form method="dialog" class="modal-backdrop"><button>close</button></form>
     </dialog>
 
+    <dialog id="remove-connection-modal" class="modal">
+      <div class="modal-box">
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">X</button>
+        </form>
+        <h3 class="font-bold text-lg text-error mb-4">Delete Connection</h3>
+        <div class="alert alert-error mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p class="font-bold">This action is irreversible.</p>
+            <p>Deleting <strong><span id="remove-conn-name"></span></strong> will permanently delete <strong>all <span id="remove-conn-project-count"></span> projects</strong> imported through this connection, including their policy execution history, webhooks, and all associated data.</p>
+          </div>
+        </div>
+        <div id="remove-conn-projects-list" class="mb-4 hidden">
+          <details class="collapse collapse-arrow bg-base-200 rounded-lg">
+            <summary class="collapse-title text-sm font-semibold py-2 min-h-0">Affected projects (<span id="remove-conn-projects-detail-count"></span>)</summary>
+            <div class="collapse-content">
+              <ul id="remove-conn-projects-ul" class="list-disc list-inside text-sm opacity-80"></ul>
+            </div>
+          </details>
+        </div>
+        <form method="post" id="remove-connection-form">
+          {% csrf_token %}
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn" onclick="document.getElementById('remove-connection-modal').close()">Cancel</button>
+            <button type="submit" class="btn btn-error">Delete Connection</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
     <script>
+      function openRemoveConnectionModal(connectionId, displayName, projectNames) {
+        document.getElementById('remove-conn-name').textContent = displayName;
+        document.getElementById('remove-conn-project-count').textContent = projectNames.length;
+        document.getElementById('remove-connection-form').action = '/tenants/connections/' + connectionId + '/remove/';
+        var listContainer = document.getElementById('remove-conn-projects-list');
+        var ul = document.getElementById('remove-conn-projects-ul');
+        ul.innerHTML = '';
+        if (projectNames.length > 0) {
+          document.getElementById('remove-conn-projects-detail-count').textContent = projectNames.length;
+          projectNames.forEach(function(name) {
+            var li = document.createElement('li');
+            li.textContent = name;
+            ul.appendChild(li);
+          });
+          listContainer.classList.remove('hidden');
+        } else {
+          listContainer.classList.add('hidden');
+        }
+        document.getElementById('remove-connection-modal').showModal();
+      }
+
       function openEditTokenModal(connectionId, displayName, currentToken) {
         document.getElementById('edit-token-conn-name').textContent = displayName;
         document.getElementById('edit-token-form').action = '/tenants/connections/' + connectionId + '/edit/';
