@@ -28,6 +28,7 @@ from app.presentation.views.tenant_views import (
     CreateTenantView,
     TenantSettingsView,
     add_connection,
+    edit_connection_token,
     invite_member,
     remove_connection,
     remove_member,
@@ -51,6 +52,11 @@ urlpatterns = [
     ),
     # Platform connections
     path("tenants/connections/add/", add_connection, name="add_connection"),
+    path(
+        "tenants/connections/<uuid:connection_id>/edit/",
+        edit_connection_token,
+        name="edit_connection_token",
+    ),
     path(
         "tenants/connections/<uuid:connection_id>/remove/",
         remove_connection,

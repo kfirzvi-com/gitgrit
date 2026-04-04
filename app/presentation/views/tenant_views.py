@@ -203,6 +203,37 @@ def add_connection(request):
 
 @login_required
 @require_POST
+def edit_connection_token(request, connection_id):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("tenant_settings")
+
+    user_membership = Membership.objects.filter(
+        user=request.user, tenant=tenant
+    ).first()
+    if not user_membership or user_membership.role not in (
+        Membership.Role.OWNER,
+        Membership.Role.ADMIN,
+    ):
+        messages.error(request, "You don't have permission to manage connections.")
+        return redirect("tenant_settings")
+
+    connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
+    access_token = request.POST.get("access_token", "").strip()
+
+    if not access_token:
+        messages.error(request, "Access token is required.")
+        return redirect("tenant_settings")
+
+    connection.access_token = access_token
+    connection.save(update_fields=["access_token"])
+    messages.success(request, f'Token updated for "{connection.display_name}".')
+    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
 def remove_connection(request, connection_id):
     tenant = request.tenant
     if not tenant:

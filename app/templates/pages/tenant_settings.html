@@ -117,7 +117,11 @@
                     </span>
                   </td>
                   {% if is_admin %}
-                    <td>
+                    <td class="flex gap-1">
+                      <button class="btn btn-ghost btn-xs"
+                              onclick="openEditTokenModal('{{ conn.id }}', '{{ conn.display_name }}', '{{ conn.access_token }}')">
+                        Edit Token
+                      </button>
                       <form method="post" action="{% url 'remove_connection' conn.id %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-ghost btn-xs text-error"
@@ -137,6 +141,57 @@
       {% endif %}
     </div>
   </div>
+
+  {% if is_admin %}
+    <dialog id="edit-token-modal" class="modal">
+      <div class="modal-box">
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">X</button>
+        </form>
+        <h3 class="font-bold text-lg mb-4">Update Token — <span id="edit-token-conn-name"></span></h3>
+        <div class="mb-4">
+          <label class="label"><span class="label-text text-sm opacity-70">Current token</span></label>
+          <div class="flex gap-2">
+            <input type="password" id="edit-token-current" readonly
+                   class="input input-bordered w-full font-mono text-sm bg-base-200">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleCurrentToken()" id="edit-token-toggle">Show</button>
+          </div>
+        </div>
+        <form method="post" id="edit-token-form" class="space-y-3">
+          {% csrf_token %}
+          <label class="label"><span class="label-text text-sm">New token</span></label>
+          <input type="password" name="access_token" required placeholder="New access token"
+                 class="input input-bordered w-full">
+          <button type="submit" class="btn btn-primary">Update Token</button>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <script>
+      function openEditTokenModal(connectionId, displayName, currentToken) {
+        document.getElementById('edit-token-conn-name').textContent = displayName;
+        document.getElementById('edit-token-form').action = '/tenants/connections/' + connectionId + '/edit/';
+        var currentInput = document.getElementById('edit-token-current');
+        currentInput.value = currentToken;
+        currentInput.type = 'password';
+        document.getElementById('edit-token-toggle').textContent = 'Show';
+        document.getElementById('edit-token-modal').showModal();
+      }
+
+      function toggleCurrentToken() {
+        var input = document.getElementById('edit-token-current');
+        var btn = document.getElementById('edit-token-toggle');
+        if (input.type === 'password') {
+          input.type = 'text';
+          btn.textContent = 'Hide';
+        } else {
+          input.type = 'password';
+          btn.textContent = 'Show';
+        }
+      }
+    </script>
+  {% endif %}
 
   {% if is_admin %}
     <div class="card bg-base-100 shadow-xl">
