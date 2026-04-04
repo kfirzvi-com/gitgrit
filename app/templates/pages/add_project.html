@@ -71,6 +71,21 @@
           </select>
         </div>
 
+        {% if stacks %}
+          <div class="form-control">
+            <label class="label"><span class="label-text">Stacks</span></label>
+            <div class="flex flex-wrap gap-3">
+              {% for stack in stacks %}
+                <label class="label cursor-pointer gap-2">
+                  <input type="checkbox" name="stacks" value="{{ stack.pk }}"
+                         class="checkbox checkbox-sm">
+                  <span class="label-text">{{ stack.name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
         <div class="card-actions justify-end mt-4">
           <a href="{% url 'add_project_select' %}" class="btn btn-ghost">Back</a>
           <button type="submit" class="btn btn-primary">Add Project</button>
