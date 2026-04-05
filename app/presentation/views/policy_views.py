@@ -13,6 +13,10 @@ from app.domain.models import Policy
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
+LANGUAGE_CHOICES = [
+    "python", "javascript", "typescript", "go", "java", "ruby",
+    "rust", "c", "c++", "c#", "php", "swift", "kotlin", "scala",
+]
 
 
 class PolicyListView(LoginRequiredMixin, ListView):
@@ -40,14 +44,23 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["event_choices"] = EVENT_CHOICES
+        context["language_choices"] = LANGUAGE_CHOICES
         context["selected_events"] = []
+        context["selected_languages"] = []
+        context["ref_pattern"] = ""
         context["is_edit"] = False
         return context
 
     def form_valid(self, form):
         form.instance.tenant = self.request.tenant
         events = self.request.POST.getlist("events")
-        form.instance.criteria = {"events": events}
+        languages = self.request.POST.getlist("languages")
+        ref_pattern = self.request.POST.get("ref_pattern", "").strip()
+        form.instance.criteria = {
+            "events": events,
+            "ref": ref_pattern,
+            "languages": languages,
+        }
         test_cases_raw = self.request.POST.get("test_cases", "[]")
         try:
             form.instance.test_cases = json.loads(test_cases_raw)
@@ -83,14 +96,23 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["event_choices"] = EVENT_CHOICES
+        context["language_choices"] = LANGUAGE_CHOICES
         criteria = self.object.criteria or {}
         context["selected_events"] = criteria.get("events", [])
+        context["selected_languages"] = criteria.get("languages", [])
+        context["ref_pattern"] = criteria.get("ref", "")
         context["is_edit"] = True
         return context
 
     def form_valid(self, form):
         events = self.request.POST.getlist("events")
-        form.instance.criteria = {"events": events}
+        languages = self.request.POST.getlist("languages")
+        ref_pattern = self.request.POST.get("ref_pattern", "").strip()
+        form.instance.criteria = {
+            "events": events,
+            "ref": ref_pattern,
+            "languages": languages,
+        }
         test_cases_raw = self.request.POST.get("test_cases", "[]")
         try:
             form.instance.test_cases = json.loads(test_cases_raw)

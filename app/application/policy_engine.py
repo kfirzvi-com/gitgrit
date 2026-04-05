@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from django.db.models import QuerySet
 
@@ -9,6 +10,7 @@ from app.domain.models import Policy, PolicyExecution, Project
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
+
 
 
 class PolicyEngine:
@@ -29,9 +31,9 @@ class PolicyEngine:
         ).select_related("platform_connection", "tenant")
 
     def get_policies_for_project(
-        self, project: Project, event_type: str
+        self, project: Project, event_type: str, ref: str | None = None
     ) -> list[Policy]:
-        """Return enabled, non-draft policies whose criteria include the event type."""
+        """Return enabled, non-draft policies whose criteria match the event."""
         policies = Policy.objects.filter(
             tenant=project.tenant,
             enabled=True,
@@ -40,8 +42,47 @@ class PolicyEngine:
         return [
             p
             for p in policies
-            if event_type in p.criteria.get("events", [])
+            if self._matches_criteria(p, event_type, ref, project)
         ]
+
+    def _matches_criteria(
+        self,
+        policy: Policy,
+        event_type: str,
+        ref: str | None,
+        project: Project,
+        skip_event_check: bool = False,
+    ) -> bool:
+        criteria = policy.criteria or {}
+
+        # Event type must match (unless skipped for manual runs)
+        if not skip_event_check and event_type not in criteria.get("events", []):
+            return False
+
+        # Ref regex filter (if set, ref must match)
+        ref_pattern = criteria.get("ref", "").strip()
+        if ref_pattern and ref:
+            # Strip refs/heads/ prefix for cleaner matching
+            bare_ref = re.sub(r"^refs/(heads|tags)/", "", ref)
+            try:
+                if not re.search(ref_pattern, bare_ref):
+                    return False
+            except re.error:
+                logger.warning(
+                    "Invalid ref regex '%s' in policy '%s'",
+                    ref_pattern,
+                    policy.name,
+                )
+                return False
+
+        # Language filter (if set, project must have at least one matching language)
+        policy_languages = criteria.get("languages", [])
+        if policy_languages:
+            project_languages = [lang.lower() for lang in (project.languages or [])]
+            if not any(lang.lower() in project_languages for lang in policy_languages):
+                return False
+
+        return True
 
     def run_for_event(self, event: DomainEvent) -> list[dict]:
         projects = self.resolve_projects(event)
@@ -56,7 +97,9 @@ class PolicyEngine:
 
         results = []
         for project in projects:
-            policies = self.get_policies_for_project(project, event.event_type)
+            policies = self.get_policies_for_project(
+                project, event.event_type, ref=event.ref
+            )
 
             if not policies:
                 logger.info(
@@ -127,6 +170,13 @@ class PolicyEngine:
                     tenant=project.tenant, enabled=True, draft=False
                 )
             )
+            # Apply language/ref criteria filtering (skip event check for manual runs)
+            policies = [
+                p for p in policies
+                if self._matches_criteria(
+                    p, "manual", ref=None, project=project, skip_event_check=True
+                )
+            ]
 
         if not policies:
             return []

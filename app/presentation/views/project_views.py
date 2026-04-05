@@ -153,6 +153,15 @@ def add_project_search(request, connection_id):
 
         try:
             client = get_platform_client(connection)
+
+            # Fetch languages and topics from platform
+            try:
+                project.languages = client.get_languages(external_id, full_path=full_path)
+                project.tags = client.get_topics(external_id, full_path=full_path)
+                project.save(update_fields=["languages", "tags"])
+            except Exception:
+                logger.exception("Failed to fetch metadata for project %s", project.name)
+
             webhook_secret = secrets.token_hex(32)
             target_url = f"{settings.SITE_URL}/api/webhooks/{connection.platform}/"
             webhook_id = client.create_webhook(external_id, target_url, webhook_secret)
