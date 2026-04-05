@@ -6,6 +6,7 @@ from app.presentation.views.policy_views import (
     PolicyDetailView,
     PolicyListView,
     delete_policy,
+    run_policy_test,
     toggle_policy,
 )
 from app.presentation.views.project_views import (
@@ -110,4 +111,5 @@ urlpatterns = [
     path("policies/<uuid:pk>/edit/", EditPolicyView.as_view(), name="edit_policy"),
     path("policies/<uuid:pk>/delete/", delete_policy, name="delete_policy"),
     path("policies/<uuid:pk>/toggle/", toggle_policy, name="toggle_policy"),
+    path("policies/test/", run_policy_test, name="run_policy_test"),
 ]

@@ -6,8 +6,5 @@ KAMAL="${KAMAL:-$(command -v kamal || echo /opt/homebrew/lib/ruby/gems/4.0.0/bin
 args=()
 [ -n "$KAMAL_DESTINATION" ] && args+=("-d" "$KAMAL_DESTINATION")
 
-echo "Running database migrations..."
-"$KAMAL" app exec "${args[@]}" -- python manage.py migrate --noinput
-
 echo "Building sandbox image on server..."
 "$KAMAL" server exec "${args[@]}" "cd /tmp && docker exec \$(docker ps -q --filter label=service=gitgrit --filter label=role=web -l) tar -cf - -C /app sandbox_image | tar -xf - && docker build -t gitgrit-sandbox:latest /tmp/sandbox_image && rm -rf /tmp/sandbox_image"

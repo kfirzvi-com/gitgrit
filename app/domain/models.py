@@ -212,6 +212,7 @@ class Policy(models.Model):
         default='def evaluate(project):\n    return {"passed": True, "score": 100, "message": "OK", "details": {}}\n'
     )
     criteria = models.JSONField(default=dict, blank=True)
+    test_cases = models.JSONField(default=list, blank=True)
     enabled = models.BooleanField(default=True)
     draft = models.BooleanField(default=False)
     ordinal = models.IntegerField(default=1000)
