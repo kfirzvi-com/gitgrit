@@ -4,11 +4,11 @@
 {% block title %}{% if is_edit %}Edit {{ form.instance.name }}{% else %}New Policy{% endif %} — GitGrit{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-4xl mx-auto">
   <a href="{% url 'policy_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Policies</a>
   <h1 class="text-3xl font-bold mb-6">{% if is_edit %}Edit Policy{% else %}New Policy{% endif %}</h1>
 
-  <form method="post" class="card bg-base-100 shadow-xl">
+  <form method="post" id="policy-form" class="card bg-base-100 shadow-xl">
     {% csrf_token %}
     <div class="card-body space-y-4">
       <div class="form-control">
@@ -50,15 +50,25 @@
         </div>
       </div>
 
-      <div class="form-control">
-        <label class="label" for="id_code">
-          <span class="label-text">Policy Code</span>
-        </label>
-        <textarea name="code" id="id_code" rows="16"
-                  class="textarea textarea-bordered w-full font-mono text-sm leading-relaxed"
-                  spellcheck="false"
-                  placeholder="def evaluate(project):&#10;    ...">{{ form.instance.code }}</textarea>
-        <p class="text-xs opacity-60 mt-1">Define an <code>evaluate(project)</code> function that returns <code>{"passed": bool, "score": int, "message": str, "details": dict}</code></p>
+      <div role="tablist" class="tabs tabs-bordered">
+        <a role="tab" class="tab tab-active" data-tab="code" onclick="switchTab('code')">Code</a>
+        <a role="tab" class="tab" data-tab="tests" onclick="switchTab('tests')">Tests</a>
+      </div>
+
+      <div id="tab-code">
+        <div class="form-control">
+          <textarea name="code" id="id_code" rows="16"
+                    class="textarea textarea-bordered w-full font-mono text-sm leading-relaxed"
+                    spellcheck="false"
+                    placeholder="def evaluate(project):&#10;    ...">{{ form.instance.code }}</textarea>
+          <p class="text-xs opacity-60 mt-1">Define an <code>evaluate(project)</code> function that returns <code>{"passed": bool, "score": int, "message": str, "details": dict}</code></p>
+        </div>
+      </div>
+
+      <div id="tab-tests" class="hidden">
+        <div id="test-cases-container" class="space-y-4"></div>
+        <button type="button" class="btn btn-ghost btn-sm mt-3" onclick="addTestCase()">+ Add Test Case</button>
+        <input type="hidden" name="test_cases" id="test-cases-json">
       </div>
 
       <div class="flex gap-6">
@@ -88,8 +98,210 @@
   </form>
 </div>
 
+<script>
+function switchTab(tab) {
+  document.getElementById('tab-code').classList.toggle('hidden', tab !== 'code');
+  document.getElementById('tab-tests').classList.toggle('hidden', tab !== 'tests');
+  document.querySelectorAll('[role="tab"]').forEach(t => {
+    t.classList.toggle('tab-active', t.dataset.tab === tab);
+  });
+}
+</script>
+
+{{ form.instance.test_cases|json_script:"test-cases-data" }}
+
 <script type="module">
-  import { initPolicyEditor } from "{% static 'app/policy-editor.js' %}";
-  initPolicyEditor("id_code");
+import { initPolicyEditor, createJsonEditor } from "{% static 'app/policy-editor.js' %}";
+initPolicyEditor("id_code");
+
+const DEFAULT_INPUT = {
+  list_files: ["README.md", "src/main.py"],
+  get_languages: {"Python": 80.0, "YAML": 20.0},
+  get_members: [{"username": "alice", "role": "maintainer"}],
+  get_contributors: [{"username": "alice", "commits": 42}],
+  get_default_branch: "main",
+  get_topics: ["python"],
+  get_metadata: {name: "test-project", description: "A test project"}
+};
+
+const DEFAULT_EXPECTED = {
+  passed: true,
+  score: 100,
+  message: "",
+  details: {}
+};
+
+const testCases = JSON.parse(document.getElementById('test-cases-data').textContent);
+const editors = [];
+
+function syncHiddenField() {
+  const data = editors.map(e => ({
+    name: e.nameInput.value,
+    input: JSON.parse(e.inputEditor.state.doc.toString() || '{}'),
+    expected: JSON.parse(e.expectedEditor.state.doc.toString() || '{}'),
+  }));
+  document.getElementById('test-cases-json').value = JSON.stringify(data);
+}
+
+function renderTestCase(tc, index) {
+  const container = document.getElementById('test-cases-container');
+  const div = document.createElement('div');
+  div.className = 'collapse collapse-arrow bg-base-200 rounded-lg';
+  div.innerHTML = `
+    <input type="checkbox" checked />
+    <div class="collapse-title font-medium flex items-center gap-2">
+      <span class="test-case-title">${tc.name || 'Test Case ' + (index + 1)}</span>
+    </div>
+    <div class="collapse-content space-y-3">
+      <div class="form-control">
+        <label class="label"><span class="label-text text-xs">Name</span></label>
+        <input type="text" class="input input-bordered input-sm w-full test-name"
+               value="${tc.name || ''}" placeholder="e.g. Has README">
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text text-xs">Input (project context)</span></label>
+        <div class="test-input-editor"></div>
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text text-xs">Expected Output</span></label>
+        <div class="test-expected-editor"></div>
+      </div>
+      <div class="flex gap-2 items-start">
+        <button type="button" class="btn btn-sm btn-primary test-run-btn">Run</button>
+        <button type="button" class="btn btn-sm btn-ghost text-error test-delete-btn">Remove</button>
+        <div class="test-result flex-1"></div>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+
+  const nameInput = div.querySelector('.test-name');
+  const inputEl = div.querySelector('.test-input-editor');
+  const expectedEl = div.querySelector('.test-expected-editor');
+  const resultEl = div.querySelector('.test-result');
+
+  const inputEditor = createJsonEditor(inputEl, tc.input || DEFAULT_INPUT, syncHiddenField);
+  const expectedEditor = createJsonEditor(expectedEl, tc.expected || DEFAULT_EXPECTED, syncHiddenField);
+
+  nameInput.addEventListener('input', () => {
+    div.querySelector('.test-case-title').textContent = nameInput.value || 'Test Case ' + (index + 1);
+    syncHiddenField();
+  });
+
+  const entry = { nameInput, inputEditor, expectedEditor, div };
+  editors.push(entry);
+
+  div.querySelector('.test-run-btn').addEventListener('click', async () => {
+    const btn = div.querySelector('.test-run-btn');
+    btn.classList.add('loading');
+    resultEl.innerHTML = '';
+
+    const code = document.getElementById('id_code').value;
+    let input;
+    try {
+      input = JSON.parse(inputEditor.state.doc.toString());
+    } catch {
+      resultEl.innerHTML = '<span class="badge badge-error badge-sm">Invalid input JSON</span>';
+      btn.classList.remove('loading');
+      return;
+    }
+
+    let expected;
+    try {
+      expected = JSON.parse(expectedEditor.state.doc.toString());
+    } catch {
+      expected = null;
+    }
+
+    try {
+      const resp = await fetch('{% url "run_policy_test" %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify({ code, input }),
+      });
+      const result = await resp.json();
+
+      const statusBadge = result.details?.error
+        ? '<span class="badge badge-error badge-sm">Error</span>'
+        : result.passed
+          ? '<span class="badge badge-success badge-sm">Passed</span>'
+          : '<span class="badge badge-error badge-sm">Failed</span>';
+
+      let diffHtml = '';
+      let allMatch = true;
+      if (expected) {
+        for (const key of Object.keys(expected)) {
+          const exp = JSON.stringify(expected[key], null, 2);
+          const act = JSON.stringify(result[key], null, 2);
+          if (exp !== act) {
+            allMatch = false;
+            diffHtml += `
+              <div class="text-xs mt-2 rounded bg-base-300 p-2 space-y-1">
+                <div class="font-semibold text-warning">${key}</div>
+                <div class="flex gap-4">
+                  <div class="flex-1 min-w-0">
+                    <div class="opacity-50 mb-1">Expected</div>
+                    <pre class="whitespace-pre-wrap break-all text-success">${exp}</pre>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="opacity-50 mb-1">Actual</div>
+                    <pre class="whitespace-pre-wrap break-all text-error">${act}</pre>
+                  </div>
+                </div>
+              </div>`;
+          }
+        }
+      }
+
+      const matchBadge = expected
+        ? (allMatch
+          ? '<span class="badge badge-success badge-sm">Matches expected</span>'
+          : '<span class="badge badge-warning badge-sm">Mismatch</span>')
+        : '';
+
+      resultEl.innerHTML = `
+        <div class="flex flex-wrap gap-2 items-center">
+          ${statusBadge} ${matchBadge}
+          <span class="text-xs opacity-70">Score: ${result.score}</span>
+        </div>
+        ${diffHtml}
+        <details class="mt-2">
+          <summary class="text-xs opacity-50 cursor-pointer">Full result</summary>
+          <pre class="text-xs bg-base-300 rounded p-2 mt-1 overflow-x-auto whitespace-pre-wrap">${JSON.stringify(result, null, 2)}</pre>
+        </details>
+      `;
+    } catch (err) {
+      resultEl.innerHTML = '<span class="badge badge-error badge-sm">Request failed: ' + err.message + '</span>';
+    }
+
+    btn.classList.remove('loading');
+  });
+
+  div.querySelector('.test-delete-btn').addEventListener('click', () => {
+    const idx = editors.indexOf(entry);
+    if (idx > -1) editors.splice(idx, 1);
+    div.remove();
+    syncHiddenField();
+  });
+
+  syncHiddenField();
+}
+
+window.addTestCase = function() {
+  renderTestCase({name: '', input: DEFAULT_INPUT, expected: DEFAULT_EXPECTED}, editors.length);
+};
+
+// Load existing test cases
+if (testCases.length > 0) {
+  testCases.forEach((tc, i) => renderTestCase(tc, i));
+} else {
+  syncHiddenField();
+}
+
+// Sync before submit
+document.getElementById('policy-form').addEventListener('submit', syncHiddenField);
 </script>
 {% endblock %}

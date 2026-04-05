@@ -2,6 +2,7 @@ import {
   EditorView, basicSetup,
   EditorState,
   python,
+  jsonLang,
   autocompletion,
   oneDark,
   keymap,
@@ -130,6 +131,36 @@ export function initPolicyEditor(textareaId) {
   new EditorView({state, parent: shadow, root: shadow});
 
   textarea.value = initialCode;
+}
+
+export function createJsonEditor(parent, initialValue, onChange) {
+  const doc = typeof initialValue === "string"
+    ? initialValue
+    : JSON.stringify(initialValue, null, 2);
+
+  const updateListener = EditorView.updateListener.of((update) => {
+    if (update.docChanged && onChange) {
+      onChange(update.state.doc.toString());
+    }
+  });
+
+  return new EditorView({
+    state: EditorState.create({
+      doc: doc,
+      extensions: [
+        basicSetup,
+        jsonLang(),
+        oneDark,
+        keymap.of([indentWithTab]),
+        updateListener,
+        EditorView.theme({
+          "&": {fontSize: "13px"},
+          ".cm-scroller": {fontFamily: "ui-monospace, monospace"},
+        }),
+      ],
+    }),
+    parent,
+  });
 }
 
 export function initPolicyViewer(elementId) {
