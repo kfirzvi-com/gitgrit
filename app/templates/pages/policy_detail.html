@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ policy.name }} — GitGrit{% endblock %}
 
@@ -25,7 +26,7 @@
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <h2 class="card-title">Code</h2>
-        <pre class="bg-base-300 rounded-lg p-4 overflow-x-auto text-sm font-mono whitespace-pre">{{ policy.code }}</pre>
+        <div id="code-viewer">{{ policy.code }}</div>
       </div>
     </div>
   </div>
@@ -71,4 +72,9 @@
     </div>
   </div>
 </div>
+
+<script type="module">
+  import { initPolicyViewer } from "{% static 'app/policy-editor.js' %}";
+  initPolicyViewer("code-viewer");
+</script>
 {% endblock %}
