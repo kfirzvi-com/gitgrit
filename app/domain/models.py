@@ -199,6 +199,30 @@ class ProjectStack(models.Model):
         return f"{self.project} — {self.stack}"
 
 
+class PolicyLabel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="policy_labels",
+    )
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "policy_labels"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "name"],
+                name="unique_label_per_tenant",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Policy(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
@@ -213,6 +237,7 @@ class Policy(models.Model):
     )
     criteria = models.JSONField(default=dict, blank=True)
     test_cases = models.JSONField(default=list, blank=True)
+    labels = models.ManyToManyField(PolicyLabel, related_name="policies", blank=True)
     enabled = models.BooleanField(default=True)
     draft = models.BooleanField(default=False)
     ordinal = models.IntegerField(default=1000)

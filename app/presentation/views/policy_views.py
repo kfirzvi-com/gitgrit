@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from app.domain.models import Policy
+from app.domain.models import Policy, PolicyLabel
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
@@ -27,7 +27,7 @@ class PolicyListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return Policy.objects.none()
-        return Policy.objects.filter(tenant=tenant)
+        return Policy.objects.filter(tenant=tenant).prefetch_related("labels")
 
 
 class CreatePolicyView(LoginRequiredMixin, CreateView):
@@ -45,8 +45,10 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["event_choices"] = EVENT_CHOICES
         context["language_choices"] = LANGUAGE_CHOICES
+        context["tenant_labels"] = PolicyLabel.objects.filter(tenant=self.request.tenant)
         context["selected_events"] = []
         context["selected_languages"] = []
+        context["selected_label_ids"] = []
         context["ref_pattern"] = ""
         context["is_edit"] = False
         return context
@@ -67,8 +69,21 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
         except json.JSONDecodeError:
             form.instance.test_cases = []
         self.object = form.save()
+        self._save_labels()
         messages.success(self.request, f'Policy "{self.object.name}" created.')
         return redirect("policy_detail", pk=self.object.pk)
+
+    def _save_labels(self):
+        label_ids = self.request.POST.getlist("labels")
+        new_label = self.request.POST.get("new_label", "").strip()
+        labels = list(PolicyLabel.objects.filter(pk__in=label_ids, tenant=self.request.tenant))
+        if new_label:
+            for name in [n.strip() for n in new_label.split(",") if n.strip()]:
+                label, _ = PolicyLabel.objects.get_or_create(
+                    tenant=self.request.tenant, name=name,
+                )
+                labels.append(label)
+        self.object.labels.set(labels)
 
 
 class PolicyDetailView(LoginRequiredMixin, DetailView):
@@ -97,9 +112,13 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["event_choices"] = EVENT_CHOICES
         context["language_choices"] = LANGUAGE_CHOICES
+        context["tenant_labels"] = PolicyLabel.objects.filter(tenant=self.request.tenant)
         criteria = self.object.criteria or {}
         context["selected_events"] = criteria.get("events", [])
         context["selected_languages"] = criteria.get("languages", [])
+        context["selected_label_ids"] = list(
+            self.object.labels.values_list("pk", flat=True)
+        )
         context["ref_pattern"] = criteria.get("ref", "")
         context["is_edit"] = True
         return context
@@ -119,8 +138,21 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
         except json.JSONDecodeError:
             form.instance.test_cases = []
         self.object = form.save()
+        self._save_labels()
         messages.success(self.request, f'Policy "{self.object.name}" updated.')
         return redirect("policy_detail", pk=self.object.pk)
+
+    def _save_labels(self):
+        label_ids = self.request.POST.getlist("labels")
+        new_label = self.request.POST.get("new_label", "").strip()
+        labels = list(PolicyLabel.objects.filter(pk__in=label_ids, tenant=self.request.tenant))
+        if new_label:
+            for name in [n.strip() for n in new_label.split(",") if n.strip()]:
+                label, _ = PolicyLabel.objects.get_or_create(
+                    tenant=self.request.tenant, name=name,
+                )
+                labels.append(label)
+        self.object.labels.set(labels)
 
 
 @login_required
