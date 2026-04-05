@@ -60,7 +60,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             # Compliance score: average of latest-per-policy scores across all projects
             all_executions = PolicyExecution.objects.filter(
                 project__in=tenant_projects
-            ).select_related("policy").order_by("-created_at")[:200]
+            ).select_related("policy", "project").order_by("-created_at")[:200]
             seen = {}
             for ex in all_executions:
                 key = (ex.project_id, ex.policy_id or ex.policy_name)
@@ -73,6 +73,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 )
             else:
                 context["compliance_score"] = None
+
+            # Overview tab data
+            if tab == "overview":
+                context["action_items"] = _get_action_items(latest)
+                context["activity_feed"] = (
+                    PolicyExecution.objects.filter(project__in=tenant_projects)
+                    .select_related("policy", "project")[:25]
+                )
 
             # Analytics data (for analytics tab)
             if tab == "analytics":
@@ -259,3 +267,21 @@ def _get_empty_data():
         "top_failing": [],
         "summary": {"projects": 0, "policies": 0, "executions": 0, "labels": 0},
     }
+
+
+def _get_action_items(latest_executions):
+    """Build prioritized action items from latest policy executions."""
+    items = []
+    for ex in sorted(latest_executions, key=lambda e: e.score):
+        if ex.status in ("failed", "error"):
+            items.append({
+                "project_id": ex.project_id,
+                "project_name": ex.project.name if hasattr(ex, "project") else "?",
+                "policy_name": ex.policy_name,
+                "policy_id": ex.policy_id,
+                "score": ex.score,
+                "message": ex.message,
+                "status": ex.status,
+                "when": ex.created_at,
+            })
+    return items

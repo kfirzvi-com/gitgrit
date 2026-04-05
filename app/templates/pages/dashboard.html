@@ -30,80 +30,124 @@
   </div>
   {% endif %}
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Projects</h2>
-        <p class="text-4xl font-bold text-primary">{{ project_count }}</p>
-        <p class="text-sm opacity-70">Connected repositories</p>
-        <div class="card-actions justify-end mt-2">
-          <a href="{% url 'add_project_select' %}" class="btn btn-primary btn-sm">Add Project</a>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Action Items</h2>
+          {% if action_items %}
+            <div class="space-y-3">
+              {% for item in action_items %}
+                <div class="flex items-start gap-3 p-3 bg-base-200 rounded-lg">
+                  <span class="badge {% if item.status == 'failed' %}badge-error{% else %}badge-warning{% endif %} badge-sm mt-1 shrink-0">
+                    {{ item.status }}
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-medium">
+                      <a href="{% url 'project_detail' item.project_id %}" class="link link-hover">{{ item.project_name }}</a>
+                      <span class="opacity-50 mx-1">/</span>
+                      {% if item.policy_id %}
+                        <a href="{% url 'policy_detail' item.policy_id %}" class="link link-hover">{{ item.policy_name }}</a>
+                      {% else %}
+                        {{ item.policy_name }}
+                      {% endif %}
+                    </p>
+                    <p class="text-sm opacity-70 break-words">{{ item.message }}</p>
+                  </div>
+                  <span class="badge badge-error badge-sm shrink-0">{{ item.score }}%</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-center py-6">
+              <p class="text-3xl mb-2">&#127881;</p>
+              <p class="font-medium">All clear!</p>
+              <p class="text-sm opacity-70">No failing policies across your projects.</p>
+            </div>
+          {% endif %}
         </div>
       </div>
-    </div>
 
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Policies</h2>
-        <p class="text-4xl font-bold text-secondary">{{ policy_count }}</p>
-        <p class="text-sm opacity-70">Active compliance policies</p>
-        <div class="card-actions justify-end mt-2">
-          <a href="{% url 'create_policy' %}" class="btn btn-secondary btn-sm">Create Policy</a>
-        </div>
-      </div>
-    </div>
-
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Compliance</h2>
-        {% if compliance_score is not None %}
-          <p class="text-4xl font-bold {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ compliance_score }}%</p>
-        {% else %}
-          <p class="text-4xl font-bold text-accent">&mdash;</p>
-        {% endif %}
-        <p class="text-sm opacity-70">Overall compliance score</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="mt-8">
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Recent Activity</h2>
-        {% if recent_executions %}
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Project</th>
-                  <th>Policy</th>
-                  <th>Status</th>
-                  <th>Score</th>
-                  <th>When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for ex in recent_executions %}
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Activity Feed</h2>
+          {% if activity_feed %}
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
                   <tr>
-                    <td>
-                      <a href="{% url 'project_detail' ex.project.pk %}" class="link link-hover">{{ ex.project.name }}</a>
-                    </td>
-                    <td>{{ ex.policy_name }}</td>
-                    <td>
-                      <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
-                        {{ ex.get_status_display }}
-                      </span>
-                    </td>
-                    <td>{{ ex.score }}</td>
-                    <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                    <th>Project</th>
+                    <th>Policy</th>
+                    <th>Event</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                    <th>Triggered by</th>
+                    <th>When</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {% for ex in activity_feed %}
+                    <tr>
+                      <td>
+                        <a href="{% url 'project_detail' ex.project.pk %}" class="link link-hover">{{ ex.project.name }}</a>
+                      </td>
+                      <td>{{ ex.policy_name }}</td>
+                      <td><span class="badge badge-outline badge-xs">{{ ex.event_type }}</span></td>
+                      <td>
+                        <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                          {{ ex.get_status_display }}
+                        </span>
+                      </td>
+                      <td>{{ ex.score }}</td>
+                      <td class="text-sm">{{ ex.triggered_by|default:"\u2014" }}</td>
+                      <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-sm opacity-70">No activity yet. Connect a project to get started.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-base">Quick Stats</h2>
+          <div class="space-y-4">
+            <div>
+              <div class="text-sm opacity-70">Projects</div>
+              <div class="text-2xl font-bold text-primary">{{ project_count }}</div>
+            </div>
+            <div>
+              <div class="text-sm opacity-70">Active Policies</div>
+              <div class="text-2xl font-bold text-secondary">{{ policy_count }}</div>
+            </div>
+            <div>
+              <div class="text-sm opacity-70">Compliance</div>
+              {% if compliance_score is not None %}
+                <div class="text-2xl font-bold {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}">
+                  {{ compliance_score }}%
+                </div>
+              {% else %}
+                <div class="text-2xl font-bold opacity-50">&mdash;</div>
+              {% endif %}
+            </div>
+            <div>
+              <div class="text-sm opacity-70">Action Items</div>
+              <div class="text-2xl font-bold {% if action_items %}text-error{% else %}text-success{% endif %}">
+                {{ action_items|length }}
+              </div>
+            </div>
           </div>
-        {% else %}
-          <p class="text-sm opacity-70">No activity yet. Connect a project to get started.</p>
-        {% endif %}
+          <div class="card-actions justify-end mt-4">
+            <a href="{% url 'add_project_select' %}" class="btn btn-primary btn-sm btn-block">Add Project</a>
+            <a href="{% url 'create_policy' %}" class="btn btn-secondary btn-sm btn-block">Create Policy</a>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -315,5 +359,6 @@
     document.getElementById('failing-empty').classList.remove('hidden');
   }
   </script>
+
 {% endif %}
 {% endblock %}
