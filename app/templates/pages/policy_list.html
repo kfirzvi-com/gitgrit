@@ -16,6 +16,7 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th>Labels</th>
               <th>Events</th>
               <th>Status</th>
               <th></th>
@@ -29,6 +30,11 @@
                   {% if policy.description %}
                     <p class="text-sm opacity-60 truncate">{{ policy.description }}</p>
                   {% endif %}
+                </td>
+                <td>
+                  {% for label in policy.labels.all %}
+                    <span class="badge badge-outline badge-sm">{{ label.name }}</span>
+                  {% endfor %}
                 </td>
                 <td>
                   {% for event in policy.criteria.events %}

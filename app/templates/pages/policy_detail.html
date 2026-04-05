@@ -42,6 +42,16 @@
               <p>{{ policy.description }}</p>
             </div>
           {% endif %}
+          {% if policy.labels.all %}
+            <div>
+              <span class="opacity-70">Labels</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for label in policy.labels.all %}
+                  <span class="badge badge-outline badge-sm">{{ label.name }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
           <div>
             <span class="opacity-70">Status</span>
             <div class="flex gap-1 mt-1">

@@ -36,6 +36,29 @@
 
       <div class="form-control">
         <label class="label">
+          <span class="label-text">Labels</span>
+        </label>
+        {% if tenant_labels %}
+          <div class="flex flex-wrap gap-2 mb-2">
+            {% for label in tenant_labels %}
+              <label class="label cursor-pointer gap-1">
+                <input type="checkbox" name="labels" value="{{ label.pk }}"
+                       class="checkbox checkbox-xs"
+                       {% if label.pk in selected_label_ids %}checked{% endif %}>
+                <span class="badge badge-outline badge-sm">{{ label.name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <div class="flex gap-2">
+          <input type="text" name="new_label" class="input input-bordered input-sm flex-1"
+                 placeholder="Add new labels (comma-separated)">
+        </div>
+        <p class="text-xs opacity-60 mt-1">Categorize policies for filtering (e.g. security, quality, documentation).</p>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
           <span class="label-text">Trigger Events</span>
         </label>
         <div class="flex flex-wrap gap-3">
