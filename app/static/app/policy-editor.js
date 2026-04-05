@@ -131,3 +131,30 @@ export function initPolicyEditor(textareaId) {
 
   textarea.value = initialCode;
 }
+
+export function initPolicyViewer(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  const code = el.textContent;
+  el.textContent = "";
+
+  new EditorView({
+    state: EditorState.create({
+      doc: code,
+      extensions: [
+        basicSetup,
+        python(),
+        oneDark,
+        EditorState.readOnly.of(true),
+        EditorView.editable.of(false),
+        EditorView.theme({
+          "&": {fontSize: "14px"},
+          ".cm-scroller": {fontFamily: "ui-monospace, monospace"},
+          ".cm-gutters": {border: "none"},
+        }),
+      ],
+    }),
+    parent: el,
+  });
+}
