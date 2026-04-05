@@ -1,92 +1,319 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
 
 {% block content %}
-<h1 class="text-3xl font-bold mb-6">Dashboard</h1>
-
-{% if is_admin and not has_connections %}
-<div class="alert alert-info mb-6">
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-  <span>No git platforms configured yet. <a href="{% url 'tenant_settings' %}" class="link link-primary font-semibold">Add a connection</a> in workspace settings so members can start adding projects.</span>
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold">Dashboard</h1>
+  {% if tab == "analytics" %}
+    <label class="label cursor-pointer gap-2">
+      <span class="label-text text-sm">Demo data</span>
+      <input type="checkbox" id="demo-toggle" class="toggle toggle-sm toggle-info"
+             {% if demo_mode %}checked{% endif %}>
+    </label>
+  {% endif %}
 </div>
-{% endif %}
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <h2 class="card-title">Projects</h2>
-      <p class="text-4xl font-bold text-primary">{{ project_count }}</p>
-      <p class="text-sm opacity-70">Connected repositories</p>
-      <div class="card-actions justify-end mt-2">
-        <a href="{% url 'add_project_select' %}" class="btn btn-primary btn-sm">Add Project</a>
+<div role="tablist" class="tabs tabs-bordered mb-6">
+  <a role="tab" class="tab {% if tab == 'overview' %}tab-active{% endif %}"
+     href="{% url 'dashboard' %}">Overview</a>
+  <a role="tab" class="tab {% if tab == 'analytics' %}tab-active{% endif %}"
+     href="{% url 'dashboard' %}?tab=analytics{% if demo_mode %}&demo=1{% endif %}">Analytics</a>
+</div>
+
+{% if tab == "overview" %}
+  {% if is_admin and not has_connections %}
+  <div class="alert alert-info mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    <span>No git platforms configured yet. <a href="{% url 'tenant_settings' %}" class="link link-primary font-semibold">Add a connection</a> in workspace settings so members can start adding projects.</span>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Projects</h2>
+        <p class="text-4xl font-bold text-primary">{{ project_count }}</p>
+        <p class="text-sm opacity-70">Connected repositories</p>
+        <div class="card-actions justify-end mt-2">
+          <a href="{% url 'add_project_select' %}" class="btn btn-primary btn-sm">Add Project</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Policies</h2>
+        <p class="text-4xl font-bold text-secondary">{{ policy_count }}</p>
+        <p class="text-sm opacity-70">Active compliance policies</p>
+        <div class="card-actions justify-end mt-2">
+          <a href="{% url 'create_policy' %}" class="btn btn-secondary btn-sm">Create Policy</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Compliance</h2>
+        {% if compliance_score is not None %}
+          <p class="text-4xl font-bold {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ compliance_score }}%</p>
+        {% else %}
+          <p class="text-4xl font-bold text-accent">&mdash;</p>
+        {% endif %}
+        <p class="text-sm opacity-70">Overall compliance score</p>
       </div>
     </div>
   </div>
 
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <h2 class="card-title">Policies</h2>
-      <p class="text-4xl font-bold text-secondary">{{ policy_count }}</p>
-      <p class="text-sm opacity-70">Active compliance policies</p>
-      <div class="card-actions justify-end mt-2">
-        <a href="{% url 'create_policy' %}" class="btn btn-secondary btn-sm">Create Policy</a>
+  <div class="mt-8">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Recent Activity</h2>
+        {% if recent_executions %}
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Policy</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ex in recent_executions %}
+                  <tr>
+                    <td>
+                      <a href="{% url 'project_detail' ex.project.pk %}" class="link link-hover">{{ ex.project.name }}</a>
+                    </td>
+                    <td>{{ ex.policy_name }}</td>
+                    <td>
+                      <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                        {{ ex.get_status_display }}
+                      </span>
+                    </td>
+                    <td>{{ ex.score }}</td>
+                    <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-sm opacity-70">No activity yet. Connect a project to get started.</p>
+        {% endif %}
       </div>
     </div>
   </div>
 
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <h2 class="card-title">Compliance</h2>
-      {% if compliance_score is not None %}
-        <p class="text-4xl font-bold {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ compliance_score }}%</p>
-      {% else %}
-        <p class="text-4xl font-bold text-accent">—</p>
-      {% endif %}
-      <p class="text-sm opacity-70">Overall compliance score</p>
+{% elif tab == "analytics" %}
+  {% if demo_mode %}
+    <div class="alert alert-info mb-6">
+      <span>Showing demo data to preview how the dashboard looks with real usage. Toggle off to see your actual data.</span>
+    </div>
+  {% endif %}
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="stat bg-base-100 rounded-lg shadow">
+      <div class="stat-title">Projects</div>
+      <div class="stat-value text-2xl" id="stat-projects">&mdash;</div>
+    </div>
+    <div class="stat bg-base-100 rounded-lg shadow">
+      <div class="stat-title">Policies</div>
+      <div class="stat-value text-2xl" id="stat-policies">&mdash;</div>
+    </div>
+    <div class="stat bg-base-100 rounded-lg shadow">
+      <div class="stat-title">Executions (30d)</div>
+      <div class="stat-value text-2xl" id="stat-executions">&mdash;</div>
+    </div>
+    <div class="stat bg-base-100 rounded-lg shadow">
+      <div class="stat-title">Labels</div>
+      <div class="stat-value text-2xl" id="stat-labels">&mdash;</div>
     </div>
   </div>
-</div>
 
-<div class="mt-8">
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <h2 class="card-title">Recent Activity</h2>
-      {% if recent_executions %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Compliance Trend (30 days)</h2>
+        <div style="height: 220px">
+          <canvas id="chart-trend"></canvas>
+        </div>
+        <p class="text-xs opacity-50 mt-2 hidden" id="trend-empty">No data yet.</p>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Scores by Label</h2>
+        <div style="height: 220px">
+          <canvas id="chart-labels"></canvas>
+        </div>
+        <p class="text-xs opacity-50 mt-2 hidden" id="labels-empty">No labels configured yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Project Compliance</h2>
         <div class="overflow-x-auto">
-          <table class="table table-sm">
+          <table class="table table-sm" id="projects-table">
             <thead>
               <tr>
                 <th>Project</th>
-                <th>Policy</th>
-                <th>Status</th>
+                <th>Languages</th>
                 <th>Score</th>
-                <th>When</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody>
-              {% for ex in recent_executions %}
-                <tr>
-                  <td>
-                    <a href="{% url 'project_detail' ex.project.pk %}" class="link link-hover">{{ ex.project.name }}</a>
-                  </td>
-                  <td>{{ ex.policy_name }}</td>
-                  <td>
-                    <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
-                      {{ ex.get_status_display }}
-                    </span>
-                  </td>
-                  <td>{{ ex.score }}</td>
-                  <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
-                </tr>
-              {% endfor %}
-            </tbody>
+            <tbody></tbody>
           </table>
         </div>
-      {% else %}
-        <p class="text-sm opacity-70">No activity yet. Connect a project to get started.</p>
-      {% endif %}
+        <p class="text-xs opacity-50 mt-2 hidden" id="projects-empty">No projects yet.</p>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Top Failing Policies</h2>
+        <div class="overflow-x-auto">
+          <table class="table table-sm" id="failing-table">
+            <thead>
+              <tr>
+                <th>Policy</th>
+                <th>Failures</th>
+                <th>Total</th>
+                <th>Fail Rate</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-xs opacity-50 mt-2 hidden" id="failing-empty">All policies passing.</p>
+      </div>
     </div>
   </div>
-</div>
+
+  {% if airgapped %}
+    <script src="{% static 'app/vendor/chart.js' %}"></script>
+  {% else %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  {% endif %}
+
+  <script>
+  const data = {{ analytics_data|safe }};
+
+  document.getElementById('demo-toggle').addEventListener('change', function() {
+    const url = new URL(window.location);
+    url.searchParams.set('tab', 'analytics');
+    if (this.checked) {
+      url.searchParams.set('demo', '1');
+    } else {
+      url.searchParams.delete('demo');
+    }
+    window.location = url;
+  });
+
+  document.getElementById('stat-projects').textContent = data.summary.projects;
+  document.getElementById('stat-policies').textContent = data.summary.policies;
+  document.getElementById('stat-executions').textContent = data.summary.executions;
+  document.getElementById('stat-labels').textContent = data.summary.labels;
+
+  const chartColors = {
+    line: 'oklch(0.65 0.24 265)',
+    lineBg: 'oklch(0.65 0.24 265 / 0.1)',
+    bars: ['oklch(0.7 0.15 150)', 'oklch(0.7 0.15 200)', 'oklch(0.7 0.15 250)', 'oklch(0.7 0.15 300)', 'oklch(0.7 0.15 50)'],
+    grid: 'rgba(255,255,255,0.06)',
+    text: 'rgba(255,255,255,0.6)',
+  };
+
+  Chart.defaults.color = chartColors.text;
+  Chart.defaults.borderColor = chartColors.grid;
+  Chart.defaults.animation = {duration: 400};
+
+  if (data.trend.labels.length > 0) {
+    new Chart(document.getElementById('chart-trend'), {
+      type: 'line',
+      data: {
+        labels: data.trend.labels.map(d => d.slice(5)),
+        datasets: [{
+          label: 'Avg Score',
+          data: data.trend.scores,
+          borderColor: chartColors.line,
+          backgroundColor: chartColors.lineBg,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHitRadius: 10,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
+          x: { ticks: { maxTicksLimit: 10 } },
+        },
+      },
+    });
+  } else {
+    document.getElementById('trend-empty').classList.remove('hidden');
+  }
+
+  if (data.labels.names.length > 0) {
+    new Chart(document.getElementById('chart-labels'), {
+      type: 'bar',
+      data: {
+        labels: data.labels.names,
+        datasets: [{
+          label: 'Avg Score',
+          data: data.labels.scores,
+          backgroundColor: chartColors.bars.slice(0, data.labels.names.length),
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
+        },
+      },
+    });
+  } else {
+    document.getElementById('labels-empty').classList.remove('hidden');
+  }
+
+  const projectsTbody = document.querySelector('#projects-table tbody');
+  if (data.projects.length > 0) {
+    [...data.projects].sort((a, b) => (a.score ?? -1) - (b.score ?? -1)).forEach(p => {
+      const score = p.score !== null ? p.score : '\u2014';
+      const bc = p.score >= 80 ? 'badge-success' : p.score >= 50 ? 'badge-warning' : p.score !== null ? 'badge-error' : 'badge-ghost';
+      const bar = p.score !== null
+        ? `<progress class="progress ${p.score >= 80 ? 'progress-success' : p.score >= 50 ? 'progress-warning' : 'progress-error'} w-16" value="${p.score}" max="100"></progress>`
+        : '';
+      const langs = (p.languages || []).map(l => `<span class="badge badge-outline badge-xs">${l}</span>`).join(' ');
+      projectsTbody.innerHTML += `<tr><td class="font-medium">${p.name}</td><td>${langs}</td><td><span class="badge ${bc} badge-sm">${score}%</span></td><td>${bar}</td></tr>`;
+    });
+  } else {
+    document.getElementById('projects-empty').classList.remove('hidden');
+  }
+
+  const failingTbody = document.querySelector('#failing-table tbody');
+  if (data.top_failing.length > 0) {
+    data.top_failing.forEach(p => {
+      failingTbody.innerHTML += `<tr><td class="font-medium">${p.name}</td><td class="text-error">${p.failures}</td><td>${p.total}</td><td><span class="badge badge-error badge-sm">${p.rate}%</span></td></tr>`;
+    });
+  } else {
+    document.getElementById('failing-empty').classList.remove('hidden');
+  }
+  </script>
+{% endif %}
 {% endblock %}
