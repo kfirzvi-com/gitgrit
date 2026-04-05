@@ -50,6 +50,34 @@
         </div>
       </div>
 
+      <div class="form-control">
+        <label class="label" for="id_ref_pattern">
+          <span class="label-text">Branch Filter</span>
+        </label>
+        <input type="text" name="ref_pattern" id="id_ref_pattern"
+               value="{{ ref_pattern }}"
+               class="input input-bordered input-sm w-full font-mono"
+               placeholder="e.g. ^main$ or ^release/.*">
+        <p class="text-xs opacity-60 mt-1">Regex to match branch names. Leave empty to match all branches.</p>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Languages</span>
+        </label>
+        <div class="flex flex-wrap gap-2">
+          {% for lang in language_choices %}
+            <label class="label cursor-pointer gap-1">
+              <input type="checkbox" name="languages" value="{{ lang }}"
+                     class="checkbox checkbox-xs"
+                     {% if lang in selected_languages %}checked{% endif %}>
+              <span class="label-text text-sm">{{ lang }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs opacity-60 mt-1">Only run for projects with these languages. Leave empty to match all.</p>
+      </div>
+
       <div role="tablist" class="tabs tabs-bordered">
         <a role="tab" class="tab tab-active" data-tab="code" onclick="switchTab('code')">Code</a>
         <a role="tab" class="tab" data-tab="tests" onclick="switchTab('tests')">Tests</a>

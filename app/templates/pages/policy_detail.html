@@ -63,6 +63,22 @@
               {% endfor %}
             </div>
           </div>
+          {% if policy.criteria.ref %}
+            <div>
+              <span class="opacity-70">Branch Filter</span>
+              <p><code class="text-sm">{{ policy.criteria.ref }}</code></p>
+            </div>
+          {% endif %}
+          {% if policy.criteria.languages %}
+            <div>
+              <span class="opacity-70">Languages</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for lang in policy.criteria.languages %}
+                  <span class="badge badge-outline badge-sm">{{ lang }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
           <div>
             <span class="opacity-70">Sort Order</span>
             <p>{{ policy.ordinal }}</p>

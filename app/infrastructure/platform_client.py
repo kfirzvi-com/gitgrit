@@ -32,6 +32,14 @@ class PlatformClient(ABC):
     def test_token(self) -> bool:
         """Verify the token is valid."""
 
+    def get_languages(self, external_id: str, full_path: str = "") -> list[str]:
+        """Return list of language names for a project. Override per platform."""
+        return []
+
+    def get_topics(self, external_id: str, full_path: str = "") -> list[str]:
+        """Return list of topic/tag names for a project. Override per platform."""
+        return []
+
 
 class GitHubClient(PlatformClient):
     @property
@@ -81,6 +89,24 @@ class GitHubClient(PlatformClient):
                 break
             page += 1
         return results
+
+    def get_languages(self, external_id: str, full_path: str = "") -> list[str]:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/languages",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return list(resp.json().keys())
+
+    def get_topics(self, external_id: str, full_path: str = "") -> list[str]:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/topics",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json().get("names", [])
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         # Need full_name (owner/repo) — look up from external_id
@@ -167,6 +193,24 @@ class GitLabClient(PlatformClient):
             }
             for p in resp.json()
         ]
+
+    def get_languages(self, external_id: str, full_path: str = "") -> list[str]:
+        resp = requests.get(
+            f"{self._api_base}/projects/{external_id}/languages",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return list(resp.json().keys())
+
+    def get_topics(self, external_id: str, full_path: str = "") -> list[str]:
+        resp = requests.get(
+            f"{self._api_base}/projects/{external_id}",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json().get("topics", [])
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         resp = requests.post(
