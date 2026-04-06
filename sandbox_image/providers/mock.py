@@ -37,6 +37,10 @@ class MockProvider(BaseProvider):
         self.project_id = project_id
         self._data = data or {}
 
+    def get_file_content(self, path: str) -> str | None:
+        file_contents = self._data.get("get_file_content", {})
+        return file_contents.get(path)
+
     def list_files(self) -> list[str]:
         return self._data.get("list_files", _DEFAULT_FILES)
 

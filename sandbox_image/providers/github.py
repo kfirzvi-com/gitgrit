@@ -55,6 +55,26 @@ class GitHubProvider(BaseProvider):
     # BaseProvider implementation
     # ------------------------------------------------------------------
 
+    def _get_raw(self, path: str) -> str | None:
+        """Fetch raw text content from a URL path."""
+        url = f"{self.base_url}{path}"
+        req = urllib.request.Request(url)
+        req.add_header("Authorization", f"Bearer {self.access_token}")
+        req.add_header("Accept", "application/vnd.github.raw+json")
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return resp.read().decode()
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return None
+            body = exc.read().decode() if exc.fp else ""
+            raise RuntimeError(
+                f"GitHub API error {exc.code} for {url}: {body}"
+            ) from exc
+
+    def get_file_content(self, path: str) -> str | None:
+        return self._get_raw(f"/repos/{self.full_path}/contents/{path}")
+
     def list_files(self) -> list[str]:
         branch = self.get_default_branch()
         tree = self._get(

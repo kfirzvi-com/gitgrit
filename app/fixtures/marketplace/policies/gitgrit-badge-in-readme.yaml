@@ -1,0 +1,77 @@
+slug: gitgrit-badge-in-readme
+name: GitGrit Badge in README
+description: >
+  Checks that the repository README contains a GitGrit compliance badge.
+  Embedding the badge helps communicate compliance status to contributors
+  and stakeholders directly in the repository.
+author: GitGrit
+version: 1
+suggested_labels:
+  - documentation
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      readme_files = [f for f in files if f.lower().startswith("readme")]
+
+      if not readme_files:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": "No README file found",
+              "details": {},
+          }
+
+      for readme in readme_files:
+          content = project.get_file_content(readme)
+          if content and "gitgrit.dev/badge/" in content:
+              return {
+                  "passed": True,
+                  "score": 100,
+                  "message": f"GitGrit badge found in {readme}",
+                  "details": {"file": readme},
+              }
+
+      return {
+          "passed": False,
+          "score": 50,
+          "message": "No GitGrit badge found in README. Add the compliance badge from the project page in GitGrit.",
+          "details": {"readme_files": readme_files},
+      }
+test_cases:
+  - name: README has gitgrit badge
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+      get_file_content:
+        README.md: |
+          # My Project
+          [![gitgrit](https://app.gitgrit.dev/badge/abc123.svg)](https://app.gitgrit.dev/projects/abc123/)
+          Some content here.
+    expected:
+      passed: true
+      score: 100
+  - name: README without badge
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+      get_file_content:
+        README.md: |
+          # My Project
+          Just a regular readme.
+    expected:
+      passed: false
+      score: 50
+  - name: No README at all
+    input:
+      list_files:
+        - src/main.py
+    expected:
+      passed: false
+      score: 0

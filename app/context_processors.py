@@ -6,6 +6,7 @@ from app.domain.models import Tenant
 def tenant_context(request):
     ctx = {
         "airgapped": settings.AIRGAPPED,
+        "site_url": settings.SITE_URL,
     }
 
     if not hasattr(request, "user") or not request.user.is_authenticated:

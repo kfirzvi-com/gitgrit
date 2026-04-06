@@ -229,6 +229,36 @@
   </div>
 
   <div class="space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Badge</h2>
+        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show compliance status.</p>
+        <div class="mb-3">
+          <img src="{% url 'project_badge' project.pk %}" alt="compliance badge">
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text text-xs opacity-70">Markdown</span></label>
+          <div class="join w-full">
+            <input type="text" readonly id="badge-md"
+                   value="[![gitgrit]({{ site_url }}/badge/{{ project.pk }}.svg)]({{ site_url }}/projects/{{ project.pk }}/)"
+                   class="input input-bordered input-sm font-mono text-xs join-item flex-1"
+                   onclick="this.select()">
+            <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-md').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+        </div>
+        <div class="form-control mt-2">
+          <label class="label"><span class="label-text text-xs opacity-70">HTML</span></label>
+          <div class="join w-full">
+            <input type="text" readonly id="badge-html"
+                   value='<a href="{{ site_url }}/projects/{{ project.pk }}/"><img src="{{ site_url }}/badge/{{ project.pk }}.svg" alt="gitgrit"></a>'
+                   class="input input-bordered input-sm font-mono text-xs join-item flex-1"
+                   onclick="this.select()">
+            <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-html').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     {% if project.tags %}
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
