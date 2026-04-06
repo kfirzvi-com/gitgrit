@@ -370,6 +370,13 @@ class PolicyExecution(models.Model):
     message = models.TextField(blank=True, default="")
     details = models.JSONField(default=dict, blank=True)
     triggered_by = models.CharField(max_length=255, blank=True, default="")
+    triggered_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="policy_executions",
+    )
     ref = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 

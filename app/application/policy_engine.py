@@ -6,6 +6,7 @@ import re
 from django.db.models import QuerySet
 
 from app.domain.events import DomainEvent
+from app.domain.identity import resolve_user
 from app.domain.models import Policy, PolicyExecution, Project
 from app.infrastructure.sandbox.runner import SandboxRunner
 
@@ -95,6 +96,9 @@ class PolicyEngine:
             )
             return []
 
+        # Resolve the platform actor to a GitGrit user (once per event)
+        actor_user = resolve_user(event.platform, event.actor)
+
         results = []
         for project in projects:
             policies = self.get_policies_for_project(
@@ -134,6 +138,7 @@ class PolicyEngine:
                     event_type=event.event_type,
                     status=PolicyExecution.Status.RUNNING,
                     triggered_by=event.actor or "",
+                    triggered_by_user=actor_user,
                     ref=event.ref or "",
                 )
 
