@@ -1,0 +1,61 @@
+site_name: GitGrit
+site_url: https://gitgrit.dev
+site_description: Repository Standards & Compliance Platform
+site_author: GitGrit
+
+theme:
+  name: material
+  custom_dir: overrides
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+repo_url: https://github.com/kfirzvi-com/gitgrit
+repo_name: kfirzvi-com/gitgrit
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+    - Adding Projects: getting-started/projects.md
+    - Writing Policies: getting-started/policies.md
+  - Features:
+    - Policy Marketplace: features/marketplace.md
+    - Compliance Badges: features/badges.md
+    - Policy Versioning: features/versioning.md
+    - Analytics Dashboard: features/analytics.md
+  - Policy API:
+    - ProjectContext: api/project-context.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kfirzvi-com/gitgrit
+  generator: false
+
+copyright: "&copy; 2026 GitGrit — Repository Standards & Compliance"
