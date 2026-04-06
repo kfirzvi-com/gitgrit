@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Policy Marketplace — GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold">Policy Marketplace</h1>
+</div>
+
+{% if packs %}
+  <h2 class="text-xl font-semibold mb-4">Packs</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    {% for pack in packs %}
+      <a href="{% url 'marketplace_pack_detail' pack.slug %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+        <div class="card-body">
+          <h3 class="card-title text-base">
+            {% if pack.icon %}{{ pack.icon }} {% endif %}{{ pack.name }}
+          </h3>
+          <p class="text-sm opacity-70">{{ pack.description }}</p>
+          <div class="card-actions justify-end mt-2">
+            <span class="badge badge-outline badge-sm">{{ pack.policies.count }} policies</span>
+          </div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<h2 class="text-xl font-semibold mb-4">Individual Policies</h2>
+{% if policies %}
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Labels</th>
+              <th>Author</th>
+              <th>Version</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mp in policies %}
+              <tr>
+                <td class="max-w-xs">
+                  <a href="{% url 'marketplace_policy_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
+                  {% if mp.description %}
+                    <p class="text-sm opacity-60 truncate">{{ mp.description }}</p>
+                  {% endif %}
+                </td>
+                <td>
+                  {% for label in mp.suggested_labels %}
+                    <span class="badge badge-outline badge-sm">{{ label }}</span>
+                  {% endfor %}
+                </td>
+                <td class="text-sm">{{ mp.author|default:"\u2014" }}</td>
+                <td><span class="badge badge-ghost badge-sm">v{{ mp.version }}</span></td>
+                <td class="text-right">
+                  {% if mp.slug in installed_slugs %}
+                    <span class="badge badge-success badge-sm">Installed</span>
+                  {% else %}
+                    <form method="post" action="{% url 'install_marketplace_policy' mp.slug %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-primary btn-xs">Install</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body items-center text-center py-12">
+      <h2 class="card-title">No marketplace policies yet</h2>
+      <p class="opacity-70">Marketplace policies will appear here once seeded.</p>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

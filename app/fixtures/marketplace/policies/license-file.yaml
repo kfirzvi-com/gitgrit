@@ -1,0 +1,53 @@
+slug: license-file
+name: License File
+description: >
+  Checks that the repository includes a LICENSE or LICENCE file. Open source
+  projects require a license for legal clarity; internal projects benefit
+  from explicit licensing too.
+author: GitGrit
+version: 1
+suggested_labels:
+  - compliance
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      license_files = [
+          f for f in files
+          if f.lower().startswith("license") or f.lower().startswith("licence")
+      ]
+
+      if license_files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"License found: {license_files[0]}",
+              "details": {"license_files": license_files},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No LICENSE file found in repository",
+          "details": {},
+      }
+test_cases:
+  - name: Has LICENSE
+    input:
+      list_files:
+        - LICENSE
+        - README.md
+    expected:
+      passed: true
+      score: 100
+  - name: No license
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+    expected:
+      passed: false
+      score: 0

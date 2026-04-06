@@ -89,6 +89,26 @@
               </div>
             </div>
           {% endif %}
+          {% if policy.source_marketplace_policy %}
+            <div>
+              <span class="opacity-70">Marketplace Source</span>
+              <p>
+                <a href="{% url 'marketplace_policy_preview' policy.source_marketplace_policy.slug %}" class="link link-hover">
+                  {{ policy.source_marketplace_policy.name }}
+                </a>
+                <span class="opacity-50">(installed v{{ policy.source_version }})</span>
+              </p>
+              {% if policy.source_version < policy.source_marketplace_policy.version %}
+                <form method="post" action="{% url 'update_marketplace_policy' policy.source_marketplace_policy.slug %}" class="mt-1">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-warning btn-xs"
+                          onclick="return confirm('This will overwrite your current policy code with the marketplace version. Continue?')">
+                    Update to v{{ policy.source_marketplace_policy.version }}
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          {% endif %}
           <div>
             <span class="opacity-70">Sort Order</span>
             <p>{{ policy.ordinal }}</p>

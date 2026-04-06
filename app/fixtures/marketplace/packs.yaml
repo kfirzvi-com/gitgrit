@@ -1,0 +1,20 @@
+- slug: repo-hygiene
+  name: Repository Hygiene
+  description: >
+    Essential documentation and quality standards every repository should have.
+    Includes README, LICENSE, CODEOWNERS, and CI configuration checks.
+  icon: "\U0001F9F9"
+  policies:
+    - readme-exists
+    - license-file
+    - codeowners-file
+    - ci-config-required
+
+- slug: security-essentials
+  name: Security Essentials
+  description: >
+    Core security checks to prevent common mistakes like committing
+    secrets or credentials to version control.
+  icon: "\U0001F6E1"
+  policies:
+    - no-secrets-in-code

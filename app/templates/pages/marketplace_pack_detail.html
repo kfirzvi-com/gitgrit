@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pack.name }} — Marketplace — GitGrit{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{% url 'marketplace_browse' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Marketplace</a>
+  <div class="flex justify-between items-center mt-1">
+    <h1 class="text-3xl font-bold">
+      {% if pack.icon %}{{ pack.icon }} {% endif %}{{ pack.name }}
+    </h1>
+    <form method="post" action="{% url 'install_marketplace_pack' pack.slug %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-sm">Install All</button>
+    </form>
+  </div>
+  {% if pack.description %}
+    <p class="mt-2 opacity-70">{{ pack.description }}</p>
+  {% endif %}
+</div>
+
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h2 class="card-title text-base">Policies in this pack</h2>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Labels</th>
+            <th>Version</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mp in pack.policies.all %}
+            <tr>
+              <td>
+                <a href="{% url 'marketplace_policy_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
+                {% if mp.description %}
+                  <p class="text-sm opacity-60 truncate max-w-md">{{ mp.description }}</p>
+                {% endif %}
+              </td>
+              <td>
+                {% for label in mp.suggested_labels %}
+                  <span class="badge badge-outline badge-sm">{{ label }}</span>
+                {% endfor %}
+              </td>
+              <td><span class="badge badge-ghost badge-sm">v{{ mp.version }}</span></td>
+              <td class="text-right">
+                {% if mp.slug in installed_map %}
+                  <span class="badge badge-success badge-sm">Installed</span>
+                {% else %}
+                  <form method="post" action="{% url 'install_marketplace_policy' mp.slug %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-xs">Install</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ mp_policy.name }} — Marketplace — GitGrit{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{% url 'marketplace_browse' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Marketplace</a>
+  <div class="flex justify-between items-center mt-1">
+    <h1 class="text-3xl font-bold">{{ mp_policy.name }}</h1>
+    <div>
+      {% if installed_policy %}
+        {% if update_available %}
+          <form method="post" action="{% url 'update_marketplace_policy' mp_policy.slug %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning btn-sm"
+                    onclick="return confirm('This will overwrite your current policy code with the marketplace version. Continue?')">
+              Update to v{{ mp_policy.version }}
+            </button>
+          </form>
+        {% else %}
+          <span class="badge badge-success">Installed (v{{ installed_policy.source_version }})</span>
+        {% endif %}
+      {% else %}
+        <form method="post" action="{% url 'install_marketplace_policy' mp_policy.slug %}" class="inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-sm">Install</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Code</h2>
+        <div id="code-viewer">{{ mp_policy.code }}</div>
+      </div>
+    </div>
+
+    {% if mp_policy.test_cases %}
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-base">Test Cases</h2>
+          <div class="space-y-2">
+            {% for tc in mp_policy.test_cases %}
+              <div class="p-3 bg-base-200 rounded-lg">
+                <p class="font-medium text-sm">{{ tc.name }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Details</h2>
+        <div class="space-y-3 text-sm">
+          {% if mp_policy.description %}
+            <div>
+              <span class="opacity-70">Description</span>
+              <p>{{ mp_policy.description }}</p>
+            </div>
+          {% endif %}
+          {% if mp_policy.suggested_labels %}
+            <div>
+              <span class="opacity-70">Labels</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for label in mp_policy.suggested_labels %}
+                  <span class="badge badge-outline badge-sm">{{ label }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          {% if mp_policy.author %}
+            <div>
+              <span class="opacity-70">Author</span>
+              <p>{{ mp_policy.author }}</p>
+            </div>
+          {% endif %}
+          <div>
+            <span class="opacity-70">Version</span>
+            <p>v{{ mp_policy.version }}</p>
+          </div>
+          {% if mp_policy.criteria.events %}
+            <div>
+              <span class="opacity-70">Events</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for event in mp_policy.criteria.events %}
+                  <span class="badge badge-outline badge-sm">{{ event }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          {% if mp_policy.criteria.ref %}
+            <div>
+              <span class="opacity-70">Branch Filter</span>
+              <p><code class="text-sm">{{ mp_policy.criteria.ref }}</code></p>
+            </div>
+          {% endif %}
+          {% if mp_policy.criteria.languages %}
+            <div>
+              <span class="opacity-70">Languages</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for lang in mp_policy.criteria.languages %}
+                  <span class="badge badge-outline badge-sm">{{ lang }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          {% if mp_policy.packs.all %}
+            <div>
+              <span class="opacity-70">Included in packs</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for pack in mp_policy.packs.all %}
+                  <a href="{% url 'marketplace_pack_detail' pack.slug %}" class="badge badge-outline badge-sm link link-hover">
+                    {% if pack.icon %}{{ pack.icon }} {% endif %}{{ pack.name }}
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initPolicyViewer } from "{% static 'app/policy-editor.js' %}";
+  initPolicyViewer("code-viewer");
+</script>
+{% endblock %}

@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from app.domain.models import (
+    MarketplacePack,
+    MarketplacePolicy,
     Membership,
     PlatformConnection,
     Policy,
@@ -83,6 +85,27 @@ class PolicyAdmin(admin.ModelAdmin):
     list_display = ("name", "tenant", "enabled", "draft", "ordinal", "created_at")
     list_filter = ("tenant", "enabled", "draft")
     search_fields = ("name",)
+
+
+class MarketplacePolicyInline(admin.TabularInline):
+    model = MarketplacePack.policies.through
+    extra = 1
+
+
+@admin.register(MarketplacePolicy)
+class MarketplacePolicyAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "version", "author", "updated_at")
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(MarketplacePack)
+class MarketplacePackAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "icon", "updated_at")
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+    inlines = [MarketplacePolicyInline]
+    exclude = ("policies",)
 
 
 @admin.register(PolicyExecution)

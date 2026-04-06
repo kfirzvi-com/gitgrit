@@ -1,0 +1,62 @@
+slug: ci-config-required
+name: CI Configuration Required
+description: >
+  Verifies that the repository has a CI/CD configuration file. Supports
+  GitHub Actions, GitLab CI, CircleCI, Jenkins, and Travis CI.
+author: GitGrit
+version: 1
+suggested_labels:
+  - ci-cd
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      ci_patterns = {
+          "GitHub Actions": ".github/workflows/",
+          "GitLab CI": ".gitlab-ci.yml",
+          "CircleCI": ".circleci/config.yml",
+          "Jenkinsfile": "Jenkinsfile",
+          "Travis CI": ".travis.yml",
+      }
+
+      found = {}
+      for name, pattern in ci_patterns.items():
+          matches = [f for f in files if f.startswith(pattern) or f == pattern]
+          if matches:
+              found[name] = matches
+
+      if found:
+          providers = list(found.keys())
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"CI config found: {', '.join(providers)}",
+              "details": {"providers": found},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No CI/CD configuration found",
+          "details": {"checked_patterns": list(ci_patterns.values())},
+      }
+test_cases:
+  - name: Has GitHub Actions
+    input:
+      list_files:
+        - .github/workflows/ci.yml
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: No CI config
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+    expected:
+      passed: false
+      score: 0
