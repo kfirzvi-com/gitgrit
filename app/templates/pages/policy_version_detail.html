@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ policy.name }} v{{ version.version }} — GitGrit{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{% url 'policy_detail' policy.pk %}" class="text-sm opacity-70 hover:opacity-100">&larr; {{ policy.name }}</a>
+  <div class="flex justify-between items-center mt-1">
+    <h1 class="text-3xl font-bold">{{ policy.name }} <span class="opacity-50">v{{ version.version }}</span></h1>
+    {% if not is_current %}
+      <form method="post" action="{% url 'revert_policy_version' version.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-warning btn-sm"
+                onclick="return confirm('Revert to v{{ version.version }}? This creates a new version with the old code.')">
+          Revert to this version
+        </button>
+      </form>
+    {% else %}
+      <span class="badge badge-success">Current version</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Code</h2>
+        <div id="code-viewer">{{ version.code }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">Version Info</h2>
+        <div class="space-y-3 text-sm">
+          <div>
+            <span class="opacity-70">Change</span>
+            <p>{{ version.change_summary }}</p>
+          </div>
+          <div>
+            <span class="opacity-70">Changed by</span>
+            <p>{{ version.changed_by.email|default:"\u2014" }}</p>
+          </div>
+          <div>
+            <span class="opacity-70">Date</span>
+            <p>{{ version.created_at|timesince }} ago</p>
+          </div>
+          {% if version.description %}
+            <div>
+              <span class="opacity-70">Description</span>
+              <p>{{ version.description }}</p>
+            </div>
+          {% endif %}
+          {% if version.labels_snapshot %}
+            <div>
+              <span class="opacity-70">Labels</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for label in version.labels_snapshot %}
+                  <span class="badge badge-outline badge-sm">{{ label }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          {% if version.criteria.events %}
+            <div>
+              <span class="opacity-70">Events</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for event in version.criteria.events %}
+                  <span class="badge badge-outline badge-sm">{{ event }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          {% if version.criteria.ref %}
+            <div>
+              <span class="opacity-70">Branch Filter</span>
+              <p><code class="text-sm">{{ version.criteria.ref }}</code></p>
+            </div>
+          {% endif %}
+          {% if version.criteria.languages %}
+            <div>
+              <span class="opacity-70">Languages</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for lang in version.criteria.languages %}
+                  <span class="badge badge-outline badge-sm">{{ lang }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initPolicyViewer } from "{% static 'app/policy-editor.js' %}";
+  initPolicyViewer("code-viewer");
+</script>
+{% endblock %}

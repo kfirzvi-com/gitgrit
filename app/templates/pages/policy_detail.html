@@ -29,6 +29,50 @@
         <div id="code-viewer">{{ policy.code }}</div>
       </div>
     </div>
+
+    {% if versions %}
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-base">Version History</h2>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Change</th>
+                  <th>By</th>
+                  <th>When</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for v in versions %}
+                  <tr>
+                    <td><a href="{% url 'policy_version_detail' v.pk %}" class="link link-hover font-medium">v{{ v.version }}</a></td>
+                    <td class="text-sm">{{ v.change_summary }}</td>
+                    <td class="text-sm">{{ v.changed_by.email|default:"\u2014" }}</td>
+                    <td class="text-sm opacity-70">{{ v.created_at|timesince }} ago</td>
+                    <td class="text-right">
+                      {% if not forloop.first %}
+                        <form method="post" action="{% url 'revert_policy_version' v.pk %}">
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs"
+                                  onclick="return confirm('Revert to v{{ v.version }}? This creates a new version with the old code.')">
+                            Revert
+                          </button>
+                        </form>
+                      {% else %}
+                        <span class="badge badge-ghost badge-xs">current</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
   </div>
 
   <div class="space-y-6">

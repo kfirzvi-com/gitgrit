@@ -5,7 +5,9 @@ from app.presentation.views.policy_views import (
     EditPolicyView,
     PolicyDetailView,
     PolicyListView,
+    PolicyVersionDetailView,
     delete_policy,
+    revert_policy_version,
     run_policy_test,
     toggle_policy,
 )
@@ -120,6 +122,16 @@ urlpatterns = [
     path("policies/<uuid:pk>/delete/", delete_policy, name="delete_policy"),
     path("policies/<uuid:pk>/toggle/", toggle_policy, name="toggle_policy"),
     path("policies/test/", run_policy_test, name="run_policy_test"),
+    path(
+        "policies/versions/<uuid:pk>/",
+        PolicyVersionDetailView.as_view(),
+        name="policy_version_detail",
+    ),
+    path(
+        "policies/versions/<uuid:pk>/revert/",
+        revert_policy_version,
+        name="revert_policy_version",
+    ),
     # Marketplace
     path("marketplace/", MarketplaceBrowseView.as_view(), name="marketplace_browse"),
     path(
