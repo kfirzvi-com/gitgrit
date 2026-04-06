@@ -7,3 +7,4 @@ __pycache__/
 staticfiles/
 .kamal/secrets*
 config/deploy.*.yml
+site/build/

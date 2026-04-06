@@ -1,0 +1,531 @@
+{% extends "main.html" %}
+
+{% block tabs %}
+  {{ super() }}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Reset MkDocs chrome ── */
+    .md-main__inner { margin: 0; }
+    .md-content { display: none; }
+
+    /* ── Tokens ── */
+    :root {
+      --gg-bg: #0c0e13;
+      --gg-surface: #13161d;
+      --gg-surface-2: #1a1e28;
+      --gg-border: #242938;
+      --gg-cyan: #06b6d4;
+      --gg-cyan-glow: rgba(6, 182, 212, 0.15);
+      --gg-green: #22c55e;
+      --gg-amber: #f59e0b;
+      --gg-text: #e2e8f0;
+      --gg-text-dim: #8892a4;
+      --gg-mono: 'JetBrains Mono', monospace;
+      --gg-sans: 'DM Sans', sans-serif;
+    }
+
+    /* ── Background grid ── */
+    .gg-page {
+      background-color: var(--gg-bg);
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+      overflow: hidden;
+    }
+
+    /* ── Hero ── */
+    .gg-hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem 4rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+    @media (max-width: 800px) {
+      .gg-hero { grid-template-columns: 1fr; padding: 3rem 1.5rem 2rem; }
+    }
+
+    .gg-hero__tag {
+      font-family: var(--gg-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gg-cyan);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .gg-hero__tag::before {
+      content: '';
+      width: 12px; height: 2px;
+      background: var(--gg-cyan);
+    }
+
+    .gg-hero h1 {
+      font-family: var(--gg-sans);
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--gg-text);
+      margin: 0 0 1.25rem 0;
+      letter-spacing: -0.02em;
+    }
+    .gg-hero h1 em {
+      font-style: normal;
+      color: var(--gg-cyan);
+    }
+
+    .gg-hero__sub {
+      font-family: var(--gg-sans);
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: var(--gg-text-dim);
+      margin-bottom: 2rem;
+      max-width: 480px;
+    }
+
+    .gg-hero__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+    .gg-btn {
+      font-family: var(--gg-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.7rem 1.6rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+    }
+    .gg-btn--primary {
+      background: var(--gg-cyan);
+      color: var(--gg-bg);
+      border-color: var(--gg-cyan);
+    }
+    .gg-btn--primary:hover {
+      background: transparent;
+      color: var(--gg-cyan);
+      box-shadow: 0 0 20px var(--gg-cyan-glow);
+    }
+    .gg-btn--ghost {
+      background: transparent;
+      color: var(--gg-text-dim);
+      border-color: var(--gg-border);
+    }
+    .gg-btn--ghost:hover {
+      color: var(--gg-text);
+      border-color: var(--gg-text-dim);
+    }
+
+    /* ── Code panel ── */
+    .gg-code-panel {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-border);
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: var(--gg-mono);
+      font-size: 0.8rem;
+      line-height: 1.65;
+      box-shadow:
+        0 4px 30px rgba(0,0,0,0.4),
+        0 0 60px var(--gg-cyan-glow);
+    }
+    .gg-code-panel__bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: var(--gg-surface-2);
+      border-bottom: 1px solid var(--gg-border);
+    }
+    .gg-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .gg-dot--r { background: #ff5f57; }
+    .gg-dot--y { background: #febc2e; }
+    .gg-dot--g { background: #28c840; }
+    .gg-code-panel__title {
+      margin-left: auto;
+      font-size: 0.7rem;
+      color: var(--gg-text-dim);
+    }
+    .gg-code-panel__body { padding: 1rem 1.25rem; color: var(--gg-text); }
+    .gg-code-panel__body .kw { color: #c678dd; }
+    .gg-code-panel__body .fn { color: #61afef; }
+    .gg-code-panel__body .str { color: #98c379; }
+    .gg-code-panel__body .cm { color: #5c6370; font-style: italic; }
+    .gg-code-panel__body .num { color: #d19a66; }
+    .gg-code-panel__body .bool { color: #d19a66; }
+
+    .gg-result {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px dashed var(--gg-border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: fadeSlideIn 0.5s ease 1.5s both;
+    }
+    .gg-result__icon {
+      width: 18px; height: 18px;
+      background: var(--gg-green);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: #fff;
+      flex-shrink: 0;
+    }
+    .gg-result__text { color: var(--gg-green); font-size: 0.78rem; }
+    .gg-result__score {
+      margin-left: auto;
+      background: rgba(34,197,94,0.12);
+      color: var(--gg-green);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    /* ── Divider ── */
+    .gg-divider {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+    .gg-divider hr {
+      border: none;
+      border-top: 1px solid var(--gg-border);
+    }
+
+    /* ── Features ── */
+    .gg-features {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    .gg-features__header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .gg-features__header h2 {
+      font-family: var(--gg-sans);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-features__header p {
+      font-family: var(--gg-sans);
+      color: var(--gg-text-dim);
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .gg-features__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--gg-border);
+      border: 1px solid var(--gg-border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    @media (max-width: 800px) {
+      .gg-features__grid { grid-template-columns: 1fr; }
+    }
+
+    .gg-feat {
+      background: var(--gg-surface);
+      padding: 2rem;
+      transition: background 0.25s;
+    }
+    .gg-feat:hover {
+      background: var(--gg-surface-2);
+    }
+    .gg-feat__icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: var(--gg-cyan-glow);
+      border: 1px solid rgba(6,182,212,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem;
+      color: var(--gg-cyan);
+      font-size: 1.1rem;
+    }
+    .gg-feat h3 {
+      font-family: var(--gg-sans);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-feat p {
+      font-family: var(--gg-sans);
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: var(--gg-text-dim);
+      margin: 0;
+    }
+
+    /* ── How it works ── */
+    .gg-how {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    .gg-how__header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .gg-how__header h2 {
+      font-family: var(--gg-sans);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-how__header p {
+      font-family: var(--gg-sans);
+      color: var(--gg-text-dim);
+      margin: 0;
+    }
+
+    .gg-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 800px) {
+      .gg-steps { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      .gg-steps { grid-template-columns: 1fr; }
+    }
+
+    .gg-step {
+      position: relative;
+      padding-left: 2.5rem;
+    }
+    .gg-step__num {
+      position: absolute;
+      left: 0; top: 0;
+      font-family: var(--gg-mono);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gg-border);
+      line-height: 1;
+    }
+    .gg-step h4 {
+      font-family: var(--gg-sans);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.35rem;
+    }
+    .gg-step p {
+      font-family: var(--gg-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text-dim);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    /* ── CTA ── */
+    .gg-cta {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem 5rem;
+      text-align: center;
+    }
+    .gg-cta__box {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-border);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .gg-cta__box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 300px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gg-cyan), transparent);
+    }
+    .gg-cta h2 {
+      font-family: var(--gg-sans);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.75rem;
+    }
+    .gg-cta p {
+      font-family: var(--gg-sans);
+      color: var(--gg-text-dim);
+      margin: 0 0 1.5rem;
+      font-size: 1rem;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .gg-reveal {
+      animation: fadeSlideIn 0.6s ease both;
+    }
+    .gg-reveal:nth-child(2) { animation-delay: 0.15s; }
+    .gg-reveal:nth-child(3) { animation-delay: 0.3s; }
+    .gg-reveal:nth-child(4) { animation-delay: 0.45s; }
+  </style>
+
+  <div class="gg-page">
+
+    <!-- Hero -->
+    <section class="gg-hero">
+      <div>
+        <div class="gg-hero__tag">Repository Compliance</div>
+        <h1>Every repo. Every push.<br><em>Always compliant.</em></h1>
+        <p class="gg-hero__sub">
+          GitGrit evaluates your repositories against Python policies on every push and pull request. Catch compliance gaps before they ship.
+        </p>
+        <div class="gg-hero__actions">
+          <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Open App &rarr;</a>
+        </div>
+      </div>
+
+      <div class="gg-code-panel">
+        <div class="gg-code-panel__bar">
+          <span class="gg-dot gg-dot--r"></span>
+          <span class="gg-dot gg-dot--y"></span>
+          <span class="gg-dot gg-dot--g"></span>
+          <span class="gg-code-panel__title">check_readme.py</span>
+        </div>
+        <div class="gg-code-panel__body"><pre style="margin:0;overflow:auto;"><span class="kw">def</span> <span class="fn">evaluate</span>(project):
+    files = project.<span class="fn">list_files</span>()
+    readme = [f <span class="kw">for</span> f <span class="kw">in</span> files
+              <span class="kw">if</span> f.lower().startswith(<span class="str">"readme"</span>)]
+
+    <span class="kw">if</span> readme:
+        <span class="kw">return</span> {
+            <span class="str">"passed"</span>: <span class="bool">True</span>,
+            <span class="str">"score"</span>: <span class="num">100</span>,
+            <span class="str">"message"</span>: <span class="str">f"Found {readme[0]}"</span>
+        }</pre>
+          <div class="gg-result">
+            <span class="gg-result__icon">&#10003;</span>
+            <span class="gg-result__text">passed &mdash; Found README.md</span>
+            <span class="gg-result__score">100</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- Features -->
+    <section class="gg-features gg-reveal">
+      <div class="gg-features__header">
+        <h2>Built for engineering teams</h2>
+        <p>Everything you need to enforce standards across every repository.</p>
+      </div>
+      <div class="gg-features__grid">
+        <div class="gg-feat">
+          <div class="gg-feat__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <h3>Policy as Code</h3>
+          <p>Write compliance rules in Python. Full access to repo files, languages, members, and metadata.</p>
+        </div>
+        <div class="gg-feat">
+          <div class="gg-feat__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Policy Marketplace</h3>
+          <p>Install pre-built packs like Security Essentials or Repository Hygiene. Customize after install.</p>
+        </div>
+        <div class="gg-feat">
+          <div class="gg-feat__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Analytics Dashboard</h3>
+          <p>Track compliance trends, identify failing policies, and monitor scores across all your projects.</p>
+        </div>
+        <div class="gg-feat">
+          <div class="gg-feat__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          </div>
+          <h3>GitHub &amp; GitLab</h3>
+          <p>Connect any instance. Webhooks trigger evaluations automatically on every push and pull request.</p>
+        </div>
+        <div class="gg-feat">
+          <div class="gg-feat__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3>Sandboxed Execution</h3>
+          <p>Policies run in isolated gVisor containers. Your code and credentials are never exposed.</p>
+        </div>
+        <div class="gg-feat">
+          <div class="gg-feat__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Compliance Badges</h3>
+          <p>Embed a live score badge in your README. Show compliance status to every contributor.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- How it works -->
+    <section class="gg-how gg-reveal">
+      <div class="gg-how__header">
+        <h2>Up and running in minutes</h2>
+        <p>Connect, define, enforce.</p>
+      </div>
+      <div class="gg-steps">
+        <div class="gg-step">
+          <span class="gg-step__num">1</span>
+          <h4>Connect</h4>
+          <p>Link your GitHub or GitLab instance with an access token.</p>
+        </div>
+        <div class="gg-step">
+          <span class="gg-step__num">2</span>
+          <h4>Add repos</h4>
+          <p>Select repositories to monitor. Webhooks are registered automatically.</p>
+        </div>
+        <div class="gg-step">
+          <span class="gg-step__num">3</span>
+          <h4>Define policies</h4>
+          <p>Write your own or install from the marketplace. Test with mock data.</p>
+        </div>
+        <div class="gg-step">
+          <span class="gg-step__num">4</span>
+          <h4>Enforce</h4>
+          <p>Every push triggers evaluation. Scores, badges, and dashboards update live.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- CTA -->
+    <section class="gg-cta gg-reveal">
+      <div class="gg-cta__box">
+        <h2>Start enforcing standards today</h2>
+        <p>Free for small teams. No credit card required.</p>
+        <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
+      </div>
+    </section>
+
+  </div>
+
+{% endblock %}
+
+{% block content %}{% endblock %}
