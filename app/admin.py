@@ -5,6 +5,7 @@ from app.domain.models import (
     MarketplacePack,
     MarketplacePolicy,
     Membership,
+    PolicyVersion,
     PlatformConnection,
     Policy,
     PolicyExecution,
@@ -106,6 +107,20 @@ class MarketplacePackAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     inlines = [MarketplacePolicyInline]
     exclude = ("policies",)
+
+
+@admin.register(PolicyVersion)
+class PolicyVersionAdmin(admin.ModelAdmin):
+    list_display = ("policy", "version", "change_summary", "changed_by", "created_at")
+    list_filter = ("policy",)
+    search_fields = ("policy__name", "change_summary")
+    readonly_fields = (
+        "id", "policy", "version", "code", "description", "criteria",
+        "test_cases", "labels_snapshot", "changed_by", "change_summary", "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(PolicyExecution)

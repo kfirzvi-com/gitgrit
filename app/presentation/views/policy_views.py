@@ -9,8 +9,30 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from app.domain.models import Policy, PolicyLabel
+from app.domain.models import Policy, PolicyLabel, PolicyVersion
 from app.infrastructure.sandbox.runner import SandboxRunner
+
+
+def _create_version(policy, user, summary):
+    """Create a PolicyVersion snapshot of the current policy state."""
+    latest = (
+        PolicyVersion.objects.filter(policy=policy)
+        .order_by("-version")
+        .values_list("version", flat=True)
+        .first()
+    )
+    version_num = (latest or 0) + 1
+    return PolicyVersion.objects.create(
+        policy=policy,
+        version=version_num,
+        code=policy.code,
+        description=policy.description,
+        criteria=policy.criteria,
+        test_cases=policy.test_cases,
+        labels_snapshot=list(policy.labels.values_list("name", flat=True)),
+        changed_by=user,
+        change_summary=summary,
+    )
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 LANGUAGE_CHOICES = [
@@ -74,6 +96,7 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
+        _create_version(self.object, self.request.user, "Created")
         messages.success(self.request, f'Policy "{self.object.name}" created.')
         return redirect("policy_detail", pk=self.object.pk)
 
@@ -101,6 +124,14 @@ class PolicyDetailView(LoginRequiredMixin, DetailView):
         return Policy.objects.filter(tenant=tenant).select_related(
             "source_marketplace_policy"
         )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["versions"] = (
+            self.object.versions.select_related("changed_by")
+            .order_by("-version")[:20]
+        )
+        return ctx
 
 
 class EditPolicyView(LoginRequiredMixin, UpdateView):
@@ -145,6 +176,7 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
+        _create_version(self.object, self.request.user, "Updated")
         messages.success(self.request, f'Policy "{self.object.name}" updated.')
         return redirect("policy_detail", pk=self.object.pk)
 
@@ -159,6 +191,60 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
                 )
                 labels.append(label)
         self.object.labels.set(labels)
+
+
+class PolicyVersionDetailView(LoginRequiredMixin, DetailView):
+    template_name = "pages/policy_version_detail.html"
+    context_object_name = "version"
+
+    def get_queryset(self):
+        tenant = self.request.tenant
+        if not tenant:
+            return PolicyVersion.objects.none()
+        return PolicyVersion.objects.filter(
+            policy__tenant=tenant
+        ).select_related("policy", "changed_by")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["policy"] = self.object.policy
+        ctx["is_current"] = not PolicyVersion.objects.filter(
+            policy=self.object.policy, version__gt=self.object.version
+        ).exists()
+        return ctx
+
+
+@login_required
+@require_POST
+def revert_policy_version(request, pk):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("policy_list")
+
+    version = get_object_or_404(
+        PolicyVersion, pk=pk, policy__tenant=tenant
+    )
+    policy = version.policy
+    policy.code = version.code
+    policy.description = version.description
+    policy.criteria = version.criteria
+    policy.test_cases = version.test_cases
+    policy.save()
+
+    # Restore labels
+    label_objs = []
+    for name in version.labels_snapshot:
+        label, _ = PolicyLabel.objects.get_or_create(
+            tenant=tenant, name=name
+        )
+        label_objs.append(label)
+    policy.labels.set(label_objs)
+
+    _create_version(policy, request.user, f"Reverted to v{version.version}")
+
+    messages.success(request, f'Reverted "{policy.name}" to v{version.version}.')
+    return redirect("policy_detail", pk=policy.pk)
 
 
 @login_required

@@ -260,6 +260,43 @@ class Policy(models.Model):
         return self.name
 
 
+class PolicyVersion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    policy = models.ForeignKey(
+        Policy,
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+    version = models.IntegerField()
+    code = models.TextField()
+    description = models.TextField(blank=True, default="")
+    criteria = models.JSONField(default=dict, blank=True)
+    test_cases = models.JSONField(default=list, blank=True)
+    labels_snapshot = models.JSONField(default=list, blank=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    change_summary = models.CharField(max_length=255, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "policy_versions"
+        ordering = ["-version"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["policy", "version"],
+                name="unique_policy_version",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.policy.name} v{self.version}"
+
+
 class MarketplacePolicy(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     slug = models.SlugField(max_length=255, unique=True)
