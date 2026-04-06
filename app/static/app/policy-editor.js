@@ -11,6 +11,12 @@ import {
 
 const PROJECT_METHODS = [
   {
+    label: "get_file_content",
+    type: "method",
+    detail: "(path: str) -> str | None",
+    info: "Read file content by path. Returns None if file not found.",
+  },
+  {
     label: "list_files",
     type: "method",
     detail: "() -> list[str]",
@@ -67,6 +73,7 @@ function projectCompletions(context) {
 
 const DEFAULT_CODE = `def evaluate(project):
     # Available methods:
+    #   project.get_file_content(path) -> str | None
     #   project.list_files()         -> list[str]
     #   project.get_languages()      -> dict[str, float]
     #   project.get_members()        -> list[dict]

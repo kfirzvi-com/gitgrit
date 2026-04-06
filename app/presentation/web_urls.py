@@ -39,6 +39,7 @@ from app.presentation.views.tenant_views import (
     switch_tenant,
     test_connection,
 )
+from app.presentation.views.badge_views import project_badge
 from app.presentation.views.profile_views import ProfileView
 from app.presentation.views.marketplace_views import (
     MarketplaceBrowseView,
@@ -134,6 +135,8 @@ urlpatterns = [
         revert_policy_version,
         name="revert_policy_version",
     ),
+    # Badges (public, unauthenticated)
+    path("badge/<uuid:pk>.svg", project_badge, name="project_badge"),
     # Marketplace
     path("marketplace/", MarketplaceBrowseView.as_view(), name="marketplace_browse"),
     path(

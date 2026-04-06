@@ -9,6 +9,7 @@
     - license-file
     - codeowners-file
     - ci-config-required
+    - gitgrit-badge-in-readme
 
 - slug: security-essentials
   name: Security Essentials

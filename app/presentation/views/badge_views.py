@@ -1,0 +1,79 @@
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+
+from app.domain.models import PolicyExecution, Project
+
+
+def project_badge(request, pk):
+    """Serve an SVG compliance badge for a project. Unauthenticated."""
+    project = get_object_or_404(Project, pk=pk)
+
+    # Calculate compliance score from latest executions
+    executions = (
+        PolicyExecution.objects.filter(project=project)
+        .select_related("policy")
+        .order_by("-created_at")[:200]
+    )
+    seen = {}
+    for ex in executions:
+        key = ex.policy_id or ex.policy_name
+        if key not in seen:
+            seen[key] = ex
+
+    latest = list(seen.values())
+    if latest:
+        score = round(sum(ex.score for ex in latest) / len(latest))
+        all_passed = all(ex.status == "passed" for ex in latest)
+    else:
+        score = None
+        all_passed = False
+
+    svg = _render_badge("gitgrit", score, all_passed)
+
+    response = HttpResponse(svg, content_type="image/svg+xml")
+    response["Cache-Control"] = "public, max-age=300"  # 5 min cache
+    return response
+
+
+def _render_badge(label, score, all_passed):
+    """Render a shields.io-style SVG badge."""
+    if score is None:
+        value = "no data"
+        color = "#9e9e9e"  # gray
+    elif all_passed:
+        value = f"{score}%"
+        color = "#4caf50"  # green
+    elif score >= 80:
+        value = f"{score}%"
+        color = "#4caf50"  # green
+    elif score >= 50:
+        value = f"{score}%"
+        color = "#ff9800"  # orange
+    else:
+        value = f"{score}%"
+        color = "#f44336"  # red
+
+    label_width = len(label) * 7 + 12
+    value_width = len(value) * 7 + 12
+    total_width = label_width + value_width
+
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="20" role="img">
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r">
+    <rect width="{total_width}" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#r)">
+    <rect width="{label_width}" height="20" fill="#555"/>
+    <rect x="{label_width}" width="{value_width}" height="20" fill="{color}"/>
+    <rect width="{total_width}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="11">
+    <text x="{label_width / 2}" y="14" fill="#010101" fill-opacity=".3">{label}</text>
+    <text x="{label_width / 2}" y="13">{label}</text>
+    <text x="{label_width + value_width / 2}" y="14" fill="#010101" fill-opacity=".3">{value}</text>
+    <text x="{label_width + value_width / 2}" y="13">{value}</text>
+  </g>
+</svg>'''

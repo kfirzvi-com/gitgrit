@@ -8,6 +8,9 @@ class GitLabProvider(BaseProvider):
         self.project_id = project_id
         self.access_token = access_token
 
+    def get_file_content(self, path: str) -> str | None:
+        raise NotImplementedError("GitLab API integration not yet implemented")
+
     def list_files(self) -> list[str]:
         raise NotImplementedError("GitLab API integration not yet implemented")
 

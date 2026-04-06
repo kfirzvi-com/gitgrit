@@ -7,6 +7,9 @@ class ProjectContext:
     def __init__(self, provider: BaseProvider) -> None:
         self._provider = provider
 
+    def get_file_content(self, path: str) -> str | None:
+        return self._provider.get_file_content(path)
+
     def list_files(self) -> list[str]:
         return self._provider.list_files()
 
