@@ -37,6 +37,14 @@ from app.presentation.views.tenant_views import (
     switch_tenant,
     test_connection,
 )
+from app.presentation.views.marketplace_views import (
+    MarketplaceBrowseView,
+    MarketplacePackDetailView,
+    MarketplacePolicyPreviewView,
+    install_marketplace_pack,
+    install_marketplace_policy,
+    update_marketplace_policy,
+)
 from app.presentation.views.web_views import DashboardView, HomeView
 
 urlpatterns = [
@@ -112,4 +120,31 @@ urlpatterns = [
     path("policies/<uuid:pk>/delete/", delete_policy, name="delete_policy"),
     path("policies/<uuid:pk>/toggle/", toggle_policy, name="toggle_policy"),
     path("policies/test/", run_policy_test, name="run_policy_test"),
+    # Marketplace
+    path("marketplace/", MarketplaceBrowseView.as_view(), name="marketplace_browse"),
+    path(
+        "marketplace/packs/<slug:slug>/",
+        MarketplacePackDetailView.as_view(),
+        name="marketplace_pack_detail",
+    ),
+    path(
+        "marketplace/packs/<slug:slug>/install/",
+        install_marketplace_pack,
+        name="install_marketplace_pack",
+    ),
+    path(
+        "marketplace/policies/<slug:slug>/",
+        MarketplacePolicyPreviewView.as_view(),
+        name="marketplace_policy_preview",
+    ),
+    path(
+        "marketplace/policies/<slug:slug>/install/",
+        install_marketplace_policy,
+        name="install_marketplace_policy",
+    ),
+    path(
+        "marketplace/policies/<slug:slug>/update/",
+        update_marketplace_policy,
+        name="update_marketplace_policy",
+    ),
 ]

@@ -1,0 +1,50 @@
+slug: readme-exists
+name: README Exists
+description: >
+  Checks that the repository contains a README file. A well-maintained README
+  is essential for onboarding contributors and documenting project purpose.
+author: GitGrit
+version: 1
+suggested_labels:
+  - documentation
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      readme_files = [f for f in files if f.lower().startswith("readme")]
+
+      if readme_files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"README found: {readme_files[0]}",
+              "details": {"readme_files": readme_files},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No README file found in repository root",
+          "details": {"files_checked": len(files)},
+      }
+test_cases:
+  - name: Has README.md
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+        - requirements.txt
+    expected:
+      passed: true
+      score: 100
+  - name: No README
+    input:
+      list_files:
+        - src/main.py
+        - requirements.txt
+    expected:
+      passed: false
+      score: 0

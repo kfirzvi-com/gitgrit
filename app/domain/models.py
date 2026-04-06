@@ -238,6 +238,14 @@ class Policy(models.Model):
     criteria = models.JSONField(default=dict, blank=True)
     test_cases = models.JSONField(default=list, blank=True)
     labels = models.ManyToManyField(PolicyLabel, related_name="policies", blank=True)
+    source_marketplace_policy = models.ForeignKey(
+        "MarketplacePolicy",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="installed_policies",
+    )
+    source_version = models.IntegerField(null=True, blank=True)
     enabled = models.BooleanField(default=True)
     draft = models.BooleanField(default=False)
     ordinal = models.IntegerField(default=1000)
@@ -247,6 +255,48 @@ class Policy(models.Model):
     class Meta:
         db_table = "policies"
         ordering = ["ordinal", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class MarketplacePolicy(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    slug = models.SlugField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    code = models.TextField()
+    test_cases = models.JSONField(default=list, blank=True)
+    criteria = models.JSONField(default=dict, blank=True)
+    suggested_labels = models.JSONField(default=list, blank=True)
+    version = models.IntegerField(default=1)
+    author = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "marketplace_policies"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} v{self.version}"
+
+
+class MarketplacePack(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    slug = models.SlugField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    icon = models.CharField(max_length=10, blank=True, default="")
+    policies = models.ManyToManyField(
+        MarketplacePolicy, related_name="packs", blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "marketplace_packs"
+        ordering = ["name"]
 
     def __str__(self):
         return self.name

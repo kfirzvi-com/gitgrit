@@ -27,7 +27,11 @@ class PolicyListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return Policy.objects.none()
-        return Policy.objects.filter(tenant=tenant).prefetch_related("labels")
+        return (
+            Policy.objects.filter(tenant=tenant)
+            .prefetch_related("labels")
+            .select_related("source_marketplace_policy")
+        )
 
 
 class CreatePolicyView(LoginRequiredMixin, CreateView):
@@ -94,7 +98,9 @@ class PolicyDetailView(LoginRequiredMixin, DetailView):
         tenant = self.request.tenant
         if not tenant:
             return Policy.objects.none()
-        return Policy.objects.filter(tenant=tenant)
+        return Policy.objects.filter(tenant=tenant).select_related(
+            "source_marketplace_policy"
+        )
 
 
 class EditPolicyView(LoginRequiredMixin, UpdateView):

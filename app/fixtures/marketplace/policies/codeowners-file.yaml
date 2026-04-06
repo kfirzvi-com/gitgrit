@@ -1,0 +1,55 @@
+slug: codeowners-file
+name: CODEOWNERS File
+description: >
+  Ensures the repository has a CODEOWNERS file, which enforces code review
+  ownership and helps automate review assignment.
+author: GitGrit
+version: 1
+suggested_labels:
+  - quality
+  - compliance
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      codeowners_paths = [
+          "CODEOWNERS",
+          ".github/CODEOWNERS",
+          "docs/CODEOWNERS",
+      ]
+      found = [f for f in files if f in codeowners_paths]
+
+      if found:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"CODEOWNERS found at {found[0]}",
+              "details": {"path": found[0]},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No CODEOWNERS file found",
+          "details": {"checked_paths": codeowners_paths},
+      }
+test_cases:
+  - name: CODEOWNERS in .github
+    input:
+      list_files:
+        - .github/CODEOWNERS
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: No CODEOWNERS
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+    expected:
+      passed: false
+      score: 0
