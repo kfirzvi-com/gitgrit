@@ -1,29 +1,14 @@
-<div id="project-owner" class="col-span-2">
-  <span class="opacity-70">Owner</span>
-  <div class="flex items-center gap-2 mt-1">
-    {% if project.owner %}
-      {% if project.owner.avatar_url %}
-        <img src="{{ project.owner.avatar_url }}" class="w-5 h-5 rounded-full" alt="">
-      {% endif %}
-      <span class="text-sm">{{ project.owner.get_full_name|default:project.owner.username }}</span>
-    {% else %}
-      <span class="text-sm opacity-50">Unassigned</span>
-    {% endif %}
-    {% if can_change_owner %}
-    <form hx-post="{% url 'update_project_owner' project.pk %}"
-          hx-target="#project-owner"
-          hx-swap="outerHTML"
-          hx-trigger="change">
-      {% csrf_token %}
-      <select name="owner_id" class="select select-xs select-bordered">
-        <option value="">— Unassigned —</option>
-        {% for member in tenant_members %}
-          <option value="{{ member.pk }}" {% if project.owner_id == member.pk %}selected{% endif %}>
-            {{ member.get_full_name|default:member.username }}
-          </option>
-        {% endfor %}
-      </select>
-    </form>
-    {% endif %}
-  </div>
+<div id="project-owner">
+  <span class="font-semibold">Owner:</span>
+  <form hx-post="{% url 'update_project_owner' project.id %}"
+        hx-target="#project-owner" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="text" name="owner" value="{{ project.owner }}"
+           placeholder="No owner" class="input input-bordered input-sm"
+           list="owner-suggestions" autocomplete="off" />
+    <datalist id="owner-suggestions">
+      {% for o in existing_owners %}<option value="{{ o }}">{% endfor %}
+    </datalist>
+    <button type="submit" class="btn btn-sm">Save</button>
+  </form>
 </div>

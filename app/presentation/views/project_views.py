@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
 from app.application.policy_engine import PolicyEngine
-from app.domain.models import Membership, PlatformConnection, Policy, PolicyExecution, Project, Stack, User
+from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
@@ -25,9 +25,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return Project.objects.none()
-        return Project.objects.filter(tenant=tenant).select_related(
-            "platform_connection", "owner"
-        )
+        return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
 
 class ProjectDetailView(LoginRequiredMixin, DetailView):
@@ -38,9 +36,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         tenant = self.request.tenant
         if not tenant:
             return Project.objects.none()
-        return Project.objects.filter(tenant=tenant).select_related(
-            "platform_connection", "owner"
-        )
+        return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -73,20 +69,10 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
             tenant=project.tenant, enabled=True, draft=False
         ).order_by("ordinal", "name")
 
-        # Tenant members for owner dropdown (only shown to admins/owners)
-        requester_role = Membership.objects.filter(
-            tenant=project.tenant, user=self.request.user
-        ).values_list("role", flat=True).first()
-        can_change_owner = requester_role in (Membership.Role.OWNER, Membership.Role.ADMIN)
-        context["can_change_owner"] = can_change_owner
-
-        if can_change_owner:
-            member_ids = Membership.objects.filter(
-                tenant=project.tenant
-            ).values_list("user_id", flat=True)
-            context["tenant_members"] = User.objects.filter(pk__in=member_ids).order_by("username")
-        else:
-            context["tenant_members"] = User.objects.none()
+        context["existing_owners"] = list(
+            Project.objects.filter(tenant=project.tenant)
+            .exclude(owner="").values_list("owner", flat=True).distinct()
+        )
 
         return context
 
@@ -160,7 +146,7 @@ def add_project_search(request, connection_id):
             default_branch=default_branch,
             description=description,
             lifecycle=lifecycle,
-            owner=request.user,
+            owner=request.POST.get("owner", ""),
         )
 
         if stack_ids:
@@ -195,6 +181,10 @@ def add_project_search(request, connection_id):
         return redirect("project_detail", pk=project.pk)
 
     stacks = Stack.objects.filter(tenant=tenant).order_by("name")
+    existing_owners = list(
+        Project.objects.filter(tenant=tenant)
+        .exclude(owner="").values_list("owner", flat=True).distinct()
+    )
 
     return render(
         request,
@@ -204,6 +194,7 @@ def add_project_search(request, connection_id):
             "connection": connection,
             "lifecycle_choices": Project.Lifecycle.choices,
             "stacks": stacks,
+            "existing_owners": existing_owners,
         },
     )
 
@@ -363,33 +354,15 @@ def update_project_owner(request, pk):
 
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
 
-    # Only workspace owners and admins may reassign the project owner
-    requester_role = Membership.objects.filter(
-        tenant=tenant, user=request.user
-    ).values_list("role", flat=True).first()
-    if requester_role not in (Membership.Role.OWNER, Membership.Role.ADMIN):
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden()
-
-    owner_id = request.POST.get("owner_id", "").strip()
-
-    if owner_id:
-        # Security: only accept users who are members of this tenant
-        is_member = Membership.objects.filter(tenant=tenant, user_id=owner_id).exists()
-        if not is_member:
-            from django.http import HttpResponseForbidden
-            return HttpResponseForbidden()
-        project.owner_id = owner_id
-    else:
-        project.owner = None
-
+    project.owner = request.POST.get("owner", "")
     project.save(update_fields=["owner"])
-    project.refresh_from_db(fields=["owner"])
 
-    member_ids = Membership.objects.filter(tenant=tenant).values_list("user_id", flat=True)
-    tenant_members = User.objects.filter(pk__in=member_ids).order_by("username")
+    existing_owners = list(
+        Project.objects.filter(tenant=tenant)
+        .exclude(owner="").values_list("owner", flat=True).distinct()
+    )
 
     return render(request, "partials/project_owner.html", {
         "project": project,
-        "tenant_members": tenant_members,
+        "existing_owners": existing_owners,
     })
