@@ -12,29 +12,6 @@
     <div class="card-body space-y-4">
 
       <div class="form-control">
-        <label class="label" for="id_name">
-          <span class="label-text">Name</span>
-        </label>
-        <input type="text" name="name" id="id_name" required maxlength="255"
-               value="{{ form.instance.name }}"
-               class="input input-bordered w-full" autofocus>
-        {% if form.name.errors %}
-          <label class="label">
-            <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
-          </label>
-        {% endif %}
-      </div>
-
-      <div class="form-control">
-        <label class="label" for="id_description">
-          <span class="label-text">Description</span>
-        </label>
-        <textarea name="description" id="id_description" rows="3"
-                  class="textarea textarea-bordered w-full"
-                  placeholder="Short description of this project">{{ form.instance.description }}</textarea>
-      </div>
-
-      <div class="form-control">
         <label class="label" for="id_lifecycle">
           <span class="label-text">Lifecycle</span>
         </label>

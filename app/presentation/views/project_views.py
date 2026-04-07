@@ -82,7 +82,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
 class EditProjectView(LoginRequiredMixin, UpdateView):
     template_name = "pages/project_form.html"
     model = Project
-    fields = ["name", "description", "lifecycle", "owner"]
+    fields = ["lifecycle", "owner"]
 
     def get_queryset(self):
         tenant = self.request.tenant
