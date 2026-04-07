@@ -87,3 +87,28 @@ jobs:
               "ref": "${{ github.sha }}",
               "image": "ghcr.io/kfirzvi-com/gitgrit"
             }
+
+  deploy-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Check if site/ changed
+        id: check
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q '^site/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger docs deploy
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.INFRA_DEPLOY_TOKEN }}
+          repository: kfirzvi-com/infra
+          event-type: deploy-docs
