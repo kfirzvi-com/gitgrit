@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
+from django.contrib.auth import get_user_model
+
 from app.domain.models import (
     Membership,
     PlatformConnection,
@@ -59,9 +61,22 @@ class PlatformConnectionAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ("name", "tenant", "platform", "lifecycle", "full_path", "created_at")
+    list_display = ("name", "tenant", "platform", "lifecycle", "owner", "full_path", "created_at")
     list_filter = ("platform", "lifecycle", "tenant")
-    search_fields = ("name", "full_path")
+    search_fields = ("name", "full_path", "owner__email")
+    raw_id_fields = ("owner",)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "owner":
+            obj_id = request.resolver_match.kwargs.get("object_id")
+            if obj_id:
+                project = Project.objects.filter(pk=obj_id).first()
+                if project:
+                    member_ids = Membership.objects.filter(
+                        tenant=project.tenant
+                    ).values_list("user_id", flat=True)
+                    kwargs["queryset"] = get_user_model().objects.filter(pk__in=member_ids)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(Stack)

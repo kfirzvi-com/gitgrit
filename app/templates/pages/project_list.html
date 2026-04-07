@@ -21,6 +21,14 @@
             </span>
             <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
           </div>
+          {% if project.owner %}
+            <div class="flex items-center gap-1 mt-2 text-xs opacity-60">
+              {% if project.owner.avatar_url %}
+                <img src="{{ project.owner.avatar_url }}" class="w-4 h-4 rounded-full" alt="">
+              {% endif %}
+              {{ project.owner.get_full_name|default:project.owner.username }}
+            </div>
+          {% endif %}
           {% if project.description %}
             <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>
           {% endif %}

@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
 from app.application.policy_engine import PolicyEngine
-from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
+from app.domain.models import Membership, PlatformConnection, Policy, PolicyExecution, Project, Stack, User
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
         if not tenant:
             return Project.objects.none()
         return Project.objects.filter(tenant=tenant).select_related(
-            "platform_connection"
+            "platform_connection", "owner"
         )
 
 
@@ -39,7 +39,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         if not tenant:
             return Project.objects.none()
         return Project.objects.filter(tenant=tenant).select_related(
-            "platform_connection"
+            "platform_connection", "owner"
         )
 
     def get_context_data(self, **kwargs):
@@ -72,6 +72,21 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context["policies"] = Policy.objects.filter(
             tenant=project.tenant, enabled=True, draft=False
         ).order_by("ordinal", "name")
+
+        # Tenant members for owner dropdown (only shown to admins/owners)
+        requester_role = Membership.objects.filter(
+            tenant=project.tenant, user=self.request.user
+        ).values_list("role", flat=True).first()
+        can_change_owner = requester_role in (Membership.Role.OWNER, Membership.Role.ADMIN)
+        context["can_change_owner"] = can_change_owner
+
+        if can_change_owner:
+            member_ids = Membership.objects.filter(
+                tenant=project.tenant
+            ).values_list("user_id", flat=True)
+            context["tenant_members"] = User.objects.filter(pk__in=member_ids).order_by("username")
+        else:
+            context["tenant_members"] = User.objects.none()
 
         return context
 
@@ -145,6 +160,7 @@ def add_project_search(request, connection_id):
             default_branch=default_branch,
             description=description,
             lifecycle=lifecycle,
+            owner=request.user,
         )
 
         if stack_ids:
@@ -335,3 +351,45 @@ def retry_webhook(request, pk):
         messages.error(request, "Webhook registration failed. Check your connection token.")
 
     return redirect("project_detail", pk=project.pk)
+
+
+@login_required
+@require_POST
+def update_project_owner(request, pk):
+    tenant = request.tenant
+    if not tenant:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest()
+
+    project = get_object_or_404(Project, pk=pk, tenant=tenant)
+
+    # Only workspace owners and admins may reassign the project owner
+    requester_role = Membership.objects.filter(
+        tenant=tenant, user=request.user
+    ).values_list("role", flat=True).first()
+    if requester_role not in (Membership.Role.OWNER, Membership.Role.ADMIN):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    owner_id = request.POST.get("owner_id", "").strip()
+
+    if owner_id:
+        # Security: only accept users who are members of this tenant
+        is_member = Membership.objects.filter(tenant=tenant, user_id=owner_id).exists()
+        if not is_member:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden()
+        project.owner_id = owner_id
+    else:
+        project.owner = None
+
+    project.save(update_fields=["owner"])
+    project.refresh_from_db(fields=["owner"])
+
+    member_ids = Membership.objects.filter(tenant=tenant).values_list("user_id", flat=True)
+    tenant_members = User.objects.filter(pk__in=member_ids).order_by("username")
+
+    return render(request, "partials/project_owner.html", {
+        "project": project,
+        "tenant_members": tenant_members,
+    })

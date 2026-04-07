@@ -48,6 +48,7 @@
             <span class="opacity-70">Default Branch</span>
             <p><code>{{ project.default_branch }}</code></p>
           </div>
+          {% include "partials/project_owner.html" %}
           <div class="col-span-2">
             <span class="opacity-70">Connection</span>
             <p>{{ project.platform_connection.display_name }}</p>

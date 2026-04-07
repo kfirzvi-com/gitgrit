@@ -128,6 +128,13 @@ class Project(models.Model):
         choices=Lifecycle.choices,
         default=Lifecycle.DEVELOPMENT,
     )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_projects",
+    )
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
     stacks = models.ManyToManyField(
