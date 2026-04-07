@@ -63,6 +63,16 @@
         <input type="hidden" name="description" id="field-description">
 
         <div class="form-control">
+          <label class="label"><span class="label-text">Owner</span></label>
+          <input type="text" name="owner" placeholder="Owner (optional)"
+                 class="input input-bordered w-full"
+                 list="owner-suggestions" autocomplete="off" />
+          <datalist id="owner-suggestions">
+            {% for o in existing_owners %}<option value="{{ o }}">{% endfor %}
+          </datalist>
+        </div>
+
+        <div class="form-control">
           <label class="label"><span class="label-text">Lifecycle</span></label>
           <select name="lifecycle" class="select select-bordered w-full">
             {% for value, label in lifecycle_choices %}

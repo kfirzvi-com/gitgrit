@@ -5,16 +5,23 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView, ListView, UpdateView
 
 from app.application.policy_engine import PolicyEngine
 from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
+
+
+def _existing_owners(tenant):
+    return list(
+        Project.objects.filter(tenant=tenant)
+        .exclude(owner="").values_list("owner", flat=True).distinct()
+    )
 
 
 class ProjectListView(LoginRequiredMixin, ListView):
@@ -25,9 +32,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return Project.objects.none()
-        return Project.objects.filter(tenant=tenant).select_related(
-            "platform_connection"
-        )
+        return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
 
 class ProjectDetailView(LoginRequiredMixin, DetailView):
@@ -38,9 +43,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         tenant = self.request.tenant
         if not tenant:
             return Project.objects.none()
-        return Project.objects.filter(tenant=tenant).select_related(
-            "platform_connection"
-        )
+        return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -74,6 +77,29 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         ).order_by("ordinal", "name")
 
         return context
+
+
+class EditProjectView(LoginRequiredMixin, UpdateView):
+    template_name = "pages/project_form.html"
+    model = Project
+    fields = ["lifecycle", "owner"]
+
+    def get_queryset(self):
+        tenant = self.request.tenant
+        if not tenant:
+            return Project.objects.none()
+        return Project.objects.filter(tenant=tenant)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["lifecycle_choices"] = Project.Lifecycle.choices
+        context["existing_owners"] = _existing_owners(self.request.tenant)
+        return context
+
+    def form_valid(self, form):
+        self.object = form.save()
+        messages.success(self.request, f'Project "{self.object.name}" updated.')
+        return redirect("project_detail", pk=self.object.pk)
 
 
 @login_required
@@ -145,6 +171,7 @@ def add_project_search(request, connection_id):
             default_branch=default_branch,
             description=description,
             lifecycle=lifecycle,
+            owner=request.POST.get("owner", ""),
         )
 
         if stack_ids:
@@ -188,6 +215,7 @@ def add_project_search(request, connection_id):
             "connection": connection,
             "lifecycle_choices": Project.Lifecycle.choices,
             "stacks": stacks,
+            "existing_owners": _existing_owners(tenant),
         },
     )
 
@@ -231,8 +259,6 @@ def search_projects_api(request):
     except Exception:
         logger.exception("Failed to search projects")
         if request.headers.get("HX-Request"):
-            from django.http import HttpResponse
-
             return HttpResponse(
                 '<p class="text-sm text-error">Failed to search platform API. '
                 "Check your connection token.</p>"
@@ -335,3 +361,5 @@ def retry_webhook(request, pk):
         messages.error(request, "Webhook registration failed. Check your connection token.")
 
     return redirect("project_detail", pk=project.pk)
+
+

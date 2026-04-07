@@ -21,6 +21,9 @@
             </span>
             <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
           </div>
+          {% if project.owner %}
+            <span class="text-sm text-gray-500">{{ project.owner }}</span>
+          {% endif %}
           {% if project.description %}
             <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>
           {% endif %}

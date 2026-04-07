@@ -12,6 +12,7 @@ from app.presentation.views.policy_views import (
     toggle_policy,
 )
 from app.presentation.views.project_views import (
+    EditProjectView,
     ProjectDetailView,
     ProjectListView,
     add_project_search,
@@ -92,6 +93,7 @@ urlpatterns = [
         name="add_project_search",
     ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
+    path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
         "projects/<uuid:pk>/run-policies/",

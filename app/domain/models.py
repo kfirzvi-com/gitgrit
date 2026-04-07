@@ -128,6 +128,7 @@ class Project(models.Model):
         choices=Lifecycle.choices,
         default=Lifecycle.DEVELOPMENT,
     )
+    owner = models.CharField(max_length=255, blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
     stacks = models.ManyToManyField(

@@ -12,6 +12,7 @@
     <a href="{{ project.web_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
       Open in {{ project.get_platform_display }} &nearr;
     </a>
+    <a href="{% url 'edit_project' project.pk %}" class="btn btn-ghost btn-sm">Edit</a>
     <form method="post" action="{% url 'delete_project' project.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-ghost btn-sm text-error"
@@ -47,6 +48,10 @@
           <div>
             <span class="opacity-70">Default Branch</span>
             <p><code>{{ project.default_branch }}</code></p>
+          </div>
+          <div>
+            <span class="opacity-70">Owner</span>
+            <p>{{ project.owner|default:"—" }}</p>
           </div>
           <div class="col-span-2">
             <span class="opacity-70">Connection</span>

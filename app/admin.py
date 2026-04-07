@@ -62,9 +62,9 @@ class PlatformConnectionAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ("name", "tenant", "platform", "lifecycle", "full_path", "created_at")
-    list_filter = ("platform", "lifecycle", "tenant")
-    search_fields = ("name", "full_path")
+    list_display = ["name", "tenant", "platform", "lifecycle", "owner", "full_path", "created_at"]
+    list_filter = ["platform", "lifecycle", "tenant"]
+    search_fields = ["name", "full_path", "owner"]
 
 
 @admin.register(Stack)
