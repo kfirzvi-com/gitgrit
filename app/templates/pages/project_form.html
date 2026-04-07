@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ form.instance.name }} — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="{% url 'project_detail' form.instance.pk %}" class="text-sm opacity-70 hover:opacity-100">&larr; {{ form.instance.name }}</a>
+  <h1 class="text-3xl font-bold mb-6">Edit Project</h1>
+
+  <form method="post" class="card bg-base-100 shadow-xl">
+    {% csrf_token %}
+    <div class="card-body space-y-4">
+
+      <div class="form-control">
+        <label class="label" for="id_name">
+          <span class="label-text">Name</span>
+        </label>
+        <input type="text" name="name" id="id_name" required maxlength="255"
+               value="{{ form.instance.name }}"
+               class="input input-bordered w-full" autofocus>
+        {% if form.name.errors %}
+          <label class="label">
+            <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
+          </label>
+        {% endif %}
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_description">
+          <span class="label-text">Description</span>
+        </label>
+        <textarea name="description" id="id_description" rows="3"
+                  class="textarea textarea-bordered w-full"
+                  placeholder="Short description of this project">{{ form.instance.description }}</textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_lifecycle">
+          <span class="label-text">Lifecycle</span>
+        </label>
+        <select name="lifecycle" id="id_lifecycle" class="select select-bordered w-full">
+          {% for value, label in lifecycle_choices %}
+            <option value="{{ value }}" {% if form.instance.lifecycle == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_owner">
+          <span class="label-text">Owner</span>
+        </label>
+        <input type="text" name="owner" id="id_owner" maxlength="255"
+               value="{{ form.instance.owner }}"
+               placeholder="e.g. team name or person (optional)"
+               class="input input-bordered w-full"
+               list="owner-suggestions" autocomplete="off">
+        <datalist id="owner-suggestions">
+          {% for o in existing_owners %}<option value="{{ o }}">{% endfor %}
+        </datalist>
+        <p class="text-xs opacity-60 mt-1">Free-text label. Suggestions come from existing values in this workspace.</p>
+      </div>
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'project_detail' form.instance.pk %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+
+    </div>
+  </form>
+</div>
+{% endblock %}

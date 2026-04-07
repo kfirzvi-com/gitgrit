@@ -10,6 +10,7 @@ from app.presentation.views.policy_views import (
     toggle_policy,
 )
 from app.presentation.views.project_views import (
+    EditProjectView,
     ProjectDetailView,
     ProjectListView,
     add_project_search,
@@ -17,7 +18,6 @@ from app.presentation.views.project_views import (
     delete_project,
     retry_webhook,
     run_project_policies,
-    update_project_owner,
 )
 from app.presentation.views.stack_views import (
     CreateStackView,
@@ -79,6 +79,7 @@ urlpatterns = [
         name="add_project_search",
     ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
+    path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
         "projects/<uuid:pk>/run-policies/",
@@ -89,11 +90,6 @@ urlpatterns = [
         "projects/<uuid:pk>/retry-webhook/",
         retry_webhook,
         name="retry_webhook",
-    ),
-    path(
-        "projects/<uuid:pk>/owner/",
-        update_project_owner,
-        name="update_project_owner",
     ),
     # Stacks
     path("stacks/", StackListView.as_view(), name="stack_list"),

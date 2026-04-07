@@ -5,10 +5,10 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView, ListView, UpdateView
 
 from app.application.policy_engine import PolicyEngine
 from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
@@ -76,9 +76,30 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
             tenant=project.tenant, enabled=True, draft=False
         ).order_by("ordinal", "name")
 
-        context["existing_owners"] = _existing_owners(project.tenant)
-
         return context
+
+
+class EditProjectView(LoginRequiredMixin, UpdateView):
+    template_name = "pages/project_form.html"
+    model = Project
+    fields = ["name", "description", "lifecycle", "owner"]
+
+    def get_queryset(self):
+        tenant = self.request.tenant
+        if not tenant:
+            return Project.objects.none()
+        return Project.objects.filter(tenant=tenant)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["lifecycle_choices"] = Project.Lifecycle.choices
+        context["existing_owners"] = _existing_owners(self.request.tenant)
+        return context
+
+    def form_valid(self, form):
+        self.object = form.save()
+        messages.success(self.request, f'Project "{self.object.name}" updated.')
+        return redirect("project_detail", pk=self.object.pk)
 
 
 @login_required
@@ -342,19 +363,3 @@ def retry_webhook(request, pk):
     return redirect("project_detail", pk=project.pk)
 
 
-@login_required
-@require_POST
-def update_project_owner(request, pk):
-    tenant = request.tenant
-    if not tenant:
-        return HttpResponseBadRequest()
-
-    project = get_object_or_404(Project, pk=pk, tenant=tenant)
-
-    project.owner = request.POST.get("owner", "")
-    project.save(update_fields=["owner"])
-
-    return render(request, "partials/project_owner.html", {
-        "project": project,
-        "existing_owners": _existing_owners(tenant),
-    })
