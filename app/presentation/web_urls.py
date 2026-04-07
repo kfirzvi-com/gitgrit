@@ -40,7 +40,7 @@ from app.presentation.views.tenant_views import (
     test_connection,
 )
 from app.presentation.views.badge_views import project_badge
-from app.presentation.views.profile_views import ProfileView
+from app.presentation.views.profile_views import ProfileView, disconnect_social
 from app.presentation.views.marketplace_views import (
     MarketplaceBrowseView,
     MarketplacePackDetailView,
@@ -55,6 +55,7 @@ urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("profile/", ProfileView.as_view(), name="profile"),
+    path("profile/disconnect/<str:provider>/", disconnect_social, name="disconnect_social"),
     # Tenant management
     path("tenants/switch/", switch_tenant, name="switch_tenant"),
     path("tenants/new/", CreateTenantView.as_view(), name="create_tenant"),

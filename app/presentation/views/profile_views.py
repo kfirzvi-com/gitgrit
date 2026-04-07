@@ -1,5 +1,9 @@
 from allauth.socialaccount.models import SocialAccount
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
 
@@ -29,6 +33,17 @@ class ProfileView(LoginRequiredMixin, TemplateView):
 
         ctx["providers"] = providers
         return ctx
+
+
+@login_required
+@require_POST
+def disconnect_social(request, provider):
+    account = get_object_or_404(
+        SocialAccount, user=request.user, provider=provider
+    )
+    account.delete()
+    messages.success(request, f"Disconnected {provider}.")
+    return redirect("profile")
 
 
 def _get_display_name(provider, social_account):
