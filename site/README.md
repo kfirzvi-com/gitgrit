@@ -19,7 +19,7 @@ Open http://127.0.0.1:8000
 ## Build
 
 ```sh
-uv run --project site mkdocs build -f site/mkdocs.yml -d site/build
+uv run --project site mkdocs build -f site/mkdocs.yml -d build
 ```
 
 Output is written to `site/build/`.
