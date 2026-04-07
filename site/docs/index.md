@@ -1,6 +1,6 @@
 ---
 template: home.html
-title: GitGrit — Automated Repository Compliance
+title: GitGrit — Developer Experience Platform
 hide:
   - navigation
   - toc

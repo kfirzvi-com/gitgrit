@@ -39,7 +39,7 @@
 
     /* ── Hero ── */
     .gg-hero {
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 5rem 1.5rem 4rem;
       display: grid;
@@ -192,7 +192,7 @@
 
     /* ── Divider ── */
     .gg-divider {
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 0 1.5rem;
     }
@@ -203,7 +203,7 @@
 
     /* ── Features ── */
     .gg-features {
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 4rem 1.5rem;
     }
@@ -273,7 +273,7 @@
 
     /* ── How it works ── */
     .gg-how {
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 4rem 1.5rem;
     }
@@ -334,9 +334,232 @@
       margin: 0;
     }
 
+    /* ── Pricing ── */
+    .gg-pricing {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    .gg-pricing__header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .gg-pricing__header h2 {
+      font-family: var(--gg-sans);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-pricing__header p {
+      font-family: var(--gg-sans);
+      color: var(--gg-text-dim);
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .gg-pricing__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 800px) {
+      .gg-pricing__grid { grid-template-columns: 1fr; }
+    }
+
+    .gg-tier {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-border);
+      border-radius: 10px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .gg-tier--featured {
+      border-color: var(--gg-cyan);
+      box-shadow: 0 0 30px var(--gg-cyan-glow);
+    }
+    .gg-tier__name {
+      font-family: var(--gg-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--gg-cyan);
+      margin-bottom: 0.75rem;
+    }
+    .gg-tier__price {
+      font-family: var(--gg-sans);
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin-bottom: 0.25rem;
+    }
+    .gg-tier__price span {
+      font-size: 0.9rem;
+      font-weight: 400;
+      color: var(--gg-text-dim);
+    }
+    .gg-tier__desc {
+      font-family: var(--gg-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text-dim);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .gg-tier__features {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+      flex-grow: 1;
+    }
+    .gg-tier__features li {
+      font-family: var(--gg-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text-dim);
+      padding: 0.4rem 0;
+      padding-left: 1.25rem;
+      position: relative;
+    }
+    .gg-tier__features li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--gg-green);
+      font-size: 0.8rem;
+    }
+
+    /* ── Open Source ── */
+    .gg-oss {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    .gg-oss__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 800px) {
+      .gg-oss__grid { grid-template-columns: 1fr; }
+    }
+    .gg-oss__header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .gg-oss__header h2 {
+      font-family: var(--gg-sans);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-oss__header p {
+      font-family: var(--gg-sans);
+      color: var(--gg-text-dim);
+      font-size: 1rem;
+      margin: 0;
+    }
+    .gg-oss__card {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-border);
+      border-radius: 10px;
+      padding: 2rem;
+    }
+    .gg-oss__card h3 {
+      font-family: var(--gg-sans);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-oss__card p {
+      font-family: var(--gg-sans);
+      font-size: 0.88rem;
+      color: var(--gg-text-dim);
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    /* ── Roadmap ── */
+    .gg-roadmap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    .gg-roadmap__header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .gg-roadmap__header h2 {
+      font-family: var(--gg-sans);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-roadmap__header p {
+      font-family: var(--gg-sans);
+      color: var(--gg-text-dim);
+      font-size: 1rem;
+      margin: 0;
+    }
+    .gg-pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 800px) {
+      .gg-pillars { grid-template-columns: 1fr; }
+    }
+    .gg-pillar {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-border);
+      border-radius: 10px;
+      padding: 2rem;
+    }
+    .gg-pillar--active {
+      border-color: var(--gg-green);
+    }
+    .gg-pillar__status {
+      font-family: var(--gg-mono);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.75rem;
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .gg-pillar--active .gg-pillar__status {
+      color: var(--gg-green);
+      background: rgba(34,197,94,0.12);
+    }
+    .gg-pillar--next .gg-pillar__status {
+      color: var(--gg-amber);
+      background: rgba(245,158,11,0.12);
+    }
+    .gg-pillar--planned .gg-pillar__status {
+      color: var(--gg-text-dim);
+      background: var(--gg-surface-2);
+    }
+    .gg-pillar h3 {
+      font-family: var(--gg-sans);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-pillar p {
+      font-family: var(--gg-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text-dim);
+      line-height: 1.55;
+      margin: 0;
+    }
+
     /* ── CTA ── */
     .gg-cta {
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 4rem 1.5rem 5rem;
       text-align: center;
@@ -389,10 +612,10 @@
     <!-- Hero -->
     <section class="gg-hero">
       <div>
-        <div class="gg-hero__tag">Repository Compliance</div>
-        <h1>Every repo. Every push.<br><em>Always compliant.</em></h1>
+        <div class="gg-hero__tag">Developer Experience Platform</div>
+        <h1>Know how your teams build.<br><em>Help them do it better.</em></h1>
         <p class="gg-hero__sub">
-          GitGrit evaluates your repositories against Python policies on every push and pull request. Catch compliance gaps before they ship.
+          GitGrit gives engineering leaders visibility into repository standards, team health, and delivery performance — and gives developers actionable guidance to improve.
         </p>
         <div class="gg-hero__actions">
           <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
@@ -433,7 +656,7 @@
     <section class="gg-features gg-reveal">
       <div class="gg-features__header">
         <h2>Built for engineering teams</h2>
-        <p>Everything you need to enforce standards across every repository.</p>
+        <p>Give your team the tools to write better software, not more checklists.</p>
       </div>
       <div class="gg-features__grid">
         <div class="gg-feat">
@@ -515,11 +738,110 @@
 
     <div class="gg-divider"><hr></div>
 
+    <!-- Pricing -->
+    <section class="gg-pricing gg-reveal">
+      <div class="gg-pricing__header">
+        <h2>Simple, transparent pricing</h2>
+        <p>No "call us for pricing." No per-seat surprises at scale.</p>
+      </div>
+      <div class="gg-pricing__grid">
+        <div class="gg-tier">
+          <div class="gg-tier__name">Free</div>
+          <div class="gg-tier__price">$0 <span>/ forever</span></div>
+          <div class="gg-tier__desc">For individuals and small teams getting started.</div>
+          <ul class="gg-tier__features">
+            <li>Up to 2 users</li>
+            <li>Up to 10 projects</li>
+            <li>Unlimited platform connections</li>
+            <li>Full dashboard &amp; analytics</li>
+            <li>Policy marketplace</li>
+            <li>Community support</li>
+          </ul>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost" style="text-align:center;">Get Started</a>
+        </div>
+        <div class="gg-tier gg-tier--featured">
+          <div class="gg-tier__name">Plus</div>
+          <div class="gg-tier__price">$15 <span>/ user / month</span></div>
+          <div class="gg-tier__desc">For growing teams that need more capacity.</div>
+          <ul class="gg-tier__features">
+            <li>Unlimited users</li>
+            <li>Unlimited projects</li>
+            <li>Unlimited platform connections</li>
+            <li>Everything in Free</li>
+            <li>Email support (48h response)</li>
+          </ul>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--primary" style="text-align:center;">Get Started</a>
+        </div>
+        <div class="gg-tier">
+          <div class="gg-tier__name">Pro</div>
+          <div class="gg-tier__price">$299 <span>/ month flat</span></div>
+          <div class="gg-tier__desc">The maximum anyone pays. Period. Unlimited everything.</div>
+          <ul class="gg-tier__features">
+            <li>Unlimited users</li>
+            <li>Unlimited everything</li>
+            <li>Everything in Plus</li>
+            <li>Priority support (24h response)</li>
+            <li>Onboarding assistance</li>
+          </ul>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost" style="text-align:center;">Get Started</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- Open Source -->
+    <section class="gg-oss gg-reveal">
+      <div class="gg-oss__header">
+        <h2>Open source. Self-host anywhere.</h2>
+        <p>GitGrit is fully open source under AGPL. Run it on your own infrastructure, including airgapped environments.</p>
+      </div>
+      <div class="gg-oss__grid">
+        <div class="gg-oss__card">
+          <h3>Full product, no gates</h3>
+          <p>Self-hosted GitGrit has every feature. The cloud version wins on convenience, not by withholding functionality.</p>
+        </div>
+        <div class="gg-oss__card">
+          <h3>Airgapped ready</h3>
+          <p>Deploy behind firewalls with no external dependencies. Built for defense, government, and security-conscious organizations.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- Roadmap -->
+    <section class="gg-roadmap gg-reveal">
+      <div class="gg-roadmap__header">
+        <h2>More than a compliance tool</h2>
+        <p>GitGrit is becoming the single place to understand and improve how your teams build software.</p>
+      </div>
+      <div class="gg-pillars">
+        <div class="gg-pillar gg-pillar--active">
+          <span class="gg-pillar__status">Live</span>
+          <h3>Repository Standards</h3>
+          <p>Policy-as-code enforcement with sandboxed execution, marketplace, analytics, and compliance badges.</p>
+        </div>
+        <div class="gg-pillar gg-pillar--next">
+          <span class="gg-pillar__status">Next</span>
+          <h3>Employee Surveys</h3>
+          <p>Measure Westrum culture, burnout, and psychological safety — tied directly to delivery outcomes.</p>
+        </div>
+        <div class="gg-pillar gg-pillar--planned">
+          <span class="gg-pillar__status">Planned</span>
+          <h3>Engineering Metrics</h3>
+          <p>DORA metrics from the tools you already use. Standards + team health + delivery performance in one place.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
     <!-- CTA -->
     <section class="gg-cta gg-reveal">
       <div class="gg-cta__box">
-        <h2>Start enforcing standards today</h2>
-        <p>Free for small teams. No credit card required.</p>
+        <h2>Start improving today</h2>
+        <p>Free for individuals and small teams. No credit card required.</p>
         <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
       </div>
     </section>

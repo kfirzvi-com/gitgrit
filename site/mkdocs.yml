@@ -1,6 +1,6 @@
 site_name: GitGrit
 site_url: https://gitgrit.dev
-site_description: Repository Standards & Compliance Platform
+site_description: Developer Experience Platform — Repository Standards, Team Health, and Delivery Performance
 site_author: GitGrit
 
 theme:
@@ -57,4 +57,4 @@ extra:
       link: https://github.com/kfirzvi-com/gitgrit
   generator: false
 
-copyright: "&copy; 2026 GitGrit — Repository Standards & Compliance"
+copyright: "&copy; 2026 GitGrit — Developer Experience Platform"
