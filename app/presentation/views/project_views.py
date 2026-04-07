@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
@@ -15,6 +15,13 @@ from app.domain.models import PlatformConnection, Policy, PolicyExecution, Proje
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
+
+
+def _existing_owners(tenant):
+    return list(
+        Project.objects.filter(tenant=tenant)
+        .exclude(owner="").values_list("owner", flat=True).distinct()
+    )
 
 
 class ProjectListView(LoginRequiredMixin, ListView):
@@ -69,10 +76,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
             tenant=project.tenant, enabled=True, draft=False
         ).order_by("ordinal", "name")
 
-        context["existing_owners"] = list(
-            Project.objects.filter(tenant=project.tenant)
-            .exclude(owner="").values_list("owner", flat=True).distinct()
-        )
+        context["existing_owners"] = _existing_owners(project.tenant)
 
         return context
 
@@ -181,10 +185,6 @@ def add_project_search(request, connection_id):
         return redirect("project_detail", pk=project.pk)
 
     stacks = Stack.objects.filter(tenant=tenant).order_by("name")
-    existing_owners = list(
-        Project.objects.filter(tenant=tenant)
-        .exclude(owner="").values_list("owner", flat=True).distinct()
-    )
 
     return render(
         request,
@@ -194,7 +194,7 @@ def add_project_search(request, connection_id):
             "connection": connection,
             "lifecycle_choices": Project.Lifecycle.choices,
             "stacks": stacks,
-            "existing_owners": existing_owners,
+            "existing_owners": _existing_owners(tenant),
         },
     )
 
@@ -238,8 +238,6 @@ def search_projects_api(request):
     except Exception:
         logger.exception("Failed to search projects")
         if request.headers.get("HX-Request"):
-            from django.http import HttpResponse
-
             return HttpResponse(
                 '<p class="text-sm text-error">Failed to search platform API. '
                 "Check your connection token.</p>"
@@ -349,7 +347,6 @@ def retry_webhook(request, pk):
 def update_project_owner(request, pk):
     tenant = request.tenant
     if not tenant:
-        from django.http import HttpResponseBadRequest
         return HttpResponseBadRequest()
 
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
@@ -357,12 +354,7 @@ def update_project_owner(request, pk):
     project.owner = request.POST.get("owner", "")
     project.save(update_fields=["owner"])
 
-    existing_owners = list(
-        Project.objects.filter(tenant=tenant)
-        .exclude(owner="").values_list("owner", flat=True).distinct()
-    )
-
     return render(request, "partials/project_owner.html", {
         "project": project,
-        "existing_owners": existing_owners,
+        "existing_owners": _existing_owners(tenant),
     })
