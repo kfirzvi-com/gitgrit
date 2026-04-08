@@ -1,0 +1,160 @@
+slug: node-version-not-eol
+name: Node.js Version Not EOL
+description: >
+  Checks that the project specifies a supported Node.js version that has not
+  reached End of Life. Detects versions from .nvmrc, .node-version,
+  package.json engines field, and .tool-versions. Running on an EOL Node.js
+  version means no security patches and potential compatibility issues.
+author: GitGrit
+suggested_labels:
+  - nodejs
+  - security
+criteria:
+  events:
+    - push
+    - manual
+  languages:
+    - JavaScript
+    - TypeScript
+code: |
+  import re
+  from datetime import date
+
+  # Source: https://github.com/nodejs/release#release-schedule
+  # Update this map when new major versions are released
+  NODE_EOL_DATES = {
+      12: date(2022, 4, 30),
+      14: date(2023, 4, 30),
+      16: date(2023, 9, 11),
+      17: date(2022, 6, 1),
+      18: date(2025, 4, 30),
+      19: date(2023, 6, 1),
+      20: date(2026, 4, 30),
+      21: date(2024, 6, 1),
+      22: date(2027, 4, 30),
+      23: date(2025, 6, 1),
+      24: date(2028, 4, 30),
+  }
+
+  def _extract_major(version_str):
+      """Extract major version number from a version string."""
+      match = re.search(r"(\d+)", version_str.strip().lstrip("v"))
+      return int(match.group(1)) if match else None
+
+  def evaluate(project):
+      files = project.list_files()
+      version_str = None
+      source = None
+
+      # Check .nvmrc
+      if ".nvmrc" in files:
+          content = project.get_file_content(".nvmrc")
+          if content and content.strip():
+              version_str = content.strip()
+              source = ".nvmrc"
+
+      # Check .node-version
+      if not version_str and ".node-version" in files:
+          content = project.get_file_content(".node-version")
+          if content and content.strip():
+              version_str = content.strip()
+              source = ".node-version"
+
+      # Check .tool-versions
+      if not version_str and ".tool-versions" in files:
+          content = project.get_file_content(".tool-versions")
+          if content:
+              for line in content.splitlines():
+                  if line.strip().startswith("nodejs"):
+                      version_str = line.split()[-1] if len(line.split()) > 1 else None
+                      source = ".tool-versions"
+                      break
+
+      # Check package.json engines
+      if not version_str and "package.json" in files:
+          content = project.get_file_content("package.json")
+          if content:
+              try:
+                  import json
+                  pkg = json.loads(content)
+                  engines = pkg.get("engines", {}).get("node", "")
+                  if engines:
+                      version_str = engines
+                      source = "package.json (engines.node)"
+              except Exception:
+                  pass
+
+      if not version_str:
+          return {
+              "passed": False,
+              "score": 30,
+              "message": "No Node.js version specified — cannot verify EOL status",
+              "details": {"checked": [".nvmrc", ".node-version", ".tool-versions", "package.json engines"]},
+          }
+
+      major = _extract_major(version_str)
+      if major is None:
+          return {
+              "passed": True,
+              "score": 70,
+              "message": f"Could not parse Node.js version from {source}: {version_str}",
+              "details": {"source": source, "raw": version_str},
+          }
+
+      eol_date = NODE_EOL_DATES.get(major)
+      today = date.today()
+
+      if eol_date and today > eol_date:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"Node.js {major} reached EOL on {eol_date.isoformat()} — upgrade to a supported version",
+              "details": {"major": major, "eol_date": eol_date.isoformat(), "source": source},
+          }
+
+      if eol_date:
+          days_left = (eol_date - today).days
+          if days_left < 90:
+              return {
+                  "passed": True,
+                  "score": 60,
+                  "message": f"Node.js {major} reaches EOL in {days_left} days ({eol_date.isoformat()}) — plan an upgrade",
+                  "details": {"major": major, "eol_date": eol_date.isoformat(), "days_left": days_left, "source": source},
+              }
+
+      return {
+          "passed": True,
+          "score": 100,
+          "message": f"Node.js {major} is supported (from {source})",
+          "details": {"major": major, "source": source, "eol_date": eol_date.isoformat() if eol_date else "unknown"},
+      }
+test_cases:
+  - name: Current LTS version
+    input:
+      list_files:
+        - .nvmrc
+        - package.json
+      get_file_content:
+        .nvmrc: "22"
+    expected:
+      passed: true
+      score: 100
+  - name: EOL version
+    input:
+      list_files:
+        - .nvmrc
+        - package.json
+      get_file_content:
+        .nvmrc: "16"
+    expected:
+      passed: false
+      score: 0
+  - name: No version specified
+    input:
+      list_files:
+        - package.json
+      get_file_content:
+        package.json: '{"name": "app"}'
+    expected:
+      passed: false
+      score: 30

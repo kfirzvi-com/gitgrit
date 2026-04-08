@@ -1,0 +1,53 @@
+slug: gitignore-exists
+name: .gitignore Exists
+description: >
+  Checks that the repository has a .gitignore file. Without it, build artifacts,
+  dependency directories, IDE configs, and OS files get committed, cluttering
+  the repo and potentially leaking sensitive data.
+author: GitGrit
+suggested_labels:
+  - git
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+
+      if ".gitignore" in files:
+          content = project.get_file_content(".gitignore")
+          lines = [l.strip() for l in (content or "").splitlines() if l.strip() and not l.startswith("#")]
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f".gitignore found with {len(lines)} rule(s)",
+              "details": {"rule_count": len(lines)},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No .gitignore file found",
+          "details": {},
+      }
+test_cases:
+  - name: Has .gitignore
+    input:
+      list_files:
+        - .gitignore
+        - src/main.py
+      get_file_content:
+        .gitignore: "node_modules/\n.env\n__pycache__/"
+    expected:
+      passed: true
+      score: 100
+  - name: No .gitignore
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+    expected:
+      passed: false
+      score: 0

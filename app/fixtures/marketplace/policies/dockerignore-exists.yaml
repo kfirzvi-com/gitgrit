@@ -1,0 +1,67 @@
+slug: dockerignore-exists
+name: .dockerignore Exists
+description: >
+  Checks that projects with a Dockerfile also have a .dockerignore file.
+  Without it, Docker copies everything into the build context — including
+  node_modules, .git, secrets, and test fixtures — leading to bloated images,
+  slow builds, and potential security leaks.
+author: GitGrit
+suggested_labels:
+  - docker
+  - security
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      has_dockerfile = any(f.split("/")[-1].lower().startswith("dockerfile") for f in files)
+
+      if not has_dockerfile:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "No Dockerfile found — .dockerignore not required",
+              "details": {"skipped": True},
+          }
+
+      if ".dockerignore" in files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": ".dockerignore found",
+              "details": {},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "Dockerfile found but no .dockerignore — build context may include unnecessary files",
+          "details": {},
+      }
+test_cases:
+  - name: Has both
+    input:
+      list_files:
+        - Dockerfile
+        - .dockerignore
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: Dockerfile without dockerignore
+    input:
+      list_files:
+        - Dockerfile
+        - src/main.py
+    expected:
+      passed: false
+      score: 0
+  - name: No Dockerfile at all
+    input:
+      list_files:
+        - src/main.py
+    expected:
+      passed: true
+      score: 100

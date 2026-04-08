@@ -1,0 +1,69 @@
+slug: no-large-files
+name: No Large Binary Files
+description: >
+  Scans for common large binary file types that should not be committed to Git.
+  Binaries bloat the repository permanently (even if deleted later), slow down
+  clones, and are better handled by Git LFS or artifact storage.
+author: GitGrit
+suggested_labels:
+  - git
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+
+      binary_extensions = {
+          ".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar",
+          ".jar", ".war", ".ear",
+          ".exe", ".dll", ".so", ".dylib", ".bin",
+          ".iso", ".dmg", ".img",
+          ".mp4", ".avi", ".mov", ".mkv", ".mp3", ".wav", ".flac",
+          ".psd", ".ai", ".sketch",
+          ".sqlite", ".db", ".sqlite3",
+          ".whl", ".egg",
+      }
+
+      violations = []
+      for f in files:
+          ext = "." + f.rsplit(".", 1)[-1].lower() if "." in f else ""
+          if ext in binary_extensions:
+              violations.append(f)
+
+      if not violations:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "No large binary files detected",
+              "details": {"files_scanned": len(files)},
+          }
+
+      score = max(0, 100 - len(violations) * 20)
+      return {
+          "passed": False,
+          "score": score,
+          "message": f"Found {len(violations)} binary file(s) that should not be in Git",
+          "details": {"violations": violations},
+      }
+test_cases:
+  - name: Clean repo
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+        - .gitignore
+    expected:
+      passed: true
+      score: 100
+  - name: Has binary files
+    input:
+      list_files:
+        - src/main.py
+        - assets/video.mp4
+        - dist/app.exe
+    expected:
+      passed: false
+      score: 60

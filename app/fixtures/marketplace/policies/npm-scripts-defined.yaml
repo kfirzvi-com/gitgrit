@@ -1,0 +1,97 @@
+slug: npm-scripts-defined
+name: NPM Scripts Defined
+description: >
+  Checks that package.json defines essential npm scripts: a way to start
+  development, build for production, and run tests. These are the three scripts
+  every team member and CI pipeline relies on.
+author: GitGrit
+suggested_labels:
+  - nodejs
+  - quality
+  - ci-cd
+criteria:
+  events:
+    - push
+    - manual
+  languages:
+    - JavaScript
+    - TypeScript
+code: |
+  import json
+
+  EXPECTED_SCRIPTS = {
+      "dev": ["dev", "start", "serve"],
+      "build": ["build", "compile"],
+      "test": ["test", "test:unit", "test:e2e"],
+  }
+
+  def evaluate(project):
+      content = project.get_file_content("package.json")
+      if not content:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": "No package.json found",
+              "details": {},
+          }
+
+      try:
+          pkg = json.loads(content)
+      except Exception:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": "Could not parse package.json",
+              "details": {},
+          }
+
+      scripts = pkg.get("scripts", {})
+      found = {}
+      missing = []
+
+      for category, names in EXPECTED_SCRIPTS.items():
+          match = next((n for n in names if n in scripts), None)
+          if match:
+              found[category] = match
+          else:
+              missing.append(category)
+
+      score = int(len(found) / len(EXPECTED_SCRIPTS) * 100)
+      passed = len(missing) == 0
+
+      if passed:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"All essential scripts defined: {', '.join(found.values())}",
+              "details": {"found": found},
+          }
+
+      return {
+          "passed": False,
+          "score": score,
+          "message": f"Missing scripts for: {', '.join(missing)}",
+          "details": {"found": found, "missing": missing},
+      }
+test_cases:
+  - name: All scripts present
+    input:
+      get_file_content:
+        package.json: '{"scripts": {"dev": "vite", "build": "tsc && vite build", "test": "vitest"}}'
+    expected:
+      passed: true
+      score: 100
+  - name: Missing test script
+    input:
+      get_file_content:
+        package.json: '{"scripts": {"dev": "vite", "build": "tsc && vite build"}}'
+    expected:
+      passed: false
+      score: 66
+  - name: No package.json
+    input:
+      get_file_content:
+        package.json: null
+    expected:
+      passed: false
+      score: 0

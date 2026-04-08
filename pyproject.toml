@@ -32,6 +32,7 @@ dev = { cmd = "python manage.py runserver", help = "Run the development server" 
 test = { cmd = "python manage.py test", help = "Run tests" }
 migrate = { cmd = "python manage.py migrate --noinput", help = "Apply database migrations" }
 makemigrations = { cmd = "python manage.py makemigrations", help = "Create new migrations" }
+seed = { cmd = "python manage.py seed_marketplace", help = "Seed marketplace policies and packs" }
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "gitgrit.settings_test"

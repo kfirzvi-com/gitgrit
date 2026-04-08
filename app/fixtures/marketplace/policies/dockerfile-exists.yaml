@@ -1,0 +1,68 @@
+slug: dockerfile-exists
+name: Dockerfile Exists
+description: >
+  Checks that the project contains a Dockerfile. Containerization ensures
+  consistent environments from development to production and is essential
+  for modern deployment workflows.
+author: GitGrit
+suggested_labels:
+  - docker
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      dockerfiles = [f for f in files if f.split("/")[-1].lower().startswith("dockerfile")]
+
+      if dockerfiles:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Found {len(dockerfiles)} Dockerfile(s): {', '.join(dockerfiles)}",
+              "details": {"dockerfiles": dockerfiles},
+          }
+
+      # Check for docker-compose as partial credit
+      compose = [f for f in files if "compose" in f.lower() and f.endswith((".yml", ".yaml"))]
+      if compose:
+          return {
+              "passed": False,
+              "score": 30,
+              "message": "Docker Compose found but no Dockerfile",
+              "details": {"compose_files": compose},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No Dockerfile found",
+          "details": {},
+      }
+test_cases:
+  - name: Has Dockerfile
+    input:
+      list_files:
+        - Dockerfile
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: Only compose
+    input:
+      list_files:
+        - docker-compose.yml
+        - src/main.py
+    expected:
+      passed: false
+      score: 30
+  - name: No Docker files
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+    expected:
+      passed: false
+      score: 0

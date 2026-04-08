@@ -1,0 +1,78 @@
+slug: dependency-lockfile-exists
+name: Dependency Lockfile Exists
+description: >
+  Checks that the project has a dependency lockfile committed to version control.
+  Lockfiles ensure reproducible builds by pinning exact dependency versions.
+  Supports npm, yarn, pnpm, uv, poetry, pip, Go, Rust, Ruby, and more.
+author: GitGrit
+suggested_labels:
+  - quality
+  - best-practices
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      basenames = {f.rsplit("/", 1)[-1] if "/" in f else f for f in files}
+
+      lockfiles = {
+          "npm": "package-lock.json",
+          "yarn": "yarn.lock",
+          "pnpm": "pnpm-lock.yaml",
+          "bun": "bun.lockb",
+          "uv": "uv.lock",
+          "poetry": "poetry.lock",
+          "pip": "requirements.txt",
+          "pipenv": "Pipfile.lock",
+          "Go": "go.sum",
+          "Cargo": "Cargo.lock",
+          "Bundler": "Gemfile.lock",
+          "Composer": "composer.lock",
+      }
+
+      found = {mgr: lf for mgr, lf in lockfiles.items() if lf in basenames}
+
+      if found:
+          managers = ", ".join(found.keys())
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Lockfile found for: {managers}",
+              "details": {"lockfiles": found},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No dependency lockfile found",
+          "details": {"checked": list(lockfiles.values())},
+      }
+test_cases:
+  - name: Has package-lock.json
+    input:
+      list_files:
+        - package.json
+        - package-lock.json
+        - src/index.ts
+    expected:
+      passed: true
+      score: 100
+  - name: Has uv.lock
+    input:
+      list_files:
+        - pyproject.toml
+        - uv.lock
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: No lockfile
+    input:
+      list_files:
+        - package.json
+        - src/index.ts
+    expected:
+      passed: false
+      score: 0

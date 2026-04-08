@@ -1,0 +1,57 @@
+slug: typescript-configured
+name: TypeScript Configured
+description: >
+  Checks that TypeScript projects have a tsconfig.json file. A proper TypeScript
+  configuration enables type checking, IDE support, and consistent compilation
+  settings across the team.
+author: GitGrit
+suggested_labels:
+  - nodejs
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+  languages:
+    - TypeScript
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      tsconfigs = [f for f in files if f.split("/")[-1].startswith("tsconfig") and f.endswith(".json")]
+
+      if tsconfigs:
+          root_tsconfig = "tsconfig.json" in files
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Found {len(tsconfigs)} tsconfig file(s)",
+              "details": {
+                  "files": tsconfigs,
+                  "has_root_tsconfig": root_tsconfig,
+              },
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No tsconfig.json found — TypeScript is not configured",
+          "details": {},
+      }
+test_cases:
+  - name: Has tsconfig.json
+    input:
+      list_files:
+        - tsconfig.json
+        - tsconfig.build.json
+        - src/index.ts
+    expected:
+      passed: true
+      score: 100
+  - name: No tsconfig
+    input:
+      list_files:
+        - src/index.ts
+        - package.json
+    expected:
+      passed: false
+      score: 0

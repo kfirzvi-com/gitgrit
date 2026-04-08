@@ -1,0 +1,82 @@
+slug: python-version-specified
+name: Python Version Specified
+description: >
+  Checks that the project specifies a Python version via .python-version,
+  pyproject.toml, or runtime.txt. Pinning the Python version prevents
+  "works on my machine" issues and ensures consistent behavior across
+  development, CI, and production environments.
+author: GitGrit
+suggested_labels:
+  - python
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+  languages:
+    - Python
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      sources = []
+
+      if ".python-version" in files:
+          content = project.get_file_content(".python-version")
+          if content and content.strip():
+              sources.append(f".python-version ({content.strip()})")
+
+      if "pyproject.toml" in files:
+          content = project.get_file_content("pyproject.toml")
+          if content and "requires-python" in content:
+              sources.append("pyproject.toml (requires-python)")
+
+      if "runtime.txt" in files:
+          content = project.get_file_content("runtime.txt")
+          if content and "python" in content.lower():
+              sources.append(f"runtime.txt ({content.strip()})")
+
+      if sources:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Python version specified in: {', '.join(sources)}",
+              "details": {"sources": sources},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No Python version specification found",
+          "details": {"checked": [".python-version", "pyproject.toml (requires-python)", "runtime.txt"]},
+      }
+test_cases:
+  - name: Has .python-version
+    input:
+      list_files:
+        - .python-version
+        - src/main.py
+      get_file_content:
+        .python-version: "3.13"
+    expected:
+      passed: true
+      score: 100
+  - name: Has requires-python in pyproject.toml
+    input:
+      list_files:
+        - pyproject.toml
+        - src/main.py
+      get_file_content:
+        pyproject.toml: '[project]\nrequires-python = ">=3.12"'
+    expected:
+      passed: true
+      score: 100
+  - name: No version specified
+    input:
+      list_files:
+        - src/main.py
+        - requirements.txt
+      get_file_content:
+        pyproject.toml: null
+    expected:
+      passed: false
+      score: 0

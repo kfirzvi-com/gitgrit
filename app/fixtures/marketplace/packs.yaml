@@ -19,3 +19,65 @@
   icon: "\U0001F6E1"
   policies:
     - no-secrets-in-code
+
+- slug: nodejs-standards
+  name: Node.js Standards
+  description: >
+    Best practices for Node.js and TypeScript projects. Checks for
+    package.json, TypeScript configuration, essential npm scripts,
+    linting setup, dependency lockfiles, and EOL version detection.
+  icon: "\U0001F7E2"
+  policies:
+    - package-json-exists
+    - npm-scripts-defined
+    - typescript-configured
+    - linter-configured
+    - dependency-lockfile-exists
+    - node-version-not-eol
+
+- slug: python-standards
+  name: Python Standards
+  description: >
+    Best practices for Python projects. Checks for version pinning,
+    linter configuration, dependency lockfiles, and EOL version detection.
+  icon: "\U0001F40D"
+  policies:
+    - python-version-specified
+    - linter-configured
+    - dependency-lockfile-exists
+    - python-version-not-eol
+
+- slug: docker-standards
+  name: Docker Standards
+  description: >
+    Best practices for containerized projects. Checks for Dockerfile,
+    .dockerignore, and pinned base image tags to ensure reproducible,
+    secure, and efficient container builds.
+  icon: "\U0001F433"
+  policies:
+    - dockerfile-exists
+    - dockerignore-exists
+    - no-latest-tag-in-dockerfile
+
+- slug: git-hygiene
+  name: Git Hygiene
+  description: >
+    Keep your Git repository clean and performant. Checks for .gitignore
+    and scans for large binary files that bloat the repository and slow
+    down clones.
+  icon: "\U0001F9FC"
+  policies:
+    - gitignore-exists
+    - no-large-files
+
+- slug: documentation-standards
+  name: Documentation Standards
+  description: >
+    Ensure your project is well-documented for contributors and users.
+    Checks for README, contributing guide, changelog, and license.
+  icon: "\U0001F4DA"
+  policies:
+    - readme-exists
+    - contributing-guide
+    - changelog-exists
+    - license-file

@@ -1,0 +1,152 @@
+slug: python-version-not-eol
+name: Python Version Not EOL
+description: >
+  Checks that the project uses a supported Python version that has not reached
+  End of Life. Detects versions from .python-version, pyproject.toml
+  (requires-python), runtime.txt, and .tool-versions. Running on an EOL
+  Python version means no security patches.
+author: GitGrit
+suggested_labels:
+  - python
+  - security
+criteria:
+  events:
+    - push
+    - manual
+  languages:
+    - Python
+code: |
+  import re
+  from datetime import date
+
+  # Source: https://devguide.python.org/versions/
+  # Update this map when new minor versions are released
+  PYTHON_EOL_DATES = {
+      (3, 8): date(2024, 10, 7),
+      (3, 9): date(2025, 10, 5),
+      (3, 10): date(2026, 10, 4),
+      (3, 11): date(2027, 10, 3),
+      (3, 12): date(2028, 10, 2),
+      (3, 13): date(2029, 10, 1),
+      (3, 14): date(2030, 10, 1),
+      (2, 7): date(2020, 1, 1),
+  }
+
+  def _extract_version(version_str):
+      """Extract (major, minor) tuple from a version string."""
+      match = re.search(r"(\d+)\.(\d+)", version_str)
+      if match:
+          return int(match.group(1)), int(match.group(2))
+      return None
+
+  def evaluate(project):
+      files = project.list_files()
+      version_str = None
+      source = None
+
+      # Check .python-version
+      if ".python-version" in files:
+          content = project.get_file_content(".python-version")
+          if content and content.strip():
+              version_str = content.strip()
+              source = ".python-version"
+
+      # Check .tool-versions
+      if not version_str and ".tool-versions" in files:
+          content = project.get_file_content(".tool-versions")
+          if content:
+              for line in content.splitlines():
+                  if line.strip().startswith("python"):
+                      version_str = line.split()[-1] if len(line.split()) > 1 else None
+                      source = ".tool-versions"
+                      break
+
+      # Check pyproject.toml for requires-python
+      if not version_str and "pyproject.toml" in files:
+          content = project.get_file_content("pyproject.toml")
+          if content:
+              match = re.search(r'requires-python\s*=\s*"([^"]+)"', content)
+              if match:
+                  version_str = match.group(1)
+                  source = "pyproject.toml (requires-python)"
+
+      # Check runtime.txt (Heroku-style)
+      if not version_str and "runtime.txt" in files:
+          content = project.get_file_content("runtime.txt")
+          if content and "python" in content.lower():
+              version_str = content.strip().lower().replace("python-", "")
+              source = "runtime.txt"
+
+      if not version_str:
+          return {
+              "passed": False,
+              "score": 30,
+              "message": "No Python version specified — cannot verify EOL status",
+              "details": {"checked": [".python-version", ".tool-versions", "pyproject.toml", "runtime.txt"]},
+          }
+
+      parsed = _extract_version(version_str)
+      if parsed is None:
+          return {
+              "passed": True,
+              "score": 70,
+              "message": f"Could not parse Python version from {source}: {version_str}",
+              "details": {"source": source, "raw": version_str},
+          }
+
+      major, minor = parsed
+      eol_date = PYTHON_EOL_DATES.get((major, minor))
+      today = date.today()
+
+      if eol_date and today > eol_date:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"Python {major}.{minor} reached EOL on {eol_date.isoformat()} — upgrade to a supported version",
+              "details": {"version": f"{major}.{minor}", "eol_date": eol_date.isoformat(), "source": source},
+          }
+
+      if eol_date:
+          days_left = (eol_date - today).days
+          if days_left < 180:
+              return {
+                  "passed": True,
+                  "score": 60,
+                  "message": f"Python {major}.{minor} reaches EOL in {days_left} days ({eol_date.isoformat()}) — plan an upgrade",
+                  "details": {"version": f"{major}.{minor}", "eol_date": eol_date.isoformat(), "days_left": days_left, "source": source},
+              }
+
+      return {
+          "passed": True,
+          "score": 100,
+          "message": f"Python {major}.{minor} is supported (from {source})",
+          "details": {"version": f"{major}.{minor}", "source": source, "eol_date": eol_date.isoformat() if eol_date else "unknown"},
+      }
+test_cases:
+  - name: Current version
+    input:
+      list_files:
+        - .python-version
+        - src/main.py
+      get_file_content:
+        .python-version: "3.13"
+    expected:
+      passed: true
+      score: 100
+  - name: EOL version
+    input:
+      list_files:
+        - .python-version
+        - src/main.py
+      get_file_content:
+        .python-version: "3.8"
+    expected:
+      passed: false
+      score: 0
+  - name: No version specified
+    input:
+      list_files:
+        - src/main.py
+    expected:
+      passed: false
+      score: 30

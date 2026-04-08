@@ -1,0 +1,62 @@
+slug: changelog-exists
+name: Changelog Exists
+description: >
+  Checks that the repository maintains a changelog. A well-maintained changelog
+  communicates what changed between releases, helping users decide when to
+  upgrade and understand what's new, fixed, or deprecated.
+author: GitGrit
+suggested_labels:
+  - documentation
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      changelog_names = {"changelog", "changes", "history", "news"}
+      changelog_files = [
+          f for f in files
+          if f.lower().split("/")[-1].rsplit(".", 1)[0] in changelog_names
+      ]
+
+      if changelog_files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Changelog found: {changelog_files[0]}",
+              "details": {"files": changelog_files},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No changelog file found (looked for CHANGELOG.md, CHANGES, HISTORY, NEWS)",
+          "details": {},
+      }
+test_cases:
+  - name: Has CHANGELOG.md
+    input:
+      list_files:
+        - CHANGELOG.md
+        - README.md
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: Has HISTORY.rst
+    input:
+      list_files:
+        - HISTORY.rst
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: No changelog
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+    expected:
+      passed: false
+      score: 0

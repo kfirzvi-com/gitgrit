@@ -1,0 +1,66 @@
+slug: package-json-exists
+name: Package.json Exists
+description: >
+  Checks that Node.js projects have a package.json file in the repository root.
+  This is the foundation of any Node.js project — it defines dependencies,
+  scripts, and project metadata.
+author: GitGrit
+suggested_labels:
+  - nodejs
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+  languages:
+    - JavaScript
+    - TypeScript
+code: |
+  def evaluate(project):
+      files = project.list_files()
+
+      if "package.json" in files:
+          content = project.get_file_content("package.json")
+          try:
+              import json
+              pkg = json.loads(content)
+              name = pkg.get("name", "unnamed")
+              return {
+                  "passed": True,
+                  "score": 100,
+                  "message": f"package.json found (project: {name})",
+                  "details": {"name": name, "has_description": bool(pkg.get("description"))},
+              }
+          except Exception:
+              return {
+                  "passed": True,
+                  "score": 80,
+                  "message": "package.json found but could not parse",
+                  "details": {},
+              }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No package.json found in repository root",
+          "details": {},
+      }
+test_cases:
+  - name: Has package.json
+    input:
+      list_files:
+        - package.json
+        - src/index.ts
+      get_file_content:
+        package.json: '{"name": "my-app", "version": "1.0.0"}'
+    expected:
+      passed: true
+      score: 100
+  - name: No package.json
+    input:
+      list_files:
+        - src/index.ts
+        - README.md
+    expected:
+      passed: false
+      score: 0

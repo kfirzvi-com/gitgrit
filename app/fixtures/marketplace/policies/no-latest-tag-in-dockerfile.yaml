@@ -1,0 +1,87 @@
+slug: no-latest-tag-in-dockerfile
+name: No :latest Tag in Dockerfile
+description: >
+  Checks that FROM instructions in the Dockerfile don't use the :latest tag
+  or omit the tag entirely (which defaults to :latest). Unpinned base images
+  cause non-reproducible builds — an image that worked yesterday can break
+  today because the upstream tag moved.
+author: GitGrit
+suggested_labels:
+  - docker
+  - quality
+  - security
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      content = project.get_file_content("Dockerfile")
+      if not content:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "No Dockerfile found — check not applicable",
+              "details": {"skipped": True},
+          }
+
+      violations = []
+      for i, line in enumerate(content.splitlines(), 1):
+          stripped = line.strip()
+          if not stripped.upper().startswith("FROM "):
+              continue
+          # Remove --platform=... and AS alias
+          parts = stripped.split()
+          image = parts[1] if len(parts) > 1 else ""
+          if image.startswith("--"):
+              image = parts[2] if len(parts) > 2 else ""
+          # Skip build args like FROM ${BASE_IMAGE}
+          if image.startswith("$"):
+              continue
+          if ":latest" in image or (":" not in image and "@" not in image):
+              violations.append({"line": i, "image": image})
+
+      if not violations:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "All FROM images have pinned tags",
+              "details": {},
+          }
+
+      images = ", ".join(v["image"] for v in violations)
+      return {
+          "passed": False,
+          "score": 0,
+          "message": f"Unpinned base image(s): {images}",
+          "details": {"violations": violations},
+      }
+test_cases:
+  - name: Pinned tags
+    input:
+      get_file_content:
+        Dockerfile: "FROM python:3.13-slim\nRUN pip install app"
+    expected:
+      passed: true
+      score: 100
+  - name: Uses latest
+    input:
+      get_file_content:
+        Dockerfile: "FROM node:latest\nRUN npm install"
+    expected:
+      passed: false
+      score: 0
+  - name: No tag at all
+    input:
+      get_file_content:
+        Dockerfile: "FROM ubuntu\nRUN apt-get update"
+    expected:
+      passed: false
+      score: 0
+  - name: No Dockerfile
+    input:
+      get_file_content:
+        Dockerfile: null
+    expected:
+      passed: true
+      score: 100

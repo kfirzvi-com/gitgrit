@@ -1,0 +1,86 @@
+slug: linter-configured
+name: Linter Configured
+description: >
+  Checks that the project has a linter configuration file. Linters enforce
+  consistent code style, catch common bugs, and reduce code review friction.
+  Supports ESLint, Biome, Prettier (JS/TS), Ruff, Flake8 (Python), and more.
+author: GitGrit
+suggested_labels:
+  - quality
+  - best-practices
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      basenames = {f.rsplit("/", 1)[-1] if "/" in f else f for f in files}
+
+      linter_configs = {
+          "ESLint": [".eslintrc", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yml", "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"],
+          "Biome": ["biome.json", "biome.jsonc"],
+          "Prettier": [".prettierrc", ".prettierrc.js", ".prettierrc.json", ".prettierrc.yml", "prettier.config.js"],
+          "Ruff": ["ruff.toml", ".ruff.toml"],
+          "Flake8": [".flake8"],
+          "RuboCop": [".rubocop.yml"],
+          "Golangci-lint": [".golangci.yml", ".golangci.yaml"],
+      }
+
+      # Also check pyproject.toml for [tool.ruff] or [tool.flake8]
+      found = []
+      for linter, configs in linter_configs.items():
+          if any(c in basenames for c in configs):
+              found.append(linter)
+
+      if not found:
+          pyproject = project.get_file_content("pyproject.toml")
+          if pyproject:
+              if "[tool.ruff]" in pyproject:
+                  found.append("Ruff (pyproject.toml)")
+              if "[tool.flake8]" in pyproject:
+                  found.append("Flake8 (pyproject.toml)")
+
+      if found:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Linter configured: {', '.join(found)}",
+              "details": {"linters": found},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No linter configuration found",
+          "details": {"checked": list(linter_configs.keys())},
+      }
+test_cases:
+  - name: Has ESLint config
+    input:
+      list_files:
+        - eslint.config.js
+        - src/index.ts
+    expected:
+      passed: true
+      score: 100
+  - name: Has Ruff in pyproject.toml
+    input:
+      list_files:
+        - pyproject.toml
+        - src/main.py
+      get_file_content:
+        pyproject.toml: "[tool.ruff]\nline-length = 120"
+    expected:
+      passed: true
+      score: 100
+  - name: No linter
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+      get_file_content:
+        pyproject.toml: null
+    expected:
+      passed: false
+      score: 0

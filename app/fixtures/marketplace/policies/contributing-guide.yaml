@@ -1,0 +1,72 @@
+slug: contributing-guide
+name: Contributing Guide
+description: >
+  Checks that the repository has a CONTRIBUTING.md file. A contributing guide
+  lowers the barrier for new contributors by explaining how to set up the
+  dev environment, submit changes, and follow project conventions.
+author: GitGrit
+suggested_labels:
+  - documentation
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      files = project.list_files()
+      contributing = [f for f in files if f.lower().split("/")[-1].startswith("contributing")]
+
+      if contributing:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Contributing guide found: {contributing[0]}",
+              "details": {"files": contributing},
+          }
+
+      # Check README for a contributing section as partial credit
+      readme_content = project.get_file_content("README.md")
+      if readme_content and "contributing" in readme_content.lower():
+          return {
+              "passed": True,
+              "score": 70,
+              "message": "No CONTRIBUTING.md but README has a contributing section",
+              "details": {"source": "README.md"},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No contributing guide found",
+          "details": {},
+      }
+test_cases:
+  - name: Has CONTRIBUTING.md
+    input:
+      list_files:
+        - CONTRIBUTING.md
+        - README.md
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: Contributing in README
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+      get_file_content:
+        README.md: "# My Project\n\n## Contributing\n\nPRs welcome!"
+    expected:
+      passed: true
+      score: 70
+  - name: No contributing info
+    input:
+      list_files:
+        - README.md
+        - src/main.py
+      get_file_content:
+        README.md: "# My Project\n\nA cool project."
+    expected:
+      passed: false
+      score: 0

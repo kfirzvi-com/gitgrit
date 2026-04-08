@@ -5,6 +5,8 @@ from django.core.management.base import BaseCommand
 
 from app.domain.models import MarketplacePack, MarketplacePolicy
 
+CONTENT_FIELDS = ("name", "description", "code", "criteria", "test_cases", "suggested_labels", "author")
+
 
 class Command(BaseCommand):
     help = "Seed marketplace policies and packs from YAML fixtures"
@@ -22,11 +24,28 @@ class Command(BaseCommand):
         for yaml_file in sorted(policies_dir.glob("*.yaml")):
             data = yaml.safe_load(yaml_file.read_text())
             slug = data.pop("slug")
-            mp, created = MarketplacePolicy.objects.update_or_create(
-                slug=slug, defaults=data
-            )
-            verb = "Created" if created else "Updated"
-            self.stdout.write(f"  {verb}: {mp.name} v{mp.version}")
+            data.pop("version", None)  # version is managed by the seed script, not the fixture
+
+            existing = MarketplacePolicy.objects.filter(slug=slug).first()
+
+            if existing is None:
+                mp = MarketplacePolicy.objects.create(slug=slug, version=1, **data)
+                self.stdout.write(f"  Created: {mp.name} v{mp.version}")
+            else:
+                changed = any(
+                    getattr(existing, field) != data.get(field)
+                    for field in CONTENT_FIELDS
+                    if field in data
+                )
+                if changed:
+                    for key, value in data.items():
+                        setattr(existing, key, value)
+                    existing.version += 1
+                    existing.save()
+                    self.stdout.write(f"  Updated: {existing.name} v{existing.version}")
+                else:
+                    self.stdout.write(f"  Unchanged: {existing.name} v{existing.version}")
+
             loaded += 1
 
         # Load packs
