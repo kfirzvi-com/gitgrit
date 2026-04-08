@@ -19,5 +19,5 @@ def create_provider(
     if platform == "github":
         return GitHubProvider(project_id, access_token, base_url=base_url, full_path=full_path)
     if platform == "gitlab":
-        return GitLabProvider(project_id, access_token)
+        return GitLabProvider(project_id, access_token, base_url=base_url, full_path=full_path)
     raise ValueError(f"Unknown platform: {platform}")

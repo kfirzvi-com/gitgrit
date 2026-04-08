@@ -12,7 +12,7 @@ Navigate to **Workspace Settings** and add a connection to your GitHub or GitLab
 
 1. Choose the platform (GitHub or GitLab)
 2. Give it a display name (e.g., "My GitHub")
-3. Provide a personal access token with `repo` scope (GitHub) or `read_api` scope (GitLab)
+3. Provide a personal access token — click **"How to generate a token?"** for platform-specific instructions and required permissions
 
 ## 3. Add a project
 

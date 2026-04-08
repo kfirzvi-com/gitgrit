@@ -20,10 +20,18 @@ dependencies = [
 [dependency-groups]
 dev = [
     "model-bakery>=1.20",
+    "poethepoet>=0.34",
     "pytest>=8.0",
     "pytest-django>=4.9",
     "testcontainers[postgres]>=4.9",
 ]
+
+[tool.poe.tasks]
+sandbox = { cmd = "docker build -t gitgrit-sandbox:latest sandbox_image/", help = "Build the sandbox Docker image" }
+dev = { cmd = "python manage.py runserver", help = "Run the development server" }
+test = { cmd = "python manage.py test", help = "Run tests" }
+migrate = { cmd = "python manage.py migrate --noinput", help = "Apply database migrations" }
+makemigrations = { cmd = "python manage.py makemigrations", help = "Create new migrations" }
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "gitgrit.settings_test"

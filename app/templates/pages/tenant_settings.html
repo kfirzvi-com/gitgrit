@@ -302,19 +302,20 @@
             <div id="gitlab-token-help" class="hidden">
               <h3 class="font-bold text-lg mb-4">Generate a GitLab Access Token</h3>
               <ol class="list-decimal list-inside space-y-2 text-sm">
-                <li>Open <a id="gitlab-group-link" href="https://gitlab.com" target="_blank" rel="noopener" class="link link-primary"><span id="gitlab-host-label">gitlab.com</span></a> and navigate to your <strong>Group &rarr; Settings &rarr; Access tokens</strong></li>
-                <li>Click <strong>Add new token</strong></li>
-                <li>Give it a descriptive name (e.g. "GitGrit")</li>
-                <li>Set an expiration date</li>
-                <li>Select the <strong>Developer</strong> role</li>
-                <li>Select scopes:
+                <li>Open <a id="gitlab-group-link" href="https://gitlab.com" target="_blank" rel="noopener" class="link link-primary"><span id="gitlab-host-label">gitlab.com</span></a> and go to <strong>Avatar &rarr; Edit profile &rarr; Access &rarr; Personal access tokens</strong></li>
+                <li>From the dropdown, select <strong>Personal access token (legacy)</strong></li>
+                <li>Give it a descriptive name (e.g. "GitGrit") and set an expiration date</li>
+                <li>Select the scope:
                   <ul class="list-disc list-inside ml-4 mt-1">
-                    <li><strong>api</strong> — required for listing projects and managing webhooks</li>
+                    <li><strong>api</strong> — required for listing projects, reading repository data, and managing webhooks</li>
                   </ul>
                 </li>
-                <li>Click <strong>Create group access token</strong> and copy it</li>
+                <li>Click <strong>Create personal access token</strong> and copy it</li>
               </ol>
-              <p class="opacity-70 text-sm mt-3">Tip: Use a group access token rather than a personal token — it scopes access to the group's projects and isn't tied to an individual user account.</p>
+              <div class="mt-3 text-sm opacity-70 space-y-1">
+                <p>Tip: You can also use a <strong>group access token</strong> (Group &rarr; Settings &rarr; Access tokens) to scope access to a specific group's projects without tying it to a personal account.</p>
+                <p>Note: GitLab's fine-grained tokens (Beta) don't yet support webhook management, which GitGrit requires for automatic policy evaluation. Use a legacy token for now.</p>
+              </div>
             </div>
           </div>
           <form method="dialog" class="modal-backdrop"><button>close</button></form>
