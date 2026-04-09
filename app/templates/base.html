@@ -5,6 +5,129 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}GitGrit{% endblock %}</title>
+
+  <!-- Loading screen: style + script BEFORE CDN resources so the 200ms timer
+       starts before parser-blocking scripts stall the page. The element is
+       created dynamically because <body> doesn't exist yet at this point. -->
+  <style>
+    @keyframes loadingBounce {
+      0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+      40%           { transform: scale(1.2); opacity: 1; }
+    }
+    #loading-screen .loading-shape {
+      animation: loadingBounce 1.2s ease-in-out infinite;
+    }
+    #loading-screen .loading-shape:nth-child(1) { animation-delay: 0s; }
+    #loading-screen .loading-shape:nth-child(2) { animation-delay: 0.2s; }
+    #loading-screen .loading-shape:nth-child(3) { animation-delay: 0.4s; }
+    #loading-screen .shape-hex {
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+  </style>
+  <script>
+  (function () {
+    var THRESHOLD = 150;
+    var MASCOT_SRC = "{% static 'app/images/loading-mascot.svg' %}";
+
+    // Build and inject the loader element now, before CDN scripts block parsing.
+    // Using inline styles because Tailwind/DaisyUI haven't loaded yet.
+    var el = document.createElement('div');
+    el.id = 'loading-screen';
+    el.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;background-color:#15191e';
+
+    var label = document.createElement('p');
+    label.textContent = 'LOADING';
+    label.style.cssText = 'font-size:0.75rem;font-weight:600;letter-spacing:0.3em;color:rgba(255,255,255,0.4);font-family:sans-serif;margin:0';
+
+    var img = document.createElement('img');
+    img.src = MASCOT_SRC;
+    img.alt = 'Loading';
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain';
+    img.onerror = function () { this.style.display = 'none'; };
+
+    var mascotBox = document.createElement('div');
+    mascotBox.style.cssText = 'width:144px;height:144px;display:flex;align-items:center;justify-content:center;background:#191e24;border-radius:1rem;padding:1rem;box-shadow:0 20px 60px rgba(0,0,0,0.5)';
+    mascotBox.appendChild(img);
+
+    var shapes = document.createElement('div');
+    shapes.style.cssText = 'display:flex;align-items:center;gap:1rem';
+
+    function makeShape(color, extraStyle) {
+      var s = document.createElement('div');
+      s.className = 'loading-shape';
+      s.style.cssText = 'width:20px;height:20px;background:' + color + (extraStyle ? ';' + extraStyle : '');
+      return s;
+    }
+    shapes.appendChild(makeShape('#5eead4', 'border-radius:50%'));
+    shapes.appendChild(makeShape('#facc15', 'border-radius:2px'));
+    shapes.appendChild(makeShape('#c084fc', 'clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)'));
+
+    el.appendChild(label);
+    el.appendChild(mascotBox);
+    el.appendChild(shapes);
+    document.documentElement.appendChild(el);
+
+    var MIN_VISIBLE = 1000; // ms — if loader was shown, keep it for at least this long
+    var loaderShownAt = 0;  // 0 = loader not currently shown
+
+    function showLoader() {
+      loaderShownAt = Date.now();
+      el.style.display = 'flex';
+    }
+
+    function reveal() {
+      var delay = loaderShownAt ? Math.max(0, MIN_VISIBLE - (Date.now() - loaderShownAt)) : 0;
+      setTimeout(function () {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            el.style.display = 'none';
+            loaderShownAt = 0;
+            var main = document.querySelector('main');
+            if (main) main.style.visibility = 'visible';
+          });
+        });
+      }, delay);
+    }
+
+    // --- Initial page load ---
+    var pageTimer = setTimeout(showLoader, THRESHOLD);
+
+    function onPageLoad() {
+      clearTimeout(pageTimer);
+      reveal();
+    }
+
+    if (document.readyState === 'complete') {
+      onPageLoad(); // bfcache restore: already loaded
+    } else {
+      window.addEventListener('load', onPageLoad);
+    }
+
+    // --- HTMX in-page requests ---
+    var htmxTimer = null;
+    var htmxShown = false;
+
+    document.addEventListener('htmx:beforeRequest', function (e) {
+      var trigger = e.detail.elt.getAttribute('hx-trigger') || '';
+      if (trigger.indexOf('load') !== -1) return; // skip auto-triggers
+      clearTimeout(htmxTimer);
+      htmxShown = false;
+      htmxTimer = setTimeout(function () {
+        htmxShown = true;
+        showLoader();
+      }, THRESHOLD);
+    });
+
+    document.addEventListener('htmx:afterSettle', function () {
+      clearTimeout(htmxTimer);
+      if (htmxShown) {
+        htmxShown = false;
+        reveal();
+      }
+    });
+  })();
+  </script>
+
   {% if airgapped %}
     {# TODO: vendor these locally for airgapped deployments #}
     <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
@@ -22,7 +145,8 @@
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="min-h-screen flex flex-col bg-base-200">
   {% include "components/navbar.html" %}
 
-  <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden">
+  <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
+        style="visibility:hidden;">
     {% include "components/flash_messages.html" %}
     {% block content %}{% endblock %}
   </main>
