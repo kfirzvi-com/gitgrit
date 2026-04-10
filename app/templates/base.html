@@ -76,7 +76,12 @@
     }
 
     function reveal() {
-      var delay = loaderShownAt ? Math.max(0, MIN_VISIBLE - (Date.now() - loaderShownAt)) : 0;
+      if (!loaderShownAt) {
+        var main = document.querySelector('main');
+        if (main) main.style.visibility = 'visible';
+        return;
+      }
+      var delay = Math.max(0, MIN_VISIBLE - (Date.now() - loaderShownAt));
       setTimeout(function () {
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
@@ -120,10 +125,8 @@
 
     document.addEventListener('htmx:afterSettle', function () {
       clearTimeout(htmxTimer);
-      if (htmxShown) {
-        htmxShown = false;
-        reveal();
-      }
+      htmxShown = false;
+      reveal();
     });
   })();
   </script>
