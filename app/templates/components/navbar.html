@@ -1,3 +1,4 @@
+{% load static %}
 <div class="navbar bg-base-100 shadow-lg">
   <div class="navbar-start">
     {% if user.is_authenticated %}
@@ -14,7 +15,9 @@
         </ul>
       </div>
     {% endif %}
-    <a href="{% url 'home' %}" class="btn btn-ghost text-xl">GitGrit</a>
+    <a href="{% url 'home' %}" class="btn btn-ghost px-2">
+      <img src="{% static 'app/images/logo.svg' %}" alt="GitGrit" class="h-8 w-auto">
+    </a>
   </div>
   <div class="navbar-center hidden lg:flex">
     {% if user.is_authenticated %}
