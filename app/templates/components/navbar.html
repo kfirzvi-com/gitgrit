@@ -1,3 +1,9 @@
+{% load static %}
+{% url 'dashboard' as url_dashboard %}
+{% url 'project_list' as url_projects %}
+{% url 'stack_list' as url_stacks %}
+{% url 'policy_list' as url_policies %}
+{% url 'marketplace_browse' as url_marketplace %}
 <div class="navbar bg-base-100 shadow-lg">
   <div class="navbar-start">
     {% if user.is_authenticated %}
@@ -14,16 +20,19 @@
         </ul>
       </div>
     {% endif %}
-    <a href="{% url 'home' %}" class="btn btn-ghost text-xl">GitGrit</a>
+    <a href="{% url 'home' %}" class="btn btn-ghost px-2 gap-2">
+      <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-8 w-auto">
+      <span class="text-xl font-bold">GitGrit</span>
+    </a>
   </div>
   <div class="navbar-center hidden lg:flex">
     {% if user.is_authenticated %}
       <ul class="menu menu-horizontal px-1">
-        <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
-        <li><a href="{% url 'project_list' %}">Projects</a></li>
-        <li><a href="{% url 'stack_list' %}">Stacks</a></li>
-        <li><a href="{% url 'policy_list' %}">Policies</a></li>
-        <li><a href="{% url 'marketplace_browse' %}">Marketplace</a></li>
+        <li><a href="{{ url_dashboard }}" class="{% if request.path == url_dashboard %}text-primary font-semibold{% endif %}">Dashboard</a></li>
+        <li><a href="{{ url_projects }}" class="{% if request.path == url_projects %}text-primary font-semibold{% endif %}">Projects</a></li>
+        <li><a href="{{ url_stacks }}" class="{% if request.path == url_stacks %}text-primary font-semibold{% endif %}">Stacks</a></li>
+        <li><a href="{{ url_policies }}" class="{% if request.path == url_policies %}text-primary font-semibold{% endif %}">Policies</a></li>
+        <li><a href="{{ url_marketplace }}" class="{% if request.path == url_marketplace %}text-primary font-semibold{% endif %}">Marketplace</a></li>
       </ul>
     {% endif %}
   </div>
