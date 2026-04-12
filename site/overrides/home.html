@@ -1,36 +1,21 @@
+{#
+  NOTE: DaisyUI is NOT available here. Use raw Tailwind utility classes only.
+  DaisyUI is only used in the main Django app (app/templates/).
+  Design tokens (--gg-*) come from tokens.css via mkdocs.yml extra_css — do not redefine them here.
+#}
 {% extends "main.html" %}
 
 {% block tabs %}
   {{ super() }}
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 
   <style>
     /* ── Reset MkDocs chrome ── */
     .md-main__inner { margin: 0; }
     .md-content { display: none; }
 
-    /* ── Tokens ── */
-    :root {
-      --gg-bg: #0c0e13;
-      --gg-surface: #13161d;
-      --gg-surface-2: #1a1e28;
-      --gg-border: #242938;
-      --gg-cyan: #06b6d4;
-      --gg-cyan-glow: rgba(6, 182, 212, 0.15);
-      --gg-green: #22c55e;
-      --gg-amber: #f59e0b;
-      --gg-text: #e2e8f0;
-      --gg-text-dim: #8892a4;
-      --gg-mono: 'JetBrains Mono', monospace;
-      --gg-sans: 'DM Sans', sans-serif;
-    }
-
     /* ── Background grid ── */
     .gg-page {
-      background-color: var(--gg-bg);
+      background-color: var(--gg-bg-base);
       background-image:
         radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
       background-size: 24px 24px;
@@ -52,11 +37,11 @@
     }
 
     .gg-hero__tag {
-      font-family: var(--gg-mono);
+      font-family: var(--gg-font-mono);
       font-size: 0.75rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--gg-cyan);
+      color: var(--gg-primary);
       margin-bottom: 1rem;
       display: flex;
       align-items: center;
@@ -65,11 +50,11 @@
     .gg-hero__tag::before {
       content: '';
       width: 12px; height: 2px;
-      background: var(--gg-cyan);
+      background: var(--gg-primary);
     }
 
     .gg-hero h1 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: clamp(2rem, 5vw, 3.2rem);
       font-weight: 700;
       line-height: 1.1;
@@ -79,11 +64,11 @@
     }
     .gg-hero h1 em {
       font-style: normal;
-      color: var(--gg-cyan);
+      color: var(--gg-primary);
     }
 
     .gg-hero__sub {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.1rem;
       line-height: 1.6;
       color: var(--gg-text-dim);
@@ -94,7 +79,7 @@
     .gg-hero__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
     .gg-btn {
-      font-family: var(--gg-mono);
+      font-family: var(--gg-font-mono);
       font-size: 0.85rem;
       font-weight: 700;
       padding: 0.7rem 1.6rem;
@@ -105,14 +90,14 @@
       border: 1.5px solid transparent;
     }
     .gg-btn--primary {
-      background: var(--gg-cyan);
-      color: var(--gg-bg);
-      border-color: var(--gg-cyan);
+      background: var(--gg-primary);
+      color: var(--gg-bg-base);
+      border-color: var(--gg-primary);
     }
     .gg-btn--primary:hover {
       background: transparent;
-      color: var(--gg-cyan);
-      box-shadow: 0 0 20px var(--gg-cyan-glow);
+      color: var(--gg-primary);
+      box-shadow: 0 0 20px var(--gg-primary-glow);
     }
     .gg-btn--ghost {
       background: transparent;
@@ -130,12 +115,12 @@
       border: 1px solid var(--gg-border);
       border-radius: 10px;
       overflow: hidden;
-      font-family: var(--gg-mono);
+      font-family: var(--gg-font-mono);
       font-size: 0.8rem;
       line-height: 1.65;
       box-shadow:
         0 4px 30px rgba(0,0,0,0.4),
-        0 0 60px var(--gg-cyan-glow);
+        0 0 60px var(--gg-primary-glow);
     }
     .gg-code-panel__bar {
       display: flex;
@@ -173,17 +158,17 @@
     }
     .gg-result__icon {
       width: 18px; height: 18px;
-      background: var(--gg-green);
+      background: var(--gg-success);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 11px; color: #fff;
       flex-shrink: 0;
     }
-    .gg-result__text { color: var(--gg-green); font-size: 0.78rem; }
+    .gg-result__text { color: var(--gg-success); font-size: 0.78rem; }
     .gg-result__score {
       margin-left: auto;
       background: rgba(34,197,94,0.12);
-      color: var(--gg-green);
+      color: var(--gg-success);
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 0.72rem;
@@ -212,14 +197,14 @@
       margin-bottom: 3rem;
     }
     .gg-features__header h2 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-features__header p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       font-size: 1rem;
       margin: 0;
@@ -249,22 +234,22 @@
     .gg-feat__icon {
       width: 36px; height: 36px;
       border-radius: 8px;
-      background: var(--gg-cyan-glow);
-      border: 1px solid rgba(6,182,212,0.2);
+      background: var(--gg-primary-glow);
+      border: 1px solid var(--gg-primary-glow);
       display: flex; align-items: center; justify-content: center;
       margin-bottom: 1rem;
-      color: var(--gg-cyan);
+      color: var(--gg-primary);
       font-size: 1.1rem;
     }
     .gg-feat h3 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-feat p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.88rem;
       line-height: 1.55;
       color: var(--gg-text-dim);
@@ -282,14 +267,14 @@
       margin-bottom: 3rem;
     }
     .gg-how__header h2 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-how__header p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       margin: 0;
     }
@@ -313,21 +298,21 @@
     .gg-step__num {
       position: absolute;
       left: 0; top: 0;
-      font-family: var(--gg-mono);
+      font-family: var(--gg-font-mono);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-border);
       line-height: 1;
     }
     .gg-step h4 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.95rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.35rem;
     }
     .gg-step p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.85rem;
       color: var(--gg-text-dim);
       line-height: 1.5;
@@ -345,14 +330,14 @@
       margin-bottom: 3rem;
     }
     .gg-pricing__header h2 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-pricing__header p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       font-size: 1rem;
       margin: 0;
@@ -376,19 +361,19 @@
       flex-direction: column;
     }
     .gg-tier--featured {
-      border-color: var(--gg-cyan);
-      box-shadow: 0 0 30px var(--gg-cyan-glow);
+      border-color: var(--gg-primary);
+      box-shadow: 0 0 30px var(--gg-primary-glow);
     }
     .gg-tier__name {
-      font-family: var(--gg-mono);
+      font-family: var(--gg-font-mono);
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: var(--gg-cyan);
+      color: var(--gg-primary);
       margin-bottom: 0.75rem;
     }
     .gg-tier__price {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 2rem;
       font-weight: 700;
       color: var(--gg-text);
@@ -400,7 +385,7 @@
       color: var(--gg-text-dim);
     }
     .gg-tier__desc {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.85rem;
       color: var(--gg-text-dim);
       margin-bottom: 1.5rem;
@@ -413,7 +398,7 @@
       flex-grow: 1;
     }
     .gg-tier__features li {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.85rem;
       color: var(--gg-text-dim);
       padding: 0.4rem 0;
@@ -424,7 +409,7 @@
       content: '✓';
       position: absolute;
       left: 0;
-      color: var(--gg-green);
+      color: var(--gg-success);
       font-size: 0.8rem;
     }
 
@@ -447,14 +432,14 @@
       margin-bottom: 3rem;
     }
     .gg-oss__header h2 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-oss__header p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       font-size: 1rem;
       margin: 0;
@@ -466,14 +451,14 @@
       padding: 2rem;
     }
     .gg-oss__card h3 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-oss__card p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.88rem;
       color: var(--gg-text-dim);
       line-height: 1.55;
@@ -491,14 +476,14 @@
       margin-bottom: 3rem;
     }
     .gg-roadmap__header h2 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-roadmap__header p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       font-size: 1rem;
       margin: 0;
@@ -518,10 +503,10 @@
       padding: 2rem;
     }
     .gg-pillar--active {
-      border-color: var(--gg-green);
+      border-color: var(--gg-success);
     }
     .gg-pillar__status {
-      font-family: var(--gg-mono);
+      font-family: var(--gg-font-mono);
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
@@ -531,11 +516,11 @@
       border-radius: 4px;
     }
     .gg-pillar--active .gg-pillar__status {
-      color: var(--gg-green);
+      color: var(--gg-success);
       background: rgba(34,197,94,0.12);
     }
     .gg-pillar--next .gg-pillar__status {
-      color: var(--gg-amber);
+      color: var(--gg-warning);
       background: rgba(245,158,11,0.12);
     }
     .gg-pillar--planned .gg-pillar__status {
@@ -543,14 +528,14 @@
       background: var(--gg-surface-2);
     }
     .gg-pillar h3 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
     .gg-pillar p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 0.85rem;
       color: var(--gg-text-dim);
       line-height: 1.55;
@@ -578,17 +563,17 @@
       top: 0; left: 50%;
       transform: translateX(-50%);
       width: 300px; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gg-cyan), transparent);
+      background: linear-gradient(90deg, transparent, var(--gg-primary), transparent);
     }
     .gg-cta h2 {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       font-size: 1.6rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.75rem;
     }
     .gg-cta p {
-      font-family: var(--gg-sans);
+      font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       margin: 0 0 1.5rem;
       font-size: 1rem;

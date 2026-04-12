@@ -1,0 +1,197 @@
+/*
+ * GitGrit — MkDocs Material theme overrides
+ *
+ * Maps Material for MkDocs variables (--md-*) to GitGrit design tokens (--gg-*).
+ * Do NOT define --gg-* variables here — they come from tokens.css.
+ * Do NOT use Tailwind utilities in this file — only custom CSS for Material components.
+ */
+
+/* ── Global Material theme variable mapping ── */
+:root,
+[data-md-color-scheme="slate"] {
+  --md-text-font: var(--gg-font-sans);
+  --md-code-font: var(--gg-font-mono);
+
+  --md-default-bg-color: var(--gg-bg-base);
+  --md-default-fg-color: var(--gg-text);
+  --md-default-fg-color--light: var(--gg-text-dim);
+  --md-default-fg-color--lighter: var(--gg-text-dimmer);
+  --md-default-fg-color--lightest: var(--gg-border);
+
+  --md-primary-fg-color: var(--gg-bg-base);
+  --md-primary-bg-color: var(--gg-text);
+  --md-accent-fg-color: var(--gg-primary);
+
+  --md-code-bg-color: var(--gg-surface);
+  --md-code-fg-color: var(--gg-text);
+  --md-code-hl-color: var(--gg-primary-glow);
+
+  --md-typeset-a-color: var(--gg-primary);
+
+  --md-footer-bg-color: var(--gg-bg-base);
+  --md-footer-fg-color: var(--gg-text-dim);
+  --md-footer-fg-color--light: var(--gg-text-dimmer);
+  --md-footer-fg-color--lighter: var(--gg-border);
+}
+
+/* ── Header ── */
+.md-header {
+  background: var(--gg-bg-base) !important;
+  border-bottom: 1px solid var(--gg-border);
+  box-shadow: none !important;
+  color: var(--gg-text);
+}
+.md-header__title {
+  font-family: var(--gg-font-sans);
+  font-weight: 700;
+}
+.md-header .md-logo img,
+.md-header .md-logo svg {
+  filter: brightness(0) invert(1);
+}
+
+/* ── Top navigation tabs ── */
+.md-tabs {
+  background: var(--gg-bg-base) !important;
+  border-bottom: 1px solid var(--gg-border);
+}
+.md-tabs__link {
+  font-family: var(--gg-font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  opacity: 0.6;
+}
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  opacity: 1;
+  color: var(--gg-primary);
+}
+
+/* ── Sidebar ── */
+.md-sidebar {
+  scrollbar-width: thin;
+}
+.md-nav__link {
+  font-size: 0.85rem;
+}
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  color: var(--gg-primary) !important;
+  font-weight: 600;
+}
+.md-nav--primary .md-nav__title {
+  font-family: var(--gg-font-sans);
+  font-weight: 700;
+}
+
+/* ── Content typography ── */
+.md-typeset {
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--gg-text);
+  font-size: 2em;
+}
+.md-typeset h2 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--gg-border);
+  padding-bottom: 0.4rem;
+}
+.md-typeset h3 {
+  font-weight: 600;
+  color: var(--gg-text);
+}
+
+/* ── Inline code ── */
+.md-typeset code {
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-border);
+  border-radius: var(--gg-radius-sm);
+  color: var(--gg-primary);
+  font-size: 0.82em;
+  padding: 0.1em 0.4em;
+}
+.md-typeset pre code {
+  border: none;
+  padding: 0;
+  color: inherit;
+  background: none;
+}
+
+/* ── Code blocks ── */
+.md-typeset pre {
+  border: 1px solid var(--gg-border);
+  border-radius: var(--gg-radius);
+}
+.md-typeset .highlight {
+  border-radius: var(--gg-radius);
+}
+
+/* ── Tables ── */
+.md-typeset table:not([class]) {
+  border: 1px solid var(--gg-border);
+  border-radius: var(--gg-radius);
+  overflow: hidden;
+  font-size: 0.88rem;
+}
+.md-typeset table:not([class]) th {
+  background: var(--gg-surface);
+  font-weight: 600;
+  border-bottom: 1px solid var(--gg-border);
+}
+.md-typeset table:not([class]) td {
+  border-bottom: 1px solid var(--gg-surface-2);
+}
+
+/* ── Admonitions ── */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: var(--gg-radius);
+  border: 1px solid var(--gg-border);
+}
+
+/* ── Search ── */
+.md-search__input {
+  background: var(--gg-surface) !important;
+  border: 1px solid var(--gg-border);
+  border-radius: var(--gg-radius-sm);
+}
+
+/* ── Footer ── */
+.md-footer {
+  border-top: 1px solid var(--gg-border);
+}
+
+/* ── Copy button ── */
+.md-clipboard {
+  color: var(--gg-text-dimmer);
+}
+.md-clipboard:hover {
+  color: var(--gg-primary);
+}
+
+/* ── Content links ── */
+.md-typeset a:not(.md-button) {
+  color: var(--gg-primary);
+  text-decoration: none;
+}
+.md-typeset a:not(.md-button):hover {
+  color: var(--gg-text);
+  text-decoration: underline;
+}
+
+/* ── TOC ── */
+.md-nav--secondary .md-nav__link--active {
+  color: var(--gg-primary) !important;
+}
+
+/* ── Background dot grid (subtle) ── */
+.md-main {
+  background-image:
+    radial-gradient(circle, oklch(100% 0 0 / 0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

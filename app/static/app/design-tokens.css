@@ -1,0 +1,51 @@
+/*
+ * GitGrit Design Tokens — Single Source of Truth
+ *
+ * All design values (colors, typography, radii, shadows) are defined here.
+ * Both the Django SaaS app and the MkDocs documentation site consume this file.
+ *
+ * Rules:
+ *  - Colors use the OKLCH color space (perceptually uniform, same as DaisyUI v5).
+ *  - All tokens use the --gg-* prefix to avoid clashing with DaisyUI or Material theme variables.
+ *  - Never redefine a --gg-* variable in any other file; reference only via var(--gg-*).
+ */
+
+:root {
+  /* ── Backgrounds ─────────────────────────────── */
+  --gg-bg-base:      oklch(15%   0.018 264);   /* deepest navy — #0c0e13 */
+  --gg-bg-100:       oklch(23.2% 0.022 261);   /* main page background */
+  --gg-bg-200:       oklch(17%   0.018 264);   /* darker panel / sidebar */
+  --gg-bg-300:       oklch(22%   0.022 264);   /* subtle border / divider */
+  --gg-surface:      oklch(17%   0.018 264);   /* card / code-block surface */
+  --gg-surface-2:    oklch(20%   0.020 264);   /* elevated / hovered surface */
+  --gg-border:       oklch(20%   0.020 264);   /* default border colour */
+
+  /* ── Brand ───────────────────────────────────── */
+  --gg-primary:      oklch(63%   0.158 200);   /* blue-cyan — #06b6d4 approx */
+  --gg-primary-glow: oklch(63%   0.158 200 / 0.15); /* glow / tinted bg */
+  --gg-secondary:    oklch(72%   0.177 163);   /* teal-green */
+
+  /* ── Status ──────────────────────────────────── */
+  --gg-success:      oklch(72%   0.177 163);   /* green */
+  --gg-warning:      oklch(78%   0.170 80);    /* amber */
+  --gg-error:        oklch(65%   0.200 27);    /* red */
+  --gg-info:         oklch(63%   0.158 200);   /* same as primary */
+
+  /* ── Text ────────────────────────────────────── */
+  --gg-text:         oklch(92%   0.010 264);   /* primary text — #e2e8f0 approx */
+  --gg-text-dim:     oklch(60%   0.015 264);   /* secondary text — #8892a4 approx */
+  --gg-text-dimmer:  oklch(45%   0.015 264);   /* tertiary text — #5a6478 approx */
+
+  /* ── Typography ──────────────────────────────── */
+  --gg-font-sans:    'DM Sans', sans-serif;
+  --gg-font-mono:    'JetBrains Mono', monospace;
+
+  /* ── Border radii ────────────────────────────── */
+  --gg-radius-sm:    0.375rem;   /* 6px */
+  --gg-radius:       0.5rem;     /* 8px */
+  --gg-radius-lg:    0.75rem;    /* 12px */
+
+  /* ── Shadows ─────────────────────────────────── */
+  --gg-shadow-card:  0 4px 16px oklch(0% 0 0 / 0.35);
+  --gg-shadow-inset: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+}

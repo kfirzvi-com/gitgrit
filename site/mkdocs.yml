@@ -51,6 +51,10 @@ markdown_extensions:
   - md_in_html
   - tables
 
+extra_css:
+  - stylesheets/tokens.css    # shared design tokens — single source of truth
+  - stylesheets/custom.css    # Material theme variable mappings and component overrides
+
 extra:
   social:
     - icon: fontawesome/brands/github
