@@ -109,6 +109,56 @@
       border-color: var(--gg-text-dim);
     }
 
+    /* ── Browser mockup ── */
+    .gg-browser {
+      border: 1px solid var(--gg-border);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow:
+        0 4px 30px rgba(0,0,0,0.4),
+        0 0 60px var(--gg-primary-glow);
+    }
+    .gg-browser__toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--gg-surface-2);
+      border-bottom: 1px solid var(--gg-border);
+    }
+    .gg-browser__dots {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .gg-browser__dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .gg-browser__dot--r { background: #ff5f57; }
+    .gg-browser__dot--y { background: #febc2e; }
+    .gg-browser__dot--g { background: #28c840; }
+    .gg-browser__address {
+      flex: 1;
+      margin: 0 auto;
+      max-width: 260px;
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-border);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-family: var(--gg-font-mono);
+      font-size: 0.7rem;
+      color: var(--gg-text-dim);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gg-browser__content img {
+      display: block;
+      width: 100%;
+    }
+
     /* ── Code panel ── */
     .gg-code-panel {
       background: var(--gg-surface);
@@ -600,7 +650,7 @@
         <div class="gg-hero__tag">Developer Experience Platform</div>
         <h1>Know how your teams build.<br><em>Help them do it better.</em></h1>
         <p class="gg-hero__sub">
-          GitGrit gives engineering leaders visibility into repository standards, team health, and delivery performance — and gives developers actionable guidance to improve.
+          GitGrit enables engineering leaders <span style="color: var(--gg-primary); font-weight: 700;">move faster</span> by providing visibility into repository standards, team health, and delivery performance — and enables developers actionable guidance to improve.
         </p>
         <div class="gg-hero__actions">
           <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
@@ -608,28 +658,31 @@
         </div>
       </div>
 
-      <div class="gg-code-panel">
-        <div class="gg-code-panel__bar">
-          <span class="gg-dot gg-dot--r"></span>
-          <span class="gg-dot gg-dot--y"></span>
-          <span class="gg-dot gg-dot--g"></span>
-          <span class="gg-code-panel__title">check_readme.py</span>
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="gg-browser">
+          <div class="gg-browser__toolbar">
+            <div class="gg-browser__dots">
+              <span class="gg-browser__dot gg-browser__dot--r"></span>
+              <span class="gg-browser__dot gg-browser__dot--y"></span>
+              <span class="gg-browser__dot gg-browser__dot--g"></span>
+            </div>
+            <div class="gg-browser__address"></div>
+          </div>
+          <div class="gg-browser__content">
+            <img src="../images/dashboard.png" alt="GitGrit Dashboard Overview">
+          </div>
         </div>
-        <div class="gg-code-panel__body"><pre style="margin:0;overflow:auto;"><span class="kw">def</span> <span class="fn">evaluate</span>(project):
-    files = project.<span class="fn">list_files</span>()
-    readme = [f <span class="kw">for</span> f <span class="kw">in</span> files
-              <span class="kw">if</span> f.lower().startswith(<span class="str">"readme"</span>)]
-
-    <span class="kw">if</span> readme:
-        <span class="kw">return</span> {
-            <span class="str">"passed"</span>: <span class="bool">True</span>,
-            <span class="str">"score"</span>: <span class="num">100</span>,
-            <span class="str">"message"</span>: <span class="str">f"Found {readme[0]}"</span>
-        }</pre>
-          <div class="gg-result">
-            <span class="gg-result__icon">&#10003;</span>
-            <span class="gg-result__text">passed &mdash; Found README.md</span>
-            <span class="gg-result__score">100</span>
+        <div class="gg-browser">
+          <div class="gg-browser__toolbar">
+            <div class="gg-browser__dots">
+              <span class="gg-browser__dot gg-browser__dot--r"></span>
+              <span class="gg-browser__dot gg-browser__dot--y"></span>
+              <span class="gg-browser__dot gg-browser__dot--g"></span>
+            </div>
+            <div class="gg-browser__address"></div>
+          </div>
+          <div class="gg-browser__content">
+            <img src="../images/analytics.png" alt="GitGrit Analytics Dashboard">
           </div>
         </div>
       </div>

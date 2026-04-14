@@ -6,6 +6,8 @@ site_author: GitGrit
 theme:
   name: material
   custom_dir: overrides
+  logo: images/logo.svg
+  favicon: images/logo.svg
   palette:
     scheme: slate
     primary: custom
