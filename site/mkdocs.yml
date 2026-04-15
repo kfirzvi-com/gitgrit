@@ -6,6 +6,8 @@ site_author: GitGrit
 theme:
   name: material
   custom_dir: overrides
+  logo: images/logo.svg
+  favicon: images/logo.svg
   palette:
     scheme: slate
     primary: custom
@@ -50,6 +52,10 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+
+extra_css:
+  - stylesheets/tokens.css    # shared design tokens — single source of truth
+  - stylesheets/custom.css    # Material theme variable mappings and component overrides
 
 extra:
   social:
