@@ -51,6 +51,7 @@ from app.presentation.views.marketplace_views import (
     update_marketplace_policy,
 )
 from app.presentation.views.web_views import DashboardView, HomeView
+from app.presentation.views.token_views import create_api_token, revoke_api_token
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
@@ -138,6 +139,9 @@ urlpatterns = [
         revert_policy_version,
         name="revert_policy_version",
     ),
+    # API Tokens
+    path("tenants/tokens/create/", create_api_token, name="create_api_token"),
+    path("tenants/tokens/<uuid:token_id>/revoke/", revoke_api_token, name="revoke_api_token"),
     # Badges (public, unauthenticated)
     path("badge/<uuid:pk>.svg", project_badge, name="project_badge"),
     # Marketplace

@@ -11,7 +11,7 @@ from app.domain.models import (
     Policy,
     PolicyLabel,
 )
-from app.presentation.views.policy_views import _create_version
+from app.application.policy_service import create_policy_version
 
 
 class MarketplaceBrowseView(LoginRequiredMixin, ListView):
@@ -121,7 +121,7 @@ def install_marketplace_policy(request, slug):
         draft=False,
     )
     policy.labels.set(labels)
-    _create_version(policy, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
+    create_policy_version(policy, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
 
     messages.success(request, f'Installed "{mp.name}" — you can customize it now.')
     return redirect("policy_detail", pk=policy.pk)
@@ -154,7 +154,7 @@ def update_marketplace_policy(request, slug):
         )
         policy.labels.add(label)
 
-    _create_version(policy, request.user, f"Updated from marketplace: {mp.name} v{mp.version}")
+    create_policy_version(policy, request.user, f"Updated from marketplace: {mp.name} v{mp.version}")
 
     messages.success(
         request, f'Updated "{policy.name}" to v{mp.version}.'
@@ -202,7 +202,7 @@ def install_marketplace_pack(request, slug):
             draft=False,
         )
         policy.labels.set(labels)
-        _create_version(policy, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
+        create_policy_version(policy, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
         installed_count += 1
 
     parts = []

@@ -217,3 +217,5 @@ SANDBOX = {
     "CPU_LIMIT": 0.5,
     "TIMEOUT": 30,
 }
+
+TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"

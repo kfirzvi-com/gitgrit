@@ -15,7 +15,7 @@ servers:
   web:
     hosts:
       - <SERVER_IP>
-    cmd: gunicorn gitgrit.wsgi --bind 0.0.0.0:3000 --workers 2 --access-logfile -
+    cmd: gunicorn gitgrit.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:3000 --workers 2 --timeout 65 --keep-alive 5 --access-logfile -
     options:
       volume:
         - /var/run/docker.sock:/var/run/docker.sock
