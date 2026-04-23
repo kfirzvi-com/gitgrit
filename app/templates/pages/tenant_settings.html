@@ -412,6 +412,132 @@
     </div>
   {% endif %}
 
+  {% if new_token_value %}
+    <div class="alert alert-success mb-6" id="new-token-alert">
+      <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <div class="flex-1">
+        <p class="font-bold">Token "{{ new_token_name }}" created. Copy it now — it won't be shown again.</p>
+        <div class="flex items-center gap-2 mt-2">
+          <input type="text" id="new-token-input" value="{{ new_token_value }}" readonly
+                 class="input input-bordered input-sm font-mono flex-1 bg-base-200">
+          <button class="btn btn-sm btn-ghost" onclick="copyNewToken()">Copy</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      function copyNewToken() {
+        var input = document.getElementById('new-token-input');
+        navigator.clipboard.writeText(input.value).then(function() {
+          var btn = input.nextElementSibling;
+          btn.textContent = 'Copied!';
+          setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+        });
+      }
+    </script>
+  {% endif %}
+
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+      <h2 class="card-title">API Tokens &amp; MCP</h2>
+      <p class="text-sm opacity-70 mb-4">
+        Use API tokens to connect Claude Desktop or Claude Code to your workspace via MCP.
+        Paste the configuration snippet below into your Claude Desktop settings.
+      </p>
+
+      {% if api_tokens %}
+        <div class="overflow-x-auto mb-4">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Prefix</th>
+                <th>Created by</th>
+                <th>Created</th>
+                <th>Last used</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="token-list">
+              {% for token in api_tokens %}
+                <tr id="token-row-{{ token.id }}">
+                  <td>{{ token.name }}</td>
+                  <td><code class="font-mono text-sm">{{ token.prefix }}...</code></td>
+                  <td>{{ token.user.username }}</td>
+                  <td class="text-sm opacity-70">{{ token.created_at|date:"M j, Y" }}</td>
+                  <td class="text-sm opacity-70">
+                    {% if token.last_used_at %}{{ token.last_used_at|timesince }} ago{% else %}Never{% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{% url 'revoke_api_token' token.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs text-error"
+                              onclick="return confirm('Revoke token \'{{ token.name }}\'? Any MCP clients using it will lose access.')">
+                        Revoke
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-sm opacity-70 mb-4">No tokens yet. Create one to connect Claude Desktop.</p>
+      {% endif %}
+
+      <form method="post" action="{% url 'create_api_token' %}" class="flex gap-3 items-end mb-6">
+        {% csrf_token %}
+        <div class="flex-1">
+          <label class="label"><span class="label-text text-sm">Token name</span></label>
+          <input type="text" name="token_name" required placeholder="e.g. My Claude Desktop"
+                 class="input input-bordered w-full">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Token</button>
+      </form>
+
+      <div class="divider text-sm opacity-60">Connect with Claude</div>
+
+      <div class="space-y-3">
+        <p class="text-sm">1. Create a token above, then add this to your Claude config (replace <code class="font-mono text-xs bg-base-200 px-1 rounded">YOUR_TOKEN</code> with the token you just created):</p>
+
+        <div role="tablist" class="tabs tabs-bordered">
+          <input type="radio" name="mcp-tabs" role="tab" class="tab" aria-label="Claude Desktop" checked />
+          <div role="tabpanel" class="tab-content pt-3">
+            <p class="text-xs opacity-60 mb-2">Add to <code class="font-mono">claude_desktop_config.json</code></p>
+            <div class="relative">
+              <pre id="mcp-config-desktop" class="bg-base-200 rounded-lg p-4 text-xs font-mono overflow-x-auto">{{ mcp_config_desktop }}</pre>
+              <button class="btn btn-ghost btn-xs absolute top-2 right-2" onclick="copySnippet('mcp-config-desktop', this)">Copy</button>
+            </div>
+          </div>
+
+          <input type="radio" name="mcp-tabs" role="tab" class="tab" aria-label="Claude Code" />
+          <div role="tabpanel" class="tab-content pt-3">
+            <p class="text-xs opacity-60 mb-2">Add to <code class="font-mono">.claude/settings.json</code> → <code class="font-mono">mcpServers</code></p>
+            <div class="relative">
+              <pre id="mcp-config-code" class="bg-base-200 rounded-lg p-4 text-xs font-mono overflow-x-auto">{{ mcp_config_code }}</pre>
+              <button class="btn btn-ghost btn-xs absolute top-2 right-2" onclick="copySnippet('mcp-config-code', this)">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm opacity-70">2. Restart Claude Desktop (or run <code class="font-mono text-xs">/mcp</code> in Claude Code). GitGrit will appear as an MCP server named <strong>GitGrit</strong>.</p>
+        <p class="text-sm opacity-70">3. Ask Claude: <em>"List my GitGrit policies"</em> or <em>"Create a policy that checks all repos have a CODEOWNERS file."</em></p>
+      </div>
+
+      <script>
+        function copySnippet(id, btn) {
+          var pre = document.getElementById(id);
+          navigator.clipboard.writeText(pre.textContent).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+          });
+        }
+      </script>
+    </div>
+  </div>
+
 {% else %}
   <div class="text-center py-12">
     <h1 class="text-3xl font-bold mb-4">No Workspace</h1>

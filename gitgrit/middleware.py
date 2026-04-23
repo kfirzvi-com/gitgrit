@@ -14,5 +14,9 @@ class HealthCheckMiddleware:
 
     def __call__(self, request):
         if request.path == "/up/":
+            try:
+                from app.infrastructure.mcp.server import mcp_app  # noqa: F401
+            except Exception:
+                return HttpResponse("MCP_UNAVAILABLE", status=503)
             return HttpResponse("OK")
         return self.get_response(request)

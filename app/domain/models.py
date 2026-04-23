@@ -1,3 +1,4 @@
+import secrets
 import uuid
 
 from django.conf import settings
@@ -198,6 +199,42 @@ class ProjectStack(models.Model):
 
     def __str__(self):
         return f"{self.project} — {self.stack}"
+
+
+class APIToken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="api_tokens",
+    )
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="api_tokens",
+    )
+    name = models.CharField(max_length=100)
+    token_hash = models.CharField(max_length=64, unique=True)
+    prefix = models.CharField(max_length=16)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "api_tokens"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.prefix}... ({self.tenant})"
+
+    @classmethod
+    def generate(cls) -> tuple["APIToken", str]:
+        """Return an unsaved APIToken instance and the raw token string."""
+        import hashlib
+        raw = "grit_" + secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        prefix = raw[:12]
+        instance = cls(token_hash=token_hash, prefix=prefix)
+        return instance, raw
 
 
 class PolicyLabel(models.Model):

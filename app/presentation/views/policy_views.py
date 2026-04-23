@@ -9,30 +9,10 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from app.application.policy_service import create_policy_version
 from app.domain.models import Policy, PolicyLabel, PolicyVersion
+from app.domain.policy_validator import validate_policy_code
 from app.infrastructure.sandbox.runner import SandboxRunner
-
-
-def _create_version(policy, user, summary):
-    """Create a PolicyVersion snapshot of the current policy state."""
-    latest = (
-        PolicyVersion.objects.filter(policy=policy)
-        .order_by("-version")
-        .values_list("version", flat=True)
-        .first()
-    )
-    version_num = (latest or 0) + 1
-    return PolicyVersion.objects.create(
-        policy=policy,
-        version=version_num,
-        code=policy.code,
-        description=policy.description,
-        criteria=policy.criteria,
-        test_cases=policy.test_cases,
-        labels_snapshot=list(policy.labels.values_list("name", flat=True)),
-        changed_by=user,
-        change_summary=summary,
-    )
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 LANGUAGE_CHOICES = [
@@ -80,6 +60,11 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
         return context
 
     def form_valid(self, form):
+        try:
+            validate_policy_code(form.cleaned_data.get("code", ""))
+        except ValueError as e:
+            form.add_error("code", str(e))
+            return self.form_invalid(form)
         form.instance.tenant = self.request.tenant
         events = self.request.POST.getlist("events")
         languages = self.request.POST.getlist("languages")
@@ -96,7 +81,7 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
-        _create_version(self.object, self.request.user, "Created")
+        create_policy_version(self.object, self.request.user, "Created")
         messages.success(self.request, f'Policy "{self.object.name}" created.')
         return redirect("policy_detail", pk=self.object.pk)
 
@@ -161,6 +146,11 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
         return context
 
     def form_valid(self, form):
+        try:
+            validate_policy_code(form.cleaned_data.get("code", ""))
+        except ValueError as e:
+            form.add_error("code", str(e))
+            return self.form_invalid(form)
         events = self.request.POST.getlist("events")
         languages = self.request.POST.getlist("languages")
         ref_pattern = self.request.POST.get("ref_pattern", "").strip()
@@ -176,7 +166,7 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
-        _create_version(self.object, self.request.user, "Updated")
+        create_policy_version(self.object, self.request.user, "Updated")
         messages.success(self.request, f'Policy "{self.object.name}" updated.')
         return redirect("policy_detail", pk=self.object.pk)
 
@@ -241,7 +231,7 @@ def revert_policy_version(request, pk):
         label_objs.append(label)
     policy.labels.set(label_objs)
 
-    _create_version(policy, request.user, f"Reverted to v{version.version}")
+    create_policy_version(policy, request.user, f"Reverted to v{version.version}")
 
     messages.success(request, f'Reverted "{policy.name}" to v{version.version}.')
     return redirect("policy_detail", pk=policy.pk)
