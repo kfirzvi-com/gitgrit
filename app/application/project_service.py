@@ -1,5 +1,38 @@
+import difflib
+import re
+
 from app.domain.models import Project, Tenant
 from app.infrastructure.sandbox.runner import SandboxRunner
+
+RESOLVE_ERROR_NO_MATCH = "no_match"
+
+_SSH_REMOTE_RE = re.compile(r"^(?:ssh://)?git@([^:/]+)[:/](.+)$")
+_HTTP_HOST_RE = re.compile(r"^(https?://)([^/]+)(.*)$")
+_CREDENTIALS_RE = re.compile(r"(https?://)[^@/\s]+@")
+_TRAILING_GIT_RE = re.compile(r"\.git/?$")
+
+
+def _normalize_web_url(url: str | None) -> str | None:
+    """Coerce a raw git remote URL into the credential-free HTTPS form Project.web_url uses."""
+    if not url:
+        return url
+    url = url.strip()
+    m = _SSH_REMOTE_RE.match(url)
+    if m:
+        url = f"https://{m.group(1)}/{m.group(2)}"
+    url = _CREDENTIALS_RE.sub(r"\1", url)
+    url = _TRAILING_GIT_RE.sub("", url)
+    m = _HTTP_HOST_RE.match(url)
+    if m:
+        url = f"{m.group(1)}{m.group(2).lower()}{m.group(3)}"
+    return url
+
+
+def _normalize_full_path(path: str | None) -> str | None:
+    if not path:
+        return path
+    path = path.strip().lstrip("/")
+    return _TRAILING_GIT_RE.sub("", path)
 
 _PROJECT_CONTEXT_API = """
 # ProjectContext API Reference
@@ -108,23 +141,67 @@ def evaluate(project):
 class ProjectService:
     def list_projects(self, tenant: Tenant) -> list[dict]:
         return [
-            {
-                "id": str(p.id),
-                "name": p.name,
-                "description": p.description,
-                "platform": p.platform,
-                "full_path": p.full_path,
-                "web_url": p.web_url,
-                "default_branch": p.default_branch,
-                "lifecycle": p.lifecycle,
-                "languages": p.languages,
-                "tags": p.tags,
-            }
+            self._serialize(p)
             for p in Project.objects.filter(tenant=tenant).order_by("name")
         ]
 
+    def resolve_project(
+        self,
+        tenant: Tenant,
+        repo_full_path: str | None = None,
+        web_url: str | None = None,
+    ) -> dict:
+        """Map a local git remote to a GitGrit project.
+
+        Returns the project dict (with ``matched_by``) on hit, or
+        ``{"error": "no_match", "candidates": [...]}`` on miss — up to 5
+        closest ``full_path`` matches to help the caller suggest alternatives.
+
+        The Claude plugin pre-normalizes its remote URL client-side; the same
+        normalization runs here so non-plugin MCP clients (Cursor, Cline, raw
+        JSON-RPC) get the same hit rate when they pass raw output of
+        ``git remote get-url origin``.
+        """
+        web_url = _normalize_web_url(web_url)
+        repo_full_path = _normalize_full_path(repo_full_path)
+
+        if repo_full_path:
+            project = Project.objects.filter(
+                tenant=tenant, full_path=repo_full_path
+            ).first()
+            if project:
+                return {**self._serialize(project), "matched_by": "full_path"}
+
+        if web_url:
+            project = Project.objects.filter(tenant=tenant, web_url=web_url).first()
+            if project:
+                return {**self._serialize(project), "matched_by": "web_url"}
+
+        all_paths = list(
+            Project.objects.filter(tenant=tenant).values_list("full_path", flat=True)
+        )
+        candidates = difflib.get_close_matches(
+            repo_full_path or "", all_paths, n=5, cutoff=0.4
+        )
+        return {"error": RESOLVE_ERROR_NO_MATCH, "candidates": candidates}
+
     def get_project_context_api(self) -> str:
         return _PROJECT_CONTEXT_API
+
+    @staticmethod
+    def _serialize(p: Project) -> dict:
+        return {
+            "id": str(p.id),
+            "name": p.name,
+            "description": p.description,
+            "platform": p.platform,
+            "full_path": p.full_path,
+            "web_url": p.web_url,
+            "default_branch": p.default_branch,
+            "lifecycle": p.lifecycle,
+            "languages": p.languages,
+            "tags": p.tags,
+        }
 
 
 class SandboxService:

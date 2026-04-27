@@ -8,6 +8,7 @@ from django.db.models import QuerySet
 from app.domain.events import DomainEvent
 from app.domain.identity import resolve_user
 from app.domain.models import Policy, PolicyExecution, Project
+from app.domain.policy_criteria import language_matches
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
@@ -76,12 +77,8 @@ class PolicyEngine:
                 )
                 return False
 
-        # Language filter (if set, project must have at least one matching language)
-        policy_languages = criteria.get("languages", [])
-        if policy_languages:
-            project_languages = [lang.lower() for lang in (project.languages or [])]
-            if not any(lang.lower() in project_languages for lang in policy_languages):
-                return False
+        if not language_matches(criteria.get("languages", []), project.languages or []):
+            return False
 
         return True
 

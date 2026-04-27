@@ -78,7 +78,9 @@ class TestTenancyIsolation(TransactionTestCase):
         )
 
     def test_tenant_b_cannot_see_tenant_a_policies(self):
-        ctx_token = context.set_auth(self.user_b, self.tenant_b)
+        ctx_token = context.set_auth(
+            context.AuthContext(user=self.user_b, tenant=self.tenant_b, client_kind="claude")
+        )
         try:
             result = asyncio.run(list_policies())
         finally:
@@ -87,7 +89,9 @@ class TestTenancyIsolation(TransactionTestCase):
         self.assertNotIn(str(self.policy_a.id), returned_ids)
 
     def test_tenant_a_sees_its_own_policies(self):
-        ctx_token = context.set_auth(self.user_a, self.tenant_a)
+        ctx_token = context.set_auth(
+            context.AuthContext(user=self.user_a, tenant=self.tenant_a, client_kind="claude")
+        )
         try:
             result = asyncio.run(list_policies())
         finally:

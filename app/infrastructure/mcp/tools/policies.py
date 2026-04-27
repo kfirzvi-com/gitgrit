@@ -12,14 +12,14 @@ _service = PolicyService()
 @register
 async def list_policies() -> list[dict]:
     """List all policies in the current workspace."""
-    _, tenant = get_auth()
+    tenant = get_auth().tenant
     return await sync_to_async(_service.list_policies)(tenant)
 
 
 @register
 async def get_policy(policy_id: str) -> dict:
     """Get full details of a policy, including its Python code and recent executions."""
-    _, tenant = get_auth()
+    tenant = get_auth().tenant
     return await sync_to_async(_service.get_policy)(tenant, policy_id)
 
 
@@ -52,7 +52,8 @@ async def create_policy(
         labels: Label names to assign (created if they don't exist).
         draft: If True, policy is saved but not executed on events.
     """
-    user, tenant = get_auth()
+    auth = get_auth()
+    user, tenant = auth.user, auth.tenant
     return await sync_to_async(_service.create_policy)(tenant, user, {
         "name": name,
         "code": code,
@@ -82,7 +83,8 @@ async def update_policy(
 
     Creates a version snapshot so changes are tracked and reversible.
     """
-    user, tenant = get_auth()
+    auth = get_auth()
+    user, tenant = auth.user, auth.tenant
     data: dict = {"change_summary": change_summary}
     if name is not None:
         data["name"] = name
@@ -106,7 +108,7 @@ async def update_policy(
 @register
 async def delete_policy(policy_id: str) -> dict:
     """Permanently delete a policy."""
-    _, tenant = get_auth()
+    tenant = get_auth().tenant
     await sync_to_async(_service.delete_policy)(tenant, policy_id)
     return {"deleted": True, "policy_id": policy_id}
 
@@ -134,7 +136,8 @@ async def set_policy_code(
         file_path: Absolute path to a local file containing the policy code.
         change_summary: Version history note.
     """
-    user, tenant = get_auth()
+    auth = get_auth()
+    user, tenant = auth.user, auth.tenant
     code = Path(file_path).read_text(encoding="utf-8")
     return await sync_to_async(_service.update_policy)(tenant, user, policy_id, {
         "code": code,

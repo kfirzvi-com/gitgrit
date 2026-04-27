@@ -33,6 +33,9 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Adding Projects: getting-started/projects.md
     - Writing Policies: getting-started/policies.md
+    - Connect Cursor: getting-started/setup-cursor.md
+    - Connect Cline: getting-started/setup-cline.md
+    - Connect a Generic MCP Client: getting-started/setup-generic.md
   - Features:
     - Policy Marketplace: features/marketplace.md
     - Compliance Badges: features/badges.md

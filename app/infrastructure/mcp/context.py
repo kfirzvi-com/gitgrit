@@ -1,19 +1,22 @@
 from contextvars import ContextVar
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 from app.domain.models import Tenant, User
+
+ClientKind = Literal["claude", "generic"]
 
 
 class AuthContext(NamedTuple):
     user: User
     tenant: Tenant
+    client_kind: ClientKind
 
 
 _auth_var: ContextVar[AuthContext | None] = ContextVar("mcp_auth", default=None)
 
 
-def set_auth(user: User, tenant: Tenant) -> object:
-    return _auth_var.set(AuthContext(user=user, tenant=tenant))
+def set_auth(auth: AuthContext) -> object:
+    return _auth_var.set(auth)
 
 
 def reset_auth(token: object) -> None:

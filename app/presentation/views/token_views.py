@@ -13,14 +13,19 @@ def create_api_token(request):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
+        return redirect("profile")
 
     name = request.POST.get("token_name", "").strip()
     if not name:
         messages.error(request, "Token name is required.")
-        return redirect("tenant_settings")
+        return redirect("profile")
 
-    token_instance, raw_token = APIToken.generate()
+    client_kind = request.POST.get("client_kind", APIToken.ClientKind.CLAUDE)
+    if client_kind not in {c for c, _ in APIToken.ClientKind.choices}:
+        messages.error(request, "Invalid client kind.")
+        return redirect("profile")
+
+    token_instance, raw_token = APIToken.generate(client_kind=client_kind)
     token_instance.user = request.user
     token_instance.tenant = tenant
     token_instance.name = name
@@ -29,7 +34,8 @@ def create_api_token(request):
     # Store the raw token in the session once so it can be displayed
     request.session["new_token_value"] = raw_token
     request.session["new_token_name"] = name
-    return redirect("tenant_settings")
+    request.session["new_token_kind"] = client_kind
+    return redirect("profile")
 
 
 @login_required
@@ -38,7 +44,7 @@ def revoke_api_token(request, token_id):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
+        return redirect("profile")
 
     token = get_object_or_404(APIToken, id=token_id, tenant=tenant)
 
@@ -47,10 +53,10 @@ def revoke_api_token(request, token_id):
     is_admin = membership and membership.role in (Membership.Role.OWNER, Membership.Role.ADMIN)
     if token.user != request.user and not is_admin:
         messages.error(request, "Permission denied.")
-        return redirect("tenant_settings")
+        return redirect("profile")
 
     token.delete()
     if request.headers.get("HX-Request"):
         return HttpResponse("")
     messages.success(request, f'Token "{token.name}" revoked.')
-    return redirect("tenant_settings")
+    return redirect("profile")

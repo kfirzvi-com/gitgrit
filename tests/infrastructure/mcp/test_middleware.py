@@ -37,7 +37,7 @@ class TestMCPAuthMiddleware(TestCase):
     def test_valid_token_reaches_inner_app(self, mock_resolve):
         user = MagicMock()
         tenant = MagicMock()
-        mock_resolve.return_value = AuthContext(user=user, tenant=tenant)
+        mock_resolve.return_value = AuthContext(user=user, tenant=tenant, client_kind="claude")
 
         reached = []
 
@@ -55,7 +55,7 @@ class TestMCPAuthMiddleware(TestCase):
     def test_auth_context_set_during_inner_app_call(self, mock_resolve):
         user = MagicMock()
         tenant = MagicMock()
-        mock_resolve.return_value = AuthContext(user=user, tenant=tenant)
+        mock_resolve.return_value = AuthContext(user=user, tenant=tenant, client_kind="claude")
 
         captured = []
 

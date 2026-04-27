@@ -14,5 +14,5 @@ async def list_projects() -> list[dict]:
     Useful for understanding what languages and platforms are in use
     before writing targeted policies.
     """
-    _, tenant = get_auth()
+    tenant = get_auth().tenant
     return await sync_to_async(_service.list_projects)(tenant)

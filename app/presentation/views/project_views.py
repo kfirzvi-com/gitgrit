@@ -50,16 +50,15 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         project = self.object
 
         recent_executions = PolicyExecution.objects.filter(
-            project=project
+            project=project, policy__isnull=False
         ).select_related("policy")[:50]
         context["recent_executions"] = recent_executions
 
         # Deduplicate: latest execution per policy
         seen_policies = {}
         for ex in recent_executions:
-            key = ex.policy_id or ex.policy_name
-            if key not in seen_policies:
-                seen_policies[key] = ex
+            if ex.policy_id not in seen_policies:
+                seen_policies[ex.policy_id] = ex
         latest_executions = list(seen_policies.values())
         context["latest_executions"] = latest_executions
 
