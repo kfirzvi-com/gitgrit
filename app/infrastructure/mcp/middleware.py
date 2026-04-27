@@ -34,7 +34,7 @@ class MCPAuthMiddleware:
             await _send_401(send)
             return
 
-        ctx_token = set_auth(auth_context.user, auth_context.tenant)
+        ctx_token = set_auth(auth_context)
         try:
             await self.app(scope, receive, send)
         finally:

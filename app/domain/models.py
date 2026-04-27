@@ -202,6 +202,10 @@ class ProjectStack(models.Model):
 
 
 class APIToken(models.Model):
+    class ClientKind(models.TextChoices):
+        CLAUDE = "claude", "Claude Code / Desktop"
+        GENERIC = "generic", "Generic MCP client"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -216,6 +220,11 @@ class APIToken(models.Model):
     name = models.CharField(max_length=100)
     token_hash = models.CharField(max_length=64, unique=True)
     prefix = models.CharField(max_length=16)
+    client_kind = models.CharField(
+        max_length=10,
+        choices=ClientKind.choices,
+        default=ClientKind.CLAUDE,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
 
@@ -227,13 +236,13 @@ class APIToken(models.Model):
         return f"{self.prefix}... ({self.tenant})"
 
     @classmethod
-    def generate(cls) -> tuple["APIToken", str]:
+    def generate(cls, client_kind: str = ClientKind.CLAUDE) -> tuple["APIToken", str]:
         """Return an unsaved APIToken instance and the raw token string."""
         import hashlib
         raw = "grit_" + secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw.encode()).hexdigest()
         prefix = raw[:12]
-        instance = cls(token_hash=token_hash, prefix=prefix)
+        instance = cls(token_hash=token_hash, prefix=prefix, client_kind=client_kind)
         return instance, raw
 
 

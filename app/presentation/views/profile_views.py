@@ -1,10 +1,15 @@
+import json
+
 from allauth.socialaccount.models import SocialAccount
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
+
+from app.domain.models import APIToken
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):
@@ -32,6 +37,54 @@ class ProfileView(LoginRequiredMixin, TemplateView):
             })
 
         ctx["providers"] = providers
+
+        tenant = self.request.tenant
+        ctx["tenant"] = tenant
+        if tenant:
+            ctx["api_tokens"] = APIToken.objects.filter(
+                user=self.request.user, tenant=tenant
+            ).order_by("-created_at")
+
+        ctx["new_token_value"] = self.request.session.pop("new_token_value", None)
+        ctx["new_token_name"] = self.request.session.pop("new_token_name", None)
+        ctx["new_token_kind"] = self.request.session.pop("new_token_kind", None)
+
+        site_url = settings.SITE_URL.rstrip("/")
+        mcp_url = f"{site_url}/mcp/"
+        ctx["mcp_url"] = mcp_url
+        ctx["mcp_config_desktop"] = json.dumps(
+            {
+                "mcpServers": {
+                    "GitGrit": {
+                        "url": mcp_url,
+                        "authorization_token": "YOUR_TOKEN",
+                    }
+                }
+            },
+            indent=2,
+        )
+        ctx["mcp_config_code"] = json.dumps(
+            {
+                "mcpServers": {
+                    "GitGrit": {
+                        "url": mcp_url,
+                        "headers": {"Authorization": "Bearer YOUR_TOKEN"},
+                    }
+                }
+            },
+            indent=2,
+        )
+        ctx["mcp_config_generic"] = json.dumps(
+            {
+                "mcpServers": {
+                    "GitGrit": {
+                        "url": mcp_url,
+                        "headers": {"Authorization": "Bearer YOUR_TOKEN"},
+                    }
+                }
+            },
+            indent=2,
+        )
         return ctx
 
 

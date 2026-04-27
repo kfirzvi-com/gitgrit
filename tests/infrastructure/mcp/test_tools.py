@@ -7,13 +7,19 @@ from mcp.server.fastmcp.prompts.base import UserMessage
 from rest_framework.test import APITestCase
 
 from app.infrastructure.mcp import context
-from app.infrastructure.mcp.tools import policies, projects, reference, testing
+from app.infrastructure.mcp.tools import policies, project_status, projects, reference, testing
 from app.infrastructure.mcp.tools.policies import (
     create_policy,
     delete_policy,
     get_policy,
     list_policies,
     update_policy,
+)
+from app.infrastructure.mcp.tools.project_status import (
+    get_active_policies_for_project,
+    get_project_status,
+    resolve_project,
+    session_bootstrap,
 )
 from app.infrastructure.mcp.tools.projects import list_projects
 from app.infrastructure.mcp.tools.prompts import audit_workspace, write_policy_from_requirement
@@ -25,7 +31,9 @@ class _AuthedTestCase(APITestCase):
     def setUp(self):
         self.user = baker.make("app.User")
         self.tenant = baker.make("app.Tenant")
-        self._ctx_token = context.set_auth(self.user, self.tenant)
+        self._ctx_token = context.set_auth(
+            context.AuthContext(user=self.user, tenant=self.tenant, client_kind="claude")
+        )
 
     def tearDown(self):
         context.reset_auth(self._ctx_token)
@@ -90,6 +98,128 @@ class TestProjectTools(_AuthedTestCase):
             result = asyncio.run(list_projects())
         mock.assert_called_once_with(self.tenant)
         assert result == [{"id": "p1"}]
+
+
+class TestProjectStatusTools(_AuthedTestCase):
+    def test_resolve_project_passes_tenant_and_args(self):
+        with patch.object(
+            project_status._project_service,
+            "resolve_project",
+            return_value={"id": "p1", "matched_by": "full_path"},
+        ) as mock:
+            result = asyncio.run(resolve_project(repo_full_path="acme/backend"))
+        mock.assert_called_once_with(self.tenant, "acme/backend", None)
+        assert result["id"] == "p1"
+
+    def test_get_project_status_passes_tenant_and_id(self):
+        with patch.object(
+            project_status._status_service,
+            "get_project_status",
+            return_value={"grade": "good"},
+        ) as mock:
+            result = asyncio.run(get_project_status("abc"))
+        mock.assert_called_once_with(self.tenant, "abc")
+        assert result == {"grade": "good"}
+
+    def test_get_active_policies_passes_tenant_and_id(self):
+        sample = {
+            "id": "p",
+            "rules": {
+                "watched_files": ["README.md"],
+                "forbidden_patterns": [],
+                "locally_enforceable": True,
+                "watched_files_complete": True,
+                "forbidden_patterns_complete": True,
+            },
+        }
+        with patch.object(
+            project_status._policy_service,
+            "list_active_for_project",
+            return_value=[sample],
+        ) as mock:
+            result = asyncio.run(get_active_policies_for_project("abc"))
+        mock.assert_called_once_with(self.tenant, "abc")
+        assert result[0]["rules"]["watched_files"] == ["README.md"]
+
+    def test_session_bootstrap_fans_out_to_three_services(self):
+        project = {"id": "p1", "name": "backend", "matched_by": "full_path"}
+        status = {"grade": "good", "overall_score": 85}
+        policies_list = [{"id": "pol1", "rules": {"watched_files": []}}]
+        with (
+            patch.object(
+                project_status._project_service,
+                "resolve_project",
+                return_value=project,
+            ) as resolve_mock,
+            patch.object(
+                project_status._status_service,
+                "get_project_status",
+                return_value=status,
+            ) as status_mock,
+            patch.object(
+                project_status._policy_service,
+                "list_active_for_project",
+                return_value=policies_list,
+            ) as policies_mock,
+        ):
+            result = asyncio.run(
+                session_bootstrap(repo_full_path="acme/backend")
+            )
+        resolve_mock.assert_called_once_with(self.tenant, "acme/backend", None)
+        status_mock.assert_called_once_with(self.tenant, "p1")
+        policies_mock.assert_called_once_with(self.tenant, "p1")
+        assert result == {"project": project, "status": status, "policies": policies_list}
+
+    def test_session_bootstrap_match_no_policies(self):
+        project = {"id": "p1", "name": "backend", "matched_by": "full_path"}
+        status = {"grade": "unknown", "overall_score": None, "total_policies": 0}
+        with (
+            patch.object(
+                project_status._project_service,
+                "resolve_project",
+                return_value=project,
+            ),
+            patch.object(
+                project_status._status_service,
+                "get_project_status",
+                return_value=status,
+            ),
+            patch.object(
+                project_status._policy_service,
+                "list_active_for_project",
+                return_value=[],
+            ),
+        ):
+            result = asyncio.run(session_bootstrap(repo_full_path="acme/backend"))
+        # Project resolved but zero applicable policies — wire shape still has all
+        # three keys; policies is the empty list (not None).
+        assert result == {"project": project, "status": status, "policies": []}
+
+    def test_session_bootstrap_stable_shape_on_project_error(self):
+        error_project = {"error": "no_match", "candidates": [{"full_path": "x/y"}]}
+        with (
+            patch.object(
+                project_status._project_service,
+                "resolve_project",
+                return_value=error_project,
+            ),
+            patch.object(
+                project_status._status_service, "get_project_status"
+            ) as status_mock,
+            patch.object(
+                project_status._policy_service, "list_active_for_project"
+            ) as policies_mock,
+        ):
+            result = asyncio.run(session_bootstrap(repo_full_path="x/y"))
+        # On project error, status and policies are not called — and the result
+        # still carries all three keys with null for the missing data.
+        status_mock.assert_not_called()
+        policies_mock.assert_not_called()
+        assert result == {
+            "project": error_project,
+            "status": None,
+            "policies": None,
+        }
 
 
 class TestReferenceTools(_AuthedTestCase):

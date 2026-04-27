@@ -1,6 +1,3 @@
-import json
-
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -10,7 +7,7 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
 
-from app.domain.models import APIToken, Membership, Platform, PlatformConnection, Tenant
+from app.domain.models import Membership, Platform, PlatformConnection, Tenant
 from app.infrastructure.platform_client import get_platform_client
 
 User = get_user_model()
@@ -76,39 +73,6 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 Membership.Role.OWNER,
                 Membership.Role.ADMIN,
             )
-            context["api_tokens"] = APIToken.objects.filter(
-                tenant=tenant
-            ).select_related("user").order_by("-created_at")
-
-        # Consume the one-time new token from session
-        context["new_token_value"] = self.request.session.pop("new_token_value", None)
-        context["new_token_name"] = self.request.session.pop("new_token_name", None)
-
-        site_url = settings.SITE_URL.rstrip("/")
-        mcp_url = f"{site_url}/mcp/"
-        context["mcp_url"] = mcp_url
-        context["mcp_config_desktop"] = json.dumps(
-            {
-                "mcpServers": {
-                    "GitGrit": {
-                        "url": mcp_url,
-                        "authorization_token": "YOUR_TOKEN",
-                    }
-                }
-            },
-            indent=2,
-        )
-        context["mcp_config_code"] = json.dumps(
-            {
-                "mcpServers": {
-                    "GitGrit": {
-                        "url": mcp_url,
-                        "headers": {"Authorization": "Bearer YOUR_TOKEN"},
-                    }
-                }
-            },
-            indent=2,
-        )
         return context
 
 

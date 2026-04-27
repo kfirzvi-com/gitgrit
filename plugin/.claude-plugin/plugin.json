@@ -1,0 +1,27 @@
+{
+  "name": "gitgrit",
+  "version": "0.2.0",
+  "description": "Project-aware DevOps compliance enforcement for GitGrit-connected repositories. Resolves the current repo to a GitGrit project at session start and calls validate_edit on the server before every Edit or Write so introduced violations are attributed correctly and pre-existing ones don't block the edit.",
+  "author": {
+    "name": "GitGrit",
+    "url": "https://gitgrit.dev"
+  },
+  "repository": "https://github.com/kfirzvi-com/gitgrit-plugin",
+  "license": "MIT",
+  "userConfig": {
+    "api_token": {
+      "type": "string",
+      "title": "GitGrit API Token",
+      "description": "Workspace API token from gitgrit.dev/settings/tokens",
+      "sensitive": true,
+      "required": true
+    },
+    "api_url": {
+      "type": "string",
+      "title": "GitGrit MCP URL",
+      "description": "MCP endpoint. Override only for self-hosted deployments.",
+      "default": "https://gitgrit.dev/mcp/",
+      "required": false
+    }
+  }
+}

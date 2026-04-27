@@ -7,6 +7,32 @@
   <h1 class="text-3xl font-bold">Profile Settings</h1>
 </div>
 
+{% if new_token_value %}
+  <div class="alert alert-success mb-6" id="new-token-alert">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <div class="flex-1">
+      <p class="font-bold">Token "{{ new_token_name }}" created. Copy it now — it won't be shown again.</p>
+      <div class="flex items-center gap-2 mt-2">
+        <input type="text" id="new-token-input" value="{{ new_token_value }}" readonly
+               class="input input-bordered input-sm font-mono flex-1 bg-base-200">
+        <button class="btn btn-sm btn-ghost" onclick="copyNewToken()">Copy</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    function copyNewToken() {
+      var input = document.getElementById('new-token-input');
+      navigator.clipboard.writeText(input.value).then(function() {
+        var btn = input.nextElementSibling;
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
@@ -75,4 +101,141 @@
     </div>
   </div>
 </div>
+
+{% if tenant %}
+  <div class="card bg-base-100 shadow-xl mt-6">
+    <div class="card-body">
+      <h2 class="card-title">API Tokens &amp; MCP</h2>
+      <p class="text-sm opacity-70 mb-4">
+        Tokens for the active workspace <strong>{{ tenant.name }}</strong>. Pick the
+        flow that matches your editor — Claude Code / Desktop with the GitGrit
+        plugin, or a generic MCP client (Cursor, Cline, MCP Inspector, …).
+      </p>
+
+      {% if api_tokens %}
+        <div class="overflow-x-auto mb-4">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Prefix</th>
+                <th>Client</th>
+                <th>Created</th>
+                <th>Last used</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="token-list">
+              {% for token in api_tokens %}
+                <tr id="token-row-{{ token.id }}">
+                  <td>{{ token.name }}</td>
+                  <td><code class="font-mono text-sm">{{ token.prefix }}...</code></td>
+                  <td><span class="badge badge-ghost badge-sm">{{ token.get_client_kind_display }}</span></td>
+                  <td class="text-sm opacity-70">{{ token.created_at|date:"M j, Y" }}</td>
+                  <td class="text-sm opacity-70">
+                    {% if token.last_used_at %}{{ token.last_used_at|timesince }} ago{% else %}Never{% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{% url 'revoke_api_token' token.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs text-error"
+                              onclick="return confirm('Revoke token \'{{ token.name }}\'? Any MCP clients using it will lose access.')">
+                        Revoke
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-sm opacity-70 mb-4">No tokens yet. Pick a connection flow below to create one.</p>
+      {% endif %}
+
+      <div role="tablist" class="tabs tabs-lifted">
+        <input type="radio" name="connect-tabs" role="tab" class="tab"
+               aria-label="Claude Code / Desktop" checked />
+        <div role="tabpanel" class="tab-content border-base-300 bg-base-100 p-6 space-y-4">
+          <p class="text-sm opacity-80">Use the GitGrit Claude Code plugin for auto-bootstrap and pre-edit enforcement reminders. Pick this if you use Claude Code or Claude Desktop.</p>
+
+          <form method="post" action="{% url 'create_api_token' %}" class="flex gap-3 items-end">
+            {% csrf_token %}
+            <input type="hidden" name="client_kind" value="claude">
+            <div class="flex-1">
+              <label class="label"><span class="label-text text-sm">Token name</span></label>
+              <input type="text" name="token_name" required placeholder="e.g. My Claude Desktop"
+                     class="input input-bordered w-full">
+            </div>
+            <button type="submit" class="btn btn-primary">Create Claude Token</button>
+          </form>
+
+          <div role="tablist" class="tabs tabs-bordered">
+            <input type="radio" name="claude-mcp-tabs" role="tab" class="tab" aria-label="Claude Desktop" checked />
+            <div role="tabpanel" class="tab-content pt-3">
+              <p class="text-xs opacity-60 mb-2">Add to <code class="font-mono">claude_desktop_config.json</code></p>
+              <div class="relative">
+                <pre id="mcp-config-desktop" class="bg-base-200 rounded-lg p-4 text-xs font-mono overflow-x-auto">{{ mcp_config_desktop }}</pre>
+                <button class="btn btn-ghost btn-xs absolute top-2 right-2" onclick="copySnippet('mcp-config-desktop', this)">Copy</button>
+              </div>
+            </div>
+
+            <input type="radio" name="claude-mcp-tabs" role="tab" class="tab" aria-label="Claude Code" />
+            <div role="tabpanel" class="tab-content pt-3">
+              <p class="text-xs opacity-60 mb-2">Add to <code class="font-mono">.claude/settings.json</code> → <code class="font-mono">mcpServers</code></p>
+              <div class="relative">
+                <pre id="mcp-config-code" class="bg-base-200 rounded-lg p-4 text-xs font-mono overflow-x-auto">{{ mcp_config_code }}</pre>
+                <button class="btn btn-ghost btn-xs absolute top-2 right-2" onclick="copySnippet('mcp-config-code', this)">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-sm opacity-70">Install the GitGrit plugin via Claude's plugin marketplace and paste the token when prompted. The plugin's SessionStart hook will bootstrap each project automatically.</p>
+        </div>
+
+        <input type="radio" name="connect-tabs" role="tab" class="tab"
+               aria-label="Generic MCP client" />
+        <div role="tabpanel" class="tab-content border-base-300 bg-base-100 p-6 space-y-4">
+          <p class="text-sm opacity-80">For Cursor, Cline, MCP Inspector, GPT-based IDEs, and any MCP-aware client without the GitGrit plugin. The MCP server delivers operating instructions on connect, and the LLM calls <code class="font-mono text-xs bg-base-200 px-1 rounded">session_bootstrap</code> and <code class="font-mono text-xs bg-base-200 px-1 rounded">validate_edit</code> directly.</p>
+
+          <form method="post" action="{% url 'create_api_token' %}" class="flex gap-3 items-end">
+            {% csrf_token %}
+            <input type="hidden" name="client_kind" value="generic">
+            <div class="flex-1">
+              <label class="label"><span class="label-text text-sm">Token name</span></label>
+              <input type="text" name="token_name" required placeholder="e.g. Cursor at Acme"
+                     class="input input-bordered w-full">
+            </div>
+            <button type="submit" class="btn btn-primary">Create Generic Token</button>
+          </form>
+
+          <div>
+            <p class="text-xs opacity-60 mb-2">MCP server config (replace <code class="font-mono">YOUR_TOKEN</code> with the token you just created):</p>
+            <div class="relative">
+              <pre id="mcp-config-generic" class="bg-base-200 rounded-lg p-4 text-xs font-mono overflow-x-auto">{{ mcp_config_generic }}</pre>
+              <button class="btn btn-ghost btn-xs absolute top-2 right-2" onclick="copySnippet('mcp-config-generic', this)">Copy</button>
+            </div>
+          </div>
+
+          <ol class="list-decimal pl-5 text-sm opacity-80 space-y-1">
+            <li>Add the snippet above to your editor's MCP config (Cursor: <code class="font-mono text-xs">~/.cursor/mcp.json</code>; Cline: MCP settings panel).</li>
+            <li>Reload your editor.</li>
+            <li>In a new chat in the project, type <em>"set up GitGrit for this project"</em> — the LLM will call <code class="font-mono text-xs">export_setup_files</code> and write <code class="font-mono text-xs">.cursor/rules/gitgrit.mdc</code> or <code class="font-mono text-xs">.clinerules/gitgrit.md</code> for you.</li>
+            <li>Then ask <em>"what's the compliance status of this project?"</em> — the LLM will call <code class="font-mono text-xs">session_bootstrap</code> and bind the local clone to a GitGrit project.</li>
+          </ol>
+        </div>
+      </div>
+
+      <script>
+        function copySnippet(id, btn) {
+          var pre = document.getElementById(id);
+          navigator.clipboard.writeText(pre.textContent).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+          });
+        }
+      </script>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}

@@ -1,4 +1,8 @@
-from app.domain.models import Policy, PolicyLabel, PolicyVersion, Tenant, User
+from django.core.exceptions import ValidationError
+
+from app.domain.models import Policy, PolicyLabel, PolicyVersion, Project, Tenant, User
+from app.domain.policy_criteria import language_matches
+from app.domain.policy_extractor import extract_rules, to_dict
 from app.domain.policy_validator import validate_policy_code
 
 _DEFAULT_CODE = 'def evaluate(project):\n    return {"passed": True, "score": 100, "message": "OK", "details": {}}\n'
@@ -47,7 +51,7 @@ class PolicyService:
     def get_policy(self, tenant: Tenant, policy_id: str) -> dict:
         try:
             p = Policy.objects.prefetch_related("labels").get(id=policy_id, tenant=tenant)
-        except Policy.DoesNotExist:
+        except (Policy.DoesNotExist, ValidationError):
             raise ValueError(f"Policy {policy_id} not found")
 
         recent_executions = list(
@@ -104,7 +108,7 @@ class PolicyService:
     def update_policy(self, tenant: Tenant, user: User, policy_id: str, data: dict) -> dict:
         try:
             policy = Policy.objects.prefetch_related("labels").get(id=policy_id, tenant=tenant)
-        except Policy.DoesNotExist:
+        except (Policy.DoesNotExist, ValidationError):
             raise ValueError(f"Policy {policy_id} not found")
 
         change_summary = data.get("change_summary", "Updated")
@@ -154,6 +158,64 @@ class PolicyService:
     def delete_policy(self, tenant: Tenant, policy_id: str) -> None:
         try:
             policy = Policy.objects.get(id=policy_id, tenant=tenant)
-        except Policy.DoesNotExist:
+        except (Policy.DoesNotExist, ValidationError):
             raise ValueError(f"Policy {policy_id} not found")
         policy.delete()
+
+    def list_active_for_project(
+        self, tenant: Tenant, project_id: str
+    ) -> list[dict]:
+        """Return active, non-draft policies applicable to a project.
+
+        Shape is tailored for client-side enforcement: each policy carries a
+        ``rules`` block produced by :func:`app.domain.policy_extractor.extract_rules`
+        (watched files, kind-tagged forbidden patterns, a local-enforceability
+        flag, and per-dimension completeness flags). Raw source is not shipped.
+
+        Event and ref-pattern criteria are intentionally ignored — those are
+        webhook-time filters. Language match is the only applicability gate.
+        """
+        try:
+            project = Project.objects.get(tenant=tenant, id=project_id)
+        except (Project.DoesNotExist, ValidationError):
+            raise ValueError(f"Project {project_id} not found")
+
+        policies = Policy.objects.filter(
+            tenant=tenant, enabled=True, draft=False
+        ).prefetch_related("labels")
+
+        result = []
+        for policy in policies:
+            criteria = policy.criteria or {}
+            if not language_matches(
+                criteria.get("languages", []), project.languages or []
+            ):
+                continue
+
+            last_exec = (
+                policy.executions.filter(project=project)
+                .order_by("-created_at")
+                .first()
+            )
+
+            result.append(
+                {
+                    "id": str(policy.id),
+                    "name": policy.name,
+                    "description": policy.description,
+                    "rules": to_dict(extract_rules(policy.code)),
+                    "enabled": policy.enabled,
+                    "draft": policy.draft,
+                    "labels": [lbl.name for lbl in policy.labels.all()],
+                    "languages": criteria.get("languages", []),
+                    "last_execution": {
+                        "score": last_exec.score,
+                        "status": last_exec.status,
+                        "message": last_exec.message,
+                        "created_at": last_exec.created_at.isoformat(),
+                    }
+                    if last_exec
+                    else None,
+                }
+            )
+        return result
