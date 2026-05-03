@@ -20,11 +20,6 @@ servers:
       volume:
         - /var/run/docker.sock:/var/run/docker.sock
         - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
-      log-driver: awslogs
-      log-opt:
-        - awslogs-region=eu-north-1
-        - awslogs-group=<LOG_GROUP>
-        - awslogs-stream=gunicorn
 
 proxy:
   ssl: true
