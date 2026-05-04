@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import TemplateView
 
 from app.presentation.views.policy_views import (
     CreatePolicyView,
@@ -170,5 +171,31 @@ urlpatterns = [
         "marketplace/policies/<slug:slug>/update/",
         update_marketplace_policy,
         name="update_marketplace_policy",
+    ),
+    # Legal (public, unauthenticated)
+    path(
+        "legal/terms/",
+        TemplateView.as_view(template_name="pages/legal/terms.html"),
+        name="legal_terms",
+    ),
+    path(
+        "legal/privacy/",
+        TemplateView.as_view(template_name="pages/legal/privacy.html"),
+        name="legal_privacy",
+    ),
+    path(
+        "legal/cookies/",
+        TemplateView.as_view(template_name="pages/legal/cookies.html"),
+        name="legal_cookies",
+    ),
+    path(
+        "legal/accessibility/",
+        TemplateView.as_view(template_name="pages/legal/accessibility.html"),
+        name="legal_accessibility",
+    ),
+    path(
+        "legal/sub-processors/",
+        TemplateView.as_view(template_name="pages/legal/sub_processors.html"),
+        name="legal_sub_processors",
     ),
 ]

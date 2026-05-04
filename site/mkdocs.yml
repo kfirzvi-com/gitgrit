@@ -66,4 +66,11 @@ extra:
       link: https://github.com/kfirzvi-com/gitgrit
   generator: false
 
-copyright: "&copy; 2026 GitGrit — Developer Experience Platform"
+copyright: >-
+  &copy; 2026 GitGrit — Developer Experience Platform &middot;
+  <a href="https://app.gitgrit.dev/legal/terms/">Terms</a> &middot;
+  <a href="https://app.gitgrit.dev/legal/privacy/">Privacy</a> &middot;
+  <a href="https://app.gitgrit.dev/legal/cookies/">Cookies</a> &middot;
+  <a href="https://app.gitgrit.dev/legal/accessibility/">Accessibility</a> &middot;
+  <a href="https://app.gitgrit.dev/legal/sub-processors/">Sub-processors</a> &middot;
+  <a href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md">Security</a>

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <p class="section-label mb-2">Legal</p>
+  <h1 class="text-3xl font-bold mb-2">Privacy Policy</h1>
+  <p class="text-sm" style="color:var(--gg-text-dim)">Effective 2026-05-04.</p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">1. About this notice</h2>
+  <p>
+    This Privacy Policy explains how
+    <mark class="legal-placeholder">[Operator legal name]</mark>
+    ("GitGrit", "we", "us") collects, uses, and shares personal data in
+    connection with the hosted GitGrit service at
+    <a class="link" href="https://app.gitgrit.dev">app.gitgrit.dev</a>
+    (the "Service"). It applies to visitors, registered users, and people
+    whose data is processed because their organization uses the Service. It
+    does not apply to self-hosted deployments of GitGrit, which are
+    controlled by the organization that runs them.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">2. Controller and contact</h2>
+  <p>
+    The controller of personal data processed through the Service is
+    <mark class="legal-placeholder">[Operator legal name]</mark>,
+    <mark class="legal-placeholder">[Operator registered address]</mark>.
+    Privacy contact:
+    <a class="link" href="mailto:privacy@gitgrit.dev">privacy@gitgrit.dev</a>.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">3. What we collect</h2>
+  <ul class="list-disc pl-6 space-y-2">
+    <li>
+      <strong>Account data.</strong> Email address, display name, avatar URL,
+      and provider user ID returned by Google, GitHub, or GitLab during OAuth
+      sign-in.
+    </li>
+    <li>
+      <strong>Workspace metadata.</strong> Workspace name, membership roles,
+      invitations, and API tokens you create.
+    </li>
+    <li>
+      <strong>Platform credentials.</strong> Access tokens you provide for
+      GitHub or GitLab connections. These are encrypted at rest with Fernet
+      and used only to fetch repository data needed to evaluate the policies
+      you have enabled.
+    </li>
+    <li>
+      <strong>Repository data.</strong> Depending on which policies you have
+      enabled, this may include repository metadata, file contents, commit
+      history, member lists, and branch-protection settings, retrieved on
+      demand to evaluate those policies. We do not browse repositories
+      beyond what your policies request.
+    </li>
+    <li>
+      <strong>Webhook deliveries.</strong> Push, pull-request, and tag
+      events that your connected repositories deliver to GitGrit. These are
+      consumed to trigger policy runs and are not stored as a separate
+      record beyond what is captured in the resulting policy execution.
+    </li>
+    <li>
+      <strong>Policy execution records.</strong> Inputs, outputs, status,
+      score, and timing of each policy run.
+    </li>
+    <li>
+      <strong>Service logs.</strong> IP address, user-agent, request path,
+      and timestamps for security, debugging, and abuse prevention.
+    </li>
+    <li>
+      <strong>Support correspondence.</strong> Messages you send to our
+      support, security, or privacy mailboxes.
+    </li>
+  </ul>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">4. How and why we use it</h2>
+  <p>
+    We process personal data for the following purposes and on the following
+    legal bases under the EU/UK GDPR. Where you are outside the EU/UK, an
+    equivalent basis under your local law applies.
+  </p>
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Purpose</th>
+          <th>Legal basis</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Provide the Service (account creation, policy execution, badges, MCP, plugin).</td>
+          <td>Performance of a contract with you or your organization.</td>
+        </tr>
+        <tr>
+          <td>Secure the Service (rate limiting, abuse detection, fraud prevention, audit logging).</td>
+          <td>Legitimate interests in keeping the Service available and trustworthy.</td>
+        </tr>
+        <tr>
+          <td>Operate, maintain, and improve the Service (debugging, performance tuning, aggregate usage analysis).</td>
+          <td>Legitimate interests in operating and improving the Service.</td>
+        </tr>
+        <tr>
+          <td>Respond to support, security, or privacy requests.</td>
+          <td>Performance of a contract; legitimate interests; legal obligation where applicable.</td>
+        </tr>
+        <tr>
+          <td>Comply with law and respond to lawful requests.</td>
+          <td>Legal obligation.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">5. Sharing</h2>
+  <p>
+    We share personal data with the sub-processors listed on our
+    <a class="link" href="{% url 'legal_sub_processors' %}">sub-processors page</a>,
+    each engaged under a written agreement that limits their use of the data
+    to providing services to us. We share data with law-enforcement or
+    government bodies only when required by a binding legal request or to
+    protect the rights, property, or safety of GitGrit, our users, or the
+    public. We do not sell personal data and we do not use it for advertising
+    or to train third-party AI models.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">6. International transfers</h2>
+  <p>
+    The Service is hosted in the
+    <mark class="legal-placeholder">[Hosting region]</mark>.
+    Some sub-processors are located in the United States or operate global
+    edge networks. Where personal data is transferred outside the European
+    Economic Area or the United Kingdom, we rely on the European Commission's
+    Standard Contractual Clauses (and the UK Addendum where applicable) and
+    apply supplementary technical measures — including encryption of access
+    tokens at rest and TLS in transit — informed by a transfer-impact
+    assessment. You may request a copy of the relevant transfer mechanism by
+    emailing <a class="link" href="mailto:privacy@gitgrit.dev">privacy@gitgrit.dev</a>.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">7. Retention</h2>
+  <ul class="list-disc pl-6 space-y-2">
+    <li><strong>Account data.</strong> Kept while the account is active. Deleted or anonymized within thirty (30) days of account closure, subject to the backup window in §8.</li>
+    <li><strong>Encrypted access tokens.</strong> Kept only while the connection exists; deleted when you remove the connection.</li>
+    <li><strong>Repository data fetched for evaluation.</strong> Cached only as long as needed to complete a policy run; not persisted in raw form.</li>
+    <li><strong>Webhook deliveries.</strong> Not retained as a separate record; the resulting policy execution record applies (see below).</li>
+    <li><strong>Policy execution records.</strong> Twelve (12) months, after which they are aggregated for trend analysis without identifying individuals.</li>
+    <li><strong>Service logs.</strong> Thirty (30) days.</li>
+    <li><strong>Security audit logs.</strong> Twelve (12) months for integrity and incident-investigation purposes.</li>
+    <li><strong>Support correspondence.</strong> Twenty-four (24) months from the last message in the thread.</li>
+  </ul>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">8. Backups</h2>
+  <p>
+    Backups containing personal data are retained for up to ninety (90) days
+    in encrypted form. Deletions of live data propagate to backups on the
+    next backup-rotation cycle within that window.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">9. Your rights</h2>
+  <p>
+    Subject to your jurisdiction's law, you have rights to: access your
+    personal data; correct inaccurate data; have your data erased; restrict
+    or object to processing based on legitimate interests; receive your data
+    in a portable format; and withdraw consent where processing is based on
+    consent. To exercise any of these rights, email
+    <a class="link" href="mailto:privacy@gitgrit.dev">privacy@gitgrit.dev</a>.
+    We will respond within thirty (30) days. If you are in the EU, EEA, UK,
+    or Switzerland, you may also lodge a complaint with your supervisory
+    authority.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">10. Cookies</h2>
+  <p>
+    The Service sets only cookies that are strictly necessary to operate it.
+    See our <a class="link" href="{% url 'legal_cookies' %}">cookies notice</a>
+    for the full list and lifetimes.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">11. Security</h2>
+  <p>
+    We apply technical and organizational measures appropriate to the risk,
+    including: encryption of platform access tokens at rest with Fernet; TLS
+    for data in transit; HMAC verification of incoming webhooks;
+    gVisor-sandboxed execution of policy code; least-privilege role
+    assignments; and security logging. Our threat model and disclosure
+    process are documented in
+    <a class="link" href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>.
+    No system is perfectly secure; we cannot guarantee that personal data
+    will never be compromised.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">12. Children</h2>
+  <p>
+    The Service is not directed at children under sixteen (16), and we do
+    not knowingly collect personal data from them. If you believe we have
+    inadvertently collected data from a child, contact
+    <a class="link" href="mailto:privacy@gitgrit.dev">privacy@gitgrit.dev</a>
+    and we will delete it.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">13. Automated decision-making</h2>
+  <p>
+    The Service evaluates repositories against policies you have enabled and
+    produces a compliance score. These results are informational; we do not
+    make decisions that produce legal or similarly significant effects on
+    individuals based solely on automated processing.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">14. AI integrations</h2>
+  <p>
+    The Service offers MCP and a Claude Code plugin so third-party
+    large-language-model clients can read GitGrit data and propose policy
+    edits. When you connect such a client, the prompts and the data it
+    reads are transmitted to the model provider you have configured under
+    that provider's terms and privacy policy. GitGrit itself does not send
+    user data to any AI provider for training.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">15. Changes to this notice</h2>
+  <p>
+    We may update this Privacy Policy from time to time. The "Effective"
+    date at the top reflects the current version. We will announce material
+    changes at least thirty (30) days before they take effect via the
+    Service or by email to the address on file.
+  </p>
+
+</div>
+{% endblock %}

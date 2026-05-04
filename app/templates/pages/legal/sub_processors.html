@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Sub-processors — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <p class="section-label mb-2">Legal</p>
+  <h1 class="text-3xl font-bold mb-2">Sub-processors</h1>
+  <p class="text-sm" style="color:var(--gg-text-dim)">Effective 2026-05-04.</p>
+
+  <div class="mt-8 space-y-4">
+    <p>
+      A sub-processor is a third party engaged by GitGrit that processes
+      customer personal data in connection with the service. The list below
+      reflects the production hosted service at
+      <a class="link" href="https://app.gitgrit.dev">app.gitgrit.dev</a>.
+      Self-hosted deployments do not involve these sub-processors.
+    </p>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Current sub-processors</h2>
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Sub-processor</th>
+          <th>Purpose</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Amazon Web Services, Inc.</td>
+          <td>Application hosting and managed PostgreSQL database.</td>
+          <td><mark class="legal-placeholder">[Hosting region]</mark></td>
+        </tr>
+        <tr>
+          <td>GitHub, Inc. — Container Registry</td>
+          <td>Hosting of GitGrit container images used during deployment.</td>
+          <td>United States</td>
+        </tr>
+        <tr>
+          <td>GitHub, Inc. — OAuth &amp; REST API</td>
+          <td>OAuth sign-in and repository data access for connected GitHub projects.</td>
+          <td>United States</td>
+        </tr>
+        <tr>
+          <td>GitLab Inc.</td>
+          <td>OAuth sign-in and repository data access for connected GitLab projects.</td>
+          <td>United States</td>
+        </tr>
+        <tr>
+          <td>Google LLC — OAuth</td>
+          <td>OAuth sign-in for users authenticating with a Google account.</td>
+          <td>United States</td>
+        </tr>
+        <tr>
+          <td>Google LLC — Fonts</td>
+          <td>CDN delivery of typefaces used by the web UI.</td>
+          <td>Global edge</td>
+        </tr>
+        <tr>
+          <td>Public CDNs (jsDelivr, unpkg)</td>
+          <td>
+            Delivery of front-end libraries (DaisyUI, Tailwind, HTMX) when the
+            application is not running in airgapped mode. No personal data is
+            submitted; the CDN sees the visitor's IP address and user-agent.
+          </td>
+          <td>Global edge</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Optional sub-processors</h2>
+  <p>
+    The following sub-processors are engaged only if the corresponding feature
+    is used:
+  </p>
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Sub-processor</th>
+          <th>Engaged when</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Anthropic PBC (Claude API)</td>
+          <td>
+            A user connects an MCP client (e.g. Claude Code) and that client
+            sends prompts containing GitGrit data to Anthropic. GitGrit itself
+            does not transmit data to Anthropic.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Notice of new sub-processors</h2>
+  <p>
+    We will update this page before adding a new sub-processor. Customers on a
+    written agreement that requires advance notice will be notified via the
+    contact on file. To subscribe to changes, email
+    <a class="link" href="mailto:privacy@gitgrit.dev">privacy@gitgrit.dev</a>.
+  </p>
+</div>
+{% endblock %}

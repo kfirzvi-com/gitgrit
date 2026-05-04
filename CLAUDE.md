@@ -65,7 +65,7 @@ uv run python manage.py runserver
 ### Kamal Config
 - `config/deploy.yml` — base config (tracked, public). Uses GHCR registry.
 - `config/deploy.<dest>.yml` — destination overrides with server IPs/domains (gitignored, lives in infra repo for CI)
-- `.kamal/secrets.<dest>` — secrets (gitignored). `SECRET_KEY` must be static (not generated per deploy).
+- `.kamal/secrets.<dest>` — secrets (gitignored). `SECRET_KEY` and `GITGRIT_ENCRYPTION_KEY` must be static (not generated per deploy). Rotating either invalidates stored OAuth tokens.
 - `.kamal/hooks/docker-setup` — installs gVisor on servers. Runs locally, SSHes into servers via `$KAMAL_HOSTS`.
 
 ### Local Deploy
@@ -84,3 +84,9 @@ kamal proxy reboot -d <destination> -y
 ```bash
 cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w 50 | head -n 1
 ```
+
+### Generate a GITGRIT_ENCRYPTION_KEY
+```bash
+uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+Used by `app.infrastructure.encryption` to encrypt `PlatformConnection.access_token` at rest with Fernet. In `DEBUG=True` local dev a key is derived from `SECRET_KEY` automatically; production deploys require `GITGRIT_ENCRYPTION_KEY` explicitly so that rotating `SECRET_KEY` does not orphan stored ciphertext.

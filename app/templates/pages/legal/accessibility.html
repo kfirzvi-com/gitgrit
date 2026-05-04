@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Accessibility — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <p class="section-label mb-2">Legal</p>
+  <h1 class="text-3xl font-bold mb-2">Accessibility statement</h1>
+  <p class="text-sm" style="color:var(--gg-text-dim)">Effective 2026-05-04.</p>
+
+  <div class="mt-8 space-y-4">
+    <p>
+      GitGrit is committed to making its services usable for as many people as
+      possible. We aim to conform with the
+      <a class="link" href="https://www.w3.org/TR/WCAG21/">Web Content Accessibility Guidelines 2.1, level AA</a>.
+      This statement reflects the current state honestly — including known
+      gaps — rather than aspirational claims.
+    </p>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Conformance status</h2>
+  <p>
+    GitGrit is <strong>partially conformant</strong> with WCAG 2.1 AA. Some
+    parts of the application do not yet meet the criteria; those are listed
+    below.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Known limitations</h2>
+  <ul class="list-disc pl-6 space-y-2">
+    <li>
+      <strong>Dark theme only.</strong> The interface ships with a single dark
+      theme. Users who require a high-contrast or light theme cannot currently
+      switch within the app and must rely on operating-system or browser-level
+      contrast adjustments.
+    </li>
+    <li>
+      <strong>Loading splash hides main content.</strong> Pages briefly hide
+      the <code>&lt;main&gt;</code> element while client-side assets load. On
+      slow connections this can delay screen-reader users perceiving page
+      content for up to a second.
+    </li>
+    <li>
+      <strong>HTMX-driven updates.</strong> Some interactions update the page
+      without a full reload. Live-region announcements are not yet wired for
+      every dynamic update; assistive technology users may need to re-navigate
+      to perceive new content.
+    </li>
+    <li>
+      <strong>Charts and analytics.</strong> Dashboard charts on the analytics
+      tab convey information primarily through color and visual position. A
+      tabular fallback is on the roadmap.
+    </li>
+    <li>
+      <strong>Third-party assets.</strong> When not running in airgapped mode,
+      DaisyUI, Tailwind, HTMX, and Google Fonts load from CDNs. Network
+      conditions can affect first paint.
+    </li>
+  </ul>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Compatibility</h2>
+  <p>
+    GitGrit is designed to work with current versions of Chrome, Firefox,
+    Safari, and Edge, and with the assistive technologies bundled with macOS,
+    iOS, Windows, and Android. Internet Explorer is not supported.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Feedback</h2>
+  <p>
+    We welcome feedback on accessibility barriers. Please email
+    <a class="link" href="mailto:accessibility@gitgrit.dev">accessibility@gitgrit.dev</a>
+    with a description of the issue, the page URL, and the assistive
+    technology you are using. We aim to respond within ten business days.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Assessment</h2>
+  <p>
+    This statement is based on a self-assessment by the GitGrit team. It will
+    be updated as gaps are closed and as the application evolves.
+  </p>
+</div>
+{% endblock %}

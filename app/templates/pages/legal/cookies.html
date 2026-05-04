@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Cookies — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <p class="section-label mb-2">Legal</p>
+  <h1 class="text-3xl font-bold mb-2">Cookies</h1>
+  <p class="text-sm" style="color:var(--gg-text-dim)">Effective 2026-05-04.</p>
+
+  <div class="mt-8 space-y-4">
+    <p>
+      GitGrit uses only cookies that are <strong>strictly necessary</strong> to
+      operate the service. We do not run third-party analytics, advertising,
+      retargeting, or session-replay tools.
+    </p>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Cookies we set</h2>
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Purpose</th>
+          <th>Lifetime</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">sessionid</td>
+          <td>Keeps you signed in across requests. Set after authentication.</td>
+          <td>Two weeks (Django default), refreshed on activity.</td>
+        </tr>
+        <tr>
+          <td class="mono">csrftoken</td>
+          <td>Protects form submissions and HTMX requests against cross-site request forgery.</td>
+          <td>One year.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">OAuth provider cookies</h2>
+  <p>
+    When you sign in with Google, GitHub, or GitLab, those providers may set
+    cookies on their own domains during the OAuth handshake. Their use is
+    governed by their respective privacy policies.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Why no banner?</h2>
+  <p>
+    Under the EU ePrivacy Directive and the UK PECR, consent is required for
+    cookies that are not strictly necessary. Because GitGrit only sets
+    strictly-necessary cookies, no consent banner is shown. If we add analytics
+    or marketing cookies in the future, we will add a consent flow before they
+    fire.
+  </p>
+
+  <h2 class="text-xl font-semibold mt-8 mb-3">Contact</h2>
+  <p>
+    Questions about this notice: <a class="link" href="mailto:privacy@gitgrit.dev">privacy@gitgrit.dev</a>.
+  </p>
+</div>
+{% endblock %}

@@ -5,6 +5,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from app.infrastructure.model_fields import EncryptedCharField
+
 
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -76,7 +78,7 @@ class PlatformConnection(models.Model):
     platform = models.CharField(max_length=10, choices=Platform.choices)
     display_name = models.CharField(max_length=255)
     base_url = models.URLField(max_length=2048)
-    access_token = models.CharField(max_length=512)
+    access_token = EncryptedCharField(max_length=1024)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
