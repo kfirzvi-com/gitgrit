@@ -193,13 +193,6 @@
       text-transform: uppercase;
       color: var(--gg-text-dim);
     }
-    .legal-placeholder {
-      background-color: #facc15;
-      color: #1f1300;
-      padding: 0 0.25rem;
-      border-radius: 0.125rem;
-      font-weight: 600;
-    }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -216,11 +209,11 @@
   <footer class="mt-8 py-4 border-t text-center text-xs" style="border-color:var(--gg-border);color:var(--gg-text-dim)">
     <div>GitGrit &mdash; Repository Standards &amp; Compliance</div>
     <nav aria-label="Footer" class="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-      <a class="link" href="{% url 'legal_terms' %}">Terms</a>
-      <a class="link" href="{% url 'legal_privacy' %}">Privacy</a>
-      <a class="link" href="{% url 'legal_cookies' %}">Cookies</a>
-      <a class="link" href="{% url 'legal_accessibility' %}">Accessibility</a>
-      <a class="link" href="{% url 'legal_sub_processors' %}">Sub-processors</a>
+      <a class="link" href="https://gitgrit.dev/legal/terms/" target="_blank" rel="noopener">Terms</a>
+      <a class="link" href="https://gitgrit.dev/legal/privacy/" target="_blank" rel="noopener">Privacy</a>
+      <a class="link" href="https://gitgrit.dev/legal/cookies/" target="_blank" rel="noopener">Cookies</a>
+      <a class="link" href="https://gitgrit.dev/legal/accessibility/" target="_blank" rel="noopener">Accessibility</a>
+      <a class="link" href="https://gitgrit.dev/legal/sub-processors/" target="_blank" rel="noopener">Sub-processors</a>
       <a class="link" href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
     </nav>
   </footer>

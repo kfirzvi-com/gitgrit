@@ -2,6 +2,7 @@ site_name: GitGrit
 site_url: https://gitgrit.dev
 site_description: Developer Experience Platform — Repository Standards, Team Health, and Delivery Performance
 site_author: GitGrit
+site_dir: build
 
 theme:
   name: material
@@ -15,6 +16,7 @@ theme:
   features:
     - navigation.tracking
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
     - navigation.top
@@ -43,6 +45,12 @@ nav:
     - Analytics Dashboard: features/analytics.md
   - Policy API:
     - ProjectContext: api/project-context.md
+  - Legal:
+    - Terms of Service: legal/terms.md
+    - Privacy Policy: legal/privacy.md
+    - Cookies: legal/cookies.md
+    - Accessibility: legal/accessibility.md
+    - Sub-processors: legal/sub-processors.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -68,9 +76,9 @@ extra:
 
 copyright: >-
   &copy; 2026 GitGrit — Developer Experience Platform &middot;
-  <a href="https://app.gitgrit.dev/legal/terms/">Terms</a> &middot;
-  <a href="https://app.gitgrit.dev/legal/privacy/">Privacy</a> &middot;
-  <a href="https://app.gitgrit.dev/legal/cookies/">Cookies</a> &middot;
-  <a href="https://app.gitgrit.dev/legal/accessibility/">Accessibility</a> &middot;
-  <a href="https://app.gitgrit.dev/legal/sub-processors/">Sub-processors</a> &middot;
+  <a href="/legal/terms/">Terms</a> &middot;
+  <a href="/legal/privacy/">Privacy</a> &middot;
+  <a href="/legal/cookies/">Cookies</a> &middot;
+  <a href="/legal/accessibility/">Accessibility</a> &middot;
+  <a href="/legal/sub-processors/">Sub-processors</a> &middot;
   <a href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md">Security</a>
