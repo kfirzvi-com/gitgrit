@@ -40,7 +40,6 @@ builder:
 env:
   clear:
     DEBUG: "False"
-    DB_HOST: gitgrit-db
     DB_PORT: "5432"
     DB_NAME: gitgrit
     DB_USER: gitgrit
@@ -54,17 +53,3 @@ env:
     - GITLAB_CLIENT_SECRET
     - GOOGLE_CLIENT_ID
     - GOOGLE_CLIENT_SECRET
-
-accessories:
-  db:
-    image: postgres:17
-    host: <SERVER_IP>
-    port: "5432:5432"
-    env:
-      clear:
-        POSTGRES_DB: gitgrit
-        POSTGRES_USER: gitgrit
-      secret:
-        - POSTGRES_PASSWORD
-    directories:
-      - data:/var/lib/postgresql/data
