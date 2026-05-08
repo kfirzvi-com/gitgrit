@@ -18,7 +18,7 @@ Open Cline's MCP settings panel (the plug icon) and add a new server
 with:
 
 - **Name**: `GitGrit`
-- **URL**: `https://gitgrit.dev/mcp/`
+- **URL**: `https://gitgrit.dev/mcp`
 - **Authorization header**: `Bearer YOUR_TOKEN`
 
 Replace `YOUR_TOKEN` with the value from step 1. Cline should now list

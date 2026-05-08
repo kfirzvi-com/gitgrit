@@ -11,7 +11,7 @@ Prereqs:
        MCP_TOKEN / TOKEN_PREFIX / FULL_PATH / WEB_URL / PROJECT_ID.
 
 Usage:
-    MCP_URL=http://localhost:8000/mcp/ MCP_TOKEN=$MCP_TOKEN \
+    MCP_URL=http://localhost:8000/mcp MCP_TOKEN=$MCP_TOKEN \
         python scripts/plugin_scenario.py \
         --full-path "$FULL_PATH" --web-url "$WEB_URL" \
         --token-prefix "$TOKEN_PREFIX"

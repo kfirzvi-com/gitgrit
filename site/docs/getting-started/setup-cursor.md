@@ -19,7 +19,8 @@ Open `~/.cursor/mcp.json` (create it if it doesn't exist) and merge in:
 {
   "mcpServers": {
     "GitGrit": {
-      "url": "https://gitgrit.dev/mcp/",
+      "type": "http",
+      "url": "https://gitgrit.dev/mcp",
       "headers": { "Authorization": "Bearer YOUR_TOKEN" }
     }
   }

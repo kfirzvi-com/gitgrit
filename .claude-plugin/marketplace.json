@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "gitgrit",
-      "source": "./",
+      "source": "./plugin",
       "description": "Project-aware DevOps compliance enforcement for GitGrit-connected repositories"
     }
   ]
