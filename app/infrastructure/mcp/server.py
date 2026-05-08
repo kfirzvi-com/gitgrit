@@ -11,17 +11,13 @@ from app.infrastructure.mcp.registry import apply_all, apply_all_prompts
 # MCP's StreamableHTTP transport ships DNS-rebinding protection that defaults
 # to rejecting every Host header unless an allow-list is supplied. Mirror
 # Django's ALLOWED_HOSTS so the public hostname (driven by SITE_URL) is
-# accepted; in DEBUG add Starlette TestClient's default "testserver" Host.
-_allowed_hosts = list(django_settings.ALLOWED_HOSTS)
-if django_settings.DEBUG:
-    _allowed_hosts.append("testserver")
-
+# accepted in each environment.
 mcp = FastMCP(
     "GitGrit",
     instructions=build_instructions(),
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
-        allowed_hosts=_allowed_hosts,
+        allowed_hosts=list(django_settings.ALLOWED_HOSTS),
     ),
 )
 apply_all(mcp)
