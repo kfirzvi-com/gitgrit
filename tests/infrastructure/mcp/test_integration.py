@@ -53,6 +53,21 @@ class TestMCPHTTPAuth(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.text, "OK")
 
+    def test_transport_security_allows_django_hosts(self):
+        # MCP's TransportSecurityMiddleware defaults to rejecting every Host
+        # header. Without explicit allowed_hosts, every prod request gets a
+        # 421 "Invalid Host header". Pin that we mirror Django's ALLOWED_HOSTS
+        # so the public site hostname is accepted.
+        from django.conf import settings as django_settings
+
+        from app.infrastructure.mcp.server import mcp
+
+        security = mcp.settings.transport_security
+        self.assertIsNotNone(security)
+        self.assertTrue(security.enable_dns_rebinding_protection)
+        for host in django_settings.ALLOWED_HOSTS:
+            self.assertIn(host, security.allowed_hosts)
+
 
 class TestTenancyIsolation(TransactionTestCase):
     """Verify that MCP tools enforce tenant boundaries against the real database.

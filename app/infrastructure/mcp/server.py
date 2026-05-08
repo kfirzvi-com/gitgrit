@@ -1,4 +1,6 @@
+from django.conf import settings as django_settings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from app.infrastructure.mcp import tools as _tools_module  # noqa: F401 — populates registry
 from app.infrastructure.mcp.context import get_auth
@@ -6,7 +8,22 @@ from app.infrastructure.mcp.instructions import build_instructions, select_instr
 from app.infrastructure.mcp.middleware import MCPAuthMiddleware
 from app.infrastructure.mcp.registry import apply_all, apply_all_prompts
 
-mcp = FastMCP("GitGrit", instructions=build_instructions())
+# MCP's StreamableHTTP transport ships DNS-rebinding protection that defaults
+# to rejecting every Host header unless an allow-list is supplied. Mirror
+# Django's ALLOWED_HOSTS so the public hostname (driven by SITE_URL) is
+# accepted; in DEBUG add Starlette TestClient's default "testserver" Host.
+_allowed_hosts = list(django_settings.ALLOWED_HOSTS)
+if django_settings.DEBUG:
+    _allowed_hosts.append("testserver")
+
+mcp = FastMCP(
+    "GitGrit",
+    instructions=build_instructions(),
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=_allowed_hosts,
+    ),
+)
 apply_all(mcp)
 apply_all_prompts(mcp)
 
