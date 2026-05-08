@@ -2,7 +2,7 @@
 ASGI config for gitgrit project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
-The MCP server is mounted at /mcp/ alongside the main Django application.
+The MCP server is mounted at /mcp alongside the main Django application.
 """
 
 import os

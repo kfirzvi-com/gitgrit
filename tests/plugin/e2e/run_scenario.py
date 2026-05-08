@@ -50,7 +50,7 @@ REPO_NORMAL = SCRATCH_ROOT / "repo-normal"
 REPO_NOMATCH = SCRATCH_ROOT / "repo-nomatch"
 REPO_NOGIT = SCRATCH_ROOT / "repo-no-git"
 
-MCP_URL_DEFAULT = "http://localhost:8000/mcp/"
+MCP_URL_DEFAULT = "http://localhost:8000/mcp"
 DB_NAME = "gitgrit_plugin_test"
 PER_RUN_BUDGET = "0.60"
 
