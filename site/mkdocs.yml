@@ -45,6 +45,15 @@ nav:
   - Policy API:
     - ProjectContext: api/project-context.md
 
+# Legal pages are reachable from the footer and from product surfaces
+# (OAuth consent, app footer); intentionally not in the top nav.
+not_in_nav: |
+  /legal/terms.md
+  /legal/privacy.md
+  /legal/cookies.md
+  /legal/accessibility.md
+  /legal/sub-processors.md
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
