@@ -46,6 +46,7 @@ env:
     SITE_URL: https://example.com
   secret:
     - SECRET_KEY
+    - GITGRIT_ENCRYPTION_KEY
     - DB_PASSWORD
     - GITHUB_CLIENT_ID
     - GITHUB_CLIENT_SECRET
