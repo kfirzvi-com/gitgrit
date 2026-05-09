@@ -197,3 +197,12 @@
     radial-gradient(circle, oklch(100% 0 0 / 0.02) 1px, transparent 1px);
   background-size: 24px 24px;
 }
+
+/* ── Legal placeholders — operator-fillable fields on /legal/* pages ── */
+.md-typeset mark.legal-placeholder {
+  background-color: var(--gg-warning);
+  color: #1f1300;
+  padding: 0 0.25rem;
+  border-radius: 0.125rem;
+  font-weight: 600;
+}
