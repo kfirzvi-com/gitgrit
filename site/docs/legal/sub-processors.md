@@ -30,4 +30,4 @@ The following sub-processors are engaged only if the corresponding feature is us
 
 ## Notice of new sub-processors
 
-We will update this page before adding a new sub-processor. Customers on a written agreement that requires advance notice will be notified via the contact on file. To subscribe to changes, email [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
+We will update this page before adding a new sub-processor. Customers on a written agreement that requires advance notice will be notified via the contact on file. To subscribe to changes, email [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com).

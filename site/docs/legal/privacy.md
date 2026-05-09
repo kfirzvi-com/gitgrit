@@ -12,7 +12,7 @@ This Privacy Policy explains how Kfir Zvi, Israeli sole proprietor (Osek Murshe 
 
 ## 2. Controller and contact
 
-The controller of personal data processed through the Service is Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel. Privacy contact: [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
+The controller of personal data processed through the Service is Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel. Privacy contact: [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com).
 
 ## 3. What we collect
 
@@ -43,7 +43,7 @@ We share personal data with the sub-processors listed on our [sub-processors pag
 
 ## 6. International transfers
 
-The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm, Sweden). Some sub-processors are located in the United States or operate global edge networks. Where personal data is transferred outside the European Economic Area or the United Kingdom, we rely on the European Commission's Standard Contractual Clauses (and the UK Addendum where applicable) and apply supplementary technical measures — including encryption of access tokens at rest and TLS in transit — informed by a transfer-impact assessment. You may request a copy of the relevant transfer mechanism by emailing [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
+The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm, Sweden). Some sub-processors are located in the United States or operate global edge networks. Where personal data is transferred outside the European Economic Area or the United Kingdom, we rely on the European Commission's Standard Contractual Clauses (and the UK Addendum where applicable) and apply supplementary technical measures — including encryption of access tokens at rest and TLS in transit — informed by a transfer-impact assessment. You may request a copy of the relevant transfer mechanism by emailing [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com).
 
 ## 7. Retention
 
@@ -62,7 +62,7 @@ Backups containing personal data are retained for up to ninety (90) days in encr
 
 ## 9. Your rights
 
-Subject to your jurisdiction's law, you have rights to: access your personal data; correct inaccurate data; have your data erased; restrict or object to processing based on legitimate interests; receive your data in a portable format; and withdraw consent where processing is based on consent. To exercise any of these rights, email [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev). We will respond within thirty (30) days. If you are in the EU, EEA, UK, or Switzerland, you may also lodge a complaint with your supervisory authority.
+Subject to your jurisdiction's law, you have rights to: access your personal data; correct inaccurate data; have your data erased; restrict or object to processing based on legitimate interests; receive your data in a portable format; and withdraw consent where processing is based on consent. To exercise any of these rights, email [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com). We will respond within thirty (30) days. If you are in the EU, EEA, UK, or Switzerland, you may also lodge a complaint with your supervisory authority.
 
 ## 10. Cookies
 
@@ -74,7 +74,7 @@ We apply technical and organizational measures appropriate to the risk, includin
 
 ## 12. Children
 
-The Service is not directed at children under sixteen (16), and we do not knowingly collect personal data from them. If you believe we have inadvertently collected data from a child, contact [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev) and we will delete it.
+The Service is not directed at children under sixteen (16), and we do not knowingly collect personal data from them. If you believe we have inadvertently collected data from a child, contact [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com) and we will delete it.
 
 ## 13. Automated decision-making
 
