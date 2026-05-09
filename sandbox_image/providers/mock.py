@@ -61,3 +61,7 @@ class MockProvider(BaseProvider):
 
     def get_metadata(self) -> dict:
         return self._data.get("get_metadata", _DEFAULT_METADATA)
+
+    def get_file_last_commit_date(self, path: str) -> str | None:
+        commit_dates = self._data.get("get_file_last_commit_date", {})
+        return commit_dates.get(path)

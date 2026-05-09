@@ -95,6 +95,18 @@ Returns a list of topic/tag strings applied to the repository.
 Returns repository metadata with keys: `name`, `description`, `web_url`,
 `created_at`, `updated_at`.
 
+### `project.get_file_last_commit_date(path: str) -> str | None`
+Returns the ISO 8601 timestamp of the most recent commit that touched
+`path` on the default branch, or `None` if the file does not exist or
+has no commit history. Useful for staleness / freshness checks on
+specific tracked files.
+
+**Example:**
+```python
+date_str = project.get_file_last_commit_date("CLAUDE.md")
+# "2026-04-15T10:23:00Z" or None
+```
+
 ## Return Format
 
 Your `evaluate(project)` function must return a dict with exactly these keys:

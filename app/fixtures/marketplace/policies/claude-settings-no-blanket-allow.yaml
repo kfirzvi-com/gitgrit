@@ -1,0 +1,123 @@
+slug: claude-settings-no-blanket-allow
+name: Claude Settings — No Blanket Allow Rules
+description: >
+  If the repository commits a `.claude/settings.json` (Claude Code
+  per-project settings), check that its `permissions.allow` list does
+  not contain overly-broad rules like `Bash(*)`, `Bash(rm:*)`,
+  `Bash(sudo:*)`, or a top-level `*`. These bypass the prompt-on-execute
+  safety mechanism for every tool call, which defeats the purpose of
+  having a permission list. Catches the common footgun where someone
+  added a wide rule "just for now" and forgot.
+author: GitGrit
+suggested_labels:
+  - ai
+  - claude
+  - security
+  - configuration
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      import json
+
+      SETTINGS_PATH = ".claude/settings.json"
+      files = set(project.list_files())
+      if SETTINGS_PATH not in files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "No .claude/settings.json present",
+              "details": {},
+          }
+
+      content = project.get_file_content(SETTINGS_PATH)
+      if content is None:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "Settings file unreadable",
+              "details": {},
+          }
+
+      try:
+          settings = json.loads(content)
+      except json.JSONDecodeError as exc:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"settings.json is not valid JSON: {exc}",
+              "details": {"error": str(exc)},
+          }
+
+      BLANKET_PATTERNS = {
+          "*",
+          "Bash(*)",
+          "Bash(*:*)",
+          "Bash(rm:*)",
+          "Bash(rm -rf:*)",
+          "Bash(sudo:*)",
+          "Bash(curl:*)",
+          "Bash(wget:*)",
+      }
+
+      allow = []
+      if isinstance(settings, dict):
+          permissions = settings.get("permissions") or {}
+          if isinstance(permissions, dict):
+              allow = permissions.get("allow") or []
+              if not isinstance(allow, list):
+                  allow = []
+
+      blanket = [rule for rule in allow if isinstance(rule, str) and rule in BLANKET_PATTERNS]
+
+      if blanket:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"Found {len(blanket)} overly-broad permission rule(s) in {SETTINGS_PATH}",
+              "details": {"blanket_rules": blanket, "blanket_patterns": sorted(BLANKET_PATTERNS)},
+          }
+
+      return {
+          "passed": True,
+          "score": 100,
+          "message": "No overly-broad allow rules in .claude/settings.json",
+          "details": {"rules_checked": len(allow)},
+      }
+test_cases:
+  - name: No settings file
+    input:
+      list_files:
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: Tight allow list
+    input:
+      list_files:
+        - .claude/settings.json
+      get_file_content:
+        .claude/settings.json: '{"permissions": {"allow": ["Bash(npm test:*)", "Bash(git status:*)"]}}'
+    expected:
+      passed: true
+      score: 100
+  - name: Has Bash(*) blanket rule
+    input:
+      list_files:
+        - .claude/settings.json
+      get_file_content:
+        .claude/settings.json: '{"permissions": {"allow": ["Bash(*)"]}}'
+    expected:
+      passed: false
+      score: 0
+  - name: Has Bash(rm:*) destructive blanket
+    input:
+      list_files:
+        - .claude/settings.json
+      get_file_content:
+        .claude/settings.json: '{"permissions": {"allow": ["Bash(npm test:*)", "Bash(rm:*)"]}}'
+    expected:
+      passed: false
+      score: 0

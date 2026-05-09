@@ -138,6 +138,21 @@ class GitLabProvider(BaseProvider):
     def get_topics(self) -> list[str]:
         return self._project.get("topics", [])
 
+    def get_file_last_commit_date(self, path: str) -> str | None:
+        encoded_id = urllib.parse.quote(self.full_path or self.project_id, safe="")
+        encoded_path = urllib.parse.quote(path, safe="/")
+        branch = self.get_default_branch()
+        try:
+            commits = self._get(
+                f"/projects/{encoded_id}/repository/commits"
+                f"?path={encoded_path}&ref_name={branch}&per_page=1"
+            )
+        except RuntimeError:
+            return None
+        if not commits or not isinstance(commits, list):
+            return None
+        return commits[0].get("committed_date") or None
+
     def get_metadata(self) -> dict:
         p = self._project
         return {

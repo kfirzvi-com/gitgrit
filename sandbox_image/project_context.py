@@ -30,3 +30,6 @@ class ProjectContext:
 
     def get_metadata(self) -> dict:
         return self._provider.get_metadata()
+
+    def get_file_last_commit_date(self, path: str) -> str | None:
+        return self._provider.get_file_last_commit_date(path)

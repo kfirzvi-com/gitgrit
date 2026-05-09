@@ -27,3 +27,10 @@ class BaseProvider(ABC):
 
     @abstractmethod
     def get_metadata(self) -> dict: ...
+
+    @abstractmethod
+    def get_file_last_commit_date(self, path: str) -> str | None:
+        """Return the ISO 8601 timestamp of the most recent commit that touched
+        ``path`` on the default branch, or None if the file does not exist or
+        has no commit history. Used by policies that check file freshness."""
+        ...

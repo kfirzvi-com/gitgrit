@@ -70,6 +70,22 @@
     - gitignore-exists
     - no-large-files
 
+- slug: agentic-standards
+  name: Agentic Standards
+  description: >
+    Repo readiness checks for AI-assisted development. Verifies that agent
+    instruction files (CLAUDE.md, AGENTS.md, etc.) exist, are kept fresh,
+    stay within recommended size limits, and that committed AI tooling
+    config (.mcp.json, .claude/settings.json) is portable and doesn't
+    bypass safety rails.
+  icon: "\U0001F916"
+  policies:
+    - agent-instructions-present
+    - agent-instructions-not-stale
+    - agent-instructions-size-bounded
+    - mcp-config-portable
+    - claude-settings-no-blanket-allow
+
 - slug: documentation-standards
   name: Documentation Standards
   description: >

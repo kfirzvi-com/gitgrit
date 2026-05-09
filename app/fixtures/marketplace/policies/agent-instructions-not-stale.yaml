@@ -1,0 +1,117 @@
+slug: agent-instructions-not-stale
+name: Agent Instructions Not Stale
+description: >
+  Checks that any agent-instruction file (CLAUDE.md, AGENTS.md, etc.)
+  has been updated within the last 30 days, measured against the
+  repository's last-update timestamp. Stale agent instructions are worse
+  than none — they confidently tell assistants to do things that no
+  longer reflect the codebase (renamed files, removed scripts, dead
+  conventions).
+author: GitGrit
+suggested_labels:
+  - ai
+  - documentation
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      from datetime import datetime, timezone, timedelta
+
+      MAX_AGE_DAYS = 30
+      candidates = [
+          "CLAUDE.md",
+          "AGENTS.md",
+          "GEMINI.md",
+          ".cursorrules",
+          ".github/copilot-instructions.md",
+      ]
+      files = set(project.list_files())
+      found = [c for c in candidates if c in files]
+
+      if not found:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": "No agent-instruction file to check (see agent-instructions-present)",
+              "details": {"checked": candidates},
+          }
+
+      # Use the repo's last-update timestamp as "now" so the comparison is
+      # stable for testing and meaningful for repos with bursty activity.
+      # Fall back to the current UTC clock if the repo metadata is missing.
+      meta = project.get_metadata() or {}
+      reference_str = meta.get("updated_at") or meta.get("created_at") or ""
+      try:
+          now = datetime.fromisoformat(reference_str.replace("Z", "+00:00"))
+      except ValueError:
+          now = datetime.now(timezone.utc)
+
+      threshold = now - timedelta(days=MAX_AGE_DAYS)
+      stale = []
+      fresh = []
+      for path in found:
+          date_str = project.get_file_last_commit_date(path)
+          if not date_str:
+              # Treat unknown commit dates as fresh — better than false-failing.
+              fresh.append({"path": path, "last_modified": None})
+              continue
+          try:
+              last_modified = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+          except ValueError:
+              fresh.append({"path": path, "last_modified": date_str})
+              continue
+          if last_modified < threshold:
+              age_days = (now - last_modified).days
+              stale.append({"path": path, "last_modified": date_str, "age_days": age_days})
+          else:
+              fresh.append({"path": path, "last_modified": date_str})
+
+      if not stale:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Agent instructions updated within {MAX_AGE_DAYS} days",
+              "details": {"fresh": fresh, "max_age_days": MAX_AGE_DAYS},
+          }
+
+      score = max(0, 100 - len(stale) * 50)
+      return {
+          "passed": False,
+          "score": score,
+          "message": f"{len(stale)} agent-instruction file(s) older than {MAX_AGE_DAYS} days",
+          "details": {"stale": stale, "fresh": fresh, "max_age_days": MAX_AGE_DAYS},
+      }
+test_cases:
+  - name: CLAUDE.md updated within 30 days
+    input:
+      list_files:
+        - CLAUDE.md
+      get_file_last_commit_date:
+        CLAUDE.md: "2025-01-15T00:00:00Z"
+      get_metadata:
+        updated_at: "2025-02-01T00:00:00Z"
+    expected:
+      passed: true
+      score: 100
+  - name: CLAUDE.md is stale
+    input:
+      list_files:
+        - CLAUDE.md
+      get_file_last_commit_date:
+        CLAUDE.md: "2024-01-01T00:00:00Z"
+      get_metadata:
+        updated_at: "2025-02-01T00:00:00Z"
+    expected:
+      passed: false
+      score: 50
+  - name: No agent instructions to check
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+    expected:
+      passed: false
+      score: 0

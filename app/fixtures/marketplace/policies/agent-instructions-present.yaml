@@ -1,0 +1,77 @@
+slug: agent-instructions-present
+name: Agent Instructions Present
+description: >
+  Checks that the repository contains at least one agent-instruction file
+  (CLAUDE.md, AGENTS.md, GEMINI.md, .cursorrules, or
+  .github/copilot-instructions.md). Without one, AI assistants work blind
+  and over-explore — they have no shared baseline of conventions, owners,
+  or "don't touch this" zones.
+author: GitGrit
+suggested_labels:
+  - ai
+  - documentation
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      candidates = [
+          "CLAUDE.md",
+          "AGENTS.md",
+          "GEMINI.md",
+          ".cursorrules",
+          ".github/copilot-instructions.md",
+      ]
+      files = set(project.list_files())
+      found = [c for c in candidates if c in files]
+
+      if found:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"Agent instructions found: {', '.join(found)}",
+              "details": {"found": found},
+          }
+
+      return {
+          "passed": False,
+          "score": 0,
+          "message": "No agent-instruction file found in repository root",
+          "details": {"checked": candidates},
+      }
+test_cases:
+  - name: Has CLAUDE.md
+    input:
+      list_files:
+        - CLAUDE.md
+        - src/main.py
+        - README.md
+    expected:
+      passed: true
+      score: 100
+  - name: Has AGENTS.md
+    input:
+      list_files:
+        - AGENTS.md
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: Has Copilot instructions
+    input:
+      list_files:
+        - .github/copilot-instructions.md
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: No agent instructions
+    input:
+      list_files:
+        - src/main.py
+        - README.md
+        - .gitignore
+    expected:
+      passed: false
+      score: 0
