@@ -290,14 +290,20 @@
   margin: 0 0 1rem;
 }
 
-.gg-footer__col ul {
+/* Override Material's [dir=ltr] .md-typeset ul/li indent (specificity 0,2,1) */
+[dir=ltr] .gg-footer__col ul,
+[dir=rtl] .gg-footer__col ul,
+.md-typeset .gg-footer__col ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.gg-footer__col li {
-  margin-bottom: 0.5rem;
+[dir=ltr] .gg-footer__col li,
+[dir=rtl] .gg-footer__col li,
+.md-typeset .gg-footer__col li {
+  margin: 0 0 0.5rem;
+  padding: 0;
 }
 
 .gg-footer__col a {
