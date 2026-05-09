@@ -1,18 +1,17 @@
 """Symmetric encryption for sensitive model fields (e.g. OAuth tokens).
 
-Reads its key from ``GITGRIT_ENCRYPTION_KEY`` (a urlsafe-base64-encoded 32-byte
-Fernet key — generate with ``python -c "from cryptography.fernet import Fernet;
-print(Fernet.generate_key().decode())"``). When ``DEBUG`` is true the key is
-derived from ``SECRET_KEY`` so local dev works without extra setup; production
-deployments must set ``GITGRIT_ENCRYPTION_KEY`` explicitly so that rotating
-``SECRET_KEY`` does not silently invalidate stored ciphertext.
+Reads its key from ``settings.GITGRIT_ENCRYPTION_KEY`` (a urlsafe-base64-encoded
+32-byte Fernet key — generate with ``python -c "from cryptography.fernet import
+Fernet; print(Fernet.generate_key().decode())"``). When ``DEBUG`` is true the
+key is derived from ``SECRET_KEY`` so local dev works without extra setup;
+production deployments must set ``GITGRIT_ENCRYPTION_KEY`` explicitly so that
+rotating ``SECRET_KEY`` does not silently invalidate stored ciphertext.
 """
 from __future__ import annotations
 
 import base64
 import hashlib
 import logging
-import os
 from functools import lru_cache
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def _fernet() -> Fernet:
-    key = os.environ.get("GITGRIT_ENCRYPTION_KEY")
+    key = getattr(settings, "GITGRIT_ENCRYPTION_KEY", None)
     if key:
         return Fernet(key.encode())
     if settings.DEBUG:

@@ -7,7 +7,7 @@ GitGrit's threat surface is unusually wide for an open-source web app: it execut
 **Please do not open a public GitHub issue.** Use one of:
 
 1. **GitHub Private Vulnerability Reporting** — preferred. From the [Security tab](https://github.com/kfirzvi-com/gitgrit/security/advisories/new) on this repo, click *Report a vulnerability*.
-2. **Email** — `security@gitgrit.dev`.
+2. **Email** — `kfir@kfirzvi.com`.
 
 We will acknowledge receipt within **3 business days**, give you an initial triage assessment within **7 business days**, and aim to ship a fix within **30 days** for critical severity. We follow coordinated disclosure: publish a fix, then a CVE/advisory, then credit the reporter (unless they prefer to remain anonymous).
 
@@ -85,7 +85,7 @@ GitGrit stores GitHub and GitLab personal access tokens on `PlatformConnection.a
 - Tokens leave the database only to be passed into the sandbox container at runtime, written to a read-only `/input.json` mount, and consumed by the platform-client provider. They are never logged.
 
 **Known limitations:**
-- `EncryptedCharField` reads are currently lenient toward legacy plaintext (returns the value verbatim with a warning log). This supports the rolling migration in `app/migrations/0018_*` and **must be tightened to strict mode** once all installs have migrated. Track via the `decrypts_with_current_key` follow-up below.
+- `EncryptedCharField` reads are currently lenient toward legacy plaintext (returns the value verbatim with a warning log). This supports the rolling migration that re-encrypts existing rows on save and **must be tightened to strict mode** once all installs have migrated.
 - No key-rotation support yet. `cryptography.fernet.MultiFernet` is the planned path. Until it lands, rotating `GITGRIT_ENCRYPTION_KEY` requires manually re-saving every `PlatformConnection`.
 - Google OAuth tokens stored by `django-allauth` in `socialaccount_socialtoken` are **not** encrypted — they are subject to allauth's defaults. The Google scopes we request (`profile`, `email`) are sign-in only, but you should still treat that table as sensitive in your DB backup posture.
 - The sandbox provider receives the **plaintext** token via the `/input.json` mount. A sandbox escape is therefore equivalent to OAuth token disclosure for that connection. Sandbox-side token exposure is mitigated by gVisor (see above) but not eliminated.

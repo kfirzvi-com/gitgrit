@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from unittest import mock
 
 import pytest
@@ -39,13 +38,12 @@ class TestEncryptHelpers:
         assert encryption.is_our_ciphertext(foreign) is False
 
     def test_missing_key_raises_in_production_mode(self):
-        # Pretend we're not in DEBUG and the env var is absent. The cached
+        # Pretend we're not in DEBUG and the setting is absent. The cached
         # Fernet must be cleared so the new state is observed.
         with (
-            mock.patch.dict(os.environ, {}, clear=False),
             mock.patch.object(encryption.settings, "DEBUG", False),
+            mock.patch.object(encryption.settings, "GITGRIT_ENCRYPTION_KEY", None),
         ):
-            os.environ.pop("GITGRIT_ENCRYPTION_KEY", None)
             encryption.reset_encryption_cache()
             with pytest.raises(RuntimeError, match="GITGRIT_ENCRYPTION_KEY"):
                 encryption.encrypt("anything")
