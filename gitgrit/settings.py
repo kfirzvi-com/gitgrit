@@ -30,6 +30,11 @@ if not SECRET_KEY:
     else:
         raise ValueError("SECRET_KEY environment variable is required in production")
 
+# Fernet key for encrypting OAuth tokens at rest (see
+# app.infrastructure.encryption). Production must set this; under DEBUG
+# the encryption module derives a key from SECRET_KEY as a fallback.
+GITGRIT_ENCRYPTION_KEY = os.environ.get("GITGRIT_ENCRYPTION_KEY")
+
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
 
