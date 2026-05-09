@@ -1,7 +1,7 @@
 """Post-deploy smoke test for the MCP server.
 
 Usage:
-    MCP_URL=https://gitgrit.dev/mcp MCP_TOKEN=grit_... uv run python scripts/mcp_smoke_test.py
+    MCP_URL=https://gitgrit.dev/mcp/ MCP_TOKEN=grit_... uv run python scripts/mcp_smoke_test.py
 
 Exit codes: 0 = pass, 1 = fail.
 """

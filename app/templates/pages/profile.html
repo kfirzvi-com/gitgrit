@@ -190,15 +190,7 @@
             </div>
           </div>
 
-          <div>
-            <p class="text-xs opacity-60 mb-2">Install the plugin in Claude Code:</p>
-            <div class="relative">
-              <pre id="plugin-install" class="bg-base-200 rounded-lg p-4 text-xs font-mono overflow-x-auto">/plugin marketplace add kfirzvi-com/gitgrit
-/plugin install gitgrit@gitgrit</pre>
-              <button class="btn btn-ghost btn-xs absolute top-2 right-2" onclick="copySnippet('plugin-install', this)">Copy</button>
-            </div>
-            <p class="text-xs opacity-60 mt-2">When prompted, paste the token from the creation banner as <code class="font-mono">api_token</code> and leave <code class="font-mono">api_url</code> blank (unless self-hosted). Restart Claude Code after install so the SessionStart hook fires and bootstraps each project automatically.</p>
-          </div>
+          <p class="text-sm opacity-70">Install the GitGrit plugin via Claude's plugin marketplace and paste the token when prompted. The plugin's SessionStart hook will bootstrap each project automatically.</p>
         </div>
 
         <input type="radio" name="connect-tabs" role="tab" class="tab"

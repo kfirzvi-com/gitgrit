@@ -50,12 +50,23 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         ctx["new_token_kind"] = self.request.session.pop("new_token_kind", None)
 
         site_url = settings.SITE_URL.rstrip("/")
-        mcp_url = f"{site_url}/mcp"
-        mcp_config = json.dumps(
+        mcp_url = f"{site_url}/mcp/"
+        ctx["mcp_url"] = mcp_url
+        ctx["mcp_config_desktop"] = json.dumps(
             {
                 "mcpServers": {
                     "GitGrit": {
-                        "type": "http",
+                        "url": mcp_url,
+                        "authorization_token": "YOUR_TOKEN",
+                    }
+                }
+            },
+            indent=2,
+        )
+        ctx["mcp_config_code"] = json.dumps(
+            {
+                "mcpServers": {
+                    "GitGrit": {
                         "url": mcp_url,
                         "headers": {"Authorization": "Bearer YOUR_TOKEN"},
                     }
@@ -63,9 +74,17 @@ class ProfileView(LoginRequiredMixin, TemplateView):
             },
             indent=2,
         )
-        ctx["mcp_config_desktop"] = mcp_config
-        ctx["mcp_config_code"] = mcp_config
-        ctx["mcp_config_generic"] = mcp_config
+        ctx["mcp_config_generic"] = json.dumps(
+            {
+                "mcpServers": {
+                    "GitGrit": {
+                        "url": mcp_url,
+                        "headers": {"Authorization": "Bearer YOUR_TOKEN"},
+                    }
+                }
+            },
+            indent=2,
+        )
         return ctx
 
 

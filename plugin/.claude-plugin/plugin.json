@@ -20,7 +20,7 @@
       "type": "string",
       "title": "GitGrit MCP URL",
       "description": "MCP endpoint. Override only for self-hosted deployments.",
-      "default": "https://gitgrit.dev/mcp",
+      "default": "https://gitgrit.dev/mcp/",
       "required": false
     }
   }
