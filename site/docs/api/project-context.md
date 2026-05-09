@@ -82,6 +82,18 @@ meta = project.get_metadata()
 # }
 ```
 
+### `project.get_file_last_commit_date(path: str) -> str | None`
+
+ISO 8601 timestamp of the most recent commit that touched `path` on the
+default branch. Returns `None` if the file does not exist or has no
+commit history. Useful for staleness / freshness checks on specific
+tracked files.
+
+```python
+date_str = project.get_file_last_commit_date("CLAUDE.md")
+# "2026-04-15T10:23:00Z"
+```
+
 ## Execution environment
 
 - Policies run in **isolated gVisor containers** with no network access

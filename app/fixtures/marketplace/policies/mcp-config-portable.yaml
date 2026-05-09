@@ -1,0 +1,108 @@
+slug: mcp-config-portable
+name: MCP Config Is Portable
+description: >
+  If the repository commits a `.mcp.json` (project-scoped MCP server
+  configuration), check that it parses as valid JSON and references no
+  localhost URLs. A localhost endpoint in a committed MCP config works
+  only on the original author's machine — every other contributor
+  pulling the repo gets a broken or silently-empty MCP setup.
+author: GitGrit
+suggested_labels:
+  - ai
+  - mcp
+  - configuration
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      import json
+
+      files = set(project.list_files())
+      if ".mcp.json" not in files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "No .mcp.json present",
+              "details": {},
+          }
+
+      content = project.get_file_content(".mcp.json")
+      if content is None:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": ".mcp.json present but unreadable",
+              "details": {},
+          }
+
+      try:
+          config = json.loads(content)
+      except json.JSONDecodeError as exc:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f".mcp.json is not valid JSON: {exc}",
+              "details": {"error": str(exc)},
+          }
+
+      LOCALHOST_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "::1")
+      issues = []
+      servers = config.get("mcpServers", {}) if isinstance(config, dict) else {}
+      for name, server in servers.items():
+          if not isinstance(server, dict):
+              continue
+          url = server.get("url", "") or ""
+          if any(h in url for h in LOCALHOST_HOSTS):
+              issues.append({"server": name, "url": url})
+
+      if issues:
+          return {
+              "passed": False,
+              "score": 50,
+              "message": f"{len(issues)} MCP server(s) reference localhost",
+              "details": {"issues": issues},
+          }
+
+      return {
+          "passed": True,
+          "score": 100,
+          "message": ".mcp.json is valid and portable",
+          "details": {"servers": list(servers.keys())},
+      }
+test_cases:
+  - name: No .mcp.json
+    input:
+      list_files:
+        - src/main.py
+    expected:
+      passed: true
+      score: 100
+  - name: .mcp.json with public URL
+    input:
+      list_files:
+        - .mcp.json
+      get_file_content:
+        .mcp.json: '{"mcpServers": {"GitGrit": {"url": "https://gitgrit.dev/mcp/"}}}'
+    expected:
+      passed: true
+      score: 100
+  - name: .mcp.json references localhost
+    input:
+      list_files:
+        - .mcp.json
+      get_file_content:
+        .mcp.json: '{"mcpServers": {"local": {"url": "http://localhost:8000/mcp/"}}}'
+    expected:
+      passed: false
+      score: 50
+  - name: .mcp.json is malformed
+    input:
+      list_files:
+        - .mcp.json
+      get_file_content:
+        .mcp.json: "{not valid json"
+    expected:
+      passed: false
+      score: 0

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-import urllib.request
 import urllib.error
+import urllib.parse
+import urllib.request
 
 from providers.base import BaseProvider
 
@@ -126,3 +127,16 @@ class GitHubProvider(BaseProvider):
             "created_at": r.get("created_at", ""),
             "updated_at": r.get("updated_at", ""),
         }
+
+    def get_file_last_commit_date(self, path: str) -> str | None:
+        encoded_path = urllib.parse.quote(path, safe="/")
+        try:
+            commits = self._get(
+                f"/repos/{self.full_path}/commits?path={encoded_path}&per_page=1"
+            )
+        except RuntimeError:
+            return None
+        if not commits or not isinstance(commits, list):
+            return None
+        author = commits[0].get("commit", {}).get("author", {})
+        return author.get("date") or None

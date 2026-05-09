@@ -1,0 +1,97 @@
+slug: agent-instructions-size-bounded
+name: Agent Instructions Size Bounded
+description: >
+  Checks that any agent-instruction file (CLAUDE.md, AGENTS.md, etc.)
+  is no longer than 200 lines. Long instruction files exceed agent
+  context budgets, drift into self-contradiction, and collect dead
+  sections nobody re-reads. Anthropic's published guidance is to keep
+  CLAUDE.md concise — the same applies to other agents' instruction
+  files.
+author: GitGrit
+suggested_labels:
+  - ai
+  - documentation
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  def evaluate(project):
+      MAX_LINES = 200
+      candidates = [
+          "CLAUDE.md",
+          "AGENTS.md",
+          "GEMINI.md",
+          ".cursorrules",
+          ".github/copilot-instructions.md",
+      ]
+      files = set(project.list_files())
+      found = [c for c in candidates if c in files]
+
+      if not found:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": "No agent-instruction file to check (see agent-instructions-present)",
+              "details": {"checked": candidates},
+          }
+
+      oversized = []
+      sized = []
+      for path in found:
+          content = project.get_file_content(path)
+          if content is None:
+              continue
+          # Count lines including a trailing partial line.
+          line_count = content.count("\n") + (0 if content.endswith("\n") or not content else 1)
+          if line_count > MAX_LINES:
+              oversized.append({"path": path, "lines": line_count, "limit": MAX_LINES})
+          else:
+              sized.append({"path": path, "lines": line_count})
+
+      if not oversized:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"All agent-instruction files within {MAX_LINES}-line limit",
+              "details": {"sizes": sized, "max_lines": MAX_LINES},
+          }
+
+      score = max(0, 100 - len(oversized) * 50)
+      return {
+          "passed": False,
+          "score": score,
+          "message": f"{len(oversized)} agent-instruction file(s) exceed {MAX_LINES} lines",
+          "details": {"oversized": oversized, "max_lines": MAX_LINES},
+      }
+test_cases:
+  - name: CLAUDE.md within limit
+    input:
+      list_files:
+        - CLAUDE.md
+      get_file_content:
+        CLAUDE.md: |
+          # Project notes
+          Be concise.
+          Use uv for Python.
+    expected:
+      passed: true
+      score: 100
+  - name: CLAUDE.md too long
+    input:
+      list_files:
+        - CLAUDE.md
+      get_file_content:
+        # 201 newlines → 201 lines via the count-then-add-one rule.
+        CLAUDE.md: "line\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nlast"
+    expected:
+      passed: false
+      score: 50
+  - name: No agent instructions to check
+    input:
+      list_files:
+        - src/main.py
+    expected:
+      passed: false
+      score: 0

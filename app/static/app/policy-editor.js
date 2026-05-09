@@ -58,6 +58,12 @@ const PROJECT_METHODS = [
     detail: "() -> dict",
     info: "Metadata: name, description, web_url, created_at, updated_at.",
   },
+  {
+    label: "get_file_last_commit_date",
+    type: "method",
+    detail: "(path: str) -> str | None",
+    info: "ISO 8601 timestamp of the most recent commit that touched `path` on the default branch. None if the file does not exist or has no commit history. Useful for staleness checks.",
+  },
 ];
 
 function projectCompletions(context) {
@@ -80,7 +86,8 @@ const DEFAULT_CODE = `def evaluate(project):
     #   project.get_contributors()   -> list[dict]
     #   project.get_default_branch() -> str
     #   project.get_topics()         -> list[str]
-    #   project.get_metadata()       -> dict
+    #   project.get_metadata()                 -> dict
+    #   project.get_file_last_commit_date(path) -> str | None  (ISO 8601)
     #
     # Must return: {"passed": bool, "score": int, "message": str, "details": dict}
 
