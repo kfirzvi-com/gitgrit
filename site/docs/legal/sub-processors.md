@@ -12,7 +12,7 @@ A sub-processor is a third party engaged by GitGrit that processes customer pers
 
 | Sub-processor | Purpose | Location |
 | --- | --- | --- |
-| Amazon Web Services, Inc. | Application hosting and managed PostgreSQL database. | <mark class="legal-placeholder">[Hosting region]</mark> |
+| Amazon Web Services, Inc. | Application hosting and managed PostgreSQL database. | EU — Stockholm, Sweden (`eu-north-1`) |
 | GitHub, Inc. — Container Registry | Hosting of GitGrit container images used during deployment. | United States |
 | GitHub, Inc. — OAuth & REST API | OAuth sign-in and repository data access for connected GitHub projects. | United States |
 | GitLab Inc. | OAuth sign-in and repository data access for connected GitLab projects. | United States |

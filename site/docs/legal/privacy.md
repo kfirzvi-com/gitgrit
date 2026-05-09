@@ -43,7 +43,7 @@ We share personal data with the sub-processors listed on our [sub-processors pag
 
 ## 6. International transfers
 
-The Service is hosted in the <mark class="legal-placeholder">[Hosting region]</mark>. Some sub-processors are located in the United States or operate global edge networks. Where personal data is transferred outside the European Economic Area or the United Kingdom, we rely on the European Commission's Standard Contractual Clauses (and the UK Addendum where applicable) and apply supplementary technical measures — including encryption of access tokens at rest and TLS in transit — informed by a transfer-impact assessment. You may request a copy of the relevant transfer mechanism by emailing [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
+The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm, Sweden). Some sub-processors are located in the United States or operate global edge networks. Where personal data is transferred outside the European Economic Area or the United Kingdom, we rely on the European Commission's Standard Contractual Clauses (and the UK Addendum where applicable) and apply supplementary technical measures — including encryption of access tokens at rest and TLS in transit — informed by a transfer-impact assessment. You may request a copy of the relevant transfer mechanism by emailing [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
 
 ## 7. Retention
 

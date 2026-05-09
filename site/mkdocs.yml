@@ -44,12 +44,15 @@ nav:
     - Analytics Dashboard: features/analytics.md
   - Policy API:
     - ProjectContext: api/project-context.md
-  - Legal:
-    - Terms of Service: legal/terms.md
-    - Privacy Policy: legal/privacy.md
-    - Cookies: legal/cookies.md
-    - Accessibility: legal/accessibility.md
-    - Sub-processors: legal/sub-processors.md
+
+# Legal pages are reachable from the footer and from product surfaces
+# (OAuth consent, app footer); intentionally not in the top nav.
+not_in_nav: |
+  /legal/terms.md
+  /legal/privacy.md
+  /legal/cookies.md
+  /legal/accessibility.md
+  /legal/sub-processors.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -73,11 +76,4 @@ extra:
       link: https://github.com/kfirzvi-com/gitgrit
   generator: false
 
-copyright: >-
-  &copy; 2026 GitGrit — Developer Experience Platform &middot;
-  <a href="/legal/terms/">Terms</a> &middot;
-  <a href="/legal/privacy/">Privacy</a> &middot;
-  <a href="/legal/cookies/">Cookies</a> &middot;
-  <a href="/legal/accessibility/">Accessibility</a> &middot;
-  <a href="/legal/sub-processors/">Sub-processors</a> &middot;
-  <a href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md">Security</a>
+copyright: "&copy; 2026 GitGrit — Developer Experience Platform"

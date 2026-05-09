@@ -206,3 +206,126 @@
   border-radius: 0.125rem;
   font-weight: 600;
 }
+
+/* ── Footer — 4-column structured layout ─────────────────────────── */
+.md-footer-meta {
+  background: var(--gg-bg-200);
+  border-top: 1px solid var(--gg-border);
+}
+
+.gg-footer {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 2.5rem;
+  padding: 3rem 0 2rem;
+}
+
+@media (max-width: 76.1875em) {
+  .gg-footer {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+  .gg-footer__brand {
+    grid-column: 1 / -1;
+    max-width: 36rem;
+  }
+}
+
+.gg-footer__brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--gg-text);
+  font-weight: 600;
+  font-size: 1.125rem;
+  text-decoration: none;
+}
+
+.gg-footer__brand-link:hover {
+  color: var(--gg-text);
+}
+
+.gg-footer__tagline {
+  color: var(--gg-text-dim);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  max-width: 32ch;
+  margin: 0.875rem 0 1.25rem;
+}
+
+.gg-footer__social {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.gg-footer__social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--gg-radius-sm);
+  border: 1px solid var(--gg-border);
+  color: var(--gg-text-dim);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.gg-footer__social-link:hover {
+  color: var(--gg-text);
+  border-color: var(--gg-text-dim);
+}
+
+.gg-footer__social-link svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+.gg-footer__col h6 {
+  color: var(--gg-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 1rem;
+}
+
+.gg-footer__col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gg-footer__col li {
+  margin-bottom: 0.5rem;
+}
+
+.gg-footer__col a {
+  color: var(--gg-text-dim);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.gg-footer__col a:hover {
+  color: var(--gg-text);
+}
+
+.gg-footer__base {
+  border-top: 1px solid var(--gg-border);
+  padding: 1.25rem 0;
+  font-size: 0.75rem;
+  color: var(--gg-text-dim);
+}
+
+.gg-footer__copy {
+  display: inline-block;
+}
+
+.gg-footer__copy a {
+  color: var(--gg-text-dim);
+}
+
+.gg-footer__copy a:hover {
+  color: var(--gg-text);
+}
