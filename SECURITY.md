@@ -9,7 +9,7 @@ GitGrit's threat surface is unusually wide for an open-source web app: it execut
 1. **GitHub Private Vulnerability Reporting** — preferred. From the [Security tab](https://github.com/kfirzvi-com/gitgrit/security/advisories/new) on this repo, click *Report a vulnerability*.
 2. **Email** — `kfir@kfirzvi.com`.
 
-We will acknowledge receipt within **3 business days**, give you an initial triage assessment within **7 business days**, and aim to ship a fix within **30 days** for critical severity. We follow coordinated disclosure: publish a fix, then a CVE/advisory, then credit the reporter (unless they prefer to remain anonymous).
+GitGrit is maintained on a best-effort basis without a dedicated security on-call, so we cannot commit to specific response, triage, or fix timelines. We aim to work through reports as quickly as we reasonably can. We follow coordinated disclosure where practical: ship a fix, then a CVE/advisory, then credit the reporter (unless they prefer to remain anonymous).
 
 If you would like to encrypt your report, request our PGP key at the same address.
 
@@ -71,7 +71,7 @@ Every policy is user-authored Python that runs against a `ProjectContext` exposi
 - Signature mismatch → **HTTP 401**. The signature is verified before any policy is run.
 
 **Known limitations:**
-- For backward compatibility with v0.1 projects that predate signature verification, projects with an empty `webhook_secret` are accepted unsigned with a warning log. Operators with such projects should re-register the webhook (the UI generates a fresh secret) or run a backfill. **This relaxation will be removed in a future release** — flip the `unsecured` branch in `BaseWebhookView._verify_signature` to return `"rejected"` once all projects in your install have a secret.
+- For backward compatibility with v0.1 projects that predate signature verification, projects with an empty `webhook_secret` are accepted unsigned with a warning log. Operators with such projects should re-register the webhook (the UI generates a fresh secret) or run a backfill. **This relaxation is intended to be removed in a future release on a best-effort basis** — flipping the `unsecured` branch in `BaseWebhookView._verify_signature` to return `"rejected"` once all projects in your install have a secret. No specific timeline is committed.
 - The signature is verified against the secret of any tenant that has registered this `external_id`. In a multi-tenant install where two tenants register the same external repo, a forged request signed with either tenant's secret will validate. This matches how the platforms send hooks (each tenant has its own webhook with its own secret), but be aware of it.
 
 ### OAuth token storage
@@ -103,7 +103,7 @@ GitGrit stores GitHub and GitLab personal access tokens on `PlatformConnection.a
 **Known limitations:**
 - **All tools are accessible from any valid token.** There is no per-tool scope (no read-only token kind). If an LLM client receives a token, it can create or delete policies in that user's tenant. Treat MCP tokens as workspace-write-capable until per-token scopes ship.
 - Tool inputs may contain text from PR diffs. **An LLM driving the MCP server is exposed to prompt injection from untrusted PR content.** Mitigations: do not let the LLM auto-merge or auto-deploy based on tool outputs; require human review for any write tool the LLM chains into.
-- `run_policy_test` executes user-supplied policy code in the sandbox with mock data. The same sandbox guarantees and limitations described above apply.
+- `run_policy_test` executes user-supplied policy code in the sandbox with mock data. The same sandbox defenses and limitations described above apply.
 
 ### API tokens
 
