@@ -35,6 +35,12 @@ if not SECRET_KEY:
 # the encryption module derives a key from SECRET_KEY as a fallback.
 GITGRIT_ENCRYPTION_KEY = os.environ.get("GITGRIT_ENCRYPTION_KEY")
 
+# Build-time version stamp (set by Dockerfile via --build-arg in
+# .github/workflows/publish.yml). Empty for local non-Docker runs;
+# the footer template hides the version line when GIT_SHA is empty.
+GIT_SHA = os.environ.get("GIT_SHA", "")
+GIT_TAG = os.environ.get("GIT_TAG", "")
+
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
 
@@ -91,6 +97,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "app.context_processors.tenant_context",
+                "app.context_processors.version_context",
             ],
         },
     },

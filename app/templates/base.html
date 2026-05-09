@@ -216,6 +216,15 @@
       <a class="link" href="https://gitgrit.dev/legal/sub-processors/" target="_blank" rel="noopener">Sub-processors</a>
       <a class="link" href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
     </nav>
+    {% if git_sha %}
+      <div class="mt-2 opacity-70">
+        Version
+        <a class="link font-mono"
+           href="{{ github_repo_url }}/{% if git_tag %}releases/tag/{{ git_tag }}{% else %}commit/{{ git_sha }}{% endif %}"
+           target="_blank" rel="noopener"
+           title="{{ git_sha }}">{% if git_tag %}{{ git_tag }}{% else %}{{ git_sha_short }}{% endif %}</a>
+      </div>
+    {% endif %}
   </footer>
 </body>
 </html>

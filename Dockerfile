@@ -16,6 +16,15 @@ RUN pip install uv && uv pip install --system -r pyproject.toml
 COPY . .
 RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
 
+# Version stamp baked at build time. Empty for local builds; CI passes
+# both via --build-arg (GIT_SHA always; GIT_TAG only when the build was
+# triggered by a tag push). Placed AFTER collectstatic so changing the
+# version doesn't invalidate the heavy layers.
+ARG GIT_SHA=""
+ARG GIT_TAG=""
+ENV GIT_SHA=$GIT_SHA \
+    GIT_TAG=$GIT_TAG
+
 EXPOSE 3000
 
 

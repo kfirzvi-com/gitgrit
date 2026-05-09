@@ -97,6 +97,9 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
             service=gitgrit
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            GIT_TAG=${{ github.ref_type == 'tag' && github.ref_name || '' }}
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
