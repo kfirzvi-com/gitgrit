@@ -1,5 +1,5 @@
 site_name: GitGrit
-site_url: https://gitgrit.dev
+site_url: !ENV [DOCS_SITE_URL, "https://gitgrit.dev"]
 site_description: Developer Experience Platform — Repository Standards, Team Health, and Delivery Performance
 site_author: GitGrit
 
@@ -71,6 +71,7 @@ extra_css:
   - stylesheets/custom.css    # Material theme variable mappings and component overrides
 
 extra:
+  is_staging: !ENV [DOCS_IS_STAGING, false]
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/kfirzvi-com/gitgrit
