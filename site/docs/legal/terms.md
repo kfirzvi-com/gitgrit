@@ -8,7 +8,7 @@ title: Terms of Service
 
 ## 1. Agreement
 
-These Terms of Service ("Terms") govern access to and use of the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service") operated by <mark class="legal-placeholder">[Operator legal name]</mark> of <mark class="legal-placeholder">[Operator registered address]</mark> ("GitGrit", "we", "us"). By creating an account or otherwise using the Service, you ("you", "User") agree to these Terms. If you do not agree, do not use the Service.
+These Terms of Service ("Terms") govern access to and use of the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service") operated by Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730) of Habustan 4, Acre, Israel ("GitGrit", "we", "us"). By creating an account or otherwise using the Service, you ("you", "User") agree to these Terms. If you do not agree, do not use the Service.
 
 ## 2. The Service
 
@@ -68,7 +68,7 @@ We may update these Terms from time to time. The "Effective" date at the top of 
 
 ## 14. Governing law and disputes
 
-These Terms are governed by the laws of <mark class="legal-placeholder">[Governing-law jurisdiction]</mark>, without regard to its conflict-of-laws rules. The parties submit to the exclusive jurisdiction of the courts located in <mark class="legal-placeholder">[Venue]</mark> for the resolution of any dispute arising out of or related to these Terms or the Service. Nothing in this section prevents either party from seeking injunctive or other equitable relief in any court of competent jurisdiction.
+These Terms are governed by the laws of Israel, without regard to its conflict-of-laws rules. The parties submit to the exclusive jurisdiction of the courts located in Tel Aviv-Yafo, Israel for the resolution of any dispute arising out of or related to these Terms or the Service. Nothing in this section prevents either party from seeking injunctive or other equitable relief in any court of competent jurisdiction.
 
 ## 15. Miscellaneous
 
@@ -76,7 +76,7 @@ These Terms, together with the [Privacy Policy](privacy.md) and any other polici
 
 ## 16. Contact
 
-<mark class="legal-placeholder">[Operator legal name]</mark>, <mark class="legal-placeholder">[Operator registered address]</mark>.
+Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel.
 General contact: [hello@gitgrit.dev](mailto:hello@gitgrit.dev).
 Security: [security@gitgrit.dev](mailto:security@gitgrit.dev).
 Privacy: [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).

@@ -8,11 +8,11 @@ title: Privacy Policy
 
 ## 1. About this notice
 
-This Privacy Policy explains how <mark class="legal-placeholder">[Operator legal name]</mark> ("GitGrit", "we", "us") collects, uses, and shares personal data in connection with the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service"). It applies to visitors, registered users, and people whose data is processed because their organization uses the Service. It does not apply to self-hosted deployments of GitGrit, which are controlled by the organization that runs them.
+This Privacy Policy explains how Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730) ("GitGrit", "we", "us") collects, uses, and shares personal data in connection with the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service"). It applies to visitors, registered users, and people whose data is processed because their organization uses the Service. It does not apply to self-hosted deployments of GitGrit, which are controlled by the organization that runs them.
 
 ## 2. Controller and contact
 
-The controller of personal data processed through the Service is <mark class="legal-placeholder">[Operator legal name]</mark>, <mark class="legal-placeholder">[Operator registered address]</mark>. Privacy contact: [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
+The controller of personal data processed through the Service is Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel. Privacy contact: [privacy@gitgrit.dev](mailto:privacy@gitgrit.dev).
 
 ## 3. What we collect
 
