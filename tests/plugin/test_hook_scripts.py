@@ -218,6 +218,7 @@ class TestEnforceCheckEmitsReminder:
             cache,
             json.dumps(
                 {
+                    "version": 2,
                     "project_id": "abc",
                     "project_name": "acme/backend",
                     "policies_loaded": True,
@@ -242,7 +243,7 @@ class TestEnforceCheckEmitsReminder:
         _write_session(
             tmp_path,
             cache,
-            json.dumps({"project_id": "abc", "policies_loaded": True}),
+            json.dumps({"version": 2, "project_id": "abc", "policies_loaded": True}),
         )
 
         result = _run(ENFORCE_CHECK, cwd=tmp_path, cache_home=cache)
@@ -264,7 +265,7 @@ class TestEnforceCheckEmitsReminder:
         _write_session(
             repo_a,
             cache,
-            json.dumps({"project_id": "a", "project_name": "a/a", "policies_loaded": True}),
+            json.dumps({"version": 2, "project_id": "a", "project_name": "a/a", "policies_loaded": True}),
         )
 
         result = _run(ENFORCE_CHECK, cwd=repo_b, cache_home=cache)
