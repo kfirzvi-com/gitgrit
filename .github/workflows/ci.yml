@@ -40,11 +40,12 @@ jobs:
       - name: Run tests
         env:
           SECRET_KEY: test-secret-key
+          GITGRIT_ENCRYPTION_KEY: w258ShlYJUj9-j8a4e7-O_Nnsq8Wgd6LWP-6-ZBFFFQ=
           DB_HOST: localhost
           DB_PORT: "5432"
           DB_NAME: gitgrit
           DB_USER: gitgrit
           DB_PASSWORD: testpass
           DEBUG: "True"
-        run: python manage.py test
+        run: python manage.py test --settings=gitgrit.settings_test
 
