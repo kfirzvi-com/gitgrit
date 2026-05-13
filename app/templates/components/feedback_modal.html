@@ -20,15 +20,7 @@
                 class="textarea textarea-bordered w-full"
                 placeholder="What's on your mind? Bugs, ideas, questions — all welcome."></textarea>
 
-      <details class="collapse collapse-arrow bg-base-200">
-        <summary class="collapse-title text-sm font-medium">Context (auto-attached, editable)</summary>
-        <div class="collapse-content">
-          <textarea name="context" id="feedback_context" rows="6"
-                    class="textarea textarea-bordered w-full font-mono text-xs"
-                    oninput="(function(t){ try { JSON.parse(t.value || '{}'); t.classList.remove('textarea-error'); } catch (e) { t.classList.add('textarea-error'); } })(this)"></textarea>
-          <p class="text-xs opacity-60 mt-1">Edit or delete anything you'd rather not share. Must remain valid JSON.</p>
-        </div>
-      </details>
+      <input type="hidden" name="context" id="feedback_context">
 
       <div id="feedback-result"></div>
 
@@ -46,16 +38,14 @@
   window.openFeedbackModal = function () {
     const ctx = document.getElementById('feedback_context');
     if (ctx) {
-      const payload = {
+      ctx.value = JSON.stringify({
         url: window.location.href,
         viewport: window.innerWidth + 'x' + window.innerHeight,
         user_agent: navigator.userAgent,
         git_sha: document.body.dataset.gitSha || null,
         tenant: document.body.dataset.tenantSlug || null,
         ts: new Date().toISOString(),
-      };
-      ctx.value = JSON.stringify(payload, null, 2);
-      ctx.classList.remove('textarea-error');
+      });
     }
     const result = document.getElementById('feedback-result');
     if (result) result.innerHTML = '';
