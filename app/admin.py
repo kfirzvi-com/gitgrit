@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from app.domain.models import (
+    FeedbackReport,
     MarketplacePack,
     MarketplacePolicy,
     Membership,
@@ -121,6 +122,24 @@ class PolicyVersionAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(FeedbackReport)
+class FeedbackReportAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "user_email", "tenant_slug", "short_body")
+    list_filter = ("created_at", "tenant_slug")
+    search_fields = ("body", "user__email", "user_email")
+    readonly_fields = (
+        "id", "user", "user_email", "tenant_slug", "body", "context", "created_at",
+    )
+    ordering = ("-created_at",)
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description="Message")
+    def short_body(self, obj):
+        return (obj.body[:80] + "…") if len(obj.body) > 80 else obj.body
 
 
 @admin.register(PolicyExecution)
