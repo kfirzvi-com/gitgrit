@@ -22,10 +22,43 @@ The marketplace manifest lives at the repo root (`.claude-plugin/marketplace.jso
 ```
 
 When prompted, supply:
-- `api_token` — a workspace API token from `gitgrit.dev/settings/tokens`.
-- `api_url` — leave blank for `https://gitgrit.dev/mcp`, or set to your self-hosted MCP URL.
+- `api_token` — a workspace API token from `app-staging.gitgrit.dev/settings/tokens`.
+- `api_url` — leave blank for `https://app-staging.gitgrit.dev/mcp`, or set to your self-hosted MCP URL.
 
 Restart the session after install so the `SessionStart` hook fires.
+
+## Install in a closed-loop environment
+
+If your developers can't reach `github.com/kfirzvi-com` (e.g., you're running a self-hosted GitGrit instance inside a closed network), use a mirror instead. Same plugin, same hooks, different host.
+
+**One-time admin setup** — mirror the plugin into your internal git host:
+
+```bash
+git clone https://github.com/kfirzvi-com/gitgrit.git
+cd gitgrit
+git remote add internal https://git.acme.internal/platform/gitgrit-plugin.git
+git push internal --tags
+```
+
+Re-run `git push internal --tags` whenever you want to ship a new plugin version to your developers.
+
+**Developer install** — add the mirror as a marketplace and install:
+
+```bash
+/plugin marketplace add https://git.acme.internal/platform/gitgrit-plugin.git#v0.3.0
+/plugin install gitgrit@gitgrit
+```
+
+If you don't have an internal git host, extract the plugin to a shared path your dev workstations can reach (an NFS/SMB mount, or a synced copy on each machine):
+
+```bash
+/plugin marketplace add /mnt/platform/gitgrit-plugin
+/plugin install gitgrit@gitgrit
+```
+
+When prompted, override the defaults with your instance's values:
+- `api_url` — your MCP URL, e.g. `https://gitgrit.acme.internal/mcp` (do **not** accept the public default).
+- `api_token` — generate one from your instance's Profile → API Tokens & MCP page → "Claude Code plugin" tab.
 
 ## How it works
 
