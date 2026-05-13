@@ -1,4 +1,5 @@
 from app.domain.models import (  # noqa: F401
+    FeedbackReport,
     Membership,
     Platform,
     PlatformConnection,
