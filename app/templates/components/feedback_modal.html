@@ -1,0 +1,65 @@
+<button type="button"
+        onclick="openFeedbackModal()"
+        aria-label="Send feedback"
+        class="btn btn-primary btn-circle shadow-lg fixed bottom-6 right-6 z-40 h-14 w-14">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.9 9.9 0 01-4.951-1.288L3 20l1.288-4.049A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+</button>
+
+<dialog id="feedback_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Send feedback</h3>
+    <p class="text-sm opacity-70 mt-1">
+      Goes to the GitGrit team. We'll reply via your account email if needed.
+    </p>
+    <form hx-post="{% url 'submit_feedback' %}"
+          hx-target="#feedback-result"
+          hx-swap="innerHTML"
+          hx-on::after-request="if (event.detail.successful) { this.reset(); setTimeout(() => document.getElementById('feedback_modal').close(), 1200); }"
+          class="mt-4 space-y-3">
+      <textarea name="body" required maxlength="4000" rows="5"
+                class="textarea textarea-bordered w-full"
+                placeholder="What's on your mind? Bugs, ideas, questions — all welcome."></textarea>
+
+      <details class="collapse collapse-arrow bg-base-200">
+        <summary class="collapse-title text-sm font-medium">Context (auto-attached, editable)</summary>
+        <div class="collapse-content">
+          <textarea name="context" id="feedback_context" rows="6"
+                    class="textarea textarea-bordered w-full font-mono text-xs"
+                    oninput="(function(t){ try { JSON.parse(t.value || '{}'); t.classList.remove('textarea-error'); } catch (e) { t.classList.add('textarea-error'); } })(this)"></textarea>
+          <p class="text-xs opacity-60 mt-1">Edit or delete anything you'd rather not share. Must remain valid JSON.</p>
+        </div>
+      </details>
+
+      <div id="feedback-result"></div>
+
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('feedback_modal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Send</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+  window.openFeedbackModal = function () {
+    const ctx = document.getElementById('feedback_context');
+    if (ctx) {
+      const payload = {
+        url: window.location.href,
+        viewport: window.innerWidth + 'x' + window.innerHeight,
+        user_agent: navigator.userAgent,
+        git_sha: document.body.dataset.gitSha || null,
+        tenant: document.body.dataset.tenantSlug || null,
+        ts: new Date().toISOString(),
+      };
+      ctx.value = JSON.stringify(payload, null, 2);
+      ctx.classList.remove('textarea-error');
+    }
+    const result = document.getElementById('feedback-result');
+    if (result) result.innerHTML = '';
+    const modal = document.getElementById('feedback_modal');
+    if (modal) modal.showModal();
+  };
+</script>

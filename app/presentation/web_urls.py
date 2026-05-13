@@ -41,6 +41,7 @@ from app.presentation.views.tenant_views import (
     test_connection,
 )
 from app.presentation.views.badge_views import project_badge
+from app.presentation.views.feedback_views import submit_feedback
 from app.presentation.views.profile_views import ProfileView, disconnect_social
 from app.presentation.views.marketplace_views import (
     MarketplaceBrowseView,
@@ -144,6 +145,8 @@ urlpatterns = [
     path("tenants/tokens/<uuid:token_id>/revoke/", revoke_api_token, name="revoke_api_token"),
     # Badges (public, unauthenticated)
     path("badge/<uuid:pk>.svg", project_badge, name="project_badge"),
+    # Feedback
+    path("feedback/", submit_feedback, name="submit_feedback"),
     # Marketplace
     path("marketplace/", MarketplaceBrowseView.as_view(), name="marketplace_browse"),
     path(
