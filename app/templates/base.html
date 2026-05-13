@@ -197,7 +197,10 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="min-h-screen flex flex-col bg-base-200">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      data-git-sha="{{ git_sha|default:'' }}"
+      data-tenant-slug="{{ current_tenant.slug|default:'' }}"
+      class="min-h-screen flex flex-col bg-base-200">
   {% include "components/navbar.html" %}
 
   <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
@@ -226,5 +229,7 @@
       </div>
     {% endif %}
   </footer>
+
+  {% if user.is_authenticated %}{% include "components/feedback_modal.html" %}{% endif %}
 </body>
 </html>

@@ -445,3 +445,26 @@ class PolicyExecution(models.Model):
 
     def __str__(self):
         return f"{self.policy_name} — {self.status} ({self.project})"
+
+
+class FeedbackReport(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feedback_reports",
+    )
+    user_email = models.CharField(max_length=320, blank=True, default="")
+    tenant_slug = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField()
+    context = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "feedback_reports"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Feedback from {self.user_email or self.user_id or 'anonymous'} @ {self.created_at:%Y-%m-%d}"
