@@ -163,6 +163,18 @@ treat a missing `runsc` as a blocker.
 containers to the same bridge so they can resolve and reach the customer
 GitLab on the same network (or routable from it).
 
+> **One stack per host.** The `gitgrit_internal` bridge has a fixed name
+> (so the sandbox runner can attach on-demand containers to a known
+> network from outside compose). If you bring up a second GitGrit stack
+> on the same host, both stacks share the bridge — and Docker DNS for
+> `db` will resolve to *both* containers, with the app silently picking
+> whichever's IP comes back first. Symptoms: the app logs
+> `password authentication failed for user "gitgrit"` against an IP
+> that doesn't match the stack it was supposed to talk to. If you need
+> multiple installs on one host, tear down the previous stack first
+> (`docker compose -f docker-compose.prod.yml down`) before bringing
+> up the new one.
+
 ---
 
 ## 7. Time / NTP

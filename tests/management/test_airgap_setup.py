@@ -60,14 +60,14 @@ class TestCheckCaBundle:
 
     IN_CONTAINER = "/etc/ssl/certs/customer-ca.pem"
 
-    def test_skips_when_env_var_unset(self, settings, db, monkeypatch):
+    def test_errors_when_env_var_unset(self, settings, monkeypatch):
+        # CUSTOMER_CA_PATH is required, not optional: TLS to the internal
+        # GitLab needs it. Setup must fail loud here so the operator finds
+        # out at install time, not at first OAuth handshake.
         settings.SITE_URL = "https://gitgrit.acme.internal"
         monkeypatch.delenv("CUSTOMER_CA_PATH", raising=False)
-        with mock.patch(
-            "app.management.commands.airgap_setup.Command._run_migrations"
-        ):
-            out = _run()
-        assert "CUSTOMER_CA_PATH not set; skipping CA bundle check." in out
+        with pytest.raises(CommandError, match="CUSTOMER_CA_PATH is not set"):
+            call_command("airgap_setup")
 
     def test_errors_when_mount_missing(self, settings, monkeypatch):
         settings.SITE_URL = "https://gitgrit.acme.internal"

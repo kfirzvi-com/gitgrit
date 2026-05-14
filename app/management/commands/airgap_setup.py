@@ -10,7 +10,7 @@ on/off, rotating SITE_URL) to re-sync the Site row and SocialApp rows.
 What it does:
   * Runs migrations.
   * Sanity-checks SITE_URL is set and not localhost.
-  * Sanity-checks the customer CA bundle is readable if CUSTOMER_CA_PATH set.
+  * Sanity-checks CUSTOMER_CA_PATH is set and the bundle is readable.
   * Syncs django.contrib.sites.Site row #1 with SITE_URL's hostname (if installed).
   * Deletes any SocialApp DB rows for providers disabled via AUTH_PROVIDER_*_ENABLED.
 """
@@ -49,10 +49,15 @@ class Command(BaseCommand):
         self.stdout.write(f"SITE_URL OK: {site_url}")
 
     def _check_ca_bundle(self) -> None:
+        # Required, not optional: an unset CUSTOMER_CA_PATH defers a TLS
+        # handshake failure to OAuth time — fail loud at setup instead.
         ca_path = os.environ.get("CUSTOMER_CA_PATH")
         if not ca_path:
-            self.stdout.write("CUSTOMER_CA_PATH not set; skipping CA bundle check.")
-            return
+            raise CommandError(
+                "CUSTOMER_CA_PATH is not set. Set it in .env to the host path "
+                "of your customer CA bundle (the issuing CA chain that signed "
+                "your internal GitLab's cert). See docs/airgap.md."
+            )
         # Inside the container, the bundle is mounted at a fixed path.
         # The env var holds the host-side path; we check the in-container one.
         in_container = "/etc/ssl/certs/customer-ca.pem"

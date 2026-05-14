@@ -193,36 +193,75 @@ class TestGitlabReachability:
 
 
 class TestIsolationProbe:
+    """The probe runs at TCP layer (socket.create_connection), not HTTPS.
+    A customer-only REQUESTS_CA_BUNDLE makes every public TLS host raise
+    SSLError, which an HTTP-layer probe mis-classifies as 'unreachable' —
+    a silent false-negative on a network that's actually open. Tests below
+    pin the TCP-layer probe so a future regression to requests-based code
+    fails loudly here."""
+
+    PROBE_TARGET = ("www.google.com", 443)
+
     def test_passes_when_internet_unreachable(self, monkeypatch):
         monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
         monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
 
-        def _route(url, **kwargs):
-            if "google.com" in url:
-                raise requests.exceptions.ConnectionError("no route to host")
-            return _gitlab_401_response()
-
-        with mock.patch.object(requests, "get", side_effect=_route):
+        with mock.patch.object(requests, "get", return_value=_gitlab_401_response()), \
+             mock.patch(
+                 "app.management.commands.airgap_smoketest.socket.create_connection",
+                 side_effect=OSError("no route to host"),
+             ) as m_sock:
             out, ok = _run("--check-isolation")
+
         assert ok
         assert "public internet appears blocked" in out
+        # Pin: probe MUST target the public host at port 443.
+        m_sock.assert_called_once()
+        assert m_sock.call_args.args[0] == self.PROBE_TARGET
 
     def test_fails_when_internet_reachable(self, monkeypatch):
-        # If google.com is reachable from the container, the network is
-        # not actually closed and the customer is *not* air-gapped — the
-        # smoke test must catch this.
+        # If www.google.com:443 accepts a TCP connection from the container,
+        # the network is not actually closed and the customer is *not*
+        # air-gapped — the smoke test must catch this.
         monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
         monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
 
-        def _route(url, **kwargs):
-            if "google.com" in url:
-                google_resp = mock.MagicMock()
-                google_resp.status_code = 200
-                return google_resp
-            return _gitlab_401_response()
-
-        with mock.patch.object(requests, "get", side_effect=_route):
+        fake_sock = mock.MagicMock()
+        # Context-manager protocol: socket.create_connection's return value
+        # is entered via `with`. The MagicMock satisfies that by default.
+        with mock.patch.object(requests, "get", return_value=_gitlab_401_response()), \
+             mock.patch(
+                 "app.management.commands.airgap_smoketest.socket.create_connection",
+                 return_value=fake_sock,
+             ):
             out, ok = _run("--check-isolation")
+
         assert not ok
         assert "public internet is reachable" in out
         assert "NOT an air-gapped install" in out
+
+    def test_probe_uses_tcp_not_https(self, monkeypatch):
+        # Regression guard: a previous version of the probe used
+        # requests.get(), which silently false-negatived under the
+        # customer-CA bundle (SSLError == 'blocked'). The probe MUST NOT
+        # send an HTTPS request to the probe target.
+        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+
+        def _requests_get(url, **kwargs):
+            # Make any accidental HTTPS probe to google.com a test failure.
+            assert "google.com" not in url, (
+                "isolation probe must use TCP socket, not requests.get()"
+            )
+            return _gitlab_401_response()
+
+        with mock.patch.object(requests, "get", side_effect=_requests_get), \
+             mock.patch(
+                 "app.management.commands.airgap_smoketest.socket.create_connection",
+                 side_effect=OSError("no route to host"),
+             ) as m_sock:
+            _run("--check-isolation")
+
+        # Pin: the probe must have gone through the socket path. A regression
+        # that quietly dropped the probe would otherwise slip past this guard.
+        m_sock.assert_called_once()

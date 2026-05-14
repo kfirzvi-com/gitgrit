@@ -21,16 +21,17 @@ Exit code is non-zero on failure so operators can wire this into an
 install / health-check script.
 """
 import os
+import socket
 from urllib.parse import urlparse
 
 import requests
 from django.core.management.base import BaseCommand, CommandError
 
 # Tried by --check-isolation to prove the host has no public egress.
-# Picked because it's anycast-routable from anywhere on the internet,
-# so a "connection refused / timeout" is a strong signal we're really
-# isolated (vs. e.g. DNS happening to fail).
-ISOLATION_PROBE_URL = "https://www.google.com"
+# Probed at TCP layer (not HTTPS) so a customer-only REQUESTS_CA_BUNDLE
+# can't mask a reachable network with an SSLError — see _check_no_public_egress.
+ISOLATION_PROBE_HOST = "www.google.com"
+ISOLATION_PROBE_PORT = 443
 
 
 class Command(BaseCommand):
@@ -121,7 +122,13 @@ class Command(BaseCommand):
         url = os.environ.get("GITLAB_URL", "").rstrip("/")
         if not url:
             return False
-        target = f"{url}/api/v4/projects?per_page=1"
+        # /api/v4/version always requires authentication, so an unauthenticated
+        # probe gets a clean 401 with a GitLab-shaped JSON body. Earlier
+        # versions of this check hit /api/v4/projects, which on a default
+        # GitLab CE install returns 200 with `[]` when no public projects
+        # exist — that pattern would false-fail the smoketest on a freshly
+        # provisioned customer GitLab.
+        target = f"{url}/api/v4/version"
         try:
             # `allow_redirects=False` so a reverse-proxy or SSO bouncing us
             # to a login page doesn't mask a misconfigured GITLAB_URL — we
@@ -145,7 +152,7 @@ class Command(BaseCommand):
             self._fail(f"request to {url} failed: {exc}")
             return False
 
-        # /api/v4/projects without a token returns 401 with a JSON body
+        # /api/v4/version without a token returns 401 with a JSON body
         # `{"message": "401 Unauthorized"}`. Anything else (HTML login
         # page, 200, 5xx, 302) means we're hitting the wrong service.
         # We also peek into the body so an unrelated upstream JSON 401
@@ -172,16 +179,24 @@ class Command(BaseCommand):
         return False
 
     def _check_no_public_egress(self) -> bool:
+        # TCP-layer probe, not HTTPS: in a real air-gap install
+        # REQUESTS_CA_BUNDLE is set to a customer-only CA that won't sign
+        # any public site's cert, so an HTTPS probe would raise SSLError
+        # and be misread as "unreachable" — a silent false negative on
+        # a network that's actually open. socket.create_connection bypasses
+        # TLS entirely and only succeeds when the L4 path really works.
+        target = f"{ISOLATION_PROBE_HOST}:{ISOLATION_PROBE_PORT}"
         try:
-            resp = requests.get(ISOLATION_PROBE_URL, timeout=3)
-        except requests.exceptions.RequestException:
-            self._ok(
-                f"public internet appears blocked "
-                f"({ISOLATION_PROBE_URL} is unreachable)"
-            )
+            with socket.create_connection(
+                (ISOLATION_PROBE_HOST, ISOLATION_PROBE_PORT), timeout=3
+            ):
+                pass
+        except OSError:
+            # gaierror (DNS fail) and timeout/refused both subclass OSError.
+            self._ok(f"public internet appears blocked ({target} is unreachable)")
             return True
         self._fail(
-            f"public internet is reachable: {ISOLATION_PROBE_URL} returned "
-            f"HTTP {resp.status_code}. This is NOT an air-gapped install."
+            f"public internet is reachable: TCP {target} accepted a "
+            "connection. This is NOT an air-gapped install."
         )
         return False

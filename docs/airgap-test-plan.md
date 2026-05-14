@@ -183,9 +183,12 @@ This is the single most important test in the plan. It must:
 
 - Confirm `GITLAB_URL` is HTTPS and reachable.
 - Confirm `REQUESTS_CA_BUNDLE` points to a readable PEM.
-- TLS-handshake against `${GITLAB_URL}/api/v4/projects` and receive an HTTP
+- TLS-handshake against `${GITLAB_URL}/api/v4/version` and receive an HTTP
   JSON response (a `401` is expected and **good** — it proves you reached
-  the GitLab API, not an HTML error page from a captive proxy).
+  the GitLab API, not an HTML error page from a captive proxy). The probe
+  endpoint must be one that GitLab always requires auth for; `/api/v4/projects`
+  returns `200 []` on a default GitLab CE install when no public projects
+  exist, which would false-fail the check.
 - With `--check-isolation`, additionally probe `https://www.google.com` and
   **fail loudly** if it's reachable.
 
