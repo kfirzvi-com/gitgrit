@@ -24,6 +24,11 @@ use Kamal (`config/deploy.yml`). This guide is exclusive to air-gap.
   isolation. The runner logs a warning when this happens.
 - An internal DNS resolver the sandbox containers can reach (e.g.
   `10.0.0.53`)
+- **No default route to the public internet** (firewall, missing
+  gateway, or VPC subnet with no NAT). `airgap_smoketest --check-isolation`
+  verifies this at install time.
+- An internal GitLab CE the host can reach over HTTPS, with admin access
+  for creating an OAuth application
 - Optional: a reverse proxy / load balancer terminating TLS in front of
   the app
 
@@ -31,18 +36,39 @@ use Kamal (`config/deploy.yml`). This guide is exclusive to air-gap.
 
 ## 2. Build the bundle
 
-On the internet-connected build machine, from a checkout of this repo:
+On the internet-connected build machine, from a checkout of this repo
+at the commit you intend to ship:
 
 ```bash
-./scripts/build-airgap-bundle.sh 1.0
+./scripts/build-airgap-bundle.sh 1.1
 ```
 
-Produces `gitgrit-install-1.0.tgz` containing:
-- `gitgrit-bundle-1.0.tar` — `docker save` of `gitgrit-app:1.0`,
-  `gitgrit-sandbox:1.0`, `postgres:15`
+The script refuses to build if the working tree is dirty so that the
+SHA stamped into the image actually corresponds to a reproducible
+commit. Set `ALLOW_DIRTY=1` to override (the stamp becomes
+`<sha>-dirty` so the bundle is still traceable). Set `OUT_DIR=/some/path`
+to write the outputs anywhere other than the repo root.
+
+Produces `gitgrit-install-1.1.tgz` containing:
+- `gitgrit-bundle-1.1.tar` — `docker save` of `gitgrit-app:1.1`,
+  `gitgrit-sandbox:1.1`, `postgres:15`
 - `docker-compose.prod.yml`
 - `.env.example`
 - `docs/airgap.md` (this file)
+
+### 2a. Verify before shipping
+
+Confirm the SHA the script claims to have stamped actually landed in
+both built images:
+
+```bash
+HEAD_SHA=$(git rev-parse HEAD)
+docker image inspect gitgrit-app:1.1     --format '{{json .Config.Env}}' | grep -q "GIT_SHA=$HEAD_SHA" && echo "app:1.1 OK"
+docker image inspect gitgrit-sandbox:1.1 --format '{{json .Config.Env}}' | grep -q "GIT_SHA=$HEAD_SHA" && echo "sandbox:1.1 OK"
+```
+
+The build script does this same check internally and aborts if it fails,
+but verifying by hand confirms what you're about to ship.
 
 Transfer the `.tgz` to the air-gap host by whatever channel is approved
 (USB, internal SFTP, etc.).
@@ -51,16 +77,19 @@ Transfer the `.tgz` to the air-gap host by whatever channel is approved
 
 ## 3. Install on the air-gap host
 
+Eight steps, in order. Each must succeed before the next.
+
+### 3a. Unpack and load images
+
 ```bash
-tar xzf gitgrit-install-1.0.tgz
-docker load -i gitgrit-bundle-1.0.tar     # loads all three images
-cp .env.example .env
-$EDITOR .env                              # fill in every blank
+tar xzf gitgrit-install-1.1.tgz
+docker load -i gitgrit-bundle-1.1.tar      # loads gitgrit-app, gitgrit-sandbox, postgres
+docker image ls | grep -E 'gitgrit|postgres'   # expect three images
 ```
 
-### 3a. The customer CA bundle
+### 3b. Place the customer CA bundle
 
-Place a PEM file at the path you set in `.env` as `CUSTOMER_CA_PATH`
+Put a PEM file at the path you'll set in `.env` as `CUSTOMER_CA_PATH`
 (default `/opt/gitgrit/ca-bundle.pem`).
 
 **The PEM must be the issuing CA chain that signed your internal GitLab's
@@ -68,34 +97,118 @@ TLS cert — not the GitLab server cert itself.** If your network has a
 TLS-intercepting proxy, append that intercepting CA to the same file.
 This trips ops teams more often than anything else; double-check.
 
-Mounted read-only into the app container and any sandbox containers it
-spawns. Used by:
+If you generated the CA yourself with `openssl req -x509`, the CA cert
+**must** include these X.509v3 extensions or modern OpenSSL will reject
+the chain with `CA cert does not include key usage extension` at TLS
+handshake time (you'll see this in `airgap_smoketest` output below):
+
+```
+basicConstraints = critical, CA:TRUE
+keyUsage         = critical, digitalSignature, keyCertSign, cRLSign
+```
+
+The bundle is mounted read-only into the app container and any sandbox
+containers it spawns. Used by:
 - The app's `requests` library (via `REQUESTS_CA_BUNDLE`).
 - The sandbox's `urllib` (via `SSL_CERT_FILE`).
 
-### 3b. Bring the stack up
+### 3c. Create the OAuth application in GitLab
+
+In your internal GitLab admin UI:
+- **Admin → Applications → New application**
+- Name: `gitgrit` (or anything)
+- Redirect URI: `${SITE_URL}/accounts/gitlab/login/callback/` — must
+  exactly match `SITE_URL` (including scheme and trailing slash) or
+  GitLab will reject the callback with `redirect_uri mismatch`
+- Scopes: `read_user`, `read_api`, `read_repository`
+
+Save the Application ID and Secret — you'll paste them into `.env` in
+the next step.
+
+### 3d. Configure `.env`
+
+```bash
+cp .env.example .env
+$EDITOR .env
+```
+
+Required (see §5 for the full reference):
+- `SITE_URL` — non-localhost hostname your internal GitLab can reach
+- `SECRET_KEY`, `GITGRIT_ENCRYPTION_KEY` — generate per the file's comments
+- `POSTGRES_PASSWORD` — anything strong
+- `GITLAB_URL` — your internal GitLab root URL, no trailing slash, must
+  be HTTPS
+- `GITLAB_CLIENT_ID` / `GITLAB_CLIENT_SECRET` — from §3c above
+- `CUSTOMER_CA_PATH` — must match where you put the PEM in §3b
+- `SANDBOX_DNS` — comma-separated internal resolver IPs (not `127.0.0.11`)
+
+Confirm:
+```
+AUTH_PROVIDER_GITLAB_ENABLED=True
+AUTH_PROVIDER_GITHUB_ENABLED=False
+AUTH_PROVIDER_GOOGLE_ENABLED=False
+```
+
+### 3e. Bring up the stack
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app \
-    python manage.py airgap_setup
+docker compose -f docker-compose.prod.yml ps           # both containers Up
+docker compose -f docker-compose.prod.yml logs app --tail=20
 ```
 
-`airgap_setup` runs migrations, validates `SITE_URL` is a public hostname,
-verifies the CA bundle is readable, and prunes `SocialApp` DB rows for any
-provider you disabled. Idempotent — re-run any time you change a flag in
-`.env`.
+### 3f. Run install-time checks
 
-### 3c. Create the first admin user
+```bash
+docker compose -f docker-compose.prod.yml exec app python manage.py airgap_setup
+docker compose -f docker-compose.prod.yml exec app python manage.py airgap_smoketest --check-isolation
+```
+
+`airgap_setup` runs migrations, validates `SITE_URL` and `CUSTOMER_CA_PATH`,
+syncs the Django Site row, and purges `SocialApp` rows for disabled
+providers. Hard-fails if `CUSTOMER_CA_PATH` is unset — by design, so the
+operator finds out at install rather than weeks later at first OAuth
+attempt. Idempotent — re-run after every `.env` change.
+
+`airgap_smoketest --check-isolation` should print four green OKs:
+
+```
+OK    GITLAB_URL=https://gitlab.acme.internal
+OK    REQUESTS_CA_BUNDLE=/etc/ssl/certs/customer-ca.pem (...bytes)
+OK    https://.../api/v4/version returned 401 JSON with GitLab-shaped body — looks like a real GitLab
+OK    public internet appears blocked (www.google.com:443 is unreachable)
+airgap_smoketest PASSED
+```
+
+Any FAIL message names the exact thing to fix (CA chain, DNS, isolation,
+etc.). Don't proceed past a FAIL.
+
+### 3g. Create the first admin user
 
 ```bash
 docker compose -f docker-compose.prod.yml exec app \
     python manage.py createsuperuser
 ```
 
-Then log in at `${SITE_URL}/admin/` and create your workspace, GitLab
-OAuth `SocialApp`, and first `PlatformConnection` pointing at your
-internal GitLab.
+### 3h. First login
+
+Open `${SITE_URL}/accounts/login/` in a browser. **The browser's trust
+store must contain your customer CA** — otherwise the browser will block
+the redirect to your internal GitLab with a "your connection is not
+private" warning. Import the CA into the operator's system or browser
+trust store first.
+
+Click **Sign in with GitLab** → consent in GitLab → land on the GitGrit
+dashboard. Then:
+
+- Create a workspace.
+- **Settings → Connections** → connect to your internal GitLab (uses
+  `GITLAB_URL` from `.env` and the OAuth token just minted).
+- Import a project. Listed via `${GITLAB_URL}/api/v4/projects`.
+- Create your first policy via the UI editor and activate it.
+- Push a commit to the project. The webhook fires, the sandbox runner
+  spawns a `runsc`-isolated container, and the policy result lands in
+  the DB and the UI.
 
 ---
 
@@ -215,7 +328,12 @@ docker compose -f docker-compose.prod.yml exec -T db \
 
 ## 9. Verifying you're truly air-gapped
 
-After bringing the stack up, sanity-check that the host has no egress:
+`airgap_smoketest --check-isolation` (run in §3f) is the primary check —
+it probes `www.google.com:443` at TCP level (not HTTPS, so a
+customer-only CA bundle can't falsely make a wide-open network look
+blocked) and fails loudly if the connection succeeds.
+
+Belt-and-braces — if you want to double-check by hand:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec app \
@@ -228,3 +346,21 @@ and the install is not actually air-gapped.
 Browser-side: open the app in a browser with DevTools → Network. Filter
 for `googleapis`, `jsdelivr`, `unpkg`, `github.com` — there should be
 zero requests outside `${SITE_URL}`.
+
+---
+
+## 10. Common gotchas
+
+In order of how often we see them at install:
+
+| Symptom | Cause | Where to fix |
+|---|---|---|
+| `airgap_smoketest`: `TLS handshake to https://… failed: … CERTIFICATE_VERIFY_FAILED` | Wrong PEM at `CUSTOMER_CA_PATH` — either pointing at the GitLab *server cert* instead of the issuing CA chain, or a self-generated CA missing `basicConstraints` / `keyUsage` X.509v3 extensions | §3b |
+| `airgap_smoketest`: `could not connect to https://…: …Name or service not known` | Container can't resolve `GITLAB_URL` host | Internal DNS or `/etc/hosts` on the air-gap host |
+| `airgap_smoketest`: returned 200 (not 401) | Probe hitting a non-GitLab service at `GITLAB_URL` (reverse proxy, captive portal) | Fix `GITLAB_URL` |
+| `airgap_setup`: `CUSTOMER_CA_PATH is not set` | Variable empty or commented out in `.env` | §3d |
+| OAuth callback: `redirect_uri mismatch` | GitLab application's redirect URI doesn't exactly match `${SITE_URL}/accounts/gitlab/login/callback/` | §3c — edit the GitLab application |
+| App startup: `password authentication failed for user "gitgrit"` against an unexpected IP | A second airgap stack on the same host shares the fixed-name `gitgrit_internal` bridge — `db` resolves to both containers; the app picks the wrong one | §6 — tear down the older stack first |
+| Sandbox runs work but `docker inspect <id> .HostConfig.Runtime` shows `runc` (not `runsc`) | gVisor not registered with Docker | §4 — `sudo runsc install && sudo systemctl restart docker` |
+| Browser: "your connection is not private" at the redirect to GitLab | OS / browser trust store doesn't have your customer CA | §3h — import the CA |
+| TLS errors with "cert not yet valid" / "cert expired" | Host clock drifted | §7 — point at internal NTP |
