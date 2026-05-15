@@ -211,21 +211,29 @@
 
   <footer class="mt-8 py-4 border-t text-center text-xs" style="border-color:var(--gg-border);color:var(--gg-text-dim)">
     <div>GitGrit &mdash; Repository Standards &amp; Compliance</div>
-    <nav aria-label="Footer" class="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-      <a class="link" href="https://gitgrit.dev/legal/terms/" target="_blank" rel="noopener">Terms</a>
-      <a class="link" href="https://gitgrit.dev/legal/privacy/" target="_blank" rel="noopener">Privacy</a>
-      <a class="link" href="https://gitgrit.dev/legal/cookies/" target="_blank" rel="noopener">Cookies</a>
-      <a class="link" href="https://gitgrit.dev/legal/accessibility/" target="_blank" rel="noopener">Accessibility</a>
-      <a class="link" href="https://gitgrit.dev/legal/sub-processors/" target="_blank" rel="noopener">Sub-processors</a>
-      <a class="link" href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
-    </nav>
+    {# Hide external footer links in airgap mode — see {% if %} below. #}
+    {% if not airgapped %}
+      <nav aria-label="Footer" class="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+        <a class="link" href="https://gitgrit.dev/legal/terms/" target="_blank" rel="noopener">Terms</a>
+        <a class="link" href="https://gitgrit.dev/legal/privacy/" target="_blank" rel="noopener">Privacy</a>
+        <a class="link" href="https://gitgrit.dev/legal/cookies/" target="_blank" rel="noopener">Cookies</a>
+        <a class="link" href="https://gitgrit.dev/legal/accessibility/" target="_blank" rel="noopener">Accessibility</a>
+        <a class="link" href="https://gitgrit.dev/legal/sub-processors/" target="_blank" rel="noopener">Sub-processors</a>
+        <a class="link" href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+      </nav>
+    {% endif %}
     {% if git_sha %}
       <div class="mt-2 opacity-70">
         Version
-        <a class="link font-mono"
-           href="{{ github_repo_url }}/{% if git_tag %}releases/tag/{{ git_tag }}{% else %}commit/{{ git_sha }}{% endif %}"
-           target="_blank" rel="noopener"
-           title="{{ git_sha }}">{% if git_tag %}{{ git_tag }}{% else %}{{ git_sha_short }}{% endif %}</a>
+        {% if airgapped %}
+          {# No clickable link in airgap mode — github.com is unreachable. #}
+          <span class="font-mono" title="{{ git_sha }}">{% if git_tag %}{{ git_tag }}{% else %}{{ git_sha_short }}{% endif %}</span>
+        {% else %}
+          <a class="link font-mono"
+             href="{{ github_repo_url }}/{% if git_tag %}releases/tag/{{ git_tag }}{% else %}commit/{{ git_sha }}{% endif %}"
+             target="_blank" rel="noopener"
+             title="{{ git_sha }}">{% if git_tag %}{{ git_tag }}{% else %}{{ git_sha_short }}{% endif %}</a>
+        {% endif %}
       </div>
     {% endif %}
   </footer>
