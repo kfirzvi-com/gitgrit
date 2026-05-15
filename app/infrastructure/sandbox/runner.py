@@ -1,12 +1,14 @@
 """Sandbox runner — executes policy code in a gVisor-sandboxed Docker container.
 
-Containers run on a custom Docker bridge network (``gitgrit-sandbox``) that
-gives them internet access (for API calls) while keeping them isolated from
-the host machine.
+Containers run on a Docker bridge network (default ``gitgrit-sandbox``,
+overridable via ``SANDBOX_NETWORK``) that gives them network access while
+keeping them isolated from the host machine. In air-gap deployments the
+operator points this at the internal bridge that hosts the app + on-prem
+GitLab so the sandbox can reach the customer's git server without internet.
 
 DNS: gVisor's netstack can't reach Docker's embedded DNS at 127.0.0.11
 (which relies on iptables DNAT), so we bind-mount a resolv.conf that
-points directly to external DNS servers.
+points directly to DNS servers from ``settings.SANDBOX["DNS"]``.
 """
 
 import json
@@ -21,7 +23,6 @@ from app.domain.policy_runner import PolicyRunner
 
 logger = logging.getLogger(__name__)
 
-SANDBOX_NETWORK = "gitgrit-sandbox"
 # Shared between the web container and the host so Docker bind mounts work
 # when the web container creates sandbox containers via the host Docker socket.
 SANDBOX_TMP = "/tmp/gitgrit-sandbox"
@@ -35,11 +36,12 @@ class SandboxRunner(PolicyRunner):
 
     def _ensure_network(self) -> None:
         """Create the sandbox bridge network if it doesn't already exist."""
+        network_name = self.config["NETWORK"]
         try:
-            self.client.networks.get(SANDBOX_NETWORK)
+            self.client.networks.get(network_name)
         except docker.errors.NotFound:
-            logger.info("Creating Docker network '%s'", SANDBOX_NETWORK)
-            self.client.networks.create(SANDBOX_NETWORK, driver="bridge")
+            logger.info("Creating Docker network '%s'", network_name)
+            self.client.networks.create(network_name, driver="bridge")
 
     def run(self, policy_code: str, input_config: dict) -> dict:
         """Run a policy script in a sandboxed container.
@@ -65,23 +67,43 @@ class SandboxRunner(PolicyRunner):
             # gVisor can't use Docker's embedded DNS (127.0.0.11) on custom
             # networks, so we provide a resolv.conf pointing to real DNS.
             resolv_path = Path(tmp_dir) / "resolv.conf"
-            resolv_path.write_text("nameserver 8.8.8.8\nnameserver 8.8.4.4\n")
+            resolv_path.write_text(
+                "".join(f"nameserver {ns}\n" for ns in self.config["DNS"])
+            )
 
             runtime = self._get_runtime()
+            volumes = {
+                str(policy_path): {"bind": "/policy.py", "mode": "ro"},
+                str(input_path): {"bind": "/input.json", "mode": "ro"},
+                str(resolv_path): {"bind": "/etc/resolv.conf", "mode": "ro"},
+            }
+            # Air-gap only: mount the operator-supplied CA bundle so the
+            # sandbox's urllib (via SSL_CERT_FILE below) can verify TLS to
+            # an internal self-hosted GitLab. No-op for cloud (path is None).
+            ca_host_path = self.config.get("CA_BUNDLE_HOST_PATH")
+            if ca_host_path:
+                volumes[ca_host_path] = {
+                    "bind": "/etc/ssl/certs/customer-ca.pem",
+                    "mode": "ro",
+                }
+
             container_kwargs = {
                 "image": self.config["IMAGE"],
-                "volumes": {
-                    str(policy_path): {"bind": "/policy.py", "mode": "ro"},
-                    str(input_path): {"bind": "/input.json", "mode": "ro"},
-                    str(resolv_path): {"bind": "/etc/resolv.conf", "mode": "ro"},
-                },
-                "network": SANDBOX_NETWORK,
+                "volumes": volumes,
+                "network": self.config["NETWORK"],
                 "tmpfs": {"/tmp": "size=16m"},
                 "mem_limit": self.config["MEMORY_LIMIT"],
                 "nano_cpus": int(self.config["CPU_LIMIT"] * 1e9),
                 "cap_drop": ["ALL"],
                 "detach": True,
             }
+
+            # Only set "environment" when non-empty — cloud has historically
+            # never passed an environment= kwarg, and we want byte-identical
+            # container_kwargs shape in that mode.
+            sandbox_env = self.config.get("SANDBOX_ENV") or {}
+            if sandbox_env:
+                container_kwargs["environment"] = sandbox_env
 
             if runtime:
                 container_kwargs["runtime"] = runtime

@@ -221,13 +221,32 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
-# Sandbox configuration
+# Sandbox configuration.
+# NETWORK / DNS / CA_BUNDLE_HOST_PATH / SANDBOX_ENV are env-driven for air-gap
+# deployments. Defaults preserve cloud behaviour byte-for-byte: same network
+# name as the module-level constant in runner.py used to be, same DNS, and
+# no extra env vars / volumes propagated into the sandbox container.
 SANDBOX = {
     "IMAGE": "gitgrit-sandbox:latest",
     "RUNTIME": "runsc",
     "MEMORY_LIMIT": "128m",
     "CPU_LIMIT": 0.5,
     "TIMEOUT": 30,
+    "NETWORK": os.environ.get("SANDBOX_NETWORK", "gitgrit-sandbox"),
+    # Fall back to the public-DNS default if the env var is set but parses
+    # to an empty list — an empty resolv.conf would silently break the
+    # sandbox's DNS resolution.
+    "DNS": [
+        ns.strip()
+        for ns in os.environ.get("SANDBOX_DNS", "8.8.8.8,8.8.4.4").split(",")
+        if ns.strip()
+    ] or ["8.8.8.8", "8.8.4.4"],
+    "CA_BUNDLE_HOST_PATH": os.environ.get("CUSTOMER_CA_PATH") or None,
+    "SANDBOX_ENV": (
+        {"SSL_CERT_FILE": "/etc/ssl/certs/customer-ca.pem"}
+        if os.environ.get("CUSTOMER_CA_PATH")
+        else {}
+    ),
 }
 
 TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
