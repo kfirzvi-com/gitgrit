@@ -18,6 +18,9 @@ def tenant_context(request):
     ctx = {
         "airgapped": settings.AIRGAPPED,
         "site_url": settings.SITE_URL,
+        "auth_provider_github_enabled": settings.AUTH_PROVIDER_GITHUB_ENABLED,
+        "auth_provider_gitlab_enabled": settings.AUTH_PROVIDER_GITLAB_ENABLED,
+        "auth_provider_google_enabled": settings.AUTH_PROVIDER_GOOGLE_ENABLED,
     }
 
     if not hasattr(request, "user") or not request.user.is_authenticated:
