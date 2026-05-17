@@ -69,7 +69,7 @@ def _build_runner_with_captured_kwargs():
 
 class TestSandboxRunnerKwargsShape:
     """With cloud defaults (no air-gap env vars), container_kwargs must equal
-    the pre-change shape exactly: no `environment` key, no customer-ca mount,
+    the pre-change shape exactly: no `environment` key, no custom-ca mount,
     network = "gitgrit-sandbox", DNS = 8.8.8.8 + 8.8.4.4."""
 
     def test_cloud_kwargs_top_level_keys(self):
@@ -94,11 +94,11 @@ class TestSandboxRunnerKwargsShape:
         runner.run("def evaluate(p): return {}", {"platform": "github"})
         assert kwargs_list[0]["network"] == EXPECTED_NETWORK
 
-    def test_cloud_kwargs_no_customer_ca_mount(self):
+    def test_cloud_kwargs_no_custom_ca_mount(self):
         runner, kwargs_list, _ = _build_runner_with_captured_kwargs()
         runner.run("def evaluate(p): return {}", {"platform": "github"})
         binds = [v["bind"] for v in kwargs_list[0]["volumes"].values()]
-        assert "/etc/ssl/certs/customer-ca.pem" not in binds
+        assert "/etc/ssl/certs/custom-ca.pem" not in binds
         # Volumes should be exactly the three legacy mounts.
         assert sorted(binds) == sorted(
             ["/policy.py", "/input.json", "/etc/resolv.conf"]
@@ -117,10 +117,11 @@ class TestSandboxRunnerAirgapBehavior:
     def test_airgap_adds_environment_and_ca_mount(self, settings, tmp_path):
         ca_path = tmp_path / "ca.pem"
         ca_path.write_text("-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----\n")
+        # SSL_CERT_FILE is derived from CA_BUNDLE_HOST_PATH inside the runner —
+        # operators only need to set the host path; the env propagation follows.
         settings.SANDBOX = {
             **settings.SANDBOX,
             "CA_BUNDLE_HOST_PATH": str(ca_path),
-            "SANDBOX_ENV": {"SSL_CERT_FILE": "/etc/ssl/certs/customer-ca.pem"},
             "NETWORK": "gitgrit_internal",
             "DNS": ["10.0.0.53"],
         }
@@ -130,11 +131,11 @@ class TestSandboxRunnerAirgapBehavior:
 
         kwargs = kwargs_list[0]
         assert kwargs["environment"] == {
-            "SSL_CERT_FILE": "/etc/ssl/certs/customer-ca.pem"
+            "SSL_CERT_FILE": "/etc/ssl/certs/custom-ca.pem"
         }
         assert kwargs["network"] == "gitgrit_internal"
         binds = {v["bind"] for v in kwargs["volumes"].values()}
-        assert "/etc/ssl/certs/customer-ca.pem" in binds
+        assert "/etc/ssl/certs/custom-ca.pem" in binds
         # And the host-side mount key should be the operator-supplied path.
         assert str(ca_path) in kwargs["volumes"]
         assert kwargs["volumes"][str(ca_path)]["mode"] == "ro"

@@ -4,7 +4,7 @@ Containers run on a Docker bridge network (default ``gitgrit-sandbox``,
 overridable via ``SANDBOX_NETWORK``) that gives them network access while
 keeping them isolated from the host machine. In air-gap deployments the
 operator points this at the internal bridge that hosts the app + on-prem
-GitLab so the sandbox can reach the customer's git server without internet.
+GitLab so the sandbox can reach the operator's git server without internet.
 
 DNS: gVisor's netstack can't reach Docker's embedded DNS at 127.0.0.11
 (which relies on iptables DNAT), so we bind-mount a resolv.conf that
@@ -26,6 +26,14 @@ logger = logging.getLogger(__name__)
 # Shared between the web container and the host so Docker bind mounts work
 # when the web container creates sandbox containers via the host Docker socket.
 SANDBOX_TMP = "/tmp/gitgrit-sandbox"
+
+# In-container path where the operator-supplied CA bundle is mounted when
+# settings.SANDBOX["CA_BUNDLE_HOST_PATH"] is set. The same path is exported as
+# SSL_CERT_FILE inside the sandbox so policy-side TLS clients (urllib, and
+# `requests` via its SSL_CERT_FILE fallback) trust the operator's CA chain.
+# Keep this as the single source of truth — referenced from both the volume
+# bind and the environment dict below.
+CUSTOM_CA_MOUNT_PATH = "/etc/ssl/certs/custom-ca.pem"
 
 
 class SandboxRunner(PolicyRunner):
@@ -77,15 +85,17 @@ class SandboxRunner(PolicyRunner):
                 str(input_path): {"bind": "/input.json", "mode": "ro"},
                 str(resolv_path): {"bind": "/etc/resolv.conf", "mode": "ro"},
             }
-            # Air-gap only: mount the operator-supplied CA bundle so the
-            # sandbox's urllib (via SSL_CERT_FILE below) can verify TLS to
+            # Air-gap only: mount the operator-supplied CA bundle and
+            # propagate SSL_CERT_FILE so the sandbox's TLS clients can verify
             # an internal self-hosted GitLab. No-op for cloud (path is None).
             ca_host_path = self.config.get("CA_BUNDLE_HOST_PATH")
+            sandbox_env: dict[str, str] = {}
             if ca_host_path:
                 volumes[ca_host_path] = {
-                    "bind": "/etc/ssl/certs/customer-ca.pem",
+                    "bind": CUSTOM_CA_MOUNT_PATH,
                     "mode": "ro",
                 }
+                sandbox_env["SSL_CERT_FILE"] = CUSTOM_CA_MOUNT_PATH
 
             container_kwargs = {
                 "image": self.config["IMAGE"],
@@ -101,7 +111,6 @@ class SandboxRunner(PolicyRunner):
             # Only set "environment" when non-empty — cloud has historically
             # never passed an environment= kwarg, and we want byte-identical
             # container_kwargs shape in that mode.
-            sandbox_env = self.config.get("SANDBOX_ENV") or {}
             if sandbox_env:
                 container_kwargs["environment"] = sandbox_env
 

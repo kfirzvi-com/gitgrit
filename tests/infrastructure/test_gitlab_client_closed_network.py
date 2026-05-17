@@ -1,6 +1,6 @@
 """Closed-network connectivity check for the GitLab platform client.
 
-The whole point of an air-gap install is that the customer can connect
+The whole point of an air-gap install is that the operator can connect
 GitGrit to *their* self-hosted GitLab without GitGrit ever reaching out
 to gitlab.com or anywhere else on the public internet. This test pins
 that property at the platform-client layer.
@@ -149,7 +149,7 @@ class TestGitLabClientStaysInsideClosedNetwork:
 
 class TestGitLabClientAuthAndTls:
     """Auth header + TLS behavior — the parts that determine whether
-    requests against the customer's internal GitLab actually succeed."""
+    requests against the operator's internal GitLab actually succeed."""
 
     def test_uses_private_token_header(self, closed_network):
         _, fake_req = closed_network
@@ -162,9 +162,10 @@ class TestGitLabClientAuthAndTls:
 
     def test_never_passes_verify_false(self, closed_network):
         """A common mistake when self-signed certs cause errors is to set
-        `verify=False`. Air-gap deployments must instead rely on
-        REQUESTS_CA_BUNDLE pointing at the customer CA chain — anything
-        else silently disables TLS verification across the wire."""
+        `verify=False`. Air-gap deployments must instead rely on the
+        operator CA chain — propagated into the sandbox via SSL_CERT_FILE
+        (which `requests` honors as a fallback when REQUESTS_CA_BUNDLE is
+        unset) — so TLS verification stays intact across the wire."""
         _, fake_req = closed_network
 
         client = GitLabClient(_internal_gitlab_connection())
@@ -180,6 +181,6 @@ class TestGitLabClientAuthAndTls:
         for call in all_calls:
             assert call.kwargs.get("verify") is not False, (
                 f"GitLabClient passed verify=False to {call.args[0]} — "
-                f"this bypasses the customer CA chain and breaks the "
+                f"this bypasses the operator CA chain and breaks the "
                 f"air-gap TLS guarantee."
             )

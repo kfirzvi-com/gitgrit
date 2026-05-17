@@ -222,10 +222,13 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 # Sandbox configuration.
-# NETWORK / DNS / CA_BUNDLE_HOST_PATH / SANDBOX_ENV are env-driven for air-gap
-# deployments. Defaults preserve cloud behaviour byte-for-byte: same network
-# name as the module-level constant in runner.py used to be, same DNS, and
-# no extra env vars / volumes propagated into the sandbox container.
+# NETWORK / DNS / CA_BUNDLE_HOST_PATH are env-driven for air-gap deployments.
+# Defaults preserve cloud behaviour byte-for-byte: same network name as the
+# module-level constant in runner.py used to be, same DNS, and no extra env
+# vars / volumes propagated into the sandbox container. When CA_BUNDLE_HOST_PATH
+# is set, runner.py mounts the bundle into the sandbox and propagates
+# SSL_CERT_FILE — keeping mount target and env value in a single source of truth.
+_custom_ca_path = os.environ.get("GITGRIT_CUSTOM_CA_FILE_PATH") or None
 SANDBOX = {
     "IMAGE": "gitgrit-sandbox:latest",
     "RUNTIME": "runsc",
@@ -241,12 +244,7 @@ SANDBOX = {
         for ns in os.environ.get("SANDBOX_DNS", "8.8.8.8,8.8.4.4").split(",")
         if ns.strip()
     ] or ["8.8.8.8", "8.8.4.4"],
-    "CA_BUNDLE_HOST_PATH": os.environ.get("CUSTOMER_CA_PATH") or None,
-    "SANDBOX_ENV": (
-        {"SSL_CERT_FILE": "/etc/ssl/certs/customer-ca.pem"}
-        if os.environ.get("CUSTOMER_CA_PATH")
-        else {}
-    ),
+    "CA_BUNDLE_HOST_PATH": _custom_ca_path,
 }
 
 TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
