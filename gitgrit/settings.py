@@ -195,7 +195,15 @@ LOGOUT_REDIRECT_URL = "/"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
-SOCIALACCOUNT_PROVIDERS = {
+# Per-provider auth flags. Default True so cloud deployments are unchanged;
+# air-gap operators flip Google/GitHub off when no internet egress is available.
+# Values must be the exact strings "True" or "False" (matches the DEBUG/AIRGAPPED
+# convention above) — "true", "1", "yes" all parse as False.
+AUTH_PROVIDER_GITHUB_ENABLED = os.environ.get("AUTH_PROVIDER_GITHUB_ENABLED", "True") == "True"
+AUTH_PROVIDER_GITLAB_ENABLED = os.environ.get("AUTH_PROVIDER_GITLAB_ENABLED", "True") == "True"
+AUTH_PROVIDER_GOOGLE_ENABLED = os.environ.get("AUTH_PROVIDER_GOOGLE_ENABLED", "True") == "True"
+
+_ALL_SOCIALACCOUNT_PROVIDERS = {
     "github": {
         "SCOPE": ["read:user", "user:email"],
         "APP": {
@@ -219,6 +227,16 @@ SOCIALACCOUNT_PROVIDERS = {
             "secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
         },
     },
+}
+
+SOCIALACCOUNT_PROVIDERS = {
+    name: cfg
+    for name, cfg, enabled in (
+        ("github", _ALL_SOCIALACCOUNT_PROVIDERS["github"], AUTH_PROVIDER_GITHUB_ENABLED),
+        ("gitlab", _ALL_SOCIALACCOUNT_PROVIDERS["gitlab"], AUTH_PROVIDER_GITLAB_ENABLED),
+        ("google", _ALL_SOCIALACCOUNT_PROVIDERS["google"], AUTH_PROVIDER_GOOGLE_ENABLED),
+    )
+    if enabled
 }
 
 # Sandbox configuration.
