@@ -14,10 +14,11 @@ theme:
     accent: custom
   features:
     - navigation.tracking
-    - navigation.tabs
-    - navigation.tabs.sticky
-    - navigation.sections
-    - navigation.expand
+    # navigation.tabs intentionally disabled — the header carries only the
+    # logo + a single "Docs" button (see overrides/partials/header.html).
+    # navigation.sections / navigation.expand also disabled so each
+    # top-level category in the sidebar is a collapsable click-target
+    # rather than an always-open header.
     - navigation.top
     - search.suggest
     - search.highlight
@@ -28,8 +29,15 @@ theme:
 repo_url: https://github.com/kfirzvi-com/gitgrit
 repo_name: kfirzvi-com/gitgrit
 
+# mkdocs serve only watches docs/ and mkdocs.yml by default. Adding
+# overrides/ here makes header.html / home.html edits hot-reload too.
+watch:
+  - overrides
+
 nav:
-  - Home: index.md
+  # Home (index.md) is intentionally absent from the sidebar — it's reached
+  # via the logo. Including it would surface a redundant "Home" link in the
+  # docs sidebar.
   - Getting Started:
     - Quick Start: getting-started/quickstart.md
     - Adding Projects: getting-started/projects.md
@@ -45,9 +53,12 @@ nav:
   - Policy API:
     - ProjectContext: api/project-context.md
 
-# Legal pages are reachable from the footer and from product surfaces
-# (OAuth consent, app footer); intentionally not in the top nav.
+# Pages reachable outside the sidebar nav:
+#   - Home (index.md): the logo links to it.
+#   - Legal pages: linked from the footer and product surfaces (OAuth
+#     consent, app footer).
 not_in_nav: |
+  /index.md
   /legal/terms.md
   /legal/privacy.md
   /legal/cookies.md
