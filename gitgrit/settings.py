@@ -195,7 +195,15 @@ LOGOUT_REDIRECT_URL = "/"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
-SOCIALACCOUNT_PROVIDERS = {
+# Per-provider auth flags. Default True so cloud deployments are unchanged;
+# air-gap operators flip Google/GitHub off when no internet egress is available.
+# Values must be the exact strings "True" or "False" (matches the DEBUG/AIRGAPPED
+# convention above) — "true", "1", "yes" all parse as False.
+AUTH_PROVIDER_GITHUB_ENABLED = os.environ.get("AUTH_PROVIDER_GITHUB_ENABLED", "True") == "True"
+AUTH_PROVIDER_GITLAB_ENABLED = os.environ.get("AUTH_PROVIDER_GITLAB_ENABLED", "True") == "True"
+AUTH_PROVIDER_GOOGLE_ENABLED = os.environ.get("AUTH_PROVIDER_GOOGLE_ENABLED", "True") == "True"
+
+_ALL_SOCIALACCOUNT_PROVIDERS = {
     "github": {
         "SCOPE": ["read:user", "user:email"],
         "APP": {
@@ -221,13 +229,40 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
-# Sandbox configuration
+SOCIALACCOUNT_PROVIDERS = {
+    name: cfg
+    for name, cfg, enabled in (
+        ("github", _ALL_SOCIALACCOUNT_PROVIDERS["github"], AUTH_PROVIDER_GITHUB_ENABLED),
+        ("gitlab", _ALL_SOCIALACCOUNT_PROVIDERS["gitlab"], AUTH_PROVIDER_GITLAB_ENABLED),
+        ("google", _ALL_SOCIALACCOUNT_PROVIDERS["google"], AUTH_PROVIDER_GOOGLE_ENABLED),
+    )
+    if enabled
+}
+
+# Sandbox configuration.
+# NETWORK / DNS / CA_BUNDLE_HOST_PATH are env-driven for air-gap deployments.
+# Defaults preserve cloud behaviour byte-for-byte: same network name as the
+# module-level constant in runner.py used to be, same DNS, and no extra env
+# vars / volumes propagated into the sandbox container. When CA_BUNDLE_HOST_PATH
+# is set, runner.py mounts the bundle into the sandbox and propagates
+# SSL_CERT_FILE — keeping mount target and env value in a single source of truth.
+_custom_ca_path = os.environ.get("GITGRIT_CUSTOM_CA_FILE_PATH") or None
 SANDBOX = {
     "IMAGE": "gitgrit-sandbox:latest",
     "RUNTIME": "runsc",
     "MEMORY_LIMIT": "128m",
     "CPU_LIMIT": 0.5,
     "TIMEOUT": 30,
+    "NETWORK": os.environ.get("SANDBOX_NETWORK", "gitgrit-sandbox"),
+    # Fall back to the public-DNS default if the env var is set but parses
+    # to an empty list — an empty resolv.conf would silently break the
+    # sandbox's DNS resolution.
+    "DNS": [
+        ns.strip()
+        for ns in os.environ.get("SANDBOX_DNS", "8.8.8.8,8.8.4.4").split(",")
+        if ns.strip()
+    ] or ["8.8.8.8", "8.8.4.4"],
+    "CA_BUNDLE_HOST_PATH": _custom_ca_path,
 }
 
 TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
