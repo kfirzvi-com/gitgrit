@@ -1,7 +1,7 @@
 """Runtime smoke test for an air-gapped GitGrit install.
 
 Operator-facing: run after `airgap_setup` to confirm the live container
-can actually talk to the customer's GitLab over the customer CA chain.
+can actually talk to the operator's GitLab over the operator's CA chain.
 
     docker compose -f docker-compose.prod.yml exec app \\
         python manage.py airgap_smoketest
@@ -96,13 +96,13 @@ class Command(BaseCommand):
     def _check_ca_bundle_env(self) -> bool:
         bundle = os.environ.get("REQUESTS_CA_BUNDLE", "")
         if not bundle:
-            # Not a hard fail: the customer might use a system trust store
+            # Not a hard fail: the operator might use a system trust store
             # that already includes their CA. But it's the documented air-gap
             # setup, so flag the deviation.
             self._warn(
                 "REQUESTS_CA_BUNDLE is not set — TLS will fall back to the "
                 "container's default trust store, which usually does not "
-                "include your customer CA"
+                "include your operator CA"
             )
             return True
         if not os.path.isfile(bundle):

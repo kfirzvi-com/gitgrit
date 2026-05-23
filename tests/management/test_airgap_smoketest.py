@@ -87,7 +87,7 @@ class TestCaBundleEnv:
 
     def test_fails_when_file_missing(self, monkeypatch):
         monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/customer-ca.pem")
+        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/custom-ca.pem")
         with mock.patch(
             "app.management.commands.airgap_smoketest.os.path.isfile",
             return_value=False,
@@ -100,7 +100,7 @@ class TestCaBundleEnv:
 
     def test_fails_on_zero_byte_bundle(self, monkeypatch):
         monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/customer-ca.pem")
+        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/custom-ca.pem")
         with mock.patch(
             "app.management.commands.airgap_smoketest.os.path.isfile",
             return_value=True,

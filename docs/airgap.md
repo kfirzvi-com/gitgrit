@@ -1,7 +1,7 @@
 # Air-gapped GitGrit deployment
 
 GitGrit can run inside a closed network with no internet access at install
-or runtime, connected to a self-hosted GitLab over the customer's own TLS
+or runtime, connected to a self-hosted GitLab over the operator's own TLS
 chain. This document walks through building the bundle on an
 internet-connected machine, shipping it across the air gap, and bringing
 the stack up.
@@ -87,9 +87,9 @@ docker load -i gitgrit-bundle-1.1.tar      # loads gitgrit-app, gitgrit-sandbox,
 docker image ls | grep -E 'gitgrit|postgres'   # expect three images
 ```
 
-### 3b. Place the customer CA bundle
+### 3b. Place the operator CA bundle
 
-Put a PEM file at the path you'll set in `.env` as `CUSTOMER_CA_PATH`
+Put a PEM file at the path you'll set in `.env` as `GITGRIT_CUSTOM_CA_FILE_PATH`
 (default `/opt/gitgrit/ca-bundle.pem`).
 
 **The PEM must be the issuing CA chain that signed your internal GitLab's
@@ -139,7 +139,7 @@ Required (see §5 for the full reference):
 - `GITLAB_URL` — your internal GitLab root URL, no trailing slash, must
   be HTTPS
 - `GITLAB_CLIENT_ID` / `GITLAB_CLIENT_SECRET` — from §3c above
-- `CUSTOMER_CA_PATH` — must match where you put the PEM in §3b
+- `GITGRIT_CUSTOM_CA_FILE_PATH` — must match where you put the PEM in §3b
 - `SANDBOX_DNS` — comma-separated internal resolver IPs (not `127.0.0.11`)
 
 Confirm:
@@ -164,9 +164,9 @@ docker compose -f docker-compose.prod.yml exec app python manage.py airgap_setup
 docker compose -f docker-compose.prod.yml exec app python manage.py airgap_smoketest --check-isolation
 ```
 
-`airgap_setup` runs migrations, validates `SITE_URL` and `CUSTOMER_CA_PATH`,
+`airgap_setup` runs migrations, validates `SITE_URL` and `GITGRIT_CUSTOM_CA_FILE_PATH`,
 syncs the Django Site row, and purges `SocialApp` rows for disabled
-providers. Hard-fails if `CUSTOMER_CA_PATH` is unset — by design, so the
+providers. Hard-fails if `GITGRIT_CUSTOM_CA_FILE_PATH` is unset — by design, so the
 operator finds out at install rather than weeks later at first OAuth
 attempt. Idempotent — re-run after every `.env` change.
 
@@ -174,7 +174,7 @@ attempt. Idempotent — re-run after every `.env` change.
 
 ```
 OK    GITLAB_URL=https://gitlab.acme.internal
-OK    REQUESTS_CA_BUNDLE=/etc/ssl/certs/customer-ca.pem (...bytes)
+OK    REQUESTS_CA_BUNDLE=/etc/ssl/certs/custom-ca.pem (...bytes)
 OK    https://.../api/v4/version returned 401 JSON with GitLab-shaped body — looks like a real GitLab
 OK    public internet appears blocked (www.google.com:443 is unreachable)
 airgap_smoketest PASSED
@@ -193,7 +193,7 @@ docker compose -f docker-compose.prod.yml exec app \
 ### 3h. First login
 
 Open `${SITE_URL}/accounts/login/` in a browser. **The browser's trust
-store must contain your customer CA** — otherwise the browser will block
+store must contain your operator CA** — otherwise the browser will block
 the redirect to your internal GitLab with a "your connection is not
 private" warning. Import the CA into the operator's system or browser
 trust store first.
@@ -236,7 +236,7 @@ treat a missing `runsc` as a blocker.
 | Var | Purpose |
 |---|---|
 | `TAG` | Image tag (matches the bundle version). |
-| `SITE_URL` | Public hostname the customer's GitLab can reach for webhooks. Must not be `localhost`. |
+| `SITE_URL` | Public hostname the operator's GitLab can reach for webhooks. Must not be `localhost`. |
 | `APP_PORT` | Host port to expose the app on. Default `3000`. |
 | `SECRET_KEY` | Django signing key. **Never rotate** after deploy — invalidates sessions and stored OAuth tokens. |
 | `GITGRIT_ENCRYPTION_KEY` | Fernet key for OAuth-token-at-rest encryption. **Never rotate** for the same reason. |
@@ -247,7 +247,7 @@ treat a missing `runsc` as a blocker.
 | `GITLAB_URL` | Root URL of your internal GitLab, no trailing slash. |
 | `GITLAB_CLIENT_ID` / `_SECRET` | OAuth app credentials from GitLab. Callback: `${SITE_URL}/accounts/gitlab/login/callback/` |
 | `SANDBOX_DNS` | Comma-separated internal DNS resolvers. gVisor cannot use Docker's embedded DNS. |
-| `CUSTOMER_CA_PATH` | Host path to the customer CA bundle PEM. |
+| `GITGRIT_CUSTOM_CA_FILE_PATH` | Host path to the operator CA bundle PEM. |
 
 `AIRGAPPED`, `SANDBOX_NETWORK`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`,
 `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` are set automatically by
@@ -355,12 +355,12 @@ In order of how often we see them at install:
 
 | Symptom | Cause | Where to fix |
 |---|---|---|
-| `airgap_smoketest`: `TLS handshake to https://… failed: … CERTIFICATE_VERIFY_FAILED` | Wrong PEM at `CUSTOMER_CA_PATH` — either pointing at the GitLab *server cert* instead of the issuing CA chain, or a self-generated CA missing `basicConstraints` / `keyUsage` X.509v3 extensions | §3b |
+| `airgap_smoketest`: `TLS handshake to https://… failed: … CERTIFICATE_VERIFY_FAILED` | Wrong PEM at `GITGRIT_CUSTOM_CA_FILE_PATH` — either pointing at the GitLab *server cert* instead of the issuing CA chain, or a self-generated CA missing `basicConstraints` / `keyUsage` X.509v3 extensions | §3b |
 | `airgap_smoketest`: `could not connect to https://…: …Name or service not known` | Container can't resolve `GITLAB_URL` host | Internal DNS or `/etc/hosts` on the air-gap host |
 | `airgap_smoketest`: returned 200 (not 401) | Probe hitting a non-GitLab service at `GITLAB_URL` (reverse proxy, captive portal) | Fix `GITLAB_URL` |
-| `airgap_setup`: `CUSTOMER_CA_PATH is not set` | Variable empty or commented out in `.env` | §3d |
+| `airgap_setup`: `GITGRIT_CUSTOM_CA_FILE_PATH is not set` | Variable empty or commented out in `.env` | §3d |
 | OAuth callback: `redirect_uri mismatch` | GitLab application's redirect URI doesn't exactly match `${SITE_URL}/accounts/gitlab/login/callback/` | §3c — edit the GitLab application |
 | App startup: `password authentication failed for user "gitgrit"` against an unexpected IP | A second airgap stack on the same host shares the fixed-name `gitgrit_internal` bridge — `db` resolves to both containers; the app picks the wrong one | §6 — tear down the older stack first |
 | Sandbox runs work but `docker inspect <id> .HostConfig.Runtime` shows `runc` (not `runsc`) | gVisor not registered with Docker | §4 — `sudo runsc install && sudo systemctl restart docker` |
-| Browser: "your connection is not private" at the redirect to GitLab | OS / browser trust store doesn't have your customer CA | §3h — import the CA |
+| Browser: "your connection is not private" at the redirect to GitLab | OS / browser trust store doesn't have your operator CA | §3h — import the CA |
 | TLS errors with "cert not yet valid" / "cert expired" | Host clock drifted | §7 — point at internal NTP |

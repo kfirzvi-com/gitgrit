@@ -53,25 +53,25 @@ class TestCheckSiteUrl:
 
 
 class TestCheckCaBundle:
-    """The customer CA bundle is the linchpin of air-gap TLS — a missing or
-    empty file means every outbound request to the customer's GitLab fails
+    """The operator CA bundle is the linchpin of air-gap TLS — a missing or
+    empty file means every outbound request to the operator's GitLab fails
     with a verify error. We hard-fail at install time so the operator can't
     miss it."""
 
-    IN_CONTAINER = "/etc/ssl/certs/customer-ca.pem"
+    IN_CONTAINER = "/etc/ssl/certs/custom-ca.pem"
 
     def test_errors_when_env_var_unset(self, settings, monkeypatch):
-        # CUSTOMER_CA_PATH is required, not optional: TLS to the internal
+        # GITGRIT_CUSTOM_CA_FILE_PATH is required, not optional: TLS to the internal
         # GitLab needs it. Setup must fail loud here so the operator finds
         # out at install time, not at first OAuth handshake.
         settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.delenv("CUSTOMER_CA_PATH", raising=False)
-        with pytest.raises(CommandError, match="CUSTOMER_CA_PATH is not set"):
+        monkeypatch.delenv("GITGRIT_CUSTOM_CA_FILE_PATH", raising=False)
+        with pytest.raises(CommandError, match="GITGRIT_CUSTOM_CA_FILE_PATH is not set"):
             call_command("airgap_setup")
 
     def test_errors_when_mount_missing(self, settings, monkeypatch):
         settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.setenv("CUSTOMER_CA_PATH", "/opt/gitgrit/ca-bundle.pem")
+        monkeypatch.setenv("GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem")
         with mock.patch(
             "app.management.commands.airgap_setup.os.path.isfile",
             return_value=False,
@@ -81,7 +81,7 @@ class TestCheckCaBundle:
 
     def test_errors_when_bundle_zero_bytes(self, settings, monkeypatch):
         settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.setenv("CUSTOMER_CA_PATH", "/opt/gitgrit/ca-bundle.pem")
+        monkeypatch.setenv("GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem")
         with mock.patch(
             "app.management.commands.airgap_setup.os.path.isfile",
             return_value=True,
@@ -94,7 +94,7 @@ class TestCheckCaBundle:
 
     def test_accepts_valid_bundle(self, settings, db, monkeypatch):
         settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.setenv("CUSTOMER_CA_PATH", "/opt/gitgrit/ca-bundle.pem")
+        monkeypatch.setenv("GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem")
         with mock.patch(
             "app.management.commands.airgap_setup.os.path.isfile",
             return_value=True,
@@ -105,7 +105,7 @@ class TestCheckCaBundle:
             "app.management.commands.airgap_setup.Command._run_migrations"
         ):
             out = _run()
-        assert f"Customer CA bundle OK: {self.IN_CONTAINER} (4096 bytes)" in out
+        assert f"Operator CA bundle OK: {self.IN_CONTAINER} (4096 bytes)" in out
 
 
 @pytest.mark.django_db

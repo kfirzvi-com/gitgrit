@@ -20,13 +20,13 @@ By the end of this plan, you should have evidence for all of the following:
 2. The air-gap host has no public-internet egress, and GitGrit still comes
    up cleanly.
 3. A user can sign in via the **self-hosted GitLab** OAuth flow over the
-   customer TLS chain — and the GitLab provider button is the **only** one
+   operator TLS chain — and the GitLab provider button is the **only** one
    shown.
 4. With no internet, the user can: create a workspace, connect a project
    from the local GitLab, create a policy, and view results.
 5. A policy executes end-to-end in an on-demand **gVisor (`runsc`) sandbox
    container** spawned on the host. The sandbox reaches the local GitLab
-   over the same customer CA.
+   over the same operator CA.
 6. The browser fetches **zero** assets from external CDNs — fonts, CSS, JS
    all load from the app itself.
 7. The negative paths fail loudly (missing CA, drifted clock, missing DNS,
@@ -134,7 +134,7 @@ Fill in:
 - `GITLAB_CLIENT_ID` / `_SECRET` — see Phase D below; you'll create the
   OAuth app in GitLab first, then come back and fill these in.
 - `SANDBOX_DNS` — your internal resolver IP(s).
-- `CUSTOMER_CA_PATH=/opt/gitgrit/ca-bundle.pem` (must match where you put
+- `GITGRIT_CUSTOM_CA_FILE_PATH=/opt/gitgrit/ca-bundle.pem` (must match where you put
   the PEM in step 1b).
 
 Leave `AUTH_PROVIDER_GITHUB_ENABLED` and `AUTH_PROVIDER_GOOGLE_ENABLED` as
@@ -336,9 +336,9 @@ docker inspect <id> --format '{{.HostConfig.Dns}}'
 ```
 
 **Pass**:
-- Mounts include `/opt/gitgrit/ca-bundle.pem` → `/etc/ssl/certs/customer-ca.pem` (read-only).
+- Mounts include `/opt/gitgrit/ca-bundle.pem` → `/etc/ssl/certs/custom-ca.pem` (read-only).
 - DNS list matches `SANDBOX_DNS` from `.env`.
-- The container has `SSL_CERT_FILE=/etc/ssl/certs/customer-ca.pem` in its
+- The container has `SSL_CERT_FILE=/etc/ssl/certs/custom-ca.pem` in its
   environment (use `docker inspect ... .Config.Env`).
 
 ### 7d. Confirm the result lands in the DB
@@ -407,7 +407,7 @@ docker compose -f docker-compose.prod.yml exec app python -m pytest \
 
 These confirm at the unit level what Phases C–G confirm at the system
 level: GitLab client never reaches outside `INTERNAL_HOST`, sandbox runner
-adds the CA mount + env when `CUSTOMER_CA_PATH` is set, login page renders
+adds the CA mount + env when `GITGRIT_CUSTOM_CA_FILE_PATH` is set, login page renders
 only the enabled providers, and the management commands behave on misuse.
 
 ---
@@ -419,8 +419,8 @@ actionable**, not silent. Revert each change before moving to the next.
 
 | Break | Expected behavior |
 |---|---|
-| Unset `CUSTOMER_CA_PATH` and re-run `airgap_setup`. | Command exits non-zero, message names the missing variable. |
-| Point `CUSTOMER_CA_PATH` at the **GitLab server cert** instead of the CA chain. | `airgap_smoketest` fails with a TLS verify error mentioning unknown issuer. |
+| Unset `GITGRIT_CUSTOM_CA_FILE_PATH` and re-run `airgap_setup`. | Command exits non-zero, message names the missing variable. |
+| Point `GITGRIT_CUSTOM_CA_FILE_PATH` at the **GitLab server cert** instead of the CA chain. | `airgap_smoketest` fails with a TLS verify error mentioning unknown issuer. |
 | Set `SITE_URL=http://localhost` and re-run `airgap_setup`. | Rejected with a message about needing a public hostname. |
 | Stop the local GitLab, then trigger a policy run. | Sandbox exits non-zero; `PolicyExecution.message` mentions connection failure (not an opaque `internal error`). |
 | Skew the airgap host's clock by +2 years. | TLS handshake fails with "cert not yet valid" — confirms `docs/airgap.md` §7 (NTP). Reset the clock immediately after. |

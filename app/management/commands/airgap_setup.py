@@ -10,7 +10,7 @@ on/off, rotating SITE_URL) to re-sync the Site row and SocialApp rows.
 What it does:
   * Runs migrations.
   * Sanity-checks SITE_URL is set and not localhost.
-  * Sanity-checks CUSTOMER_CA_PATH is set and the bundle is readable.
+  * Sanity-checks GITGRIT_CUSTOM_CA_FILE_PATH is set and the bundle is readable.
   * Syncs django.contrib.sites.Site row #1 with SITE_URL's hostname (if installed).
   * Deletes any SocialApp DB rows for providers disabled via AUTH_PROVIDER_*_ENABLED.
 """
@@ -21,6 +21,8 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+
+from app.infrastructure.sandbox.runner import CUSTOM_CA_MOUNT_PATH
 
 NON_PUBLIC_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", ""}
 
@@ -49,30 +51,33 @@ class Command(BaseCommand):
         self.stdout.write(f"SITE_URL OK: {site_url}")
 
     def _check_ca_bundle(self) -> None:
-        # Required, not optional: an unset CUSTOMER_CA_PATH defers a TLS
-        # handshake failure to OAuth time — fail loud at setup instead.
-        ca_path = os.environ.get("CUSTOMER_CA_PATH")
+        # Required, not optional: an unset GITGRIT_CUSTOM_CA_FILE_PATH defers a
+        # TLS handshake failure to OAuth time — fail loud at setup instead.
+        ca_path = os.environ.get("GITGRIT_CUSTOM_CA_FILE_PATH")
         if not ca_path:
             raise CommandError(
-                "CUSTOMER_CA_PATH is not set. Set it in .env to the host path "
-                "of your customer CA bundle (the issuing CA chain that signed "
-                "your internal GitLab's cert). See docs/airgap.md."
+                "GITGRIT_CUSTOM_CA_FILE_PATH is not set. Set it in .env to the "
+                "host path of your operator CA bundle (the issuing CA chain "
+                "that signed your internal GitLab's cert). See docs/airgap.md."
             )
-        # Inside the container, the bundle is mounted at a fixed path.
-        # The env var holds the host-side path; we check the in-container one.
-        in_container = "/etc/ssl/certs/customer-ca.pem"
-        if not os.path.isfile(in_container):
+        # Inside the container, the bundle is mounted at the path the sandbox
+        # runner uses as the single source of truth. The env var holds the
+        # host-side path; we check the in-container one.
+        if not os.path.isfile(CUSTOM_CA_MOUNT_PATH):
             raise CommandError(
-                f"CUSTOMER_CA_PATH is set ({ca_path}) but {in_container} is not "
-                "readable inside the container. Check the compose volume mount."
+                f"GITGRIT_CUSTOM_CA_FILE_PATH is set ({ca_path}) but "
+                f"{CUSTOM_CA_MOUNT_PATH} is not readable inside the container. "
+                "Check the compose volume mount."
             )
-        size = os.path.getsize(in_container)
+        size = os.path.getsize(CUSTOM_CA_MOUNT_PATH)
         if size == 0:
             raise CommandError(
-                f"{in_container} is zero bytes. Check the host-side file at "
-                f"{ca_path} is a non-empty PEM."
+                f"{CUSTOM_CA_MOUNT_PATH} is zero bytes. Check the host-side "
+                f"file at {ca_path} is a non-empty PEM."
             )
-        self.stdout.write(f"Customer CA bundle OK: {in_container} ({size} bytes)")
+        self.stdout.write(
+            f"Operator CA bundle OK: {CUSTOM_CA_MOUNT_PATH} ({size} bytes)"
+        )
 
     def _run_migrations(self) -> None:
         self.stdout.write("Running migrations...")

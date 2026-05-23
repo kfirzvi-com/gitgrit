@@ -3,8 +3,8 @@
 # Usage:
 #   1. Load images: `docker load -i gitgrit-bundle-${TAG}.tar`
 #   2. Copy .env.example to .env and fill in values.
-#   3. Place the customer CA bundle at the host path referenced by
-#      CUSTOMER_CA_PATH (default /opt/gitgrit/ca-bundle.pem).
+#   3. Place the operator's CA bundle at the host path referenced by
+#      GITGRIT_CUSTOM_CA_FILE_PATH (default /opt/gitgrit/ca-bundle.pem).
 #   4. `docker compose -f docker-compose.prod.yml up -d`
 #   5. `docker compose -f docker-compose.prod.yml exec app \
 #         python manage.py airgap_setup`
@@ -43,8 +43,8 @@ services:
       # in-container path so bind mounts resolve correctly.
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
-      # Customer CA bundle for self-hosted GitLab over the customer's TLS chain.
-      - ${CUSTOMER_CA_PATH}:/etc/ssl/certs/customer-ca.pem:ro
+      # Operator CA bundle for self-hosted GitLab over the operator's TLS chain.
+      - ${GITGRIT_CUSTOM_CA_FILE_PATH}:/etc/ssl/certs/custom-ca.pem:ro
     environment:
       AIRGAPPED: "True"
       DEBUG: "False"
@@ -65,14 +65,14 @@ services:
       GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID}
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET}
       # Sandbox runtime — point at the same bridge so spawned sandbox
-      # containers can reach `db` and the customer's internal GitLab.
+      # containers can reach `db` and the operator's internal GitLab.
       SANDBOX_NETWORK: gitgrit_internal
       SANDBOX_DNS: ${SANDBOX_DNS}
-      # Customer CA — both the app's `requests` and the sandbox's `urllib`
+      # Operator CA — both the app's `requests` and the sandbox's `urllib`
       # honor these automatically once the bundle is mounted.
-      CUSTOMER_CA_PATH: ${CUSTOMER_CA_PATH}
-      REQUESTS_CA_BUNDLE: /etc/ssl/certs/customer-ca.pem
-      SSL_CERT_FILE: /etc/ssl/certs/customer-ca.pem
+      GITGRIT_CUSTOM_CA_FILE_PATH: ${GITGRIT_CUSTOM_CA_FILE_PATH}
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/custom-ca.pem
+      SSL_CERT_FILE: /etc/ssl/certs/custom-ca.pem
     restart: unless-stopped
 
 networks:
