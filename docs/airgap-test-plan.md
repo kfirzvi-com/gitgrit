@@ -82,7 +82,7 @@ cd <gitgrit checkout>
 - `gitgrit-install-1.0.tgz` exists in the working directory.
 - `tar tzf gitgrit-install-1.0.tgz` lists at minimum:
   - `gitgrit-bundle-1.0.tar`
-  - `docker-compose.prod.yml`
+  - `docker-compose.full.yaml`
   - `.env.example`
   - `docs/airgap.md`
 - `docker image ls` on `build` shows `gitgrit-app:1.0`, `gitgrit-sandbox:1.0`,
@@ -143,8 +143,8 @@ Leave `AUTH_PROVIDER_GITHUB_ENABLED` and `AUTH_PROVIDER_GOOGLE_ENABLED` as
 Bring the stack up:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.full.yaml up -d
+docker compose -f docker-compose.full.yaml ps
 ```
 
 ### Pass criteria
@@ -160,7 +160,7 @@ docker compose -f docker-compose.prod.yml ps
 ### 4a. Run `airgap_setup`
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app \
+docker compose -f docker-compose.full.yaml exec app \
     python manage.py airgap_setup
 ```
 
@@ -175,7 +175,7 @@ revert.
 ### 4b. Run `airgap_smoketest --check-isolation`
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app \
+docker compose -f docker-compose.full.yaml exec app \
     python manage.py airgap_smoketest --check-isolation
 ```
 
@@ -204,7 +204,7 @@ This is the single most important test in the plan. It must:
 ### 4c. Manual egress check (belt and braces)
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app \
+docker compose -f docker-compose.full.yaml exec app \
     curl -sS --max-time 3 https://www.google.com
 ```
 
@@ -237,7 +237,7 @@ This is the assertion baked into
 `tests/presentation/test_login_provider_buttons.py` — run it now too:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app \
+docker compose -f docker-compose.full.yaml exec app \
     python -m pytest tests/presentation/test_login_provider_buttons.py -v
 ```
 
@@ -347,7 +347,7 @@ After the run completes, check the policy execution result in the UI (or
 query the DB):
 
 ```bash
-docker compose -f docker-compose.prod.yml exec db \
+docker compose -f docker-compose.full.yaml exec db \
     psql -U gitgrit -c "select id, policy_id, passed, score, substring(message, 1, 80) from app_policyexecution order by created_at desc limit 3;"
 ```
 
@@ -395,7 +395,7 @@ These are the automated tests that exist in the repo. Run them inside the
 app container:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app python -m pytest \
+docker compose -f docker-compose.full.yaml exec app python -m pytest \
     tests/infrastructure/test_gitlab_client_closed_network.py \
     tests/infrastructure/test_sandbox_runner_kwargs.py \
     tests/presentation/test_login_provider_buttons.py \

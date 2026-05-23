@@ -1,6 +1,6 @@
 """First-run bootstrap for air-gapped deployments.
 
-Run once after `docker compose -f docker-compose.prod.yml up -d`:
+Run once after `docker compose -f docker-compose.full.yaml up -d`:
 
     docker compose exec app python manage.py airgap_setup
 

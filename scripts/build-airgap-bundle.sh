@@ -37,7 +37,7 @@ command -v docker >/dev/null 2>&1 || {
 command -v git >/dev/null 2>&1 || {
     echo "git not found in PATH (needed to stamp the image with HEAD)" >&2; exit 1;
 }
-for f in docker-compose.prod.yml .env.example docs/airgap.md sandbox_image/Dockerfile Dockerfile; do
+for f in docker-compose.full.yaml .env.example docs/airgap.md sandbox_image/Dockerfile Dockerfile; do
     [ -e "${REPO_ROOT}/${f}" ] || {
         echo "missing required file: ${f}" >&2; exit 1;
     }
@@ -123,7 +123,7 @@ echo "→ Packing install bundle ${INSTALL_TGZ}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp "${BUNDLE_TAR}" "${STAGE}/"
-cp "${REPO_ROOT}/docker-compose.prod.yml" "${STAGE}/"
+cp "${REPO_ROOT}/docker-compose.full.yaml" "${STAGE}/"
 cp "${REPO_ROOT}/.env.example" "${STAGE}/"
 mkdir -p "${STAGE}/docs"
 cp "${REPO_ROOT}/docs/airgap.md" "${STAGE}/docs/"

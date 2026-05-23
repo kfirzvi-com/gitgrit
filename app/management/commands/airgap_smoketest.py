@@ -3,10 +3,10 @@
 Operator-facing: run after `airgap_setup` to confirm the live container
 can actually talk to the operator's GitLab over the operator's CA chain.
 
-    docker compose -f docker-compose.prod.yml exec app \\
+    docker compose -f docker-compose.full.yaml exec app \\
         python manage.py airgap_smoketest
 
-    docker compose -f docker-compose.prod.yml exec app \\
+    docker compose -f docker-compose.full.yaml exec app \\
         python manage.py airgap_smoketest --check-isolation
 
 What it verifies:

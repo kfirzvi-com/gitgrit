@@ -52,7 +52,7 @@ to write the outputs anywhere other than the repo root.
 Produces `gitgrit-install-1.1.tgz` containing:
 - `gitgrit-bundle-1.1.tar` — `docker save` of `gitgrit-app:1.1`,
   `gitgrit-sandbox:1.1`, `postgres:15`
-- `docker-compose.prod.yml`
+- `docker-compose.full.yaml`
 - `.env.example`
 - `docs/airgap.md` (this file)
 
@@ -152,16 +152,16 @@ AUTH_PROVIDER_GOOGLE_ENABLED=False
 ### 3e. Bring up the stack
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml ps           # both containers Up
-docker compose -f docker-compose.prod.yml logs app --tail=20
+docker compose -f docker-compose.full.yaml up -d
+docker compose -f docker-compose.full.yaml ps           # both containers Up
+docker compose -f docker-compose.full.yaml logs app --tail=20
 ```
 
 ### 3f. Run install-time checks
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app python manage.py airgap_setup
-docker compose -f docker-compose.prod.yml exec app python manage.py airgap_smoketest --check-isolation
+docker compose -f docker-compose.full.yaml exec app python manage.py airgap_setup
+docker compose -f docker-compose.full.yaml exec app python manage.py airgap_smoketest --check-isolation
 ```
 
 `airgap_setup` runs migrations, validates `SITE_URL` and `GITGRIT_CUSTOM_CA_FILE_PATH`,
@@ -186,7 +186,7 @@ etc.). Don't proceed past a FAIL.
 ### 3g. Create the first admin user
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app \
+docker compose -f docker-compose.full.yaml exec app \
     python manage.py createsuperuser
 ```
 
@@ -251,7 +251,7 @@ treat a missing `runsc` as a blocker.
 
 `AIRGAPPED`, `SANDBOX_NETWORK`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`,
 `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` are set automatically by
-`docker-compose.prod.yml` — operators should not override them.
+`docker-compose.full.yaml` — operators should not override them.
 
 ---
 
@@ -285,7 +285,7 @@ GitLab on the same network (or routable from it).
 > `password authentication failed for user "gitgrit"` against an IP
 > that doesn't match the stack it was supposed to talk to. If you need
 > multiple installs on one host, tear down the previous stack first
-> (`docker compose -f docker-compose.prod.yml down`) before bringing
+> (`docker compose -f docker-compose.full.yaml down`) before bringing
 > up the new one.
 
 ---
@@ -302,18 +302,18 @@ internal NTP server before bringing up the stack.
 
 **Tail logs:**
 ```bash
-docker compose -f docker-compose.prod.yml logs -f app
+docker compose -f docker-compose.full.yaml logs -f app
 ```
 
 **Database backup:**
 ```bash
-docker compose -f docker-compose.prod.yml exec db \
+docker compose -f docker-compose.full.yaml exec db \
     pg_dump -U gitgrit gitgrit > gitgrit-$(date +%F).sql
 ```
 
 **Database restore:**
 ```bash
-docker compose -f docker-compose.prod.yml exec -T db \
+docker compose -f docker-compose.full.yaml exec -T db \
     psql -U gitgrit gitgrit < gitgrit-YYYY-MM-DD.sql
 ```
 
@@ -321,8 +321,8 @@ docker compose -f docker-compose.prod.yml exec -T db \
 1. On the build machine, run `./scripts/build-airgap-bundle.sh 1.1`.
 2. Transfer the new `.tgz`, `tar xzf`, `docker load`.
 3. Edit `.env`: `TAG=1.1`.
-4. `docker compose -f docker-compose.prod.yml up -d`.
-5. `docker compose -f docker-compose.prod.yml exec app python manage.py airgap_setup`.
+4. `docker compose -f docker-compose.full.yaml up -d`.
+5. `docker compose -f docker-compose.full.yaml exec app python manage.py airgap_setup`.
 
 ---
 
@@ -336,7 +336,7 @@ blocked) and fails loudly if the connection succeeds.
 Belt-and-braces — if you want to double-check by hand:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app \
+docker compose -f docker-compose.full.yaml exec app \
     curl -sS --max-time 3 https://www.google.com
 ```
 
