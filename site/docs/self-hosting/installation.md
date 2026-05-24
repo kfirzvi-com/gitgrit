@@ -15,53 +15,95 @@ The install is split into two phases:
 
 ---
 
-## Phase 1 — Build the bundle
+## Phase 1 — Get the bundle
 
-On the internet-connected build machine, from a checkout of the gitgrit
-repository at the commit you intend to ship:
+There are two ways to obtain a bundle. **Downloading a published
+release** is the recommended path — every `v*.*.*` tag pushed to the
+GitGrit repository produces an artifact on the
+[releases page](https://github.com/kfirzvi-com/gitgrit/releases),
+built by CI from a clean, reproducible checkout. **Building from a
+local checkout** is for development, custom forks, or shipping from
+a non-tagged commit.
 
-```bash
-./scripts/build-airgap-bundle.sh 1.1
-```
+=== "Download a release (recommended)"
 
-The first argument is the image tag. Use a real version (`1.1`,
-`2026.05.23`, whatever your release scheme is) — operators will see this
-on their containers and reference it in tickets.
+    On any machine with internet access:
 
-The script:
+    ```bash
+    VERSION=1.0   # match the GitHub release you intend to ship
+    BASE=https://github.com/kfirzvi-com/gitgrit/releases/download/v${VERSION}
+    curl -fLO "${BASE}/gitgrit-install-${VERSION}.tgz"
+    curl -fLO "${BASE}/gitgrit-install-${VERSION}.tgz.sha256"
+    sha256sum -c "gitgrit-install-${VERSION}.tgz.sha256"
+    ```
 
-- Refuses to build if the working tree is dirty so the image's
-  `GIT_SHA` stamp corresponds to a reproducible commit. Set
-  `ALLOW_DIRTY=1` to override; the stamp then becomes `<sha>-dirty` so
-  the bundle is still traceable.
-- Builds `gitgrit-app:1.1` and `gitgrit-sandbox:1.1` with `GIT_SHA` and
-  `GIT_TAG` baked in as `--build-arg`.
-- Pulls `postgres:15`.
-- `docker save`s all three images into one tarball.
-- Wraps the tarball plus compose file, `.env.example`, and these docs
-  into `gitgrit-install-1.1.tgz`.
+    The `sha256sum -c` step is the integrity check — it must print
+    `gitgrit-install-1.0.tgz: OK`. Don't proceed if it doesn't; the
+    download is corrupt or doesn't match the published artifact.
 
-Set `OUT_DIR=/some/path` to write the outputs somewhere other than the
-repo root.
+    !!! tip "Pinning to a specific release"
+        Always download by an exact version tag (`v1.0`), not the
+        "latest release" alias. The CI workflow that produces these
+        artifacts also stamps `GIT_SHA` into the images — pinning the
+        URL pins the source-of-truth too. Compliance audits will ask
+        which commit shipped; this is how you answer.
 
-### Verify before shipping
+=== "Build from a local checkout"
 
-Confirm the SHA the script claims to have stamped actually landed in
-both built images:
+    Use this path when:
 
-```bash
-HEAD_SHA=$(git rev-parse HEAD)
-docker image inspect gitgrit-app:1.1     --format '{{json .Config.Env}}' | grep -q "GIT_SHA=$HEAD_SHA" && echo "app:1.1 OK"
-docker image inspect gitgrit-sandbox:1.1 --format '{{json .Config.Env}}' | grep -q "GIT_SHA=$HEAD_SHA" && echo "sandbox:1.1 OK"
-```
+    - You're shipping from a non-tagged commit.
+    - You've forked GitGrit and made changes.
+    - You don't trust prebuilt artifacts and want to build from source
+      yourself.
 
-The build script does this same check internally and aborts on failure,
-but verifying by hand once before shipping confirms what you're about to
-hand off.
+    Requires Docker 24+ on the build machine. From a checkout of the
+    gitgrit repository at the commit you intend to ship:
 
-Transfer `gitgrit-install-1.1.tgz` to the air-gap host by whatever
-channel is approved — USB, internal SFTP, write-once media. The bundle
-is self-contained; nothing else needs to cross the boundary.
+    ```bash
+    ./scripts/build-airgap-bundle.sh 1.1
+    ```
+
+    The first argument is the image tag. Use a real version (`1.1`,
+    `2026.05.23`, whatever your release scheme is) — operators will see
+    this on their containers and reference it in tickets.
+
+    The script:
+
+    - Refuses to build if the working tree is dirty so the image's
+      `GIT_SHA` stamp corresponds to a reproducible commit. Set
+      `ALLOW_DIRTY=1` to override; the stamp then becomes `<sha>-dirty`
+      so the bundle is still traceable.
+    - Builds `gitgrit-app:1.1` and `gitgrit-sandbox:1.1` with `GIT_SHA`
+      and `GIT_TAG` baked in as `--build-arg`.
+    - Pulls `postgres:15`.
+    - `docker save`s all three images into one tarball.
+    - Wraps the tarball plus compose file, `.env.example`, and these
+      docs into `gitgrit-install-1.1.tgz`.
+
+    Set `OUT_DIR=/some/path` to write the outputs somewhere other than
+    the repo root.
+
+    ### Verify before shipping
+
+    Confirm the SHA the script claims to have stamped actually landed
+    in both built images:
+
+    ```bash
+    HEAD_SHA=$(git rev-parse HEAD)
+    docker image inspect gitgrit-app:1.1     --format '{{json .Config.Env}}' | grep -q "GIT_SHA=$HEAD_SHA" && echo "app:1.1 OK"
+    docker image inspect gitgrit-sandbox:1.1 --format '{{json .Config.Env}}' | grep -q "GIT_SHA=$HEAD_SHA" && echo "sandbox:1.1 OK"
+    ```
+
+    The build script does this same check internally and aborts on
+    failure, but verifying by hand once before shipping confirms what
+    you're about to hand off.
+
+---
+
+However you obtained the `.tgz`, transfer it to the air-gap host by
+whatever channel is approved — USB, internal SFTP, write-once media.
+The bundle is self-contained; nothing else needs to cross the boundary.
 
 ---
 
