@@ -135,20 +135,19 @@
   <link href="{% static 'app/design-tokens.css' %}" rel="stylesheet" type="text/css" />
 
   {% if airgapped %}
-    {# TODO: vendor these locally for airgapped deployments #}
     <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
     <link href="{% static 'app/vendor/daisyui.css' %}" rel="stylesheet" type="text/css" />
     <script src="{% static 'app/vendor/tailwindcss-browser.js' %}"></script>
     <script src="{% static 'app/vendor/htmx.js' %}"></script>
+    <link href="{% static 'app/vendor/fonts/fonts.css' %}" rel="stylesheet" type="text/css" />
   {% else %}
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/htmx.org@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   {% endif %}
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <style>
     [data-theme="dark"] {

@@ -158,3 +158,86 @@ jobs:
               "environment": "production",
               "ref": "${{ github.ref_name }}"
             }
+
+  # Air-gap bundle pipeline — runs on tag push only. Independent from the
+  # cloud `publish` job above: builds its own copies of gitgrit-app and
+  # gitgrit-sandbox via scripts/build-airgap-bundle.sh (which also stamps
+  # GIT_SHA, verifies the stamp landed, and packages compose + .env.example
+  # + the self-hosting docs). The bundle is uploaded as a workflow artifact
+  # by `airgap-bundle`, then attached to a GitHub Release by `airgap-release`.
+  #
+  # We deliberately do NOT reuse the image `publish` pushed to GHCR — running
+  # the script end-to-end keeps the SHA verification path identical between
+  # CI and a local build, so a regression that breaks the bundle is caught
+  # by the same code that operators rely on.
+  airgap-bundle:
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history so the build script's `git describe --tags
+          # --exact-match HEAD` resolves the tag for GIT_TAG stamping.
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build air-gap bundle
+        run: |
+          # Image tag follows semver convention: refs/tags/v1.0 -> 1.0.
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Building bundle for version: $VERSION"
+          mkdir -p ./bundle-output
+          OUT_DIR="$(pwd)/bundle-output" ./scripts/build-airgap-bundle.sh "$VERSION"
+          # Drop the bare .tar — only the .tgz wrapper is shipped. The .tar
+          # is the docker save output that lives inside the .tgz anyway.
+          rm -f ./bundle-output/gitgrit-bundle-*.tar
+          # Generate a checksum using the basename only so operators can
+          # `sha256sum -c gitgrit-install-VERSION.tgz.sha256` in whatever
+          # directory they unpack into.
+          cd ./bundle-output
+          TGZ_NAME=$(ls gitgrit-install-*.tgz | head -1)
+          sha256sum "$TGZ_NAME" > "${TGZ_NAME}.sha256"
+          ls -lh
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: airgap-bundle
+          path: ./bundle-output/
+          retention-days: 30
+          # The .tgz is already gzip-compressed; skip the artifact action's
+          # second compression pass.
+          compression-level: 0
+
+  airgap-release:
+    needs: airgap-bundle
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    # Job-level permissions REPLACE workflow-level (they don't merge), so
+    # this job intentionally drops `packages: write` and only keeps the
+    # `contents: write` it needs to create a release.
+    permissions:
+      contents: write
+    steps:
+      - name: Download bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: airgap-bundle
+          path: ./release-assets
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # `gh release create` fails if a release for this tag already
+          # exists. Tag pushes are the only trigger for this job, so each
+          # run is genuinely a new release — re-runs after a transient
+          # failure should target a freshly retagged commit, not the same
+          # tag a second time.
+          gh release create "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME" \
+            ./release-assets/*.tgz \
+            ./release-assets/*.tgz.sha256

@@ -335,3 +335,78 @@
 .gg-footer__copy a:hover {
   color: var(--gg-text);
 }
+
+/* ── Header wordmark + "Docs" link ──
+   Layout: [logo SVG][GitGrit][Docs] ........... [search][repo]
+   Replaces the navigation.tabs row (disabled in mkdocs.yml). See
+   overrides/partials/header.html. */
+
+/* Material's default puts .md-header__title at `flex: 1` (spans the
+   middle) and absolute-positions the inner topics. Override to make the
+   title hug its content so the Docs link can sit right next to it. */
+.md-header__title {
+  flex: 0 1 auto;
+  margin-left: 0.6rem;
+}
+.md-header__ellipsis {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  height: auto;
+}
+.md-header__topic {
+  position: static;
+  display: inline-flex;
+  width: auto;
+}
+/* Hide the page-title-on-scroll topic — we want a stable wordmark, not
+   the page H1 replacing it. */
+.md-header__topic[data-md-component="header-topic"] {
+  display: none;
+}
+/* On scroll, Material adds `.md-header__title--active` to .md-header__title
+   and uses it to translate the first topic (site_name) out of view and
+   slide the second (page title) in. We hide the second topic already;
+   keep the first one pinned regardless of scroll state. */
+.md-header__title--active .md-header__topic:first-child {
+  transform: none;
+  opacity: 1;
+  pointer-events: initial;
+  z-index: 0;
+}
+
+/* Wordmark link — strip default anchor visuals so the GitGrit text
+   reads as part of the logo rather than a link. */
+.gg-header__wordmark {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.gg-header__wordmark:hover,
+.gg-header__wordmark:focus-visible {
+  color: var(--gg-primary);
+  outline: none;
+}
+
+.gg-header__docs {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  margin-right: auto;  /* pushes search + repo to the far right */
+  padding: 0.3rem 0.75rem;
+  font-family: var(--gg-font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gg-text);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.gg-header__docs:hover,
+.gg-header__docs:focus-visible {
+  color: var(--gg-primary);
+  background-color: var(--gg-surface);
+  outline: none;
+}
