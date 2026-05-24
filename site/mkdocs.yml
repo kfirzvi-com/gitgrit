@@ -52,6 +52,10 @@ nav:
     - Analytics Dashboard: features/analytics.md
   - Policy API:
     - ProjectContext: api/project-context.md
+  - Self-Hosting:
+    - Overview: self-hosting/index.md
+    - Installation: self-hosting/installation.md
+    - Operations: self-hosting/operations.md
 
 # Pages reachable outside the sidebar nav:
 #   - Home (index.md): the logo links to it.

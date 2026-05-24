@@ -58,7 +58,8 @@ class Command(BaseCommand):
             raise CommandError(
                 "GITGRIT_CUSTOM_CA_FILE_PATH is not set. Set it in .env to the "
                 "host path of your operator CA bundle (the issuing CA chain "
-                "that signed your internal GitLab's cert). See docs/airgap.md."
+                "that signed your internal GitLab's cert). See "
+                "https://gitgrit.dev/self-hosting/installation/#2-place-the-operator-ca-bundle"
             )
         # Inside the container, the bundle is mounted at the path the sandbox
         # runner uses as the single source of truth. The env var holds the

@@ -7,7 +7,9 @@
 #
 # Ship the .tgz to the air-gap host via whatever approved channel. The
 # operator unpacks it, runs `docker load`, fills .env, and brings the stack
-# up. See docs/airgap.md for the full operator runbook.
+# up. The bundle includes site/docs/self-hosting/*.md so operators have
+# the install runbook locally; the published version lives at
+# https://gitgrit.dev/self-hosting/.
 #
 # Usage:
 #   scripts/build-airgap-bundle.sh [TAG]
@@ -37,7 +39,11 @@ command -v docker >/dev/null 2>&1 || {
 command -v git >/dev/null 2>&1 || {
     echo "git not found in PATH (needed to stamp the image with HEAD)" >&2; exit 1;
 }
-for f in docker-compose.full.yaml .env.example docs/airgap.md sandbox_image/Dockerfile Dockerfile; do
+for f in docker-compose.full.yaml .env.example \
+         site/docs/self-hosting/index.md \
+         site/docs/self-hosting/installation.md \
+         site/docs/self-hosting/operations.md \
+         sandbox_image/Dockerfile Dockerfile; do
     [ -e "${REPO_ROOT}/${f}" ] || {
         echo "missing required file: ${f}" >&2; exit 1;
     }
@@ -125,8 +131,13 @@ trap 'rm -rf "$STAGE"' EXIT
 cp "${BUNDLE_TAR}" "${STAGE}/"
 cp "${REPO_ROOT}/docker-compose.full.yaml" "${STAGE}/"
 cp "${REPO_ROOT}/.env.example" "${STAGE}/"
-mkdir -p "${STAGE}/docs"
-cp "${REPO_ROOT}/docs/airgap.md" "${STAGE}/docs/"
+# Ship the three self-hosting tutorial pages alongside the bundle so the
+# operator has the runbook on-host without internet access. The published
+# version (rendered HTML) lives at https://gitgrit.dev/self-hosting/.
+mkdir -p "${STAGE}/docs/self-hosting"
+cp "${REPO_ROOT}/site/docs/self-hosting/index.md"        "${STAGE}/docs/self-hosting/"
+cp "${REPO_ROOT}/site/docs/self-hosting/installation.md" "${STAGE}/docs/self-hosting/"
+cp "${REPO_ROOT}/site/docs/self-hosting/operations.md"   "${STAGE}/docs/self-hosting/"
 
 tar czf "${INSTALL_TGZ}" -C "${STAGE}" .
 
@@ -137,4 +148,6 @@ echo
 echo "Bundle ready:"
 du -h "${INSTALL_TGZ}" "${BUNDLE_TAR}" 2>/dev/null | sed 's/^/  /'
 echo
-echo "Transfer the .tgz to the air-gap host. See docs/airgap.md for next steps."
+echo "Transfer the .tgz to the air-gap host."
+echo "Install runbook: docs/self-hosting/installation.md (inside the bundle),"
+echo "or https://gitgrit.dev/self-hosting/installation/ if you have web access."
