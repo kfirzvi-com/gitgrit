@@ -3,7 +3,7 @@
 **Policy-as-code compliance and best-practice enforcement for GitHub and GitLab.**
 
 [![CI](https://github.com/kfirzvi-com/gitgrit/actions/workflows/ci.yml/badge.svg)](https://github.com/kfirzvi-com/gitgrit/actions/workflows/ci.yml)
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL_v3-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-gitgrit.dev-informational)](https://gitgrit.dev)
 
 GitGrit lets platform and DevOps teams define organization-wide standards as version-controlled Python policies, then evaluates every repository against them on push, pull request, and tag events. Policies run in gVisor-sandboxed containers, results roll up into a per-project compliance score, and a live SVG badge advertises that score back in the repo's README.
@@ -190,6 +190,4 @@ Found a vulnerability? **Please do not open a public issue.** See [`SECURITY.md`
 
 ## License
 
-GitGrit is licensed under the [GNU Affero General Public License v3.0](LICENSE). Network-deployed modifications must be made available to users under the same terms — see [§13 of the AGPL](https://www.gnu.org/licenses/agpl-3.0.html#section13) for details.
-
-If AGPL doesn't fit your use case, please [reach out](mailto:kfir@kfirzvi.com) about commercial licensing.
+GitGrit is licensed under the [MIT License](LICENSE).
