@@ -4,6 +4,7 @@ from app.presentation.views.policy_views import (
     CreatePolicyView,
     EditPolicyView,
     PolicyDetailView,
+    PolicyExecutionDetailView,
     PolicyListView,
     PolicyVersionDetailView,
     delete_policy,
@@ -159,6 +160,11 @@ urlpatterns = [
     path("policies/<uuid:pk>/delete/", delete_policy, name="delete_policy"),
     path("policies/<uuid:pk>/toggle/", toggle_policy, name="toggle_policy"),
     path("policies/test/", run_policy_test, name="run_policy_test"),
+    path(
+        "executions/<uuid:pk>/",
+        PolicyExecutionDetailView.as_view(),
+        name="policy_execution_detail",
+    ),
     path(
         "policies/versions/<uuid:pk>/",
         PolicyVersionDetailView.as_view(),

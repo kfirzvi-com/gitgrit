@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Execution — {{ execution.policy_name }} — GitGrit{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="{% url 'project_detail' execution.project.pk %}" class="link link-hover text-sm opacity-70">← {{ execution.project.name }}</a>
+  <div class="flex items-center gap-3 mt-2">
+    <h1 class="text-3xl font-bold">{{ execution.policy_name }}</h1>
+    <span class="badge {% if execution.status == 'passed' %}badge-success{% elif execution.status == 'failed' %}badge-error{% elif execution.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+      {{ execution.get_status_display }}
+    </span>
+    <span class="text-sm opacity-70">Score: {{ execution.score }}</span>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow-xl mb-6">
+  <div class="card-body">
+    <h2 class="card-title">Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+      <div><span class="opacity-70">Event</span><p>{{ execution.event_type }}</p></div>
+      <div><span class="opacity-70">Ref</span><p><code>{{ execution.ref|default:"—" }}</code></p></div>
+      <div><span class="opacity-70">Triggered by</span><p>{{ execution.triggered_by|default:"—" }}</p></div>
+      <div><span class="opacity-70">When</span><p>{{ execution.created_at }}</p></div>
+      {% if execution.details.llm_usage %}
+        <div><span class="opacity-70">LLM tokens</span><p>{{ execution.details.llm_usage.total_tokens }} ({{ execution.details.llm_usage.calls }} calls)</p></div>
+      {% endif %}
+    </div>
+
+    <div class="mt-4">
+      <span class="opacity-70 text-sm">Message</span>
+      <p class="mt-1 whitespace-pre-wrap">{{ execution.message|default:"—" }}</p>
+    </div>
+
+    {% if execution.details.violations %}
+      <div class="mt-4">
+        <span class="opacity-70 text-sm">Violations</span>
+        <ul class="list-disc list-inside mt-1 space-y-1 text-sm">
+          {% for v in execution.details.violations %}
+            <li>{{ v }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h2 class="card-title">Execution Log</h2>
+    {% if execution.logs %}
+      <div class="overflow-x-auto">
+        <table class="table table-sm font-mono text-xs">
+          <tbody>
+            {% for entry in execution.logs %}
+              <tr>
+                <td class="opacity-50 whitespace-nowrap align-top">+{{ entry.t_ms }}ms</td>
+                <td class="align-top">
+                  <span class="badge badge-xs {% if entry.level == 'error' %}badge-error{% elif entry.level == 'warning' %}badge-warning{% else %}badge-ghost{% endif %}">{{ entry.level }}</span>
+                </td>
+                <td class="whitespace-pre-wrap break-all">{{ entry.message }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm opacity-70">No log entries were recorded for this execution.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

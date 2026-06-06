@@ -173,12 +173,16 @@
                         {% endif %}
                       </td>
                       <td>
-                        <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
-                          {{ ex.get_status_display }}
-                        </span>
+                        <a href="{% url 'policy_execution_detail' ex.id %}" class="link link-hover">
+                          <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                            {{ ex.get_status_display }}
+                          </span>
+                        </a>
                       </td>
                       <td>{{ ex.score }}</td>
-                      <td class="text-sm max-w-xs truncate" title="{{ ex.message }}">{{ ex.message }}</td>
+                      <td class="text-sm max-w-xs truncate" title="{{ ex.message }}">
+                        <a href="{% url 'policy_execution_detail' ex.id %}" class="link link-hover">{{ ex.message }}</a>
+                      </td>
                       <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
                     </tr>
                   {% endfor %}
@@ -214,9 +218,11 @@
                     <td>{{ ex.policy_name }}</td>
                     <td><span class="badge badge-outline badge-sm">{{ ex.event_type }}</span></td>
                     <td>
-                      <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
-                        {{ ex.get_status_display }}
-                      </span>
+                      <a href="{% url 'policy_execution_detail' ex.id %}" class="link link-hover">
+                        <span class="badge badge-sm {% if ex.status == 'passed' %}badge-success{% elif ex.status == 'failed' %}badge-error{% elif ex.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
+                          {{ ex.get_status_display }}
+                        </span>
+                      </a>
                     </td>
                     <td>{{ ex.score }}</td>
                     <td class="text-sm">{{ ex.triggered_by|default:"—" }}</td>
