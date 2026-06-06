@@ -1,7 +1,13 @@
 FROM python:3.13-slim
 
+# LiteLLM powers LLM-based policies (provider abstraction + the agentic loop in
+# llm.py). It pulls pydantic. This is the sandbox image's first runtime dep and
+# grows it to a few hundred MB — note the impact on the air-gap bundle size.
+RUN pip install --no-cache-dir litellm
+
 COPY providers/ /providers/
 COPY project_context.py /project_context.py
+COPY llm.py /llm.py
 COPY entrypoint.py /entrypoint.py
 
 # Version stamp baked at build time. Empty for ad-hoc builds; the airgap
