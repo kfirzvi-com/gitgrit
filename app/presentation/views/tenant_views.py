@@ -1,3 +1,5 @@
+import re
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -7,7 +9,16 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
 
-from app.domain.models import Membership, Platform, PlatformConnection, Tenant
+from app.domain.models import (
+    LLMProvider,
+    LLMProviderType,
+    LLMRole,
+    Membership,
+    Platform,
+    PlatformConnection,
+    Tenant,
+)
+from app.infrastructure.llm_models import discover_models, test_provider
 from app.infrastructure.platform_client import get_platform_client
 
 User = get_user_model()
@@ -66,6 +77,39 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 tenant=tenant
             ).order_by("created_at")
             context["platform_choices"] = Platform.choices
+
+            # LLM configuration
+            llm_providers = list(
+                LLMProvider.objects.filter(tenant=tenant).order_by("created_at")
+            )
+            context["llm_providers"] = llm_providers
+            context["llm_provider_types"] = LLMProviderType.choices
+            existing_roles = {
+                r.name: r
+                for r in LLMRole.objects.filter(tenant=tenant).select_related(
+                    "provider"
+                )
+            }
+            context["llm_role_rows"] = [
+                {
+                    "name": value,
+                    "label": label,
+                    "provider_id": (
+                        str(existing_roles[value].provider_id)
+                        if value in existing_roles
+                        else ""
+                    ),
+                    "model": (
+                        existing_roles[value].model if value in existing_roles else ""
+                    ),
+                }
+                for value, label in LLMRole.Name.choices
+            ]
+            # provider id -> available models, consumed by the role dropdown JS
+            context["llm_provider_models_map"] = {
+                str(p.id): list(p.available_models or []) for p in llm_providers
+            }
+
             user_membership = Membership.objects.filter(
                 user=self.request.user, tenant=tenant
             ).first()
@@ -279,3 +323,210 @@ def test_connection(request, connection_id):
         return HttpResponse(
             '<span class="badge badge-error">Connection failed</span>'
         )
+
+
+# --- LLM providers & roles -------------------------------------------------
+
+
+def _require_workspace_admin(request):
+    """Return (tenant, None) when the user may manage workspace settings, else
+    (tenant, redirect) bouncing them back to settings with a message."""
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return None, redirect("tenant_settings")
+    membership = Membership.objects.filter(
+        user=request.user, tenant=tenant
+    ).first()
+    if not membership or membership.role not in (
+        Membership.Role.OWNER,
+        Membership.Role.ADMIN,
+    ):
+        messages.error(
+            request, "You don't have permission to manage workspace settings."
+        )
+        return tenant, redirect("tenant_settings")
+    return tenant, None
+
+
+def _auto_provider_name(tenant, provider_type) -> str:
+    label = dict(LLMProviderType.choices).get(provider_type, provider_type)
+    existing = set(
+        LLMProvider.objects.filter(tenant=tenant).values_list(
+            "display_name", flat=True
+        )
+    )
+    if label not in existing:
+        return label
+    n = 2
+    while f"{label} {n}" in existing:
+        n += 1
+    return f"{label} {n}"
+
+
+@login_required
+@require_POST
+def add_llm_provider(request):
+    tenant, deny = _require_workspace_admin(request)
+    if deny:
+        return deny
+
+    provider_type = request.POST.get("provider_type", "")
+    display_name = request.POST.get("display_name", "").strip()
+    base_url = request.POST.get("base_url", "").strip()
+    api_key = request.POST.get("api_key", "").strip()
+
+    if provider_type not in LLMProviderType.values:
+        messages.error(request, "Invalid provider type.")
+        return redirect("tenant_settings")
+    if not api_key:
+        messages.error(request, "API key is required.")
+        return redirect("tenant_settings")
+
+    if not display_name:
+        display_name = _auto_provider_name(tenant, provider_type)
+
+    models = discover_models(provider_type, base_url, api_key)
+    provider = LLMProvider(
+        tenant=tenant,
+        provider_type=provider_type,
+        display_name=display_name,
+        base_url=base_url,
+        api_key=api_key,
+        available_models=models,
+    )
+    provider.save()
+
+    if models:
+        messages.success(
+            request,
+            f'Provider "{display_name}" added — discovered {len(models)} models.',
+        )
+    else:
+        messages.warning(
+            request,
+            f'Provider "{display_name}" added, but no models could be '
+            f"auto-detected. Add them manually via Edit.",
+        )
+    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def edit_llm_provider(request, provider_id):
+    tenant, deny = _require_workspace_admin(request)
+    if deny:
+        return deny
+
+    provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
+    display_name = request.POST.get("display_name", "").strip()
+    base_url = request.POST.get("base_url", "").strip()
+    api_key = request.POST.get("api_key", "").strip()
+    models_text = request.POST.get("models", "")
+
+    if display_name:
+        provider.display_name = display_name
+    provider.base_url = base_url
+    if api_key:
+        provider.api_key = api_key
+
+    manual = [m.strip() for m in re.split(r"[\n,]", models_text) if m.strip()]
+    if manual:
+        provider.available_models = manual
+
+    provider.save()
+    messages.success(request, f'Provider "{provider.display_name}" updated.')
+    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def remove_llm_provider(request, provider_id):
+    tenant, deny = _require_workspace_admin(request)
+    if deny:
+        return deny
+
+    provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
+    name = provider.display_name
+    provider.delete()  # cascades to any roles pointing at it
+    messages.success(request, f'Provider "{name}" removed.')
+    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def test_llm_provider(request, provider_id):
+    from django.http import HttpResponse
+
+    tenant = request.tenant
+    if not tenant:
+        return HttpResponse('<span class="badge badge-error">No workspace</span>')
+
+    provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
+    if test_provider(provider.provider_type, provider.base_url, provider.api_key):
+        return HttpResponse('<span class="badge badge-success">Connected</span>')
+    return HttpResponse('<span class="badge badge-error">Failed</span>')
+
+
+@login_required
+@require_POST
+def fetch_llm_models(request, provider_id):
+    from django.http import HttpResponse
+
+    tenant = request.tenant
+    if not tenant:
+        return HttpResponse('<span class="badge badge-error">No workspace</span>')
+    membership = Membership.objects.filter(
+        user=request.user, tenant=tenant
+    ).first()
+    if not membership or membership.role not in (
+        Membership.Role.OWNER,
+        Membership.Role.ADMIN,
+    ):
+        return HttpResponse('<span class="badge badge-error">Forbidden</span>')
+
+    provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
+    models = discover_models(provider.provider_type, provider.base_url, provider.api_key)
+    if models:
+        provider.available_models = models
+        provider.save(update_fields=["available_models"])
+        return HttpResponse(
+            f'<span class="badge badge-success">{len(models)} models — '
+            f"reload to use</span>"
+        )
+    return HttpResponse('<span class="badge badge-warning">none found</span>')
+
+
+@login_required
+@require_POST
+def set_llm_role(request, role_name):
+    tenant, deny = _require_workspace_admin(request)
+    if deny:
+        return deny
+
+    if role_name not in LLMRole.Name.values:
+        messages.error(request, "Invalid role.")
+        return redirect("tenant_settings")
+
+    provider_id = request.POST.get("provider_id", "").strip()
+    model = request.POST.get("model", "").strip()
+
+    if not provider_id:
+        LLMRole.objects.filter(tenant=tenant, name=role_name).delete()
+        messages.success(request, f'Cleared the "{role_name}" role.')
+        return redirect("tenant_settings")
+
+    provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
+    if not model:
+        messages.error(request, "Select a model for the role.")
+        return redirect("tenant_settings")
+
+    LLMRole.objects.update_or_create(
+        tenant=tenant,
+        name=role_name,
+        defaults={"provider": provider, "model": model},
+    )
+    messages.success(
+        request, f'Role "{role_name}" set to {provider.display_name}/{model}.'
+    )
+    return redirect("tenant_settings")

@@ -33,12 +33,18 @@ from app.presentation.views.tenant_views import (
     CreateTenantView,
     TenantSettingsView,
     add_connection,
+    add_llm_provider,
     edit_connection_token,
+    edit_llm_provider,
+    fetch_llm_models,
     invite_member,
     remove_connection,
+    remove_llm_provider,
     remove_member,
+    set_llm_role,
     switch_tenant,
     test_connection,
+    test_llm_provider,
 )
 from app.presentation.views.badge_views import project_badge
 from app.presentation.views.feedback_views import submit_feedback
@@ -86,6 +92,29 @@ urlpatterns = [
         test_connection,
         name="test_connection",
     ),
+    # LLM providers & roles
+    path("tenants/llm/providers/add/", add_llm_provider, name="add_llm_provider"),
+    path(
+        "tenants/llm/providers/<uuid:provider_id>/edit/",
+        edit_llm_provider,
+        name="edit_llm_provider",
+    ),
+    path(
+        "tenants/llm/providers/<uuid:provider_id>/remove/",
+        remove_llm_provider,
+        name="remove_llm_provider",
+    ),
+    path(
+        "tenants/llm/providers/<uuid:provider_id>/test/",
+        test_llm_provider,
+        name="test_llm_provider",
+    ),
+    path(
+        "tenants/llm/providers/<uuid:provider_id>/fetch-models/",
+        fetch_llm_models,
+        name="fetch_llm_models",
+    ),
+    path("tenants/llm/roles/<str:role_name>/set/", set_llm_role, name="set_llm_role"),
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/add/", add_project_select, name="add_project_select"),
