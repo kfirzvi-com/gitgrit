@@ -7,12 +7,31 @@ from django.db.models import QuerySet
 
 from app.domain.events import DomainEvent
 from app.domain.identity import resolve_user
-from app.domain.models import Policy, PolicyExecution, Project
+from app.domain.models import LLMRole, Policy, PolicyExecution, Project
 from app.domain.policy_criteria import language_matches
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
 
+
+def resolve_llm_roles(tenant) -> dict:
+    """Resolve a tenant's configured LLM roles into a flat map the sandbox can
+    consume: role name -> {model, base_url, api_key}. The model string is
+    LiteLLM-formatted (``provider_type/model``). Empty when nothing is set.
+
+    Shared by the PolicyEngine (real runs) and the policy editor's test run.
+    """
+    roles = LLMRole.objects.filter(
+        tenant=tenant, provider__enabled=True
+    ).select_related("provider")
+    return {
+        role.name: {
+            "model": f"{role.provider.provider_type}/{role.model}",
+            "base_url": role.provider.base_url,
+            "api_key": role.provider.api_key,  # decrypted here; plaintext only in /input.json
+        }
+        for role in roles
+    }
 
 
 class PolicyEngine:
@@ -82,6 +101,22 @@ class PolicyEngine:
 
         return True
 
+    def _build_input_config(self, project: Project) -> dict:
+        """Build the /input.json payload for a project run. Attaches llm_roles
+        only when the workspace has configured them, so deterministic policies
+        are unaffected."""
+        input_config = {
+            "platform": project.platform,
+            "project_id": project.external_id,
+            "access_token": project.platform_connection.access_token,
+            "base_url": project.platform_connection.base_url,
+            "full_path": project.full_path,
+        }
+        llm_roles = resolve_llm_roles(project.tenant)
+        if llm_roles:
+            input_config["llm_roles"] = llm_roles
+        return input_config
+
     def run_for_event(self, event: DomainEvent) -> list[dict]:
         projects = self.resolve_projects(event)
 
@@ -111,14 +146,7 @@ class PolicyEngine:
                 )
                 continue
 
-            access_token = project.platform_connection.access_token
-            input_config = {
-                "platform": event.platform,
-                "project_id": event.external_project_id,
-                "access_token": access_token,
-                "base_url": project.platform_connection.base_url,
-                "full_path": project.full_path,
-            }
+            input_config = self._build_input_config(project)
 
             for policy in policies:
                 logger.info(
@@ -183,14 +211,7 @@ class PolicyEngine:
         if not policies:
             return []
 
-        access_token = project.platform_connection.access_token
-        input_config = {
-            "platform": project.platform,
-            "project_id": project.external_id,
-            "access_token": access_token,
-            "base_url": project.platform_connection.base_url,
-            "full_path": project.full_path,
-        }
+        input_config = self._build_input_config(project)
 
         results = []
         for policy in policies:

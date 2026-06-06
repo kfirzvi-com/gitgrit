@@ -301,6 +301,15 @@ def run_policy_test(request):
         "mock_data": mock_data,
     }
 
+    # Make LLM policies testable in the editor: attach the workspace's roles so
+    # evaluate(project, llm) runs against the mock repo just like a real run.
+    if request.tenant:
+        from app.application.policy_engine import resolve_llm_roles
+
+        llm_roles = resolve_llm_roles(request.tenant)
+        if llm_roles:
+            input_config["llm_roles"] = llm_roles
+
     runner = SandboxRunner()
     result = runner.run(code, input_config)
     return JsonResponse(result)

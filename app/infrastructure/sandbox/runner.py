@@ -79,6 +79,18 @@ class SandboxRunner(PolicyRunner):
                 "".join(f"nameserver {ns}\n" for ns in self.config["DNS"])
             )
 
+            # LLM policies (input carries llm_roles) get higher ceilings; a
+            # multi-round agentic loop won't fit the deterministic 128m/30s.
+            is_llm_run = bool(input_config.get("llm_roles"))
+            mem_limit = (
+                self.config["LLM_MEMORY_LIMIT"]
+                if is_llm_run
+                else self.config["MEMORY_LIMIT"]
+            )
+            wait_timeout = (
+                self.config["LLM_TIMEOUT"] if is_llm_run else self.config["TIMEOUT"]
+            )
+
             runtime = self._get_runtime()
             volumes = {
                 str(policy_path): {"bind": "/policy.py", "mode": "ro"},
@@ -102,7 +114,7 @@ class SandboxRunner(PolicyRunner):
                 "volumes": volumes,
                 "network": self.config["NETWORK"],
                 "tmpfs": {"/tmp": "size=16m"},
-                "mem_limit": self.config["MEMORY_LIMIT"],
+                "mem_limit": mem_limit,
                 "nano_cpus": int(self.config["CPU_LIMIT"] * 1e9),
                 "cap_drop": ["ALL"],
                 "detach": True,
@@ -118,7 +130,7 @@ class SandboxRunner(PolicyRunner):
                 container_kwargs["runtime"] = runtime
 
             container = self.client.containers.run(**container_kwargs)
-            result = container.wait(timeout=self.config["TIMEOUT"])
+            result = container.wait(timeout=wait_timeout)
 
             stdout = container.logs(stdout=True, stderr=False).decode()
             stderr = container.logs(stdout=False, stderr=True).decode()
