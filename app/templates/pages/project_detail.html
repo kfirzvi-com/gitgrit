@@ -210,6 +210,7 @@
                   <th>Score</th>
                   <th>Triggered by</th>
                   <th>When</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -227,6 +228,7 @@
                     <td>{{ ex.score }}</td>
                     <td class="text-sm">{{ ex.triggered_by|default:"—" }}</td>
                     <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                    <td class="text-sm"><a href="{% url 'policy_execution_detail' ex.id %}" class="link link-primary">View →</a></td>
                   </tr>
                 {% endfor %}
               </tbody>
