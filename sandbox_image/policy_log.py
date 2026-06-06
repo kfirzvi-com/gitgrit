@@ -5,15 +5,17 @@ A ``PolicyLogger`` is created per run and offered to the policy author (as the
 agentic process. It collects entries in memory — it never writes to stdout,
 which is reserved for the JSON result. The runtime serializes ``entries`` into
 the result so the host can persist and display them.
+
+Each entry carries a full wall-clock timestamp (UTC, ISO 8601) so the log
+reads like a timeline of when things happened.
 """
 from __future__ import annotations
 
-import time
+from datetime import datetime, timezone
 
 
 class PolicyLogger:
     def __init__(self):
-        self._t0 = time.monotonic()
         self.entries = []
 
     def _log(self, level, message):
@@ -21,7 +23,7 @@ class PolicyLogger:
             {
                 "level": level,
                 "message": str(message),
-                "t_ms": int((time.monotonic() - self._t0) * 1000),
+                "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
             }
         )
 

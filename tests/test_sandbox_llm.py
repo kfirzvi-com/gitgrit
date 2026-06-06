@@ -169,8 +169,8 @@ def test_logger_records_tools_and_verdict():
     assert any("starting evaluation" in m for m in messages)
     assert any(m.startswith("tool: list_files(") for m in messages)
     assert any("verdict passed=True" in m for m in messages)
-    # every entry is a structured record
-    assert all(set(e) >= {"level", "message", "t_ms"} for e in logger.entries)
+    # every entry is a structured record with a wall-clock timestamp
+    assert all(set(e) >= {"level", "message", "ts"} for e in logger.entries)
 
 
 def test_loop_respects_max_iterations():

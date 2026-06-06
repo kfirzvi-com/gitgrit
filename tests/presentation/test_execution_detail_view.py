@@ -34,8 +34,16 @@ class TestPolicyExecutionDetailView(TestCase):
                 "llm_usage": {"total_tokens": 123, "calls": 4},
             },
             logs=[
-                {"level": "info", "message": "tool: list_files() → 5 items", "t_ms": 12},
-                {"level": "info", "message": "llm.reasoning: verdict passed=False", "t_ms": 800},
+                {
+                    "level": "info",
+                    "message": "tool: list_files() → 5 items",
+                    "ts": "2026-06-06T15:08:01.000+00:00",
+                },
+                {
+                    "level": "info",
+                    "message": "llm.reasoning: verdict passed=False",
+                    "ts": "2026-06-06T15:08:09.000+00:00",
+                },
             ],
         )
         defaults.update(kw)
