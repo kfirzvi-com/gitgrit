@@ -17,14 +17,25 @@ a policy fails.
 from __future__ import annotations
 
 import json
+import time
 
 import litellm
 from pydantic import BaseModel
 
+try:
+    from litellm.exceptions import RateLimitError as _RateLimitError
+except Exception:  # litellm is stubbed in unit tests
+    class _RateLimitError(Exception):
+        pass
+
 # Hard guardrails. A confused model must not loop forever or run up a bill.
-# These also seed the future per-workspace token-budget feature.
+# These also seed the future per-workspace token-budget feature. The caps also
+# keep cumulative input tokens down: every call re-sends the whole conversation,
+# so reading fewer/smaller files is what keeps us under provider rate limits.
 MAX_ITERATIONS = 12  # model round-trips per evaluate()
-MAX_TOOL_CALLS = 40  # total tool executions per evaluate()
+MAX_TOOL_CALLS = 20  # total tool executions per evaluate()
+MAX_TOOL_RESULT_CHARS = 6000  # cap each tool result fed back to the model
+RATE_LIMIT_RETRIES = 3  # retry transient 429s with linear backoff
 
 _SYSTEM_PROMPT = (
     "You are evaluating a software repository against an engineering standard. "
@@ -126,6 +137,15 @@ def _summarize(value):
     return type(value).__name__
 
 
+def _truncate_for_model(value, limit=MAX_TOOL_RESULT_CHARS):
+    """Cap a tool result before sending it to the model. Large file contents
+    would otherwise accumulate in the conversation and blow provider rate
+    limits, since every call re-sends the whole history."""
+    if isinstance(value, str) and len(value) > limit:
+        return value[:limit] + f"\n…[truncated {len(value) - limit} chars]"
+    return value
+
+
 class _RoleRunner:
     """Runs the agentic loop for one role. Accumulates token usage into the
     shared ``usage`` dict owned by the parent ``LLM`` so the entrypoint can
@@ -146,13 +166,28 @@ class _RoleRunner:
             self._logger.info(message)
 
     def _complete(self, messages, **kwargs):
-        resp = litellm.completion(
-            model=self._model,
-            messages=messages,
-            api_base=self._base_url,
-            api_key=self._api_key,
-            **kwargs,
-        )
+        attempt = 0
+        while True:
+            try:
+                resp = litellm.completion(
+                    model=self._model,
+                    messages=messages,
+                    api_base=self._base_url,
+                    api_key=self._api_key,
+                    **kwargs,
+                )
+                break
+            except _RateLimitError:
+                attempt += 1
+                if attempt > RATE_LIMIT_RETRIES:
+                    raise
+                wait = 20 * attempt
+                if self._logger is not None:
+                    self._logger.warning(
+                        f"rate limited by provider; retrying in {wait}s "
+                        f"(attempt {attempt}/{RATE_LIMIT_RETRIES})"
+                    )
+                time.sleep(wait)
         u = getattr(resp, "usage", None)
         if u:
             self._usage["prompt_tokens"] += getattr(u, "prompt_tokens", 0) or 0
@@ -205,7 +240,7 @@ class _RoleRunner:
                     {
                         "role": "tool",
                         "tool_call_id": call.id,
-                        "content": json.dumps(result),
+                        "content": json.dumps(_truncate_for_model(result)),
                     }
                 )
 

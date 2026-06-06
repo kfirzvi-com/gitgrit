@@ -256,7 +256,7 @@ SANDBOX = {
     # LLM policies run an agentic loop with several model round-trips, so they
     # need a higher wall-clock and memory ceiling than deterministic ones.
     # Applied only when the run carries llm_roles config (see SandboxRunner).
-    "LLM_TIMEOUT": int(os.environ.get("SANDBOX_LLM_TIMEOUT", "120")),
+    "LLM_TIMEOUT": int(os.environ.get("SANDBOX_LLM_TIMEOUT", "240")),
     "LLM_MEMORY_LIMIT": os.environ.get("SANDBOX_LLM_MEMORY_LIMIT", "512m"),
     "NETWORK": os.environ.get("SANDBOX_NETWORK", "gitgrit-sandbox"),
     # Fall back to the public-DNS default if the env var is set but parses
