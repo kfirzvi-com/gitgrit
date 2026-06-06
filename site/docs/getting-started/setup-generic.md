@@ -16,7 +16,7 @@ In GitGrit, open **Profile → API Tokens & MCP** and click the
 
 Add a server entry pointing at:
 
-- **URL**: `https://gitgrit.dev/mcp`
+- **URL**: `https://app-staging.gitgrit.dev/mcp`
 - **Authorization header**: `Bearer YOUR_TOKEN`
 
 Streamable HTTP transport is required. The exact config shape varies by
