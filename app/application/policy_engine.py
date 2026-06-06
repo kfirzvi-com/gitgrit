@@ -179,6 +179,7 @@ class PolicyEngine:
                 execution.score = result.get("score", 0)
                 execution.message = result.get("message", "")
                 execution.details = result.get("details", {})
+                execution.logs = result.get("logs", [])
                 execution.save()
 
                 result["policy_id"] = str(policy.id)
@@ -242,6 +243,7 @@ class PolicyEngine:
             execution.score = result.get("score", 0)
             execution.message = result.get("message", "")
             execution.details = result.get("details", {})
+            execution.logs = result.get("logs", [])
             execution.save()
 
             result["policy_id"] = str(policy.id)

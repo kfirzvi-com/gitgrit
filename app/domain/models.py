@@ -507,6 +507,10 @@ class PolicyExecution(models.Model):
     score = models.IntegerField(default=0)
     message = models.TextField(blank=True, default="")
     details = models.JSONField(default=dict, blank=True)
+    # Chronological execution log (level/message/t_ms entries) captured from the
+    # sandbox — author log() calls plus the LLM agentic trace. Shown on the
+    # execution detail page to help debug why a policy failed.
+    logs = models.JSONField(default=list, blank=True)
     triggered_by = models.CharField(max_length=255, blank=True, default="")
     triggered_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
