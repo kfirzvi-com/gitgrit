@@ -9,6 +9,10 @@ back until the model returns a structured verdict.
 Security boundary: the model never sees the repo access token. It only ever
 sees tool *signatures* (JSON schemas) and tool *results*. The closure over
 ``project`` — which holds the token — is the only thing that touches the repo.
+
+The loop logs its process (role/model, each tool call, token usage, the final
+verdict) into the run's PolicyLogger so authors can see what the model did when
+a policy fails.
 """
 from __future__ import annotations
 
@@ -109,17 +113,37 @@ def make_project_tools(project):
     return tool_schemas, dispatch
 
 
+def _summarize(value):
+    """Short, log-friendly description of a tool result (never the full payload)."""
+    if value is None:
+        return "null"
+    if isinstance(value, str):
+        return f"{len(value)} chars"
+    if isinstance(value, (list, tuple)):
+        return f"{len(value)} items"
+    if isinstance(value, dict):
+        return f"{len(value)} keys"
+    return type(value).__name__
+
+
 class _RoleRunner:
     """Runs the agentic loop for one role. Accumulates token usage into the
     shared ``usage`` dict owned by the parent ``LLM`` so the entrypoint can
-    report totals regardless of how many roles a policy touches."""
+    report totals regardless of how many roles a policy touches, and records
+    its process into the optional logger."""
 
-    def __init__(self, model, base_url, api_key, project, usage):
+    def __init__(self, role_name, model, base_url, api_key, project, usage, logger):
+        self._role_name = role_name
         self._model = model
         self._base_url = base_url or None
         self._api_key = api_key or None
         self._project = project
         self._usage = usage
+        self._logger = logger
+
+    def _emit(self, message):
+        if self._logger is not None:
+            self._logger.info(message)
 
     def _complete(self, messages, **kwargs):
         resp = litellm.completion(
@@ -139,6 +163,7 @@ class _RoleRunner:
 
     def evaluate(self, instructions, response_model=PolicyVerdict):
         """Run the loop, then return a validated ``response_model`` instance."""
+        self._emit(f"llm.{self._role_name}: starting evaluation with {self._model}")
         tool_schemas, dispatch = make_project_tools(self._project)
         messages = [
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -146,11 +171,12 @@ class _RoleRunner:
         ]
 
         tool_calls_made = 0
-        for _ in range(MAX_ITERATIONS):
+        for i in range(MAX_ITERATIONS):
             resp = self._complete(messages, tools=tool_schemas, tool_choice="auto")
             msg = resp.choices[0].message
             tool_calls = getattr(msg, "tool_calls", None) or []
             if not tool_calls:
+                self._emit(f"iteration {i + 1}: model finished gathering evidence")
                 break
 
             # Record the assistant turn that requested the tools.
@@ -160,6 +186,7 @@ class _RoleRunner:
 
             for call in tool_calls:
                 if tool_calls_made >= MAX_TOOL_CALLS:
+                    self._emit(f"reached tool-call cap ({MAX_TOOL_CALLS}); stopping")
                     break
                 tool_calls_made += 1
                 name = call.function.name
@@ -172,6 +199,8 @@ class _RoleRunner:
                     result = fn(**args) if fn else f"Unknown tool: {name}"
                 except Exception as exc:  # tool errors are fed back, not fatal
                     result = f"Tool error: {exc}"
+                arg_str = ", ".join(f"{k}={v!r}" for k, v in args.items())
+                self._emit(f"tool: {name}({arg_str}) → {_summarize(result)}")
                 messages.append(
                     {
                         "role": "tool",
@@ -192,17 +221,24 @@ class _RoleRunner:
         )
         final = self._complete(messages, response_format=response_model)
         content = final.choices[0].message.content
-        return response_model.model_validate_json(content)
+        verdict = response_model.model_validate_json(content)
+        passed = getattr(verdict, "passed", None)
+        self._emit(
+            f"llm.{self._role_name}: verdict passed={passed} "
+            f"({self._usage['total_tokens']} tokens, {self._usage['calls']} calls)"
+        )
+        return verdict
 
 
 class LLM:
     """The object passed to policies as ``llm``. Roles are a fixed, static set
     — the workspace assigns a provider+model to each, but cannot add new ones."""
 
-    def __init__(self, roles_config, project):
+    def __init__(self, roles_config, project, logger=None):
         # roles_config: {"reasoning": {"model","base_url","api_key"}, "code": {...}}
         self._roles_config = roles_config or {}
         self._project = project
+        self._logger = logger
         self.usage = {
             "prompt_tokens": 0,
             "completion_tokens": 0,
@@ -218,11 +254,13 @@ class LLM:
                 f"Configure it under Workspace Settings → LLM."
             )
         return _RoleRunner(
+            name,
             cfg["model"],
             cfg.get("base_url"),
             cfg.get("api_key"),
             self._project,
             self.usage,
+            self._logger,
         )
 
     @property

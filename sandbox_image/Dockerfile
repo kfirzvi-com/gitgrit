@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir litellm
 
 COPY providers/ /providers/
 COPY project_context.py /project_context.py
+COPY policy_log.py /policy_log.py
 COPY llm.py /llm.py
 COPY entrypoint.py /entrypoint.py
 
