@@ -1,5 +1,8 @@
 from app.domain.models import (  # noqa: F401
     FeedbackReport,
+    LLMProvider,
+    LLMProviderType,
+    LLMRole,
     Membership,
     Platform,
     PlatformConnection,

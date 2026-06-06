@@ -3,6 +3,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from app.domain.models import (
     FeedbackReport,
+    LLMProvider,
+    LLMRole,
     MarketplacePack,
     MarketplacePolicy,
     Membership,
@@ -59,6 +61,27 @@ class PlatformConnectionAdmin(admin.ModelAdmin):
         if obj:
             return [f for f in fields if f != "access_token"]
         return fields
+
+
+@admin.register(LLMProvider)
+class LLMProviderAdmin(admin.ModelAdmin):
+    list_display = ("display_name", "tenant", "provider_type", "base_url", "enabled", "created_at")
+    list_filter = ("provider_type", "enabled")
+    search_fields = ("display_name", "tenant__name")
+
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        # Don't show raw api key in edit form
+        if obj:
+            return [f for f in fields if f != "api_key"]
+        return fields
+
+
+@admin.register(LLMRole)
+class LLMRoleAdmin(admin.ModelAdmin):
+    list_display = ("name", "tenant", "provider", "model", "updated_at")
+    list_filter = ("name", "tenant")
+    search_fields = ("tenant__name", "model")
 
 
 @admin.register(Project)

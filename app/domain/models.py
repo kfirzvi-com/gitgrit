@@ -97,6 +97,95 @@ class PlatformConnection(models.Model):
         super().save(*args, **kwargs)
 
 
+class LLMProviderType(models.TextChoices):
+    """Provider identifiers that map directly to LiteLLM's provider prefixes.
+
+    A configured model is handed to LiteLLM as ``f"{provider_type}/{model}"``
+    (e.g. ``anthropic/claude-opus-4``, ``litellm_proxy/qwen-coder``), so these
+    values intentionally mirror LiteLLM's provider IDs — no translation layer.
+    """
+
+    ANTHROPIC = "anthropic", "Anthropic"
+    OPENAI = "openai", "OpenAI"
+    AZURE = "azure", "Azure OpenAI"
+    BEDROCK = "bedrock", "AWS Bedrock"
+    VERTEX_AI = "vertex_ai", "Google Vertex AI"
+    GEMINI = "gemini", "Google Gemini"
+    MISTRAL = "mistral", "Mistral"
+    OLLAMA = "ollama", "Ollama"
+    LITELLM_PROXY = "litellm_proxy", "LiteLLM Proxy"
+
+
+class LLMProvider(models.Model):
+    """A workspace's LLM credential + endpoint. Mirrors PlatformConnection:
+    a tenant can have many, including several of the same type with different
+    keys. ``available_models`` is populated by discovery or manual entry."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="llm_providers",
+    )
+    provider_type = models.CharField(
+        max_length=20, choices=LLMProviderType.choices
+    )
+    display_name = models.CharField(max_length=255)
+    base_url = models.URLField(max_length=2048, blank=True, default="")
+    api_key = EncryptedCharField(max_length=1024)
+    available_models = models.JSONField(default=list, blank=True)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "llm_providers"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.display_name} ({self.provider_type})"
+
+
+class LLMRole(models.Model):
+    """Maps a fixed, code-defined role to a (provider, model) pair.
+
+    The role set is static because the sandbox ``llm`` object exposes these
+    roles as attributes in code (``llm.reasoning``, ``llm.code``). Users assign
+    a provider + model to each role; they cannot invent new roles. Adding a
+    role is a deliberate code change on both the app and sandbox sides.
+    """
+
+    class Name(models.TextChoices):
+        REASONING = "reasoning", "Reasoning"
+        CODE = "code", "Code"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="llm_roles",
+    )
+    name = models.CharField(max_length=20, choices=Name.choices)
+    provider = models.ForeignKey(
+        LLMProvider,
+        on_delete=models.CASCADE,
+        related_name="roles",
+    )
+    model = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "llm_roles"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "name"], name="unique_tenant_role"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} → {self.provider.display_name}/{self.model}"
+
+
 class Project(models.Model):
     class Lifecycle(models.TextChoices):
         DEVELOPMENT = "development", "Development"
