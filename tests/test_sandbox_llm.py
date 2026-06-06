@@ -150,6 +150,29 @@ def test_unconfigured_role_raises():
         obj.code.evaluate("nope")
 
 
+def test_logger_records_tools_and_verdict():
+    scripted = ScriptedCompletion(
+        json.dumps({"passed": True, "reason": "ok", "violations": []})
+    )
+    llm_mod = _load_llm(scripted)
+    from policy_log import PolicyLogger
+
+    logger = PolicyLogger()
+    obj = llm_mod.LLM(
+        {"reasoning": {"model": "anthropic/x", "base_url": "", "api_key": "k"}},
+        _mock_project(),
+        logger=logger,
+    )
+    obj.reasoning.evaluate("check docs")
+
+    messages = [e["message"] for e in logger.entries]
+    assert any("starting evaluation" in m for m in messages)
+    assert any(m.startswith("tool: list_files(") for m in messages)
+    assert any("verdict passed=True" in m for m in messages)
+    # every entry is a structured record
+    assert all(set(e) >= {"level", "message", "t_ms"} for e in logger.entries)
+
+
 def test_loop_respects_max_iterations():
     always = AlwaysToolCompletion()
     llm_mod = _load_llm(always)
