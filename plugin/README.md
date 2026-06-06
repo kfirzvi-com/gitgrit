@@ -7,25 +7,29 @@ A Claude Code plugin that makes your editing session aware of GitGrit's active c
 - Reminds Claude to run the enforcement check before every Edit or Write.
 - Provides `/gitgrit-status`, `/gitgrit-refresh`, `/gitgrit-check` slash commands.
 
-## Install
+## Install (local dev)
 
-The marketplace manifest lives at the repo root (`.claude-plugin/marketplace.json`) and points at this `plugin/` directory. Register the marketplace, then install:
+This directory is both a Claude Code plugin and a single-plugin marketplace. Register the marketplace, then install the plugin from it:
 
 ```bash
-# From a local checkout:
-/plugin marketplace add /absolute/path/to/gitgrit
-/plugin install gitgrit@gitgrit
-
-# From GitHub:
-/plugin marketplace add kfirzvi-com/gitgrit
+/plugin marketplace add /absolute/path/to/gitgrit/plugin
 /plugin install gitgrit@gitgrit
 ```
 
 When prompted, supply:
 - `api_token` — a workspace API token from `gitgrit.dev/settings/tokens`.
-- `api_url` — leave blank for `https://gitgrit.dev/mcp`, or set to your self-hosted MCP URL.
+- `api_url` — leave blank for `https://gitgrit.dev/mcp/`, or set to your self-hosted MCP URL.
 
 Restart the session after install so the `SessionStart` hook fires.
+
+## Install (published)
+
+Once this directory is mirrored to `kfirzvi-com/gitgrit-plugin`:
+
+```bash
+/plugin marketplace add kfirzvi-com/gitgrit-plugin
+/plugin install gitgrit@gitgrit
+```
 
 ## How it works
 
@@ -47,4 +51,11 @@ Restart the session after install so the `SessionStart` hook fires.
 
 ## Publishing
 
-This plugin lives inside the main GitGrit server repo at `plugin/` so server-side enforcement changes and plugin hook-output changes stay in sync in a single PR. The marketplace manifest at the repo root (`.claude-plugin/marketplace.json`) makes the repo itself the marketplace — no separate mirror is needed. As long as `kfirzvi-com/gitgrit` is reachable to the user, `/plugin marketplace add kfirzvi-com/gitgrit` works.
+This plugin lives inside the main GitGrit server repo at `plugin/` so server-side enforcement changes and plugin hook-output changes stay in sync in a single PR. When you're ready to publish:
+
+```bash
+# Mirror plugin/ as the root of a separate public repo:
+git subtree push --prefix=plugin origin gitgrit-plugin-main
+```
+
+Or add a release workflow that mirrors `plugin/` on tag.
