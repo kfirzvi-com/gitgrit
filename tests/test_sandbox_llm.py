@@ -115,6 +115,30 @@ def _mock_project():
     return ProjectContext(create_provider("mock", "p", None))
 
 
+def test_tools_are_derived_from_project_context():
+    # No litellm needed for schema generation, but _load_llm wires the path.
+    llm_mod = _load_llm(ScriptedCompletion("{}"))
+    schemas, dispatch = llm_mod.make_project_tools(_mock_project())
+
+    by_name = {s["function"]["name"]: s["function"] for s in schemas}
+    # Exactly the @tool-marked ProjectContext methods are exposed.
+    assert set(by_name) == {
+        "get_file_content",
+        "list_files",
+        "get_languages",
+        "get_metadata",
+    }
+    assert set(dispatch) == set(by_name)
+    # Description comes from the method docstring; params from type hints.
+    assert by_name["list_files"]["description"].startswith("List every file path")
+    path_param = by_name["get_file_content"]["parameters"]
+    assert path_param["properties"]["path"]["type"] == "string"
+    assert path_param["properties"]["path"]["description"]  # from Annotated
+    assert path_param["required"] == ["path"]
+    # Dispatch actually calls through to the project.
+    assert isinstance(dispatch["list_files"](), list)
+
+
 def test_loop_runs_tools_and_returns_structured_verdict():
     scripted = ScriptedCompletion(
         json.dumps({"passed": True, "reason": "Docs are clear", "violations": []})

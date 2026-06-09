@@ -16,6 +16,7 @@ a policy fails.
 """
 from __future__ import annotations
 
+import inspect
 import json
 import time
 
@@ -58,70 +59,88 @@ class LLMRoleNotConfigured(RuntimeError):
     """Raised when a policy uses a role the workspace hasn't configured."""
 
 
-def make_project_tools(project):
-    """Return ``(tool_schemas, dispatch)`` bound to a ``ProjectContext``.
+_PY_TO_JSON = {
+    str: "string",
+    int: "integer",
+    float: "number",
+    bool: "boolean",
+    list: "array",
+    dict: "object",
+}
 
-    ``tool_schemas`` is the OpenAI-style function list handed to the model;
-    ``dispatch`` maps tool name → a callable closed over ``project``. The model
+
+def _annotation_info(annotation):
+    """Return (json_type, description|None) for a parameter annotation.
+
+    Understands ``typing.Annotated[T, "description"]`` and unwraps optionals /
+    unions (``T | None``) to their first concrete type."""
+    description = None
+    if hasattr(annotation, "__metadata__"):  # typing.Annotated[T, "desc"]
+        description = str(annotation.__metadata__[0])
+        annotation = annotation.__origin__
+    if annotation is inspect.Parameter.empty:
+        return "string", description
+    args = getattr(annotation, "__args__", None)
+    if args:  # e.g. str | None -> str
+        annotation = next((a for a in args if a is not type(None)), str)
+    return _PY_TO_JSON.get(annotation, "string"), description
+
+
+def _tool_schema(name, method):
+    """Build an OpenAI-style function schema from a ProjectContext method's
+    signature and docstring."""
+    properties = {}
+    required = []
+    for pname, param in inspect.signature(method).parameters.items():
+        if pname == "self":
+            continue
+        json_type, description = _annotation_info(param.annotation)
+        prop = {"type": json_type}
+        if description:
+            prop["description"] = description
+        properties[pname] = prop
+        if param.default is inspect.Parameter.empty:
+            required.append(pname)
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": (inspect.getdoc(method) or "").strip(),
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            },
+        },
+    }
+
+
+def _make_caller(method):
+    """Wrap a bound method so it ignores any kwargs the model invents."""
+    valid = {p for p in inspect.signature(method).parameters if p != "self"}
+
+    def call(**kwargs):
+        return method(**{k: v for k, v in kwargs.items() if k in valid})
+
+    return call
+
+
+def make_project_tools(project):
+    """Return ``(tool_schemas, dispatch)`` derived from the ``@tool``-marked
+    methods on ``project`` (a ProjectContext).
+
+    The schemas are generated from each method's signature + docstring, so the
+    tool set is always in sync with ProjectContext — adding a documented,
+    ``@tool``-marked method is all it takes to expose a new tool. The model
     sees only the schemas, never ``project`` or its token.
     """
-    tool_schemas = [
-        {
-            "type": "function",
-            "function": {
-                "name": "list_files",
-                "description": "List every file path in the repository.",
-                "parameters": {"type": "object", "properties": {}, "required": []},
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_file_content",
-                "description": (
-                    "Read the full contents of a file. Returns null if the file "
-                    "does not exist."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Repository-relative file path.",
-                        }
-                    },
-                    "required": ["path"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_languages",
-                "description": "Return detected languages and their percentages.",
-                "parameters": {"type": "object", "properties": {}, "required": []},
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_metadata",
-                "description": (
-                    "Return repository metadata (name, description, default "
-                    "branch, topics, etc.)."
-                ),
-                "parameters": {"type": "object", "properties": {}, "required": []},
-            },
-        },
-    ]
-
-    dispatch = {
-        "list_files": lambda **_: project.list_files(),
-        "get_file_content": lambda path, **_: project.get_file_content(path),
-        "get_languages": lambda **_: project.get_languages(),
-        "get_metadata": lambda **_: project.get_metadata(),
-    }
-    return tool_schemas, dispatch
+    schemas = []
+    dispatch = {}
+    for name, member in inspect.getmembers(project, predicate=callable):
+        if getattr(member, "__llm_tool__", False):
+            schemas.append(_tool_schema(name, member))
+            dispatch[name] = _make_caller(member)
+    return schemas, dispatch
 
 
 def _summarize(value):
