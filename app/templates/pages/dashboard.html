@@ -6,51 +6,87 @@
 {% block extra_head %}
   <link href="{% static 'app/vendor/xyflow-react.css' %}" rel="stylesheet" type="text/css" />
   <link href="{% static 'app/architecture.css' %}" rel="stylesheet" type="text/css" />
+  <style>
+    /* Centered, half-width-by-default dashboard column (Basecamp-style),
+       widened to full via the expand toggle. */
+    .gg-dashboard-narrow { margin-inline: auto; }
+    #dashboard-panel { transition: max-width 0.25s ease; }
+    @media (min-width: 1024px) {
+      .gg-dashboard-narrow { max-width: 50%; }
+      #dashboard-panel.is-expanded { max-width: 100%; }
+    }
+    .gg-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  </style>
 {% endblock %}
 
 {% block content %}
-<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
-  <div>
-    <h1 class="text-3xl font-bold">Dashboard</h1>
-    <p class="text-sm opacity-60 mt-1">Workspace architecture — stacks and their dependencies.</p>
-  </div>
-  <div class="flex items-center gap-5">
-    <div class="text-center">
-      <div class="text-xs opacity-60 uppercase tracking-wide">Stacks</div>
-      <div class="text-2xl font-bold text-primary">{{ stack_count }}</div>
-    </div>
-    <div class="text-center">
-      <div class="text-xs opacity-60 uppercase tracking-wide">Projects</div>
-      <div class="text-2xl font-bold text-secondary">{{ project_count }}</div>
-    </div>
-    <div class="text-center">
-      <div class="text-xs opacity-60 uppercase tracking-wide">Policies</div>
-      <div class="text-2xl font-bold">{{ policy_count }}</div>
-    </div>
-    <div class="text-center">
-      <div class="text-xs opacity-60 uppercase tracking-wide">Compliance</div>
-      {% if compliance_score is not None %}
-        <div class="text-2xl font-bold {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ compliance_score }}%</div>
-      {% else %}
-        <div class="text-2xl font-bold opacity-50">&mdash;</div>
-      {% endif %}
-    </div>
+<div class="gg-dashboard-narrow text-center mb-6">
+  <h1 class="text-3xl font-bold">Welcome, {{ user.first_name|default:user.username|capfirst }}</h1>
+  <p class="text-sm opacity-60 mt-1 mb-4">Here's your workspace architecture — stacks and the dependencies between them.</p>
+  <div class="gg-quick-actions">
+    <a href="{% url 'add_project_select' %}" class="btn btn-sm btn-primary gap-1">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+      Add project
+    </a>
+    <a href="{% url 'create_stack' %}" class="btn btn-sm">Create stack</a>
+    <a href="{% url 'create_policy' %}" class="btn btn-sm">Create policy</a>
+    <a href="{% url 'marketplace_browse' %}" class="btn btn-sm">Browse marketplace</a>
   </div>
 </div>
 
 {% if is_admin and not has_connections %}
-<div class="alert alert-info mb-6">
+<div class="gg-dashboard-narrow alert alert-info mb-6">
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
   <span>No git platforms configured yet. <a href="{% url 'tenant_settings' %}" class="link link-primary font-semibold">Add a connection</a> in workspace settings so members can start adding projects.</span>
 </div>
 {% endif %}
 
 {% if stack_count > 0 %}
-  <div class="card bg-base-100 shadow-xl">
+  <div id="dashboard-panel" class="gg-dashboard-narrow card bg-base-100 shadow-xl">
     <div class="card-body p-2 sm:p-3">
+      <div class="flex items-center justify-between gap-3 mb-1 px-1">
+        <div class="text-xs opacity-70 flex flex-wrap gap-x-3 gap-y-1">
+          <span><b>{{ stack_count }}</b> stacks</span>
+          <span><b>{{ project_count }}</b> projects</span>
+          <span><b>{{ policy_count }}</b> policies</span>
+          {% if compliance_score is not None %}
+            <span class="{% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}"><b>{{ compliance_score }}%</b> compliance</span>
+          {% endif %}
+        </div>
+        <button id="dashboard-expand" type="button" class="btn btn-ghost btn-xs btn-square" title="Expand" aria-label="Expand diagram" aria-pressed="false">
+          <svg class="gg-expand-icon w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" /></svg>
+          <svg class="gg-collapse-icon w-4 h-4 stroke-current hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3" /></svg>
+        </button>
+      </div>
       <div id="architecture-flow"></div>
     </div>
   </div>
+
+  <script>
+  // Expand / collapse the dashboard panel; persist the choice.
+  (function () {
+    var panel = document.getElementById("dashboard-panel");
+    var btn = document.getElementById("dashboard-expand");
+    var KEY = "gg-dashboard-expanded";
+    function apply(expanded) {
+      panel.classList.toggle("is-expanded", expanded);
+      btn.setAttribute("aria-pressed", expanded ? "true" : "false");
+      btn.setAttribute("title", expanded ? "Collapse" : "Expand");
+      btn.querySelector(".gg-expand-icon").classList.toggle("hidden", expanded);
+      btn.querySelector(".gg-collapse-icon").classList.toggle("hidden", !expanded);
+    }
+    var saved = false;
+    try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+    apply(saved); // before the diagram mounts, so it fits the right width
+    btn.addEventListener("click", function () {
+      var now = !panel.classList.contains("is-expanded");
+      apply(now);
+      try { localStorage.setItem(KEY, now ? "1" : "0"); } catch (e) {}
+      // Re-fit after the width transition settles.
+      if (window.GitGritFlow) setTimeout(function () { GitGritFlow.refit(); }, 280);
+    });
+  })();
+  </script>
 
   <script id="architecture-data" type="application/json">{{ architecture_data|safe }}</script>
 
@@ -61,7 +97,7 @@
   <script src="{% static 'app/flow-common.js' %}"></script>
   <script src="{% static 'app/architecture-diagram.js' %}"></script>
 {% else %}
-  <div class="card bg-base-100 shadow-xl">
+  <div class="gg-dashboard-narrow card bg-base-100 shadow-xl">
     <div class="card-body items-center text-center py-16">
       <p class="text-4xl mb-3">&#129521;</p>
       <h2 class="card-title">No stacks yet</h2>

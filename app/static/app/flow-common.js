@@ -13,6 +13,13 @@ window.GitGritFlow = (function () {
     return !!(window.React && window.ReactDOM && window.ReactFlow);
   }
 
+  // Last-mounted React Flow instance, captured via onInit so callers can
+  // re-fit the view after the container is resized (e.g. expand/collapse).
+  var _instance = null;
+  function refit(opts) {
+    if (_instance) _instance.fitView(opts || { padding: 0.2 });
+  }
+
   // Health colour codes — single source of truth for node stripes (via the
   // --gg-health custom property) and legend swatches. Kept in step with the
   // levels in app/presentation/health.py.
@@ -152,6 +159,9 @@ window.GitGritFlow = (function () {
           minZoom: 0.15,
           maxZoom: 2,
           proOptions: { hideAttribution: true },
+          onInit: function (inst) {
+            _instance = inst;
+          },
           nodesDraggable: false,
           nodesConnectable: false,
           elementsSelectable: false,
@@ -260,6 +270,7 @@ window.GitGritFlow = (function () {
 
   return {
     ready: ready,
+    refit: refit,
     scoreBadgeClass: scoreBadgeClass,
     HEALTH_COLOR: HEALTH_COLOR,
     HEALTH_LABEL: HEALTH_LABEL,
