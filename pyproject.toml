@@ -19,6 +19,8 @@ dependencies = [
     "whitenoise>=6.0",
     "mcp>=1.0",
     "uvicorn>=0.30",
+    "procrastinate[django]>=3.8.1",
+    "litellm>=1.88.1",
 ]
 
 [dependency-groups]

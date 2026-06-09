@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.gitlab",
     "allauth.socialaccount.providers.google",
     "django_htmx",
+    "procrastinate.contrib.django",
     "app",
 ]
 
