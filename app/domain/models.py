@@ -292,6 +292,138 @@ class ProjectStack(models.Model):
         return f"{self.project} — {self.stack}"
 
 
+class StackDependency(models.Model):
+    """A directed dependency between two stacks in a workspace.
+
+    Renders as an edge in the dashboard architecture diagram (source depends
+    on target). These are populated/maintained by an LLM as stacks and
+    projects change; the optional ``label`` is the edge caption (e.g.
+    "REST", "events", "shared DB").
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="stack_dependencies",
+    )
+    source = models.ForeignKey(
+        Stack,
+        on_delete=models.CASCADE,
+        related_name="dependencies_out",
+    )
+    target = models.ForeignKey(
+        Stack,
+        on_delete=models.CASCADE,
+        related_name="dependencies_in",
+    )
+    label = models.CharField(max_length=255, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "stack_dependencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "target"], name="unique_stack_dependency"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(source=models.F("target")),
+                name="stack_dependency_no_self_loop",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.source} → {self.target}"
+
+
+class ProjectDependency(models.Model):
+    """A directed dependency between two projects in a workspace.
+
+    Renders as an edge in the per-stack architecture diagram (source depends
+    on target). When the two projects live in different stacks the edge
+    crosses a stack boundary — that's how the stack view surfaces which of a
+    stack's projects are public-facing (consumed from outside) and which
+    reach out to projects in other stacks. Maintained by an LLM as projects
+    change; ``label`` is the optional edge caption.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="project_dependencies",
+    )
+    source = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="dependencies_out",
+    )
+    target = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="dependencies_in",
+    )
+    label = models.CharField(max_length=255, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "project_dependencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "target"], name="unique_project_dependency"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(source=models.F("target")),
+                name="project_dependency_no_self_loop",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.source} → {self.target}"
+
+
+class ExternalDependency(models.Model):
+    """A project's dependency on a third-party app outside the workspace.
+
+    Unlike ProjectDependency (which links two workspace projects), the target
+    here is an external service the project integrates with (e.g. Stripe,
+    Auth0, an external API). Rendered as third-party boundary nodes in the
+    stack architecture diagram. Maintained by an LLM as projects change.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="external_dependencies",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="external_dependencies",
+    )
+    name = models.CharField(max_length=255)
+    url = models.URLField(max_length=2048, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "external_dependencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"], name="unique_external_dependency"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project} → {self.name}"
+
+
 class APIToken(models.Model):
     class ClientKind(models.TextChoices):
         CLAUDE = "claude", "Claude Code / Desktop"
