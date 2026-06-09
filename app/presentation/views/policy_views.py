@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from app.application.policy_service import create_policy_version
-from app.domain.models import Policy, PolicyLabel, PolicyVersion
+from app.domain.models import Policy, PolicyExecution, PolicyLabel, PolicyVersion
 from app.domain.policy_validator import validate_policy_code
 from app.infrastructure.sandbox.runner import SandboxRunner
 
@@ -96,6 +96,22 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
                 )
                 labels.append(label)
         self.object.labels.set(labels)
+
+
+class PolicyExecutionDetailView(LoginRequiredMixin, DetailView):
+    """Full detail of a single policy execution — message, violations, token
+    usage, and the chronological execution log — for debugging failures."""
+
+    template_name = "pages/policy_execution_detail.html"
+    context_object_name = "execution"
+
+    def get_queryset(self):
+        tenant = self.request.tenant
+        if not tenant:
+            return PolicyExecution.objects.none()
+        return PolicyExecution.objects.filter(
+            project__tenant=tenant
+        ).select_related("project", "policy")
 
 
 class PolicyDetailView(LoginRequiredMixin, DetailView):
@@ -300,6 +316,15 @@ def run_policy_test(request):
         "access_token": None,
         "mock_data": mock_data,
     }
+
+    # Make LLM policies testable in the editor: attach the workspace's roles so
+    # evaluate(project, llm) runs against the mock repo just like a real run.
+    if request.tenant:
+        from app.application.policy_engine import resolve_llm_roles
+
+        llm_roles = resolve_llm_roles(request.tenant)
+        if llm_roles:
+            input_config["llm_roles"] = llm_roles
 
     runner = SandboxRunner()
     result = runner.run(code, input_config)

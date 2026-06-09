@@ -412,6 +412,232 @@
     </div>
   {% endif %}
 
+  {# ---------- LLM providers & roles ---------- #}
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+      <h2 class="card-title">LLM Providers</h2>
+      <p class="text-sm opacity-70 -mt-1 mb-2">Bring your own model. Add an API
+        key per provider; models are auto-detected where supported.</p>
+      {% if llm_providers %}
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Base URL</th>
+                <th>Models</th>
+                <th>Status</th>
+                {% if is_admin %}<th></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for provider in llm_providers %}
+                <tr>
+                  <td>{{ provider.display_name }}</td>
+                  <td><span class="badge badge-neutral">{{ provider.get_provider_type_display }}</span></td>
+                  <td class="text-sm opacity-70">{{ provider.base_url|default:"(default)" }}</td>
+                  <td>
+                    <span id="llm-models-{{ provider.id }}">
+                      {% if is_admin %}
+                        <button class="btn btn-ghost btn-xs"
+                                hx-post="{% url 'fetch_llm_models' provider.id %}"
+                                hx-target="#llm-models-{{ provider.id }}"
+                                hx-swap="innerHTML">
+                          {{ provider.available_models|length }} — fetch
+                        </button>
+                      {% else %}
+                        {{ provider.available_models|length }}
+                      {% endif %}
+                    </span>
+                  </td>
+                  <td>
+                    <span id="llm-status-{{ provider.id }}">
+                      <button class="btn btn-ghost btn-xs"
+                              hx-post="{% url 'test_llm_provider' provider.id %}"
+                              hx-target="#llm-status-{{ provider.id }}"
+                              hx-swap="innerHTML">
+                        Test
+                      </button>
+                    </span>
+                  </td>
+                  {% if is_admin %}
+                    <td class="flex gap-1">
+                      <button class="btn btn-ghost btn-xs"
+                              onclick="openEditProviderModal('{{ provider.id }}', '{{ provider.display_name|escapejs }}', '{{ provider.base_url|escapejs }}')">
+                        Edit
+                      </button>
+                      <form method="post" action="{% url 'remove_llm_provider' provider.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs text-error"
+                                onclick="return confirm('Remove {{ provider.display_name|escapejs }}? Roles using it will be unset.')">
+                          Remove
+                        </button>
+                      </form>
+                    </td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-sm opacity-70">No LLM providers configured yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if is_admin %}
+    {{ llm_provider_models_map|json_script:"llm-provider-models" }}
+
+    {# Roles #}
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title">LLM Roles</h2>
+        <p class="text-sm opacity-70 -mt-1 mb-2">Point each role at a provider and
+          model. Policies use roles (e.g. <code>llm.reasoning</code>), never a
+          provider directly.</p>
+        <div class="space-y-3">
+          {% for role in llm_role_rows %}
+            <form method="post" action="{% url 'set_llm_role' role.name %}"
+                  class="flex flex-col sm:flex-row gap-3 sm:items-center">
+              {% csrf_token %}
+              <span class="badge badge-primary w-28 justify-start">{{ role.label }}</span>
+              <select name="provider_id" id="llm-provider-{{ role.name }}"
+                      data-role-provider="{{ role.name }}"
+                      class="select select-bordered flex-1">
+                <option value="">— None —</option>
+                {% for provider in llm_providers %}
+                  <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
+                    {{ provider.display_name }}
+                  </option>
+                {% endfor %}
+              </select>
+              <select name="model" id="llm-model-{{ role.name }}"
+                      data-current-model="{{ role.model }}"
+                      class="select select-bordered flex-1"></select>
+              <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# Edit provider modal #}
+    <dialog id="edit-provider-modal" class="modal">
+      <div class="modal-box">
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">X</button>
+        </form>
+        <h3 class="font-bold text-lg mb-4">Edit Provider — <span id="edit-provider-name"></span></h3>
+        <form method="post" id="edit-provider-form" class="space-y-3">
+          {% csrf_token %}
+          <label class="label"><span class="label-text text-sm">Display name</span></label>
+          <input type="text" name="display_name" id="edit-provider-display"
+                 class="input input-bordered w-full">
+          <label class="label"><span class="label-text text-sm">Base URL (blank for default)</span></label>
+          <input type="text" name="base_url" id="edit-provider-baseurl"
+                 class="input input-bordered w-full" placeholder="https://...">
+          <label class="label"><span class="label-text text-sm">New API key (leave blank to keep)</span></label>
+          <input type="password" name="api_key" placeholder="New API key"
+                 class="input input-bordered w-full">
+          <label class="label"><span class="label-text text-sm">Models (one per line — overrides auto-detection)</span></label>
+          <textarea name="models" rows="4" placeholder="claude-opus-4&#10;claude-sonnet-4"
+                    class="textarea textarea-bordered w-full font-mono text-sm"></textarea>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    {# Add provider #}
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Add LLM Provider</h2>
+        <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
+          {% csrf_token %}
+          <div class="flex flex-col sm:flex-row gap-3">
+            <select name="provider_type" class="select select-bordered" required>
+              <option value="" disabled selected>Provider type</option>
+              {% for value, label in llm_provider_types %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="display_name" placeholder="Display name (optional)"
+                   class="input input-bordered flex-1">
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="text" name="base_url"
+                   placeholder="Base URL (required for LiteLLM Proxy / Ollama; blank for hosted)"
+                   class="input input-bordered flex-1">
+            <input type="password" name="api_key" required placeholder="API key"
+                   class="input input-bordered flex-1">
+          </div>
+          <button type="submit" class="btn btn-primary">Add Provider</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function openEditProviderModal(providerId, displayName, baseUrl) {
+        document.getElementById('edit-provider-name').textContent = displayName;
+        document.getElementById('edit-provider-display').value = displayName;
+        document.getElementById('edit-provider-baseurl').value = baseUrl;
+        document.getElementById('edit-provider-form').action =
+          '/tenants/llm/providers/' + providerId + '/edit/';
+        document.getElementById('edit-provider-modal').showModal();
+      }
+
+      (function () {
+        var mapEl = document.getElementById('llm-provider-models');
+        var modelsMap = mapEl ? JSON.parse(mapEl.textContent) : {};
+
+        function populate(roleName) {
+          var ps = document.getElementById('llm-provider-' + roleName);
+          var ms = document.getElementById('llm-model-' + roleName);
+          if (!ps || !ms) return;
+          var pid = ps.value;
+          var current = ms.getAttribute('data-current-model') || '';
+          ms.innerHTML = '';
+          if (!pid) {
+            var none = document.createElement('option');
+            none.value = '';
+            none.textContent = '— select a provider —';
+            ms.appendChild(none);
+            ms.disabled = true;
+            return;
+          }
+          ms.disabled = false;
+          var models = modelsMap[pid] || [];
+          if (models.length === 0) {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = 'No models — edit provider to add';
+            ms.appendChild(empty);
+            return;
+          }
+          models.forEach(function (m) {
+            var o = document.createElement('option');
+            o.value = m;
+            o.textContent = m;
+            if (m === current) o.selected = true;
+            ms.appendChild(o);
+          });
+        }
+
+        document.querySelectorAll('[data-role-provider]').forEach(function (ps) {
+          var roleName = ps.getAttribute('data-role-provider');
+          populate(roleName);
+          ps.addEventListener('change', function () {
+            var ms = document.getElementById('llm-model-' + roleName);
+            if (ms) ms.setAttribute('data-current-model', '');
+            populate(roleName);
+          });
+        });
+      })();
+    </script>
+  {% endif %}
+
 {% else %}
   <div class="text-center py-12">
     <h1 class="text-3xl font-bold mb-4">No Workspace</h1>

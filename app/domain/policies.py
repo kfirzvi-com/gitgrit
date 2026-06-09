@@ -67,4 +67,31 @@ def evaluate(project):
     }
 """,
     },
+    {
+        # LLM-based policy: takes a second `llm` argument and evaluates a
+        # subjective standard. Requires a workspace LLM provider + the
+        # `reasoning` role configured under Workspace Settings → LLM.
+        # `PolicyVerdict` is injected into scope by the sandbox runtime.
+        "id": "llm_documentation_quality",
+        "name": "Documentation Quality (LLM)",
+        "events": ["push"],
+        "code": """\
+def evaluate(project, llm):
+    verdict = llm.reasoning.evaluate(
+        instructions=(
+            "Assess whether this repository's documentation is genuinely useful "
+            "to a new contributor. Inspect the README and any docs yourself. "
+            "A repo passes only if a newcomer could set it up and contribute "
+            "without asking the team. List concrete gaps as violations."
+        ),
+        response_model=PolicyVerdict,
+    )
+    return {
+        "passed": verdict.passed,
+        "score": 100 if verdict.passed else 0,
+        "message": verdict.reason,
+        "details": {"violations": verdict.violations},
+    }
+""",
+    },
 ]
