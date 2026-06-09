@@ -195,6 +195,15 @@ class Project(models.Model):
         DEPRECATED = "deprecated", "Deprecated"
         ARCHIVED = "archived", "Archived"
 
+    class DepsStatus(models.TextChoices):
+        """State of the LLM dependency-inference run for this project."""
+
+        NONE = "none", "Not analyzed"
+        PENDING = "pending", "Queued"
+        RUNNING = "running", "Analyzing"
+        OK = "ok", "Analyzed"
+        FAILED = "failed", "Failed"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
         Tenant,
@@ -223,6 +232,14 @@ class Project(models.Model):
     owner = models.CharField(max_length=255, blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
+    # LLM dependency-inference status (drives the dashboard "regenerating…" hint).
+    deps_status = models.CharField(
+        max_length=10,
+        choices=DepsStatus.choices,
+        default=DepsStatus.NONE,
+    )
+    deps_analyzed_at = models.DateTimeField(null=True, blank=True)
+    deps_error = models.TextField(blank=True, default="")
     stacks = models.ManyToManyField(
         "Stack",
         through="ProjectStack",
