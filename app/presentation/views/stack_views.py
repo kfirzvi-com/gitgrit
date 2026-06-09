@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -7,6 +9,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
 from app.domain.models import Project, ProjectStack, Stack
+from app.presentation.architecture import latest_scores_by_project, stack_graph
 
 
 class StackListView(LoginRequiredMixin, ListView):
@@ -54,14 +57,17 @@ class StackDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         stack = self.object
-        context["stack_projects"] = Project.objects.filter(
+        stack_projects = Project.objects.filter(
             tenant=stack.tenant, stacks=stack
         ).select_related("platform_connection")
+        context["stack_projects"] = stack_projects
         context["available_projects"] = (
             Project.objects.filter(tenant=stack.tenant)
             .exclude(stacks=stack)
             .order_by("name")
         )
+        latest = latest_scores_by_project(stack.tenant)
+        context["architecture_data"] = json.dumps(stack_graph(stack, latest))
         return context
 
 
