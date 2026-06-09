@@ -30,8 +30,10 @@ from app.domain.models import (
 )
 from app.presentation.health import (
     CRITICAL,
+    HEALTHY,
     HEALTHY_MIN,
     WARNING,
+    level_from_score,
     project_level,
     stack_level,
 )
@@ -66,6 +68,57 @@ def _project_score(project_id, latest):
     if not results:
         return None
     return round(sum(r["score"] for r in results.values()) / len(results))
+
+
+def attention_items(tenant, limit=12):
+    """Current policy results that need attention, worst-first.
+
+    The latest result per (project, policy) that is needs-attention/critical by
+    score or failed/errored. Used by the dashboard's side timeline to point
+    leaders straight at what to fix, with a link to each execution's detail.
+    """
+    executions = (
+        PolicyExecution.objects.filter(project__tenant=tenant)
+        .select_related("project", "policy")
+        .order_by("-created_at")[:500]
+    )
+
+    seen = set()
+    items = []
+    for ex in executions:
+        key = (ex.project_id, ex.policy_id or ex.policy_name)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        level = level_from_score(ex.score)
+        failed = ex.status in ("failed", "error")
+        if level == HEALTHY and not failed:
+            continue
+        if level == HEALTHY:  # failed/errored but scored OK — still flag it
+            level = WARNING
+
+        items.append(
+            {
+                "level": level,
+                "project_name": ex.project.name,
+                "project_url": reverse("project_detail", args=[ex.project_id]),
+                "policy_name": ex.policy_name,
+                "policy_url": (
+                    reverse("policy_detail", args=[ex.policy_id])
+                    if ex.policy_id
+                    else ""
+                ),
+                "score": ex.score,
+                "status": ex.get_status_display(),
+                "url": reverse("policy_execution_detail", args=[ex.id]),
+                "when": ex.created_at,
+            }
+        )
+
+    rank = {CRITICAL: 2, WARNING: 1}
+    items.sort(key=lambda i: (rank.get(i["level"], 0), i["when"]), reverse=True)
+    return items[:limit]
 
 
 def _project_issues(project_id, latest):

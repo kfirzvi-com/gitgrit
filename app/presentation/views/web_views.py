@@ -5,7 +5,11 @@ from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
 from app.domain.models import Membership, PlatformConnection, Policy, Project, Stack
-from app.presentation.architecture import latest_scores_by_project, workspace_graph
+from app.presentation.architecture import (
+    attention_items,
+    latest_scores_by_project,
+    workspace_graph,
+)
 
 
 class HomeView(TemplateView):
@@ -51,6 +55,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 round(sum(all_scores) / len(all_scores)) if all_scores else None
             )
             context["architecture_data"] = json.dumps(workspace_graph(tenant, latest))
+            context["attention_items"] = attention_items(tenant)
         else:
             context["project_count"] = 0
             context["policy_count"] = 0
@@ -59,4 +64,5 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["architecture_data"] = json.dumps(
                 {"stacks": [], "dependencies": []}
             )
+            context["attention_items"] = []
         return context

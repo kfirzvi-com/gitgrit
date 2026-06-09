@@ -11,9 +11,25 @@
        widened to full via the expand toggle. */
     .gg-dashboard-narrow { margin-inline: auto; }
     #dashboard-panel { transition: max-width 0.25s ease; }
+    .gg-dashboard-body { position: relative; }
+    /* Needs-attention panel: stacks below on small screens; sits in the right
+       gutter beside the collapsed diagram on large screens; hidden when the
+       diagram is expanded (no room). */
+    .gg-attention { margin-top: 1.5rem; }
     @media (min-width: 1024px) {
       .gg-dashboard-narrow { max-width: 50%; }
       #dashboard-panel.is-expanded { max-width: 100%; }
+      .gg-attention {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 22%;
+        max-width: 360px;
+        margin-top: 0;
+        max-height: clamp(520px, calc(100vh - 320px), 900px);
+        overflow: auto;
+      }
+      #dashboard-panel.is-expanded ~ .gg-attention { display: none; }
     }
     .gg-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   </style>
@@ -42,6 +58,7 @@
 {% endif %}
 
 {% if stack_count > 0 %}
+  <div class="gg-dashboard-body">
   <div id="dashboard-panel" class="gg-dashboard-narrow card bg-base-100 shadow-xl">
     <div class="card-body p-2 sm:p-3">
       <div class="flex items-center justify-between gap-3 mb-1 px-1">
@@ -60,6 +77,37 @@
       </div>
       <div id="architecture-flow"></div>
     </div>
+  </div>
+
+  <aside class="gg-attention card bg-base-100 shadow-xl">
+    <div class="card-body p-4">
+      <h2 class="card-title text-base flex items-center gap-2">
+        Needs attention
+        {% if attention_items %}<span class="badge badge-error badge-sm">{{ attention_items|length }}</span>{% endif %}
+      </h2>
+      {% if attention_items %}
+        <ol class="gg-timeline mt-1">
+          {% for item in attention_items %}
+            <li class="gg-timeline__item gg-health-{{ item.level }}">
+              <a href="{{ item.url }}" class="gg-timeline__link">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-sm font-medium truncate">{{ item.policy_name }}</span>
+                  <span class="badge badge-sm shrink-0 {% if item.level == 'critical' %}badge-error{% else %}badge-warning{% endif %}">{{ item.score }}%</span>
+                </div>
+                <div class="text-xs opacity-70 truncate">{{ item.project_name }}</div>
+                <div class="text-xs opacity-50">{{ item.status }} &middot; {{ item.when|timesince }} ago</div>
+              </a>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <div class="text-center py-6">
+          <p class="text-2xl mb-1">&#9989;</p>
+          <p class="text-sm opacity-70">All clear — nothing needs attention.</p>
+        </div>
+      {% endif %}
+    </div>
+  </aside>
   </div>
 
   <script>

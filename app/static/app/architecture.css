@@ -23,6 +23,14 @@
   font-family: var(--gg-font-sans);
 }
 
+/* Health colour codes as CSS vars, for elements coloured in templates
+   (e.g. the attention timeline). Kept in step with flow-common.js HEALTH_COLOR
+   and app/presentation/health.py. Diagram nodes set --gg-health inline. */
+.gg-health-healthy { --gg-health: #34d399; }
+.gg-health-warning { --gg-health: #fbbf24; }
+.gg-health-critical { --gg-health: #f87171; }
+.gg-health-unknown { --gg-health: #64748b; }
+
 /* Left health stripe — colour set per node via the --gg-health custom
    property (see flow-common.js healthProps). Independent of the node border
    so the hover highlight doesn't hide it. */
@@ -221,4 +229,52 @@
 .gg-flow-tooltip__list li {
   line-height: 1.3;
   opacity: 0.85;
+}
+
+/* Needs-attention timeline (dashboard side panel) */
+.gg-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gg-timeline__item {
+  position: relative;
+  padding-left: 18px;
+  padding-bottom: 12px;
+}
+.gg-timeline__item::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gg-health, var(--gg-border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--gg-health, transparent) 22%, transparent);
+}
+.gg-timeline__item::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 16px;
+  bottom: 0;
+  width: 1px;
+  background: var(--gg-border);
+}
+.gg-timeline__item:last-child {
+  padding-bottom: 0;
+}
+.gg-timeline__item:last-child::after {
+  display: none;
+}
+.gg-timeline__link {
+  display: block;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background 0.12s ease;
+}
+.gg-timeline__link:hover {
+  background: var(--gg-bg-200);
 }
