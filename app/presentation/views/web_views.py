@@ -55,7 +55,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 round(sum(all_scores) / len(all_scores)) if all_scores else None
             )
             context["architecture_data"] = json.dumps(workspace_graph(tenant, latest))
-            context["attention_items"] = attention_items(tenant)
+            attention = attention_items(tenant)
+            context["attention_items"] = attention
+            context["attention_total"] = len(attention)
         else:
             context["project_count"] = 0
             context["policy_count"] = 0
@@ -65,4 +67,5 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 {"stacks": [], "dependencies": []}
             )
             context["attention_items"] = []
+            context["attention_more"] = 0
         return context

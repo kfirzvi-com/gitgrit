@@ -44,9 +44,9 @@
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
       Add project
     </a>
-    <a href="{% url 'create_stack' %}" class="btn btn-sm">Create stack</a>
-    <a href="{% url 'create_policy' %}" class="btn btn-sm">Create policy</a>
-    <a href="{% url 'marketplace_browse' %}" class="btn btn-sm">Browse marketplace</a>
+    <a href="{% url 'create_stack' %}" class="btn btn-sm btn-ghost">Create stack</a>
+    <a href="{% url 'create_policy' %}" class="btn btn-sm btn-ghost">Create policy</a>
+    <a href="{% url 'marketplace_browse' %}" class="btn btn-sm btn-ghost">Browse marketplace</a>
   </div>
 </div>
 
@@ -62,7 +62,7 @@
   <div id="dashboard-panel" class="gg-dashboard-narrow card bg-base-100 shadow-xl">
     <div class="card-body p-2 sm:p-3">
       <div class="flex items-center justify-between gap-3 mb-1 px-1">
-        <div class="text-xs opacity-70 flex flex-wrap gap-x-3 gap-y-1">
+        <div class="text-xs opacity-60 flex flex-wrap gap-x-3 gap-y-1">
           <span><b>{{ stack_count }}</b> stacks</span>
           <span><b>{{ project_count }}</b> projects</span>
           <span><b>{{ policy_count }}</b> policies</span>
@@ -79,34 +79,33 @@
     </div>
   </div>
 
-  <aside class="gg-attention card bg-base-100 shadow-xl">
-    <div class="card-body p-4">
-      <h2 class="card-title text-base flex items-center gap-2">
-        Needs attention
-        {% if attention_items %}<span class="badge badge-error badge-sm">{{ attention_items|length }}</span>{% endif %}
-      </h2>
-      {% if attention_items %}
-        <ol class="gg-timeline mt-1">
-          {% for item in attention_items %}
-            <li class="gg-timeline__item gg-health-{{ item.level }}">
-              <a href="{{ item.url }}" class="gg-timeline__link">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm font-medium truncate">{{ item.policy_name }}</span>
-                  <span class="badge badge-sm shrink-0 {% if item.level == 'critical' %}badge-error{% else %}badge-warning{% endif %}">{{ item.score }}%</span>
-                </div>
-                <div class="text-xs opacity-70 truncate">{{ item.project_name }}</div>
-                <div class="text-xs opacity-50">{{ item.status }} &middot; {{ item.when|timesince }} ago</div>
-              </a>
-            </li>
-          {% endfor %}
-        </ol>
-      {% else %}
-        <div class="text-center py-6">
-          <p class="text-2xl mb-1">&#9989;</p>
-          <p class="text-sm opacity-70">All clear — nothing needs attention.</p>
-        </div>
+  <aside class="gg-attention">
+    <div class="flex items-baseline justify-between gap-2 mb-3">
+      <div class="section-label">Needs attention</div>
+      {% if attention_total > 3 %}
+        <button id="attention-toggle" type="button" class="text-xs link link-hover opacity-70">Show all {{ attention_total }}</button>
       {% endif %}
     </div>
+    {% if attention_items %}
+      <ol id="attention-list" class="gg-timeline">
+        {% for item in attention_items %}
+          <li class="gg-timeline__item gg-health-{{ item.level }}{% if forloop.counter > 3 %} gg-attention-extra{% endif %}">
+            <a href="{{ item.url }}" class="gg-timeline__link">
+              <div class="gg-timeline__row">
+                <span class="gg-timeline__title">{{ item.policy_name }}</span>
+                <span class="gg-timeline__score">{{ item.score }}%</span>
+              </div>
+              <div class="gg-timeline__sub">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
+            </a>
+          </li>
+        {% endfor %}
+      </ol>
+      {% if attention_total > 3 %}
+        <p id="attention-hint" class="text-xs opacity-50 mt-3 pl-4">Showing top 3 of {{ attention_total }}</p>
+      {% endif %}
+    {% else %}
+      <p class="text-sm opacity-60">All clear — nothing needs attention.</p>
+    {% endif %}
   </aside>
   </div>
 
@@ -134,6 +133,20 @@
       if (window.GitGritFlow) setTimeout(function () { GitGritFlow.refit(); }, 280);
     });
   })();
+
+  // Expand / collapse the needs-attention list (top 3 ⇄ all).
+  (function () {
+    var btn = document.getElementById("attention-toggle");
+    if (!btn) return;
+    var list = document.getElementById("attention-list");
+    var hint = document.getElementById("attention-hint");
+    var total = {{ attention_total }};
+    btn.addEventListener("click", function () {
+      var expanded = list.classList.toggle("is-expanded");
+      btn.textContent = expanded ? "Show less" : "Show all " + total;
+      if (hint) hint.classList.toggle("hidden", expanded);
+    });
+  })();
   </script>
 
   <script id="architecture-data" type="application/json">{{ architecture_data|safe }}</script>
@@ -145,18 +158,16 @@
   <script src="{% static 'app/flow-common.js' %}"></script>
   <script src="{% static 'app/architecture-diagram.js' %}"></script>
 {% else %}
-  <div class="gg-dashboard-narrow card bg-base-100 shadow-xl">
-    <div class="card-body items-center text-center py-16">
-      <p class="text-4xl mb-3">&#129521;</p>
-      <h2 class="card-title">No stacks yet</h2>
-      <p class="text-sm opacity-70 max-w-md">
-        Stacks group related projects into systems. Once you have a few, this
-        dashboard maps them and the dependencies between them.
-      </p>
-      <div class="card-actions mt-4">
-        <a href="{% url 'create_stack' %}" class="btn btn-primary btn-sm">Create a stack</a>
-        <a href="{% url 'stack_list' %}" class="btn btn-ghost btn-sm">View stacks</a>
-      </div>
+  <div class="gg-dashboard-narrow flex flex-col items-center text-center py-16">
+    <p class="text-4xl mb-3">&#129521;</p>
+    <h2 class="text-xl font-semibold">No stacks yet</h2>
+    <p class="text-sm opacity-60 max-w-md mt-1">
+      Stacks group related projects into systems. Once you have a few, this
+      dashboard maps them and the dependencies between them.
+    </p>
+    <div class="flex gap-2 mt-4">
+      <a href="{% url 'create_stack' %}" class="btn btn-primary btn-sm">Create a stack</a>
+      <a href="{% url 'stack_list' %}" class="btn btn-ghost btn-sm">View stacks</a>
     </div>
   </div>
 {% endif %}

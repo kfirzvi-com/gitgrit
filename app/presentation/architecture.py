@@ -70,12 +70,12 @@ def _project_score(project_id, latest):
     return round(sum(r["score"] for r in results.values()) / len(results))
 
 
-def attention_items(tenant, limit=12):
+def attention_items(tenant):
     """Current policy results that need attention, worst-first.
 
     The latest result per (project, policy) that is needs-attention/critical by
-    score or failed/errored. Used by the dashboard's side timeline to point
-    leaders straight at what to fix, with a link to each execution's detail.
+    score or failed/errored. Returns the full ranked list; the dashboard shows
+    the top few and counts the rest. Each item links to its execution detail.
     """
     executions = (
         PolicyExecution.objects.filter(project__tenant=tenant)
@@ -118,7 +118,7 @@ def attention_items(tenant, limit=12):
 
     rank = {CRITICAL: 2, WARNING: 1}
     items.sort(key=lambda i: (rank.get(i["level"], 0), i["when"]), reverse=True)
-    return items[:limit]
+    return items
 
 
 def _project_issues(project_id, latest):

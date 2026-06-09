@@ -7,6 +7,9 @@
   width: 100%;
   border-radius: 0.75rem;
   overflow: hidden;
+  /* Flat surface so the page's dot-grid background doesn't show through and
+     clash with the React Flow dot background. */
+  background: var(--gg-bg-100);
 }
 
 /* Stack / project node */
@@ -231,50 +234,67 @@
   opacity: 0.85;
 }
 
-/* Needs-attention timeline (dashboard side panel) */
+/* Needs-attention list (dashboard side panel) — clean, frameless.
+   The dot is a flex child of the title row (align-items:center) so it always
+   sits on the title's centre line, regardless of font/line-height. */
 .gg-timeline {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.gg-timeline__item {
-  position: relative;
-  padding-left: 18px;
-  padding-bottom: 12px;
-}
-.gg-timeline__item::before {
-  content: "";
-  position: absolute;
-  left: 1px;
-  top: 5px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--gg-health, var(--gg-border));
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--gg-health, transparent) 22%, transparent);
-}
-.gg-timeline__item::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 16px;
-  bottom: 0;
-  width: 1px;
-  background: var(--gg-border);
-}
-.gg-timeline__item:last-child {
-  padding-bottom: 0;
-}
-.gg-timeline__item:last-child::after {
-  display: none;
+.gg-timeline__item + .gg-timeline__item {
+  border-top: 1px solid color-mix(in oklab, var(--gg-border) 55%, transparent);
 }
 .gg-timeline__link {
   display: block;
-  border-radius: 8px;
-  padding: 4px 6px;
-  margin: -4px -6px;
-  transition: background 0.12s ease;
+  padding: 7px 0;
 }
-.gg-timeline__link:hover {
-  background: var(--gg-bg-200);
+.gg-timeline__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gg-timeline__row::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gg-health, var(--gg-border));
+  flex-shrink: 0;
+}
+.gg-timeline__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gg-timeline__link:hover .gg-timeline__title {
+  text-decoration: underline;
+}
+.gg-timeline__score {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--gg-health, currentColor);
+  flex-shrink: 0;
+}
+/* Indent the sub-line to line up under the title (past the dot + gap). */
+.gg-timeline__sub {
+  padding-left: 15px;
+  font-size: 0.7rem;
+  opacity: 0.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* Top-3 by default; the toggle reveals the rest. */
+.gg-attention-extra {
+  display: none;
+}
+#attention-list.is-expanded .gg-attention-extra {
+  display: block;
 }
