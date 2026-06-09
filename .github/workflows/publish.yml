@@ -230,6 +230,9 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job skips checkout, so there's no local git repo for `gh`
+          # to infer the target from — point it at the repo explicitly.
+          GH_REPO: ${{ github.repository }}
         run: |
           # `gh release create` fails if a release for this tag already
           # exists. Tag pushes are the only trigger for this job, so each
