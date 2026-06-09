@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load project_tags %}
 
 {% block title %}Execution — {{ execution.policy_name }} — GitGrit{% endblock %}
 
@@ -54,7 +55,7 @@
           <tbody>
             {% for entry in execution.logs %}
               <tr>
-                <td class="opacity-50 whitespace-nowrap align-top">{{ entry.ts }}</td>
+                <td class="opacity-50 whitespace-nowrap align-top" title="{{ entry.ts }}">{{ entry.ts|log_time }}</td>
                 <td class="align-top">
                   <span class="badge badge-xs {% if entry.level == 'error' %}badge-error{% elif entry.level == 'warning' %}badge-warning{% else %}badge-ghost{% endif %}">{{ entry.level }}</span>
                 </td>
