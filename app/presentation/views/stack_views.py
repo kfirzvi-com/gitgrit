@@ -8,7 +8,8 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
-from app.domain.models import Project, ProjectStack, Stack
+from app.application import stack_service
+from app.domain.models import Project, Stack
 from app.presentation.architecture import latest_scores_by_project, stack_graph
 
 
@@ -38,8 +39,11 @@ class CreateStackView(LoginRequiredMixin, CreateView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
-        form.instance.tenant = self.request.tenant
-        self.object = form.save()
+        self.object = stack_service.create_stack(
+            tenant=self.request.tenant,
+            name=form.cleaned_data["name"],
+            description=form.cleaned_data.get("description", ""),
+        )
         messages.success(self.request, f'Stack "{self.object.name}" created.')
         return redirect("stack_detail", pk=self.object.pk)
 
@@ -101,7 +105,7 @@ def add_project_to_stack(request, pk):
         return redirect("stack_detail", pk=pk)
 
     project = get_object_or_404(Project, pk=project_id, tenant=tenant)
-    ProjectStack.objects.get_or_create(project=project, stack=stack)
+    stack_service.add_project_to_stack(tenant=tenant, stack=stack, project=project)
     messages.success(request, f'Added "{project.name}" to "{stack.name}".')
     return redirect("stack_detail", pk=pk)
 
@@ -116,6 +120,6 @@ def remove_project_from_stack(request, stack_pk, project_pk):
 
     stack = get_object_or_404(Stack, pk=stack_pk, tenant=tenant)
     project = get_object_or_404(Project, pk=project_pk, tenant=tenant)
-    ProjectStack.objects.filter(project=project, stack=stack).delete()
+    stack_service.remove_project_from_stack(tenant=tenant, stack=stack, project=project)
     messages.success(request, f'Removed "{project.name}" from "{stack.name}".')
     return redirect("stack_detail", pk=stack_pk)

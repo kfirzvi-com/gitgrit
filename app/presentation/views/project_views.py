@@ -10,7 +10,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 
+from app.application.event_bus import publish
 from app.application.policy_engine import PolicyEngine
+from app.domain.events import ProjectCreated, ProjectDeleted
 from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
 from app.infrastructure.platform_client import get_platform_client
 
@@ -201,6 +203,7 @@ def add_project_search(request, connection_id):
                 f'Project added but webhook registration failed. You can retry from the project page.',
             )
 
+        publish(ProjectCreated(project_id=str(project.id), tenant_id=str(tenant.id)))
         messages.success(request, f'Project "{project.name}" added.')
         return redirect("project_detail", pk=project.pk)
 
@@ -283,7 +286,9 @@ def delete_project(request, pk):
         except Exception:
             logger.exception("Failed to delete webhook for project %s", name)
 
+    project_id = str(project.pk)
     project.delete()
+    publish(ProjectDeleted(project_id=project_id, tenant_id=str(tenant.id)))
     messages.success(request, f'Project "{name}" removed.')
     return redirect("project_list")
 

@@ -5,7 +5,8 @@ import re
 
 from django.db.models import QuerySet
 
-from app.domain.events import DomainEvent
+from app.application.event_bus import publish
+from app.domain.events import DomainEvent, RepositoryPushed
 from app.domain.identity import resolve_user
 from app.domain.models import LLMRole, Policy, PolicyExecution, Project
 from app.domain.policy_criteria import language_matches
@@ -133,6 +134,17 @@ class PolicyEngine:
 
         results = []
         for project in projects:
+            # A code push may change dependencies — trigger a graph refresh
+            # (async, additive; does not affect the synchronous policy run below).
+            if event.event_type == "push":
+                publish(
+                    RepositoryPushed(
+                        project_id=str(project.id),
+                        tenant_id=str(project.tenant_id),
+                        ref=event.ref,
+                    )
+                )
+
             policies = self.get_policies_for_project(
                 project, event.event_type, ref=event.ref
             )
