@@ -1,0 +1,224 @@
+/* Styles for the read-only architecture diagrams (dashboard + stack views).
+ * Pairs with vendor/xyflow-react.css and the *-diagram.js scripts. */
+
+#architecture-flow,
+#stack-flow {
+  height: clamp(520px, calc(100vh - 320px), 900px);
+  width: 100%;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+/* Stack / project node */
+.gg-stack-node {
+  position: relative;
+  width: 240px;
+  background-image: linear-gradient(175deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.12) 100%);
+  background-color: var(--gg-bg-200);
+  border: 1px solid var(--gg-border);
+  border-radius: 12px;
+  padding: 13px 15px;
+  box-shadow: var(--gg-shadow-card), 0 1px 3px rgba(0, 0, 0, 0.25);
+  color: var(--gg-text);
+  font-family: var(--gg-font-sans);
+}
+
+/* Left health stripe — colour set per node via the --gg-health custom
+   property (see flow-common.js healthProps). Independent of the node border
+   so the hover highlight doesn't hide it. */
+.gg-health::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 12px 0 0 12px;
+  background: var(--gg-health, transparent);
+}
+.gg-stack-node__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gg-stack-node__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+.gg-stack-node__desc {
+  font-size: 0.74rem;
+  opacity: 0.7;
+  margin: 7px 0 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gg-stack-node__meta {
+  font-size: 0.65rem;
+  opacity: 0.6;
+  margin-top: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.gg-stack-node__tech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 9px;
+}
+.gg-tech-badge {
+  font-size: 0.64rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(94, 234, 212, 0.1);
+  color: #5eead4;
+  border: 1px solid rgba(94, 234, 212, 0.22);
+  font-family: var(--gg-font-mono);
+}
+
+/* Boundary nodes (consumers / workspace deps / third-party apps) */
+.gg-boundary-node {
+  width: 180px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--gg-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--gg-text);
+  font-family: var(--gg-font-sans);
+  opacity: 0.92;
+}
+.gg-boundary-node__stack {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+.gg-boundary-node__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.gg-boundary-node.is-consumer {
+  border-color: rgba(94, 234, 212, 0.5);
+}
+.gg-boundary-node.is-consuming {
+  border-color: rgba(192, 132, 252, 0.5);
+}
+.gg-boundary-node.is-thirdparty {
+  border-color: rgba(250, 204, 21, 0.5);
+  background: rgba(250, 204, 21, 0.04);
+}
+
+/* Clickable nodes */
+.gg-clickable {
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.gg-clickable:hover {
+  border-color: var(--gg-primary, #5eead4);
+  box-shadow: 0 0 0 1px var(--gg-primary, #5eead4), 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Handles are anchor points only — edges attach, dots stay invisible */
+.gg-stack-node .react-flow__handle,
+.gg-boundary-node .react-flow__handle {
+  opacity: 0;
+  width: 6px;
+  height: 6px;
+  border: none;
+}
+
+/* Edge labels on the dark canvas */
+.react-flow__edge-text {
+  fill: var(--gg-text);
+  font-size: 11px;
+}
+.react-flow__edge-textbg {
+  fill: var(--gg-bg-100);
+}
+
+/* Legend panel */
+.gg-legend {
+  background-color: var(--gg-bg-200);
+  border: 1px solid var(--gg-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  color: var(--gg-text);
+  box-shadow: var(--gg-shadow-card);
+}
+.gg-legend__title {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  margin-bottom: 6px;
+}
+.gg-legend__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+}
+.gg-legend__swatch {
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.gg-legend__dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.gg-legend__section + .gg-legend__section {
+  margin-top: 9px;
+}
+
+/* Health hover tooltip (needs-attention / critical nodes) */
+.gg-flow-tooltip {
+  position: fixed;
+  z-index: 9998;
+  pointer-events: none;
+  max-width: 290px;
+  background: var(--gg-bg-100);
+  color: var(--gg-text);
+  border: 1px solid var(--gg-border);
+  border-radius: 10px;
+  padding: 9px 11px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  font-size: 0.74rem;
+  font-family: var(--gg-font-sans);
+}
+.gg-flow-tooltip__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.gg-flow-tooltip__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.gg-flow-tooltip__list {
+  margin: 0;
+  padding-left: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gg-flow-tooltip__list li {
+  line-height: 1.3;
+  opacity: 0.85;
+}
