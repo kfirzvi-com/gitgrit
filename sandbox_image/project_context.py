@@ -41,17 +41,29 @@ class ProjectContext:
         """Return repository metadata (name, description, default branch, topics, etc.)."""
         return self._provider.get_metadata()
 
+    @tool
     def get_members(self) -> list[dict]:
+        """List the repository's members. Each entry has 'username' and 'role'."""
         return self._provider.get_members()
 
+    @tool
     def get_contributors(self) -> list[dict]:
+        """List contributors. Each entry has 'username' and 'commits' (count)."""
         return self._provider.get_contributors()
 
+    @tool
     def get_default_branch(self) -> str:
+        """Return the name of the repository's default branch (e.g. 'main')."""
         return self._provider.get_default_branch()
 
+    @tool
     def get_topics(self) -> list[str]:
+        """Return the repository's topics / tags."""
         return self._provider.get_topics()
 
-    def get_file_last_commit_date(self, path: str) -> str | None:
+    @tool
+    def get_file_last_commit_date(
+        self, path: Annotated[str, "Repository-relative file path."]
+    ) -> str | None:
+        """Return the ISO 8601 date of the last commit that touched a file, or null if unknown."""
         return self._provider.get_file_last_commit_date(path)

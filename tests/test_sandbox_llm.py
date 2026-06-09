@@ -127,6 +127,11 @@ def test_tools_are_derived_from_project_context():
         "list_files",
         "get_languages",
         "get_metadata",
+        "get_members",
+        "get_contributors",
+        "get_default_branch",
+        "get_topics",
+        "get_file_last_commit_date",
     }
     assert set(dispatch) == set(by_name)
     # Description comes from the method docstring; params from type hints.
