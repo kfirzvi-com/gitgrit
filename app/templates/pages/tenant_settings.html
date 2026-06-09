@@ -118,12 +118,17 @@
                   </td>
                   {% if is_admin %}
                     <td class="flex gap-1">
-                      <button class="btn btn-ghost btn-xs"
-                              onclick="openEditTokenModal('{{ conn.id }}', '{{ conn.display_name }}', '{{ conn.access_token }}')">
+                      <button type="button" class="btn btn-ghost btn-xs"
+                              data-edit-token
+                              data-conn-id="{{ conn.id }}"
+                              data-conn-name="{{ conn.display_name }}">
                         Edit Token
                       </button>
-                      <button class="btn btn-ghost btn-xs text-error"
-                              onclick="openRemoveConnectionModal('{{ conn.id }}', '{{ conn.display_name }}', [{% for p in conn.projects.all %}'{{ p.name }}'{% if not forloop.last %},{% endif %}{% endfor %}])">
+                      <button type="button" class="btn btn-ghost btn-xs text-error"
+                              data-remove-conn
+                              data-conn-id="{{ conn.id }}"
+                              data-conn-name="{{ conn.display_name }}"
+                              data-projects='[{% for p in conn.projects.all %}"{{ p.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}]'>
                         Remove
                       </button>
                     </td>
@@ -149,9 +154,9 @@
         <div class="mb-4">
           <label class="label"><span class="label-text text-sm opacity-70">Current token</span></label>
           <div class="flex gap-2">
-            <input type="password" id="edit-token-current" readonly
+            <input type="password" id="edit-token-current" readonly placeholder="••••••••"
                    class="input input-bordered w-full font-mono text-sm bg-base-200">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleCurrentToken()" id="edit-token-toggle">Show</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="edit-token-toggle">Show</button>
           </div>
         </div>
         <form method="post" id="edit-token-form" class="space-y-3">
@@ -221,27 +226,91 @@
         document.getElementById('remove-connection-modal').showModal();
       }
 
-      function openEditTokenModal(connectionId, displayName, currentToken) {
+      function openEditTokenModal(connectionId, displayName) {
+        var modal = document.getElementById('edit-token-modal');
+        modal.dataset.connId = connectionId;
         document.getElementById('edit-token-conn-name').textContent = displayName;
         document.getElementById('edit-token-form').action = '/tenants/connections/' + connectionId + '/edit/';
-        var currentInput = document.getElementById('edit-token-current');
-        currentInput.value = currentToken;
-        currentInput.type = 'password';
+        // The current token is never embedded in the page; it stays hidden
+        // until the admin explicitly reveals it (see toggleCurrentToken).
+        var input = document.getElementById('edit-token-current');
+        input.value = '';
+        input.type = 'password';
+        input.dataset.loaded = '';
+        input.placeholder = '••••••••';
         document.getElementById('edit-token-toggle').textContent = 'Show';
-        document.getElementById('edit-token-modal').showModal();
+        modal.showModal();
+      }
+
+      function getCsrfToken() {
+        var el = document.querySelector('#edit-token-form [name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
       }
 
       function toggleCurrentToken() {
+        var modal = document.getElementById('edit-token-modal');
         var input = document.getElementById('edit-token-current');
         var btn = document.getElementById('edit-token-toggle');
-        if (input.type === 'password') {
-          input.type = 'text';
-          btn.textContent = 'Hide';
-        } else {
+        // Hide if currently shown.
+        if (input.type === 'text') {
           input.type = 'password';
           btn.textContent = 'Show';
+          return;
         }
+        // Already fetched once this session — reveal without another request.
+        if (input.dataset.loaded === '1') {
+          input.type = 'text';
+          btn.textContent = 'Hide';
+          return;
+        }
+        // Fetch the decrypted token on demand over an authenticated request,
+        // so the secret is never present in the page source.
+        btn.disabled = true;
+        btn.textContent = '…';
+        fetch('/tenants/connections/' + modal.dataset.connId + '/token/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCsrfToken() },
+        })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('request failed');
+            return resp.json();
+          })
+          .then(function (data) {
+            input.value = data.token || '';
+            input.dataset.loaded = '1';
+            input.type = 'text';
+            btn.textContent = 'Hide';
+          })
+          .catch(function () {
+            input.value = '';
+            input.placeholder = 'Could not load token';
+            btn.textContent = 'Show';
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
       }
+
+      // Connection row actions use data-* attributes + delegated listeners so
+      // no per-row data (display names, project names, secrets) is interpolated
+      // into inline JS, where quotes/apostrophes would break the handler.
+      document.addEventListener('click', function (e) {
+        var editBtn = e.target.closest('[data-edit-token]');
+        if (editBtn) {
+          openEditTokenModal(editBtn.dataset.connId, editBtn.dataset.connName);
+          return;
+        }
+        var removeBtn = e.target.closest('[data-remove-conn]');
+        if (removeBtn) {
+          var names = [];
+          try { names = JSON.parse(removeBtn.dataset.projects || '[]'); } catch (err) { names = []; }
+          openRemoveConnectionModal(removeBtn.dataset.connId, removeBtn.dataset.connName, names);
+          return;
+        }
+        if (e.target.closest('#edit-token-toggle')) {
+          toggleCurrentToken();
+        }
+      });
     </script>
   {% endif %}
 
