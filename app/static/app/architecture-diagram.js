@@ -55,7 +55,10 @@
       h(
         "div",
         { className: "gg-stack-node__meta" },
-        d.project_count + (d.project_count === 1 ? " project" : " projects")
+        d.project_count + (d.project_count === 1 ? " project" : " projects"),
+        d.analyzing
+          ? h("span", { className: "gg-regenerating" }, " · regenerating…")
+          : null
       ),
       techs.length
         ? h(

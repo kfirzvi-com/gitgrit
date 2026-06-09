@@ -75,6 +75,14 @@
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
+.gg-regenerating {
+  color: var(--gg-primary, #5eead4);
+  animation: gg-pulse 1.4s ease-in-out infinite;
+}
+@keyframes gg-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
 .gg-stack-node__tech {
   display: flex;
   flex-wrap: wrap;

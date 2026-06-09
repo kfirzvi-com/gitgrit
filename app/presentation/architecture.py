@@ -10,9 +10,10 @@ Two graphs are produced here:
   surface), other workspace projects this stack *consumes*, and third-party
   apps this stack depends on.
 
-The underlying dependency rows (StackDependency / ProjectDependency /
-ExternalDependency) are maintained by an LLM as stacks and projects change, so
-these builders simply project whatever exists onto the diagram shape.
+``ProjectDependency`` / ``ExternalDependency`` are populated by the LLM agent
+per repo; **stack→stack edges are derived here at read time** by rolling up
+project edges across each stack's project membership (the ``StackDependency``
+model is reserved for future manual stack-level labels and is not read here).
 """
 
 from collections import Counter, defaultdict
@@ -26,7 +27,6 @@ from app.domain.models import (
     Project,
     ProjectDependency,
     Stack,
-    StackDependency,
 )
 from app.presentation.health import (
     CRITICAL,
@@ -185,20 +185,44 @@ def workspace_graph(tenant, latest):
                 # up the whole stack even when the average looks healthy.
                 "health": stack_level([project_level(s) for s in scores]),
                 "issues": issues,
+                # True while any member project's dependency analysis is queued
+                # or running — drives the "regenerating…" hint.
+                "analyzing": any(
+                    p.deps_status
+                    in (Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING)
+                    for p in projects
+                ),
                 "url": reverse("stack_detail", args=[stack.id]),
             }
         )
 
+    # Derive stack→stack edges from project dependencies + stack membership:
+    # if project A (in stack X) depends on project B (in stack Y), then X→Y.
+    project_stacks = defaultdict(set)
+    for stack in stacks:
+        for p in stack.projects.all():
+            project_stacks[p.id].add(str(stack.id))
+
+    edge_labels: dict[tuple[str, str], set] = defaultdict(set)
+    for dep in ProjectDependency.objects.filter(tenant=tenant).values(
+        "source_id", "target_id", "label"
+    ):
+        for src in project_stacks.get(dep["source_id"], ()):
+            for tgt in project_stacks.get(dep["target_id"], ()):
+                if src != tgt:
+                    if dep["label"]:
+                        edge_labels[(src, tgt)].add(dep["label"])
+                    else:
+                        edge_labels.setdefault((src, tgt), set())
+
     dependencies = [
         {
-            "id": str(dep["id"]),
-            "source": str(dep["source_id"]),
-            "target": str(dep["target_id"]),
-            "label": dep["label"],
+            "id": f"{src}->{tgt}",
+            "source": src,
+            "target": tgt,
+            "label": ", ".join(sorted(labels))[:255],
         }
-        for dep in StackDependency.objects.filter(tenant=tenant).values(
-            "id", "source_id", "target_id", "label"
-        )
+        for (src, tgt), labels in edge_labels.items()
     ]
 
     return {"stacks": stack_nodes, "dependencies": dependencies}
@@ -217,6 +241,8 @@ def _project_node(project, latest):
         "score": score,
         "health": project_level(score),
         "issues": _project_issues(project.id, latest),
+        "analyzing": project.deps_status
+        in (Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING),
         "url": reverse("project_detail", args=[project.id]),
     }
 
