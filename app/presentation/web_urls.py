@@ -42,6 +42,7 @@ from app.presentation.views.tenant_views import (
     remove_connection,
     remove_llm_provider,
     remove_member,
+    reveal_connection_token,
     set_llm_role,
     switch_tenant,
     test_connection,
@@ -82,6 +83,11 @@ urlpatterns = [
         "tenants/connections/<uuid:connection_id>/edit/",
         edit_connection_token,
         name="edit_connection_token",
+    ),
+    path(
+        "tenants/connections/<uuid:connection_id>/token/",
+        reveal_connection_token,
+        name="reveal_connection_token",
     ),
     path(
         "tenants/connections/<uuid:connection_id>/remove/",

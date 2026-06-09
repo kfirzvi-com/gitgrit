@@ -278,6 +278,36 @@ def edit_connection_token(request, connection_id):
 
 @login_required
 @require_POST
+def reveal_connection_token(request, connection_id):
+    """Return the decrypted access token for an authorised admin/owner.
+
+    The token is a secret and is deliberately never rendered into the settings
+    page. The edit-token modal's "Show" control calls this endpoint so the
+    token only crosses the wire on an explicit, authenticated, CSRF-protected
+    request — never sitting in the page source.
+    """
+    from django.http import JsonResponse
+
+    tenant = request.tenant
+    if not tenant:
+        return JsonResponse({"error": "No active workspace."}, status=400)
+
+    membership = Membership.objects.filter(user=request.user, tenant=tenant).first()
+    if not membership or membership.role not in (
+        Membership.Role.OWNER,
+        Membership.Role.ADMIN,
+    ):
+        return JsonResponse(
+            {"error": "You don't have permission to manage connections."},
+            status=403,
+        )
+
+    connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
+    return JsonResponse({"token": connection.access_token})
+
+
+@login_required
+@require_POST
 def remove_connection(request, connection_id):
     tenant = request.tenant
     if not tenant:
