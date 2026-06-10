@@ -404,13 +404,24 @@ class ProjectDependency(models.Model):
 
 
 class ExternalDependency(models.Model):
-    """A project's dependency on a third-party app outside the workspace.
+    """A relationship between a workspace project and a system outside the
+    workspace.
 
-    Unlike ProjectDependency (which links two workspace projects), the target
-    here is an external service the project integrates with (e.g. Stripe,
-    Auth0, an external API). Rendered as third-party boundary nodes in the
-    stack architecture diagram. Maintained by an LLM as projects change.
+    Direction distinguishes the two roles (both inferred by inspecting the
+    project's repo):
+      * ``OUTBOUND`` — the project depends on an external service/provider
+        (e.g. Stripe, Auth0). Rendered at the bottom of the stack diagram.
+      * ``INBOUND`` — an external consumer depends on the project (e.g. a
+        public API client, a partner system, external webhook senders).
+        Rendered at the top (we must preserve its API).
+
+    Unlike ProjectDependency (which links two workspace projects), the other
+    end here is outside the workspace. Maintained by an LLM as projects change.
     """
+
+    class Direction(models.TextChoices):
+        OUTBOUND = "outbound", "We depend on it (provider)"
+        INBOUND = "inbound", "It depends on us (consumer)"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
@@ -424,6 +435,11 @@ class ExternalDependency(models.Model):
         related_name="external_dependencies",
     )
     name = models.CharField(max_length=255)
+    direction = models.CharField(
+        max_length=10,
+        choices=Direction.choices,
+        default=Direction.OUTBOUND,
+    )
     url = models.URLField(max_length=2048, blank=True, default="")
     description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -433,12 +449,14 @@ class ExternalDependency(models.Model):
         db_table = "external_dependencies"
         constraints = [
             models.UniqueConstraint(
-                fields=["project", "name"], name="unique_external_dependency"
+                fields=["project", "name", "direction"],
+                name="unique_external_dependency",
             ),
         ]
 
     def __str__(self):
-        return f"{self.project} → {self.name}"
+        arrow = "←" if self.direction == self.Direction.INBOUND else "→"
+        return f"{self.project} {arrow} {self.name}"
 
 
 class APIToken(models.Model):

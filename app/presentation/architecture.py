@@ -262,7 +262,9 @@ def stack_graph(stack, latest):
                          one of our projects → our project is public-facing.
       * ``consuming``  — a workspace project (in another stack) that one of our
                          projects depends on.
-      * ``thirdparty`` — an external app one of our projects depends on.
+      * ``thirdparty``    — an external service one of our projects depends on.
+      * ``extconsumer``   — an external system that depends on one of our
+                            projects (out-of-workspace consumer).
 
     Edge kinds: ``internal`` | ``public`` | ``consuming`` | ``thirdparty``.
     """
@@ -274,6 +276,7 @@ def stack_graph(stack, latest):
     consumers = {}
     consuming = {}
     thirdparties = {}
+    ext_consumers = {}
     edges = []
 
     # Project-to-project dependencies touching this stack.
@@ -347,28 +350,52 @@ def stack_graph(stack, latest):
                 }
             )
 
-    # Third-party apps our projects depend on (deduped by app name).
+    # External (out-of-workspace) relationships, deduped by app name. Outbound
+    # = providers we depend on (bottom); inbound = consumers that depend on us
+    # (top, edge kind "public" so it reads like our other public-facing edges).
     ext_deps = ExternalDependency.objects.filter(project__in=internal_ids)
     for ext in ext_deps:
-        node_id = f"thirdparty:{ext.name.lower()}"
-        thirdparties.setdefault(
-            node_id,
-            {"id": node_id, "name": ext.name, "url": ext.url},
-        )
-        edges.append(
-            {
-                "id": str(ext.id),
-                "source": str(ext.project_id),
-                "target": node_id,
-                "label": ext.description[:40] if ext.description else "",
-                "kind": "thirdparty",
-            }
-        )
+        inbound = ext.direction == ExternalDependency.Direction.INBOUND
+        if inbound:
+            node_id = f"extconsumer:{ext.name.lower()}"
+            ext_consumers.setdefault(
+                node_id,
+                {
+                    "id": node_id,
+                    "name": ext.name,
+                    "stack_name": "External",
+                    "url": ext.url,
+                },
+            )
+            edges.append(
+                {
+                    "id": str(ext.id),
+                    "source": node_id,
+                    "target": str(ext.project_id),
+                    "label": ext.description[:40] if ext.description else "",
+                    "kind": "public",
+                }
+            )
+        else:
+            node_id = f"thirdparty:{ext.name.lower()}"
+            thirdparties.setdefault(
+                node_id, {"id": node_id, "name": ext.name, "url": ext.url}
+            )
+            edges.append(
+                {
+                    "id": str(ext.id),
+                    "source": str(ext.project_id),
+                    "target": node_id,
+                    "label": ext.description[:40] if ext.description else "",
+                    "kind": "thirdparty",
+                }
+            )
 
     return {
         "projects": projects,
         "consumers": list(consumers.values()),
         "consuming": list(consuming.values()),
         "thirdparties": list(thirdparties.values()),
+        "external_consumers": list(ext_consumers.values()),
         "edges": edges,
     }

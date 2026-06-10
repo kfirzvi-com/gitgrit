@@ -32,6 +32,7 @@
     consumers: [],
     consuming: [],
     thirdparties: [],
+    external_consumers: [],
     edges: [],
   };
 
@@ -117,6 +118,9 @@
     consumer: boundaryNode("is-consumer"),
     consuming: boundaryNode("is-consuming"),
     thirdparty: boundaryNode("is-thirdparty"),
+    // External consumer: external system that depends on us → public-facing
+    // (teal), placed at the top like internal consumers, tagged "External".
+    extconsumer: boundaryNode("is-consumer"),
   };
 
   // --- Layout ----------------------------------------------------------------
@@ -147,6 +151,11 @@
     .concat(
       data.thirdparties.map(function (n) {
         return { id: n.id, type: "thirdparty", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
+      })
+    )
+    .concat(
+      (data.external_consumers || []).map(function (n) {
+        return { id: n.id, type: "extconsumer", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
       })
     );
 

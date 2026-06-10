@@ -29,7 +29,8 @@ def _setup(monkeypatch, result):
 def test_writes_internal_and_external_edges(monkeypatch):
     result = da.DependencyResult(
         internal=[{"target": "org/api", "label": "REST"}],
-        external=[{"name": "Stripe", "url": "https://stripe.com", "label": "payments"}],
+        external_providers=[{"name": "Stripe", "url": "https://stripe.com", "label": "payments"}],
+        external_consumers=[{"name": "Partner API", "label": "public"}],
     )
     tenant, src, api = _setup(monkeypatch, result)
 
@@ -42,8 +43,15 @@ def test_writes_internal_and_external_edges(monkeypatch):
     pd = ProjectDependency.objects.get(source=src)
     assert pd.target_id == api.id and pd.label == "REST"
 
-    ed = ExternalDependency.objects.get(project=src)
-    assert ed.name == "Stripe" and ed.url == "https://stripe.com"
+    provider = ExternalDependency.objects.get(
+        project=src, direction=ExternalDependency.Direction.OUTBOUND
+    )
+    assert provider.name == "Stripe" and provider.url == "https://stripe.com"
+
+    consumer = ExternalDependency.objects.get(
+        project=src, direction=ExternalDependency.Direction.INBOUND
+    )
+    assert consumer.name == "Partner API"
 
 
 @pytest.mark.django_db
@@ -66,7 +74,7 @@ def test_rerun_replaces_edges_atomically(monkeypatch):
         monkeypatch,
         da.DependencyResult(
             internal=[{"target": "org/api"}],
-            external=[{"name": "Stripe"}],
+            external_providers=[{"name": "Stripe"}],
         ),
     )
     da.infer_and_store(src)
@@ -76,7 +84,7 @@ def test_rerun_replaces_edges_atomically(monkeypatch):
     # Re-run with a different result — old edges must be gone.
     monkeypatch.setattr(
         da.LLMAgent, "run",
-        lambda self, **kw: da.DependencyResult(internal=[], external=[{"name": "Auth0"}]),
+        lambda self, **kw: da.DependencyResult(internal=[], external_providers=[{"name": "Auth0"}]),
     )
     da.infer_and_store(src)
     assert ProjectDependency.objects.filter(source=src).count() == 0

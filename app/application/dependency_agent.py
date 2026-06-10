@@ -37,14 +37,26 @@ _SYSTEM_PROMPT = (
     "config and env files, CI config, and any code/config that references other "
     "services or third-party APIs. Use your judgment about what's worth reading — "
     "you do NOT need to read everything; skip bulk application source. "
-    "Classify each dependency as either:\n"
+    "Classify each relationship into one of:\n"
     "  • internal — a dependency on ANOTHER repository in this workspace; only "
     "use the repositories listed in the roster, and return the repository's "
     "exact full_path as the target.\n"
-    "  • external — a third-party service/app/SaaS not in the roster (e.g. "
-    "Stripe, Auth0, Datadog); return its name and, if known, a url.\n"
-    "Do not include this repository itself. When you have enough evidence, stop "
-    "calling tools and return the structured result."
+    "  • external_provider — a third-party service/app/SaaS OUTSIDE the workspace "
+    "that THIS repo depends on (e.g. Stripe, Auth0, an external API); return its "
+    "name and, if known, a url.\n"
+    "  • external_consumer — a system OUTSIDE the workspace that depends on THIS "
+    "repo (i.e. this repo exposes something it consumes). NEVER list a roster "
+    "repository here — when a workspace repo consumes this one, that's captured "
+    "as the other repo's internal dependency, not here. Infer external consumers "
+    "only from real evidence in the repo: a public/published API or OpenAPI "
+    "spec, a package published for outside use, inbound webhook endpoints the "
+    "repo receives (the external sender is the consumer), CORS allow-lists or "
+    "registered external client IDs, or docs naming external clients. Be "
+    "conservative — omit if there's no clear signal.\n"
+    "Note a third party can be BOTH (e.g. you call Stripe's API = provider, and "
+    "Stripe calls your webhook = consumer). Do not include this repository "
+    "itself or other workspace repos as external. When you have enough evidence, "
+    "stop calling tools and return the structured result."
 )
 
 
@@ -54,14 +66,19 @@ class _InternalDep(BaseModel):
 
 
 class _ExternalDep(BaseModel):
-    name: str = Field(description="third-party service/app name, e.g. 'Stripe'")
+    name: str = Field(description="external system/service name, e.g. 'Stripe'")
     url: str = Field(default="", description="homepage/docs url if known")
-    label: str = Field(default="", description="short caption, e.g. 'payments'")
+    label: str = Field(default="", description="short caption, e.g. 'payments', 'webhooks'")
 
 
 class DependencyResult(BaseModel):
     internal: list[_InternalDep] = []
-    external: list[_ExternalDep] = []
+    external_providers: list[_ExternalDep] = Field(
+        default=[], description="external services this repo depends on"
+    )
+    external_consumers: list[_ExternalDep] = Field(
+        default=[], description="external systems that depend on this repo"
+    )
 
 
 class _RepoToolbox:
@@ -157,10 +174,11 @@ def infer_and_store(project: Project) -> DependencyResult:
         response_model=DependencyResult,
     )
     logger.info(
-        "deps[%s]: %d internal, %d external (%d tokens, %d calls)",
+        "deps[%s]: %d internal, %d providers, %d consumers (%d tokens, %d calls)",
         project.name,
         len(result.internal),
-        len(result.external),
+        len(result.external_providers),
+        len(result.external_consumers),
         agent.usage["total_tokens"],
         agent.usage["calls"],
     )
@@ -182,22 +200,33 @@ def infer_and_store(project: Project) -> DependencyResult:
         )
 
     external_deps = []
-    seen_names = set()
-    for dep in result.external:
-        name = (dep.name or "").strip()
-        key = name.lower()
-        if not name or key in seen_names:
-            continue
-        seen_names.add(key)
-        external_deps.append(
-            ExternalDependency(
-                tenant=tenant,
-                project=project,
-                name=name[:255],
-                url=(dep.url or "")[:2048],
-                description=dep.label[:255],
+
+    def _collect(deps, direction):
+        seen = set()
+        for dep in deps:
+            name = (dep.name or "").strip()
+            key = name.lower()
+            if not name or key in seen:
+                continue
+            # Guard: the LLM sometimes lists workspace repos as "external".
+            # Those belong to internal ProjectDependency, captured elsewhere.
+            if _resolve_internal_target(name, roster):
+                logger.info("deps[%s]: dropping workspace repo %r from external", project.name, name)
+                continue
+            seen.add(key)
+            external_deps.append(
+                ExternalDependency(
+                    tenant=tenant,
+                    project=project,
+                    name=name[:255],
+                    direction=direction,
+                    url=(dep.url or "")[:2048],
+                    description=dep.label[:255],
+                )
             )
-        )
+
+    _collect(result.external_providers, ExternalDependency.Direction.OUTBOUND)
+    _collect(result.external_consumers, ExternalDependency.Direction.INBOUND)
 
     with transaction.atomic():
         ProjectDependency.objects.filter(tenant=tenant, source=project).delete()

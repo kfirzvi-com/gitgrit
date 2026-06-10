@@ -1,7 +1,12 @@
 import pytest
 from model_bakery import baker
 
-from app.presentation.architecture import latest_scores_by_project, workspace_graph
+from app.domain.models import ExternalDependency
+from app.presentation.architecture import (
+    latest_scores_by_project,
+    stack_graph,
+    workspace_graph,
+)
 
 
 @pytest.mark.django_db
@@ -38,6 +43,32 @@ def test_same_stack_project_dep_yields_no_stack_edge():
 
     graph = workspace_graph(tenant, latest_scores_by_project(tenant))
     assert graph["dependencies"] == []  # intra-stack dep is not a stack→stack edge
+
+
+@pytest.mark.django_db
+def test_stack_graph_splits_external_by_direction():
+    tenant = baker.make("app.Tenant")
+    conn = baker.make("app.PlatformConnection", tenant=tenant)
+    stack = baker.make("app.Stack", tenant=tenant, name="S")
+    proj = baker.make(
+        "app.Project", tenant=tenant, platform_connection=conn, stacks=[stack]
+    )
+    baker.make(
+        "app.ExternalDependency", tenant=tenant, project=proj, name="Stripe",
+        direction=ExternalDependency.Direction.OUTBOUND,
+    )
+    baker.make(
+        "app.ExternalDependency", tenant=tenant, project=proj, name="Partner API",
+        direction=ExternalDependency.Direction.INBOUND,
+    )
+
+    g = stack_graph(stack, latest_scores_by_project(tenant))
+
+    assert [n["name"] for n in g["thirdparties"]] == ["Stripe"]
+    assert [n["name"] for n in g["external_consumers"]] == ["Partner API"]
+    # Provider edge points project→external (thirdparty); consumer edge external→project (public).
+    kinds = {e["kind"] for e in g["edges"]}
+    assert "thirdparty" in kinds and "public" in kinds
 
 
 @pytest.mark.django_db
