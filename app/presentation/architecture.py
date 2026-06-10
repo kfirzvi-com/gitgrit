@@ -137,11 +137,31 @@ def _project_issues(project_id, latest):
     return ["{} — {}%".format(r["name"], r["score"]) for r in low[:4]]
 
 
+def _merge_tech(*lists):
+    """Merge tech lists, case-insensitively deduped, preserving first-seen order."""
+    seen = set()
+    out = []
+    for lst in lists:
+        for t in lst or []:
+            t = (t or "").strip()
+            key = t.lower()
+            if t and key not in seen:
+                seen.add(key)
+                out.append(t)
+    return out
+
+
+def _project_technologies(project):
+    """A project's tech labels: GitHub languages + LLM-inferred tech, deduped."""
+    return _merge_tech(project.languages, project.inferred_technologies)
+
+
 def _technologies(projects):
+    """Aggregate tech across a stack's projects, most-common first."""
     counts = Counter()
     for project in projects:
-        for language in project.languages or []:
-            counts[language] += 1
+        for tech in _project_technologies(project):
+            counts[tech] += 1
     return [tech for tech, _ in counts.most_common(MAX_TECHNOLOGIES)]
 
 
@@ -237,7 +257,7 @@ def _project_node(project, latest):
         "id": str(project.id),
         "name": project.name,
         "lifecycle": project.get_lifecycle_display(),
-        "technologies": (project.languages or [])[:MAX_TECHNOLOGIES],
+        "technologies": _project_technologies(project)[:MAX_TECHNOLOGIES],
         "score": score,
         "health": project_level(score),
         "issues": _project_issues(project.id, latest),

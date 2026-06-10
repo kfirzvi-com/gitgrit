@@ -28,6 +28,7 @@ def _setup(monkeypatch, result):
 @pytest.mark.django_db
 def test_writes_internal_and_external_edges(monkeypatch):
     result = da.DependencyResult(
+        technologies=["Express", "Express", "Next.js"],  # dup → deduped
         internal=[{"target": "org/api", "label": "REST"}],
         external_providers=[{"name": "Stripe", "url": "https://stripe.com", "label": "payments"}],
         external_consumers=[{"name": "Partner API", "label": "public"}],
@@ -39,6 +40,7 @@ def test_writes_internal_and_external_edges(monkeypatch):
     src.refresh_from_db()
     assert src.deps_status == Project.DepsStatus.OK
     assert src.deps_analyzed_at is not None
+    assert src.inferred_technologies == ["Express", "Next.js"]
 
     pd = ProjectDependency.objects.get(source=src)
     assert pd.target_id == api.id and pd.label == "REST"

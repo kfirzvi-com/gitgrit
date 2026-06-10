@@ -72,6 +72,24 @@ def test_stack_graph_splits_external_by_direction():
 
 
 @pytest.mark.django_db
+def test_project_tech_labels_merge_languages_and_inferred():
+    from app.presentation.architecture import stack_graph
+
+    tenant = baker.make("app.Tenant")
+    conn = baker.make("app.PlatformConnection", tenant=tenant)
+    stack = baker.make("app.Stack", tenant=tenant, name="S")
+    baker.make(
+        "app.Project", tenant=tenant, platform_connection=conn, stacks=[stack],
+        languages=["TypeScript", "Go"],
+        inferred_technologies=["Go", "Next.js", "Express"],  # "Go" dup → deduped
+    )
+
+    g = stack_graph(stack, latest_scores_by_project(tenant))
+    techs = g["projects"][0]["technologies"]
+    assert techs == ["TypeScript", "Go", "Next.js", "Express"]
+
+
+@pytest.mark.django_db
 def test_stack_node_analyzing_flag():
     tenant = baker.make("app.Tenant")
     conn = baker.make("app.PlatformConnection", tenant=tenant)

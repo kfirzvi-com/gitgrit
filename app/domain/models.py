@@ -232,6 +232,10 @@ class Project(models.Model):
     owner = models.CharField(max_length=255, blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
+    # Frameworks/libraries/tools inferred by the LLM (e.g. Next.js, FastAPI,
+    # Terraform). Merged + deduped with `languages` to form the node's tech
+    # labels, so libraries show here rather than as separate graph nodes.
+    inferred_technologies = models.JSONField(default=list, blank=True)
     # LLM dependency-inference status (drives the dashboard "regenerating…" hint).
     deps_status = models.CharField(
         max_length=10,

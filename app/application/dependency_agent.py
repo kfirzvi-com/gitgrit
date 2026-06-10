@@ -37,13 +37,22 @@ _SYSTEM_PROMPT = (
     "config and env files, CI config, and any code/config that references other "
     "services or third-party APIs. Use your judgment about what's worth reading — "
     "you do NOT need to read everything; skip bulk application source. "
-    "Classify each relationship into one of:\n"
+    "The graph shows COMPONENTS (deployable systems/services), not libraries. "
+    "Classify what you find into one of:\n"
+    "  • technologies — languages, frameworks, libraries, SDKs and tools the "
+    "repo USES (e.g. Next.js, React, FastAPI, Express, Terraform, the AWS SDK, "
+    "zod, pydantic). These are NOT graph nodes — they become the component's "
+    "tech labels. Put every imported package/framework/tool here.\n"
     "  • internal — a dependency on ANOTHER repository in this workspace; only "
     "use the repositories listed in the roster, and return the repository's "
     "exact full_path as the target.\n"
-    "  • external_provider — a third-party service/app/SaaS OUTSIDE the workspace "
-    "that THIS repo depends on (e.g. Stripe, Auth0, an external API); return its "
-    "name and, if known, a url.\n"
+    "  • external_provider — an external SERVICE/SYSTEM (not a library) OUTSIDE "
+    "the workspace that THIS repo talks to as a running system: SaaS APIs "
+    "(Stripe, Auth0, SendGrid), managed datastores/queues it connects to (a "
+    "Postgres database, S3, SQS), or other external APIs. Return its name and, "
+    "if known, a url. A client library/SDK is NOT a provider — the SDK goes in "
+    "technologies, the service it talks to goes here (e.g. 'AWS SDK' is a "
+    "technology, 'Amazon S3' is a provider).\n"
     "  • external_consumer — a system OUTSIDE the workspace that depends on THIS "
     "repo (i.e. this repo exposes something it consumes). NEVER list a roster "
     "repository here — when a workspace repo consumes this one, that's captured "
@@ -72,6 +81,10 @@ class _ExternalDep(BaseModel):
 
 
 class DependencyResult(BaseModel):
+    technologies: list[str] = Field(
+        default=[],
+        description="languages/frameworks/libraries/tools used (tech labels, not nodes)",
+    )
     internal: list[_InternalDep] = []
     external_providers: list[_ExternalDep] = Field(
         default=[], description="external services this repo depends on"
@@ -228,14 +241,33 @@ def infer_and_store(project: Project) -> DependencyResult:
     _collect(result.external_providers, ExternalDependency.Direction.OUTBOUND)
     _collect(result.external_consumers, ExternalDependency.Direction.INBOUND)
 
+    # Inferred tech labels (deduped, capped); merged with GitHub languages at
+    # render time.
+    technologies = []
+    seen_tech = set()
+    for t in result.technologies:
+        t = (t or "").strip()
+        key = t.lower()
+        if t and key not in seen_tech:
+            seen_tech.add(key)
+            technologies.append(t[:60])
+
     with transaction.atomic():
         ProjectDependency.objects.filter(tenant=tenant, source=project).delete()
         ExternalDependency.objects.filter(tenant=tenant, project=project).delete()
         ProjectDependency.objects.bulk_create(project_deps, ignore_conflicts=True)
         ExternalDependency.objects.bulk_create(external_deps, ignore_conflicts=True)
+        project.inferred_technologies = technologies[:20]
         project.deps_status = Project.DepsStatus.OK
         project.deps_analyzed_at = timezone.now()
         project.deps_error = ""
-        project.save(update_fields=["deps_status", "deps_analyzed_at", "deps_error"])
+        project.save(
+            update_fields=[
+                "inferred_technologies",
+                "deps_status",
+                "deps_analyzed_at",
+                "deps_error",
+            ]
+        )
 
     return result
