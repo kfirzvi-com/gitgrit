@@ -1,11 +1,20 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ stack.name }} — GitGrit{% endblock %}
+
+{% block extra_head %}
+  <link href="{% static 'app/vendor/xyflow-react.css' %}" rel="stylesheet" type="text/css" />
+  <link href="{% static 'app/architecture.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
   <div>
-    <a href="{% url 'stack_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Stacks</a>
+    <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm gap-1 mb-1 -ml-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+      Workspace architecture
+    </a>
     <h1 class="text-3xl font-bold">{{ stack.name }}</h1>
   </div>
   <form method="post" action="{% url 'delete_stack' stack.pk %}">
@@ -22,6 +31,14 @@
 {% endif %}
 
 <div class="space-y-6">
+  {% if stack_projects %}
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-2 sm:p-3">
+        <div id="stack-flow"></div>
+      </div>
+    </div>
+  {% endif %}
+
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <div class="flex justify-between items-center">
@@ -83,4 +100,16 @@
     </div>
   </div>
 </div>
+
+{% if stack_projects %}
+  <script id="stack-architecture-data" type="application/json">{{ architecture_data|safe }}</script>
+
+  <script src="{% static 'app/vendor/react.production.min.js' %}"></script>
+  <script src="{% static 'app/vendor/react-dom.production.min.js' %}"></script>
+  <script src="{% static 'app/vendor/react-jsx-runtime.js' %}"></script>
+  <script src="{% static 'app/vendor/xyflow-react.umd.js' %}"></script>
+  <script src="{% static 'app/vendor/dagre.min.js' %}"></script>
+  <script src="{% static 'app/flow-common.js' %}"></script>
+  <script src="{% static 'app/stack-diagram.js' %}"></script>
+{% endif %}
 {% endblock %}

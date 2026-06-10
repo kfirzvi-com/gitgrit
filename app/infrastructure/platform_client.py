@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import logging
 from abc import ABC, abstractmethod
 
@@ -39,6 +40,14 @@ class PlatformClient(ABC):
     def get_topics(self, external_id: str, full_path: str = "") -> list[str]:
         """Return list of topic/tag names for a project. Override per platform."""
         return []
+
+    def get_tree(self, full_path: str, ref: str = "") -> list[str]:
+        """Return repo file paths (blobs only). Read-only. Override per platform."""
+        return []
+
+    def get_file_content(self, full_path: str, path: str, ref: str = "") -> str | None:
+        """Return a file's decoded text, or None if missing/binary. Override per platform."""
+        return None
 
 
 class GitHubClient(PlatformClient):
@@ -107,6 +116,51 @@ class GitHubClient(PlatformClient):
         )
         resp.raise_for_status()
         return resp.json().get("names", [])
+
+    def _default_branch(self, full_path: str) -> str:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json().get("default_branch", "main")
+
+    def get_tree(self, full_path: str, ref: str = "") -> list[str]:
+        branch = ref or self._default_branch(full_path)
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/git/trees/{branch}",
+            headers=self._headers,
+            params={"recursive": "1"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return [
+            item["path"]
+            for item in resp.json().get("tree", [])
+            if item.get("type") == "blob"
+        ]
+
+    def get_file_content(self, full_path: str, path: str, ref: str = "") -> str | None:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/contents/{path}",
+            headers=self._headers,
+            params={"ref": ref} if ref else {},
+            timeout=15,
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        data = resp.json()
+        # Directories return a list; non-file types and binaries aren't usable.
+        if isinstance(data, list) or data.get("type") != "file":
+            return None
+        if data.get("encoding") == "base64" and data.get("content"):
+            try:
+                return base64.b64decode(data["content"]).decode("utf-8", "replace")
+            except Exception:
+                return None
+        return data.get("content") or None
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         # Need full_name (owner/repo) — look up from external_id

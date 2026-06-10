@@ -20,6 +20,14 @@ servers:
       volume:
         - /var/run/docker.sock:/var/run/docker.sock
         - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
+  # Background worker (Procrastinate). Same image + env as web, no proxy/traffic.
+  # Runs the LLM dependency-inference jobs on the 'graph' queue. No Docker
+  # socket needed (the agent runs in-process; only policy execution, later,
+  # will need the sandbox).
+  worker:
+    hosts:
+      - <SERVER_IP>
+    cmd: python manage.py procrastinate worker --queues=graph --concurrency 4
 
 proxy:
   ssl: true

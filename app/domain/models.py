@@ -195,6 +195,15 @@ class Project(models.Model):
         DEPRECATED = "deprecated", "Deprecated"
         ARCHIVED = "archived", "Archived"
 
+    class DepsStatus(models.TextChoices):
+        """State of the LLM dependency-inference run for this project."""
+
+        NONE = "none", "Not analyzed"
+        PENDING = "pending", "Queued"
+        RUNNING = "running", "Analyzing"
+        OK = "ok", "Analyzed"
+        FAILED = "failed", "Failed"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
         Tenant,
@@ -223,6 +232,18 @@ class Project(models.Model):
     owner = models.CharField(max_length=255, blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
+    # Frameworks/libraries/tools inferred by the LLM (e.g. Next.js, FastAPI,
+    # Terraform). Merged + deduped with `languages` to form the node's tech
+    # labels, so libraries show here rather than as separate graph nodes.
+    inferred_technologies = models.JSONField(default=list, blank=True)
+    # LLM dependency-inference status (drives the dashboard "regenerating…" hint).
+    deps_status = models.CharField(
+        max_length=10,
+        choices=DepsStatus.choices,
+        default=DepsStatus.NONE,
+    )
+    deps_analyzed_at = models.DateTimeField(null=True, blank=True)
+    deps_error = models.TextField(blank=True, default="")
     stacks = models.ManyToManyField(
         "Stack",
         through="ProjectStack",
@@ -290,6 +311,201 @@ class ProjectStack(models.Model):
 
     def __str__(self):
         return f"{self.project} — {self.stack}"
+
+
+class StackDependency(models.Model):
+    """A directed dependency between two stacks in a workspace.
+
+    Renders as an edge in the dashboard architecture diagram (source depends
+    on target). These are populated/maintained by an LLM as stacks and
+    projects change; the optional ``label`` is the edge caption (e.g.
+    "REST", "events", "shared DB").
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="stack_dependencies",
+    )
+    source = models.ForeignKey(
+        Stack,
+        on_delete=models.CASCADE,
+        related_name="dependencies_out",
+    )
+    target = models.ForeignKey(
+        Stack,
+        on_delete=models.CASCADE,
+        related_name="dependencies_in",
+    )
+    label = models.CharField(max_length=255, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "stack_dependencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "target"], name="unique_stack_dependency"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(source=models.F("target")),
+                name="stack_dependency_no_self_loop",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.source} → {self.target}"
+
+
+class ProjectDependency(models.Model):
+    """A directed dependency between two projects in a workspace.
+
+    Renders as an edge in the per-stack architecture diagram (source depends
+    on target). When the two projects live in different stacks the edge
+    crosses a stack boundary — that's how the stack view surfaces which of a
+    stack's projects are public-facing (consumed from outside) and which
+    reach out to projects in other stacks. Maintained by an LLM as projects
+    change; ``label`` is the optional edge caption.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="project_dependencies",
+    )
+    source = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="dependencies_out",
+    )
+    target = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="dependencies_in",
+    )
+    label = models.CharField(max_length=255, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "project_dependencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "target"], name="unique_project_dependency"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(source=models.F("target")),
+                name="project_dependency_no_self_loop",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.source} → {self.target}"
+
+
+class ExternalDependency(models.Model):
+    """A relationship between a workspace project and a system outside the
+    workspace.
+
+    Direction distinguishes the two roles (both inferred by inspecting the
+    project's repo):
+      * ``OUTBOUND`` — the project depends on an external service/provider
+        (e.g. Stripe, Auth0). Rendered at the bottom of the stack diagram.
+      * ``INBOUND`` — an external consumer depends on the project (e.g. a
+        public API client, a partner system, external webhook senders).
+        Rendered at the top (we must preserve its API).
+
+    Unlike ProjectDependency (which links two workspace projects), the other
+    end here is outside the workspace. Maintained by an LLM as projects change.
+    """
+
+    class Direction(models.TextChoices):
+        OUTBOUND = "outbound", "We depend on it (provider)"
+        INBOUND = "inbound", "It depends on us (consumer)"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="external_dependencies",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="external_dependencies",
+    )
+    name = models.CharField(max_length=255)
+    direction = models.CharField(
+        max_length=10,
+        choices=Direction.choices,
+        default=Direction.OUTBOUND,
+    )
+    url = models.URLField(max_length=2048, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "external_dependencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name", "direction"],
+                name="unique_external_dependency",
+            ),
+        ]
+
+    def __str__(self):
+        arrow = "←" if self.direction == self.Direction.INBOUND else "→"
+        return f"{self.project} {arrow} {self.name}"
+
+
+class InfrastructureComponent(models.Model):
+    """A self-operated datastore/queue/cache/storage a project owns.
+
+    These are stack-INTERNAL components (a service abstracts its own
+    databases), not external services — rendered as internal nodes inside the
+    stack diagram, not on the workspace graph. Per-project: two services with
+    their own Postgres are two separate components. Maintained by an LLM.
+    """
+
+    class Kind(models.TextChoices):
+        DATABASE = "database", "Database"
+        CACHE = "cache", "Cache"
+        QUEUE = "queue", "Queue / Stream"
+        STORAGE = "storage", "Object storage"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="infrastructure_components",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="infrastructure_components",
+    )
+    name = models.CharField(max_length=255)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.OTHER)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "infrastructure_components"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"], name="unique_infrastructure_component"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project} ⟐ {self.name}"
 
 
 class APIToken(models.Model):
