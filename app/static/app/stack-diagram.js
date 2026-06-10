@@ -33,6 +33,7 @@
     consuming: [],
     thirdparties: [],
     external_consumers: [],
+    infrastructure: [],
     edges: [],
   };
 
@@ -76,6 +77,32 @@
     );
   }
 
+  // Internal infrastructure (a service's own datastore/queue/cache/storage).
+  // A distinct internal node (database glyph), not an external boundary node.
+  function InfraNode(props) {
+    var d = props.data;
+    return h(
+      "div",
+      { className: "gg-infra-node" },
+      GF.handles(),
+      h(
+        "svg",
+        { className: "gg-infra-node__glyph", viewBox: "0 0 24 24", "aria-hidden": "true" },
+        h("ellipse", { cx: 12, cy: 5, rx: 8, ry: 3 }),
+        h("path", { d: "M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5" }),
+        h("path", { d: "M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" })
+      ),
+      h(
+        "div",
+        { className: "gg-infra-node__body" },
+        h("div", { className: "gg-infra-node__name" }, d.name),
+        d.kind && d.kind !== "other"
+          ? h("div", { className: "gg-infra-node__kind" }, d.kind)
+          : null
+      )
+    );
+  }
+
   var nodeTypes = {
     project: ProjectNode,
     consumer: GF.boundaryNode("is-consumer"),
@@ -84,6 +111,7 @@
     // External consumer: external system that depends on us → public-facing
     // (teal), placed at the top like internal consumers, tagged "External".
     extconsumer: GF.boundaryNode("is-consumer"),
+    infra: InfraNode,
   };
 
   // --- Layout ----------------------------------------------------------------
@@ -119,6 +147,11 @@
     .concat(
       (data.external_consumers || []).map(function (n) {
         return { id: n.id, type: "extconsumer", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
+      })
+    )
+    .concat(
+      (data.infrastructure || []).map(function (n) {
+        return { id: n.id, type: "infra", data: n, w: 168, h: 52 };
       })
     );
 

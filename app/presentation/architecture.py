@@ -21,8 +21,10 @@ from collections import Counter, defaultdict
 from django.db.models import Q
 from django.urls import reverse
 
+from app.application.naming import canonical_key
 from app.domain.models import (
     ExternalDependency,
+    InfrastructureComponent,
     PolicyExecution,
     Project,
     ProjectDependency,
@@ -258,11 +260,19 @@ def workspace_graph(tenant, latest):
     for e in ext:
         inbound = e["direction"] == ExternalDependency.Direction.INBOUND
         bucket = consumers if inbound else providers
-        node_id = ("extconsumer:" if inbound else "extprovider:") + e["name"].lower()
-        node = {"id": node_id, "name": e["name"], "url": e["url"]}
-        if inbound:
-            node["stack_name"] = "External"
-        bucket.setdefault(node_id, node)
+        node_id = ("extconsumer:" if inbound else "extprovider:") + canonical_key(e["name"])
+        existing = bucket.get(node_id)
+        if existing is None:
+            node = {"id": node_id, "name": e["name"], "url": e["url"]}
+            if inbound:
+                node["stack_name"] = "External"
+            bucket[node_id] = node
+        else:
+            # Same service named differently across repos — keep the shortest.
+            if len(e["name"]) < len(existing["name"]):
+                existing["name"] = e["name"]
+            if not existing.get("url") and e["url"]:
+                existing["url"] = e["url"]
         for stack_id in project_stacks.get(e["project_id"], ()):
             if inbound:
                 pair, kind = (node_id, stack_id), "public"
@@ -413,7 +423,7 @@ def stack_graph(stack, latest):
     for ext in ext_deps:
         inbound = ext.direction == ExternalDependency.Direction.INBOUND
         if inbound:
-            node_id = f"extconsumer:{ext.name.lower()}"
+            node_id = f"extconsumer:{canonical_key(ext.name)}"
             ext_consumers.setdefault(
                 node_id,
                 {
@@ -433,7 +443,7 @@ def stack_graph(stack, latest):
                 }
             )
         else:
-            node_id = f"thirdparty:{ext.name.lower()}"
+            node_id = f"thirdparty:{canonical_key(ext.name)}"
             thirdparties.setdefault(
                 node_id, {"id": node_id, "name": ext.name, "url": ext.url}
             )
@@ -447,11 +457,31 @@ def stack_graph(stack, latest):
                 }
             )
 
+    # Internal infrastructure (datastores/queues each project owns) — rendered
+    # as internal component nodes connected from their project. Per-project, so
+    # two services with their own Postgres are distinct nodes.
+    infra = {}
+    for ic in InfrastructureComponent.objects.filter(project__in=internal_ids):
+        node_id = f"infra:{ic.project_id}:{ic.name.lower()}"
+        infra.setdefault(
+            node_id, {"id": node_id, "name": ic.name, "kind": ic.kind}
+        )
+        edges.append(
+            {
+                "id": str(ic.id),
+                "source": str(ic.project_id),
+                "target": node_id,
+                "label": "",
+                "kind": "internal",
+            }
+        )
+
     return {
         "projects": projects,
         "consumers": list(consumers.values()),
         "consuming": list(consuming.values()),
         "thirdparties": list(thirdparties.values()),
         "external_consumers": list(ext_consumers.values()),
+        "infrastructure": list(infra.values()),
         "edges": edges,
     }

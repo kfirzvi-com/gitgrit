@@ -95,6 +95,36 @@ def test_rerun_replaces_edges_atomically(monkeypatch):
 
 
 @pytest.mark.django_db
+def test_infrastructure_backstop_and_external_dedup(monkeypatch):
+    from app.domain.models import InfrastructureComponent
+
+    result = da.DependencyResult(
+        infrastructure=[{"name": "Redis", "kind": "cache"}],
+        external_providers=[
+            {"name": "Stripe"},
+            {"name": "Stripe API"},   # same service → deduped
+            {"name": "PostgreSQL"},   # datastore → backstop moves to infrastructure
+        ],
+    )
+    tenant, src, api = _setup(monkeypatch, result)
+
+    da.infer_and_store(src)
+
+    infra = set(
+        InfrastructureComponent.objects.filter(project=src).values_list("name", "kind")
+    )
+    assert ("Redis", "cache") in infra
+    assert ("PostgreSQL", "database") in infra  # reclassified by backstop
+
+    providers = list(
+        ExternalDependency.objects.filter(
+            project=src, direction=ExternalDependency.Direction.OUTBOUND
+        ).values_list("name", flat=True)
+    )
+    assert providers == ["Stripe"]  # "Stripe API" deduped; PostgreSQL → infra
+
+
+@pytest.mark.django_db
 def test_missing_reasoning_role_raises(monkeypatch):
     tenant = baker.make("app.Tenant")
     conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")

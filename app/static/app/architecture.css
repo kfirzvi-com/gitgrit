@@ -133,6 +133,52 @@
   background: rgba(250, 204, 21, 0.04);
 }
 
+/* Internal infrastructure component (datastore/queue/cache). A solid (not
+   dashed) internal node with a database glyph — distinct from external
+   boundary nodes. */
+.gg-infra-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 168px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--gg-border);
+  background: var(--gg-bg-200);
+  color: var(--gg-text);
+  font-family: var(--gg-font-sans);
+}
+.gg-infra-node__glyph {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--gg-text-dim, rgba(255, 255, 255, 0.5));
+  stroke-width: 1.6;
+}
+.gg-infra-node__body {
+  min-width: 0;
+}
+.gg-infra-node__name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gg-infra-node__kind {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.55;
+}
+.gg-infra-node .react-flow__handle {
+  opacity: 0;
+  width: 6px;
+  height: 6px;
+  border: none;
+}
+
 /* Clickable nodes */
 .gg-clickable {
   cursor: pointer;

@@ -463,6 +463,51 @@ class ExternalDependency(models.Model):
         return f"{self.project} {arrow} {self.name}"
 
 
+class InfrastructureComponent(models.Model):
+    """A self-operated datastore/queue/cache/storage a project owns.
+
+    These are stack-INTERNAL components (a service abstracts its own
+    databases), not external services — rendered as internal nodes inside the
+    stack diagram, not on the workspace graph. Per-project: two services with
+    their own Postgres are two separate components. Maintained by an LLM.
+    """
+
+    class Kind(models.TextChoices):
+        DATABASE = "database", "Database"
+        CACHE = "cache", "Cache"
+        QUEUE = "queue", "Queue / Stream"
+        STORAGE = "storage", "Object storage"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="infrastructure_components",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="infrastructure_components",
+    )
+    name = models.CharField(max_length=255)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.OTHER)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "infrastructure_components"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"], name="unique_infrastructure_component"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project} ⟐ {self.name}"
+
+
 class APIToken(models.Model):
     class ClientKind(models.TextChoices):
         CLAUDE = "claude", "Claude Code / Desktop"

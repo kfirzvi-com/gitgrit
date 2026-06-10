@@ -1,7 +1,8 @@
 import pytest
 from model_bakery import baker
 
-from app.domain.models import ExternalDependency
+from app.application.naming import canonical_key
+from app.domain.models import ExternalDependency, InfrastructureComponent
 from app.presentation.architecture import (
     latest_scores_by_project,
     stack_graph,
@@ -87,6 +88,34 @@ def test_project_tech_labels_merge_languages_and_inferred():
     g = stack_graph(stack, latest_scores_by_project(tenant))
     techs = g["projects"][0]["technologies"]
     assert techs == ["TypeScript", "Go", "Next.js", "Express"]
+
+
+@pytest.mark.django_db
+def test_stack_graph_includes_internal_infrastructure():
+    tenant = baker.make("app.Tenant")
+    conn = baker.make("app.PlatformConnection", tenant=tenant)
+    stack = baker.make("app.Stack", tenant=tenant, name="S")
+    proj = baker.make(
+        "app.Project", tenant=tenant, platform_connection=conn, stacks=[stack]
+    )
+    baker.make(
+        "app.InfrastructureComponent", tenant=tenant, project=proj,
+        name="PostgreSQL", kind="database",
+    )
+
+    g = stack_graph(stack, latest_scores_by_project(tenant))
+
+    assert [n["name"] for n in g["infrastructure"]] == ["PostgreSQL"]
+    infra_id = g["infrastructure"][0]["id"]
+    assert any(
+        e["source"] == str(proj.id) and e["target"] == infra_id and e["kind"] == "internal"
+        for e in g["edges"]
+    )
+
+
+def test_canonical_key_collapses_service_variants():
+    assert canonical_key("Stripe") == canonical_key("Stripe API") == "stripe"
+    assert canonical_key("Auth0") == "auth0"
 
 
 @pytest.mark.django_db
