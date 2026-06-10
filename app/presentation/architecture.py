@@ -241,11 +241,47 @@ def workspace_graph(tenant, latest):
             "source": src,
             "target": tgt,
             "label": ", ".join(sorted(labels))[:255],
+            "kind": "workspace",
         }
         for (src, tgt), labels in edge_labels.items()
     ]
 
-    return {"stacks": stack_nodes, "dependencies": dependencies}
+    # Aggregate external services to the stack level: a stack depends on a
+    # provider (bottom) / is consumed by an external system (top) if any of its
+    # projects is. External nodes are deduped by name across the workspace.
+    providers = {}
+    consumers = {}
+    seen_edges = set()
+    ext = ExternalDependency.objects.filter(project__tenant=tenant).values(
+        "project_id", "name", "url", "direction"
+    )
+    for e in ext:
+        inbound = e["direction"] == ExternalDependency.Direction.INBOUND
+        bucket = consumers if inbound else providers
+        node_id = ("extconsumer:" if inbound else "extprovider:") + e["name"].lower()
+        node = {"id": node_id, "name": e["name"], "url": e["url"]}
+        if inbound:
+            node["stack_name"] = "External"
+        bucket.setdefault(node_id, node)
+        for stack_id in project_stacks.get(e["project_id"], ()):
+            if inbound:
+                pair, kind = (node_id, stack_id), "public"
+            else:
+                pair, kind = (stack_id, node_id), "thirdparty"
+            if pair in seen_edges:
+                continue
+            seen_edges.add(pair)
+            dependencies.append(
+                {"id": f"{pair[0]}->{pair[1]}", "source": pair[0], "target": pair[1],
+                 "label": "", "kind": kind}
+            )
+
+    return {
+        "stacks": stack_nodes,
+        "external_providers": list(providers.values()),
+        "external_consumers": list(consumers.values()),
+        "dependencies": dependencies,
+    }
 
 
 # --- Per-stack graph --------------------------------------------------------

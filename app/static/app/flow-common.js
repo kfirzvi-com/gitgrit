@@ -51,6 +51,45 @@ window.GitGritFlow = (function () {
     return "badge-error";
   }
 
+  // Edge colours by kind — shared by both diagrams.
+  var EDGE_COLOR = {
+    workspace: "rgba(255,255,255,0.28)", // stack → stack (dashboard)
+    internal: "rgba(255,255,255,0.32)", // project → project within a stack
+    public: "#5eead4", // consumed by something (public-facing)
+    consuming: "#c084fc", // we consume a workspace component
+    thirdparty: "#facc15", // we depend on an external service
+  };
+
+  // Invisible top/bottom handles so edges attach without visible dots.
+  function handles() {
+    var React = window.React;
+    var RF = window.ReactFlow;
+    var h = React.createElement;
+    return [
+      h(RF.Handle, { key: "t", type: "target", position: RF.Position.Top, isConnectable: false }),
+      h(RF.Handle, { key: "s", type: "source", position: RF.Position.Bottom, isConnectable: false }),
+    ];
+  }
+
+  // A boundary node (consumer / dependency / external service). `className`
+  // selects the colour (is-consumer / is-consuming / is-thirdparty).
+  function boundaryNode(className) {
+    var React = window.React;
+    var h = React.createElement;
+    return function (props) {
+      var d = props.data;
+      return h(
+        "div",
+        { className: "gg-boundary-node " + className + " gg-clickable" },
+        handles(),
+        d.stack_name
+          ? h("div", { className: "gg-boundary-node__stack" }, d.stack_name)
+          : null,
+        h("div", { className: "gg-boundary-node__name" }, d.name)
+      );
+    };
+  }
+
   /* Hierarchical (top-down) layout via dagre. Every edge means "depends on"
    * (source → target), so a top-down rank naturally puts consumers at the top
    * and dependencies at the bottom, and dagre orders nodes within each rank to
@@ -297,6 +336,9 @@ window.GitGritFlow = (function () {
     ready: ready,
     refit: refit,
     scoreBadgeClass: scoreBadgeClass,
+    EDGE_COLOR: EDGE_COLOR,
+    handles: handles,
+    boundaryNode: boundaryNode,
     HEALTH_COLOR: HEALTH_COLOR,
     HEALTH_LABEL: HEALTH_LABEL,
     healthProps: healthProps,

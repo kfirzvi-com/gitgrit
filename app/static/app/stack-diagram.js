@@ -36,31 +36,9 @@
     edges: [],
   };
 
-  var EDGE_COLOR = {
-    internal: "rgba(255,255,255,0.32)",
-    public: "#5eead4",
-    consuming: "#c084fc",
-    thirdparty: "#facc15",
-  };
+  var EDGE_COLOR = GF.EDGE_COLOR;
 
   // --- Node components -------------------------------------------------------
-  function handles() {
-    return [
-      h(RF.Handle, {
-        key: "t",
-        type: "target",
-        position: RF.Position.Top,
-        isConnectable: false,
-      }),
-      h(RF.Handle, {
-        key: "s",
-        type: "source",
-        position: RF.Position.Bottom,
-        isConnectable: false,
-      }),
-    ];
-  }
-
   function ProjectNode(props) {
     var d = props.data;
     var techs = d.technologies || [];
@@ -68,7 +46,7 @@
     return h(
       "div",
       { className: "gg-stack-node gg-clickable " + hp.className, style: hp.style },
-      handles(),
+      GF.handles(),
       h(
         "div",
         { className: "gg-stack-node__head" },
@@ -98,29 +76,14 @@
     );
   }
 
-  function boundaryNode(kindClass) {
-    return function (props) {
-      var d = props.data;
-      return h(
-        "div",
-        { className: "gg-boundary-node " + kindClass + " gg-clickable" },
-        handles(),
-        d.stack_name
-          ? h("div", { className: "gg-boundary-node__stack" }, d.stack_name)
-          : null,
-        h("div", { className: "gg-boundary-node__name" }, d.name)
-      );
-    };
-  }
-
   var nodeTypes = {
     project: ProjectNode,
-    consumer: boundaryNode("is-consumer"),
-    consuming: boundaryNode("is-consuming"),
-    thirdparty: boundaryNode("is-thirdparty"),
+    consumer: GF.boundaryNode("is-consumer"),
+    consuming: GF.boundaryNode("is-consuming"),
+    thirdparty: GF.boundaryNode("is-thirdparty"),
     // External consumer: external system that depends on us → public-facing
     // (teal), placed at the top like internal consumers, tagged "External".
-    extconsumer: boundaryNode("is-consumer"),
+    extconsumer: GF.boundaryNode("is-consumer"),
   };
 
   // --- Layout ----------------------------------------------------------------

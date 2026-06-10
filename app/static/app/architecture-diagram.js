@@ -22,6 +22,8 @@
   var RF = window.ReactFlow;
   var data = GF.readData("architecture-data") || {
     stacks: [],
+    external_providers: [],
+    external_consumers: [],
     dependencies: [],
   };
 
@@ -77,26 +79,47 @@
     );
   }
 
-  var NODE_W = 240;
-  var NODE_H = 150;
-  var pos = GF.dagreLayout(
-    data.stacks.map(function (s) {
-      return { id: s.id, width: NODE_W, height: NODE_H };
+  // Nodes: stacks, plus external services aggregated to the workspace —
+  // providers at the bottom (we depend on them), consumers at the top.
+  var STACK = { w: 240, h: 150 };
+  var BOUNDARY = { w: 190, h: 64 };
+  var allNodes = []
+    .concat(
+      data.stacks.map(function (s) {
+        return { id: s.id, type: "stack", data: s, w: STACK.w, h: STACK.h };
+      })
+    )
+    .concat(
+      (data.external_providers || []).map(function (n) {
+        return { id: n.id, type: "extprovider", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
+      })
+    )
+    .concat(
+      (data.external_consumers || []).map(function (n) {
+        return { id: n.id, type: "extconsumer", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
+      })
+    );
+
+  var posMap = GF.dagreLayout(
+    allNodes.map(function (n) {
+      return { id: n.id, width: n.w, height: n.h };
     }),
     data.dependencies,
     { rankdir: "TB" }
   );
 
-  var nodes = data.stacks.map(function (s) {
-    return {
-      id: s.id,
-      type: "stack",
-      position: pos[s.id] || { x: 0, y: 0 },
-      data: s,
-    };
+  var nodes = allNodes.map(function (n) {
+    return { id: n.id, type: n.type, position: posMap[n.id] || { x: 0, y: 0 }, data: n.data };
   });
 
+  var nodeTypes = {
+    stack: StackNode,
+    extprovider: GF.boundaryNode("is-thirdparty"),
+    extconsumer: GF.boundaryNode("is-consumer"),
+  };
+
   var edges = data.dependencies.map(function (dep) {
+    var color = GF.EDGE_COLOR[dep.kind] || GF.EDGE_COLOR.workspace;
     return {
       id: dep.id,
       source: dep.source,
@@ -104,38 +127,59 @@
       label: dep.label || undefined,
       type: "smoothstep",
       pathOptions: { borderRadius: 10 },
-      markerEnd: { type: RF.MarkerType.ArrowClosed, width: 18, height: 18 },
-      style: { stroke: "rgba(255,255,255,0.28)", strokeWidth: 1.5 },
+      markerEnd: { type: RF.MarkerType.ArrowClosed, color: color, width: 18, height: 18 },
+      style: {
+        stroke: color,
+        strokeWidth: 1.5,
+        strokeDasharray: dep.kind === "workspace" ? undefined : "5 4",
+      },
     };
   });
 
-  // Health legend.
+  // Legend: health (dots) + edges (lines).
   function healthRow(level) {
     return h(
       "div",
       { key: level, className: "gg-legend__row" },
-      h("span", {
-        className: "gg-legend__dot",
-        style: { background: GF.HEALTH_COLOR[level] },
-      }),
+      h("span", { className: "gg-legend__dot", style: { background: GF.HEALTH_COLOR[level] } }),
       h("span", null, GF.HEALTH_LABEL[level])
+    );
+  }
+  function edgeRow(kind, label) {
+    return h(
+      "div",
+      { key: kind, className: "gg-legend__row" },
+      h("span", { className: "gg-legend__swatch", style: { background: GF.EDGE_COLOR[kind] } }),
+      h("span", null, label)
     );
   }
 
   var legend = h(
     RF.Panel,
     { key: "legend", position: "top-right", className: "gg-legend" },
-    h("div", { className: "gg-legend__title" }, "Health"),
-    healthRow("healthy"),
-    healthRow("warning"),
-    healthRow("critical"),
-    healthRow("unknown")
+    h(
+      "div",
+      { key: "health", className: "gg-legend__section" },
+      h("div", { className: "gg-legend__title" }, "Health"),
+      healthRow("healthy"),
+      healthRow("warning"),
+      healthRow("critical"),
+      healthRow("unknown")
+    ),
+    h(
+      "div",
+      { key: "edges", className: "gg-legend__section" },
+      h("div", { className: "gg-legend__title" }, "Edges"),
+      edgeRow("workspace", "Stack dependency"),
+      edgeRow("public", "External consumer"),
+      edgeRow("thirdparty", "External service")
+    )
   );
 
   GF.mount(mount, {
     nodes: nodes,
     edges: edges,
-    nodeTypes: { stack: StackNode },
+    nodeTypes: nodeTypes,
     extraChildren: [legend],
   });
 })();
