@@ -120,62 +120,52 @@
   };
 
   // --- Layout ----------------------------------------------------------------
-  // Consumers on top, internal projects layered in the middle, workspace
-  // dependencies and third-party apps stacked below — so every arrow points
-  // downward (depends-on).
-  var internalIds = data.projects.map(function (p) {
-    return p.id;
-  });
-  var internalEdges = data.edges.filter(function (e) {
-    return e.kind === "internal";
-  });
-  var consumerIds = data.consumers.map(function (n) {
-    return n.id;
-  });
-  var consumingIds = data.consuming.map(function (n) {
-    return n.id;
-  });
-  var thirdpartyIds = data.thirdparties.map(function (n) {
-    return n.id;
-  });
+  // One hierarchical (top-down) pass over every node. Because all edges mean
+  // "depends on" (consumer → project → dependency), dagre naturally banks
+  // consumers at the top, the stack's projects in the middle, and the things
+  // we depend on (workspace + third-party) at the bottom — and orders nodes
+  // within each rank to minimise crossings.
+  var PROJECT = { w: 240, h: 150 };
+  var BOUNDARY = { w: 190, h: 64 };
 
-  var topRows = consumerIds.length ? 1 : 0;
-  var posConsumers = GF.rowLayout(consumerIds, 0);
-  var posInternal = GF.layeredLayout(internalIds, internalEdges, {
-    baseRow: topRows,
-  });
-  var bottomStart = topRows + (posInternal.__layerCount || 1);
-  var posConsuming = GF.rowLayout(consumingIds, bottomStart);
-  var posThird = GF.rowLayout(
-    thirdpartyIds,
-    bottomStart + (consumingIds.length ? 1 : 0)
-  );
-
-  function pos(map, id) {
-    return map[id] || { x: 0, y: 0 };
-  }
-
-  var nodes = []
+  var allNodes = []
     .concat(
       data.projects.map(function (p) {
-        return { id: p.id, type: "project", position: pos(posInternal, p.id), data: p };
+        return { id: p.id, type: "project", data: p, w: PROJECT.w, h: PROJECT.h };
       })
     )
     .concat(
       data.consumers.map(function (n) {
-        return { id: n.id, type: "consumer", position: pos(posConsumers, n.id), data: n };
+        return { id: n.id, type: "consumer", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
       })
     )
     .concat(
       data.consuming.map(function (n) {
-        return { id: n.id, type: "consuming", position: pos(posConsuming, n.id), data: n };
+        return { id: n.id, type: "consuming", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
       })
     )
     .concat(
       data.thirdparties.map(function (n) {
-        return { id: n.id, type: "thirdparty", position: pos(posThird, n.id), data: n };
+        return { id: n.id, type: "thirdparty", data: n, w: BOUNDARY.w, h: BOUNDARY.h };
       })
     );
+
+  var posMap = GF.dagreLayout(
+    allNodes.map(function (n) {
+      return { id: n.id, width: n.w, height: n.h };
+    }),
+    data.edges,
+    { rankdir: "TB" }
+  );
+
+  var nodes = allNodes.map(function (n) {
+    return {
+      id: n.id,
+      type: n.type,
+      position: posMap[n.id] || { x: 0, y: 0 },
+      data: n.data,
+    };
+  });
 
   var edges = data.edges.map(function (e) {
     var color = EDGE_COLOR[e.kind] || EDGE_COLOR.internal;
@@ -184,7 +174,8 @@
       source: e.source,
       target: e.target,
       label: e.label || undefined,
-      type: "default",
+      type: "smoothstep",
+      pathOptions: { borderRadius: 10 },
       animated: e.kind === "thirdparty",
       markerEnd: { type: RF.MarkerType.ArrowClosed, color: color, width: 18, height: 18 },
       style: {

@@ -77,11 +77,14 @@
     );
   }
 
-  var pos = GF.layeredLayout(
+  var NODE_W = 240;
+  var NODE_H = 150;
+  var pos = GF.dagreLayout(
     data.stacks.map(function (s) {
-      return s.id;
+      return { id: s.id, width: NODE_W, height: NODE_H };
     }),
-    data.dependencies
+    data.dependencies,
+    { rankdir: "TB" }
   );
 
   var nodes = data.stacks.map(function (s) {
@@ -99,7 +102,8 @@
       source: dep.source,
       target: dep.target,
       label: dep.label || undefined,
-      type: "default",
+      type: "smoothstep",
+      pathOptions: { borderRadius: 10 },
       markerEnd: { type: RF.MarkerType.ArrowClosed, width: 18, height: 18 },
       style: { stroke: "rgba(255,255,255,0.28)", strokeWidth: 1.5 },
     };

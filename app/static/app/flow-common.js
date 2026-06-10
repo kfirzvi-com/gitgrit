@@ -51,77 +51,39 @@ window.GitGritFlow = (function () {
     return "badge-error";
   }
 
-  /* Layer nodes by dependency depth (longest path from a root). Nodes with no
-   * incoming edges land on row 0; cycles are guarded so a bad edge can't hang
-   * the layout. Returns { id: {x, y} } with each row centered on x = 0. */
-  function layeredLayout(ids, edges, opts) {
+  /* Hierarchical (top-down) layout via dagre. Every edge means "depends on"
+   * (source → target), so a top-down rank naturally puts consumers at the top
+   * and dependencies at the bottom, and dagre orders nodes within each rank to
+   * minimise edge crossings. `items` is [{id, width, height}]; returns
+   * { id: {x, y} } as top-left positions for React Flow. Cycles are fine —
+   * dagre breaks them internally. */
+  function dagreLayout(items, edges, opts) {
     opts = opts || {};
-    var nodeW = opts.nodeW || 240;
-    var gapX = opts.gapX || 70;
-    var rowH = opts.rowH || 210;
-    var baseRow = opts.baseRow || 0;
-
-    var idSet = {};
-    ids.forEach(function (id) {
-      idSet[id] = true;
+    var dagre = window.dagre;
+    var g = new dagre.graphlib.Graph();
+    g.setGraph({
+      rankdir: opts.rankdir || "TB",
+      nodesep: opts.nodesep || 55,
+      ranksep: opts.ranksep || 90,
+      marginx: 20,
+      marginy: 20,
     });
-    var preds = {};
-    ids.forEach(function (id) {
-      preds[id] = [];
+    g.setDefaultEdgeLabel(function () {
+      return {};
+    });
+    var dims = {};
+    items.forEach(function (it) {
+      dims[it.id] = { width: it.width, height: it.height };
+      g.setNode(it.id, { width: it.width, height: it.height });
     });
     edges.forEach(function (e) {
-      if (idSet[e.source] && idSet[e.target]) preds[e.target].push(e.source);
+      if (dims[e.source] && dims[e.target]) g.setEdge(e.source, e.target);
     });
-
-    var layer = {};
-    function depthOf(id, onPath) {
-      if (layer[id] != null) return layer[id];
-      if (onPath.has(id)) return 0;
-      onPath.add(id);
-      var best = 0;
-      preds[id].forEach(function (p) {
-        best = Math.max(best, depthOf(p, onPath) + 1);
-      });
-      onPath.delete(id);
-      layer[id] = best;
-      return best;
-    }
-    ids.forEach(function (id) {
-      depthOf(id, new Set());
-    });
-
-    var rows = {};
-    ids.forEach(function (id) {
-      (rows[layer[id]] = rows[layer[id]] || []).push(id);
-    });
-
+    dagre.layout(g);
     var pos = {};
-    var layerCount = 0;
-    Object.keys(rows).forEach(function (l) {
-      var row = rows[l];
-      var rowWidth = row.length * nodeW + (row.length - 1) * gapX;
-      row.forEach(function (id, i) {
-        pos[id] = {
-          x: i * (nodeW + gapX) - rowWidth / 2,
-          y: (baseRow + Number(l)) * rowH,
-        };
-      });
-      layerCount = Math.max(layerCount, Number(l) + 1);
-    });
-    pos.__layerCount = layerCount;
-    return pos;
-  }
-
-  /* Place a flat list of ids in a single centered row at row index `row`. */
-  function rowLayout(ids, row, opts) {
-    opts = opts || {};
-    var nodeW = opts.nodeW || 240;
-    var gapX = opts.gapX || 70;
-    var rowH = opts.rowH || 210;
-    var rowWidth = ids.length * nodeW + (ids.length - 1) * gapX;
-    var pos = {};
-    ids.forEach(function (id, i) {
-      pos[id] = { x: i * (nodeW + gapX) - rowWidth / 2, y: row * rowH };
+    items.forEach(function (it) {
+      var n = g.node(it.id); // dagre returns the node centre
+      pos[it.id] = { x: n.x - it.width / 2, y: n.y - it.height / 2 };
     });
     return pos;
   }
@@ -135,6 +97,47 @@ window.GitGritFlow = (function () {
     var h = React.createElement;
 
     function App() {
+      // Hovering an edge focuses it: everything except that edge and its two
+      // endpoint nodes fades back, to cut through a busy graph.
+      var focusState = React.useState(null);
+      var focusId = focusState[0];
+      var setFocusId = focusState[1];
+
+      var nodes = cfg.nodes;
+      var edges = cfg.edges;
+      if (focusId) {
+        var focusEdge = null;
+        for (var i = 0; i < cfg.edges.length; i++) {
+          if (cfg.edges[i].id === focusId) {
+            focusEdge = cfg.edges[i];
+            break;
+          }
+        }
+        if (focusEdge) {
+          var keep = {};
+          keep[focusEdge.source] = 1;
+          keep[focusEdge.target] = 1;
+          nodes = cfg.nodes.map(function (n) {
+            return keep[n.id]
+              ? n
+              : Object.assign({}, n, {
+                  className: (n.className ? n.className + " " : "") + "gg-faded",
+                });
+          });
+          edges = cfg.edges.map(function (e) {
+            if (e.id === focusId) {
+              return Object.assign({}, e, {
+                className: (e.className ? e.className + " " : "") + "gg-edge-focus",
+                zIndex: 1000,
+              });
+            }
+            return Object.assign({}, e, {
+              className: (e.className ? e.className + " " : "") + "gg-faded",
+            });
+          });
+        }
+      }
+
       var children = [
         h(RF.Background, {
           key: "bg",
@@ -150,8 +153,8 @@ window.GitGritFlow = (function () {
       return h(
         RF.ReactFlow,
         {
-          nodes: cfg.nodes,
-          edges: cfg.edges,
+          nodes: nodes,
+          edges: edges,
           nodeTypes: cfg.nodeTypes,
           colorMode: "dark",
           fitView: true,
@@ -181,6 +184,12 @@ window.GitGritFlow = (function () {
           },
           onNodeMouseLeave: function () {
             hideTooltip();
+          },
+          onEdgeMouseEnter: function (evt, edge) {
+            setFocusId(edge.id);
+          },
+          onEdgeMouseLeave: function () {
+            setFocusId(null);
           },
         },
         children
@@ -275,8 +284,7 @@ window.GitGritFlow = (function () {
     HEALTH_COLOR: HEALTH_COLOR,
     HEALTH_LABEL: HEALTH_LABEL,
     healthProps: healthProps,
-    layeredLayout: layeredLayout,
-    rowLayout: rowLayout,
+    dagreLayout: dagreLayout,
     mount: mount,
     readData: readData,
   };

@@ -152,6 +152,19 @@
   border: none;
 }
 
+/* Edge-hover focus: fade everything except the hovered edge + its endpoints */
+.react-flow__node,
+.react-flow__edge {
+  transition: opacity 0.12s ease;
+}
+.react-flow__node.gg-faded,
+.react-flow__edge.gg-faded {
+  opacity: 0.1;
+}
+.react-flow__edge.gg-edge-focus .react-flow__edge-path {
+  stroke-width: 2.5 !important;
+}
+
 /* Edge labels on the dark canvas */
 .react-flow__edge-text {
   fill: var(--gg-text);
