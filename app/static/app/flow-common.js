@@ -97,45 +97,59 @@ window.GitGritFlow = (function () {
     var h = React.createElement;
 
     function App() {
-      // Hovering an edge focuses it: everything except that edge and its two
-      // endpoint nodes fades back, to cut through a busy graph.
+      // Hover focus: hovering a node lights it + its direct neighbours (and the
+      // connecting edges); hovering an edge lights it + its two endpoints.
+      // Everything else fades back, to cut through a busy graph.
       var focusState = React.useState(null);
-      var focusId = focusState[0];
-      var setFocusId = focusState[1];
+      var focus = focusState[0]; // {kind:"node"|"edge", id} | null
+      var setFocus = focusState[1];
 
       var nodes = cfg.nodes;
       var edges = cfg.edges;
-      if (focusId) {
-        var focusEdge = null;
-        for (var i = 0; i < cfg.edges.length; i++) {
-          if (cfg.edges[i].id === focusId) {
-            focusEdge = cfg.edges[i];
-            break;
-          }
-        }
-        if (focusEdge) {
-          var keep = {};
-          keep[focusEdge.source] = 1;
-          keep[focusEdge.target] = 1;
-          nodes = cfg.nodes.map(function (n) {
-            return keep[n.id]
-              ? n
-              : Object.assign({}, n, {
-                  className: (n.className ? n.className + " " : "") + "gg-faded",
-                });
-          });
-          edges = cfg.edges.map(function (e) {
-            if (e.id === focusId) {
-              return Object.assign({}, e, {
-                className: (e.className ? e.className + " " : "") + "gg-edge-focus",
-                zIndex: 1000,
-              });
+      if (focus) {
+        var keepNodes = {};
+        var keepEdges = {};
+        if (focus.kind === "edge") {
+          cfg.edges.forEach(function (e) {
+            if (e.id === focus.id) {
+              keepEdges[e.id] = 1;
+              keepNodes[e.source] = 1;
+              keepNodes[e.target] = 1;
             }
-            return Object.assign({}, e, {
-              className: (e.className ? e.className + " " : "") + "gg-faded",
-            });
+          });
+        } else {
+          // node: keep the node, its neighbours, and incident edges
+          keepNodes[focus.id] = 1;
+          cfg.edges.forEach(function (e) {
+            if (e.source === focus.id || e.target === focus.id) {
+              keepEdges[e.id] = 1;
+              keepNodes[e.source] = 1;
+              keepNodes[e.target] = 1;
+            }
           });
         }
+
+        nodes = cfg.nodes.map(function (n) {
+          return keepNodes[n.id]
+            ? n
+            : Object.assign({}, n, {
+                className: (n.className ? n.className + " " : "") + "gg-faded",
+              });
+        });
+        edges = cfg.edges.map(function (e) {
+          if (keepEdges[e.id]) {
+            // emphasise the single hovered edge; neighbourhood edges stay normal
+            return focus.kind === "edge"
+              ? Object.assign({}, e, {
+                  className: (e.className ? e.className + " " : "") + "gg-edge-focus",
+                  zIndex: 1000,
+                })
+              : e;
+          }
+          return Object.assign({}, e, {
+            className: (e.className ? e.className + " " : "") + "gg-faded",
+          });
+        });
       }
 
       var children = [
@@ -178,18 +192,20 @@ window.GitGritFlow = (function () {
           },
           onNodeMouseEnter: function (evt, node) {
             showTooltip(node, evt);
+            setFocus({ kind: "node", id: node.id });
           },
           onNodeMouseMove: function (evt) {
             moveTooltip(evt);
           },
           onNodeMouseLeave: function () {
             hideTooltip();
+            setFocus(null);
           },
           onEdgeMouseEnter: function (evt, edge) {
-            setFocusId(edge.id);
+            setFocus({ kind: "edge", id: edge.id });
           },
           onEdgeMouseLeave: function () {
-            setFocusId(null);
+            setFocus(null);
           },
         },
         children
