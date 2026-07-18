@@ -20,7 +20,13 @@ dependencies = [
     "mcp>=1.0",
     "uvicorn>=0.30",
     "procrastinate[django]>=3.8.1",
-    "litellm>=1.88.1",
+    # Pinned: litellm 1.89+ lazily imports litellm.responses.mcp -> litellm.proxy
+    # -> fastapi during completion(), which isn't a runtime dep here, so the
+    # in-process dependency-inference agent crashes with
+    # "ModuleNotFoundError: No module named 'fastapi'". 1.88.1 is the version
+    # validated on staging. (Root cause is the Dockerfile installing from
+    # pyproject ranges instead of uv.lock — see the sync note there.)
+    "litellm==1.88.1",
 ]
 
 [dependency-groups]
