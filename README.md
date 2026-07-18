@@ -3,7 +3,7 @@
 **Define your engineering standards as code — and see how every repository measures up.**
 
 [![CI](https://github.com/kfirzvi-com/gitgrit/actions/workflows/ci.yml/badge.svg)](https://github.com/kfirzvi-com/gitgrit/actions/workflows/ci.yml)
-[![GitGrit compliance](https://app.gitgrit.dev/badge/8b2d60f9-69dd-46cc-a56b-621c13dace9a.svg)](https://gitgrit.dev/features/badges/)
+[![GitGrit compliance](https://app.gitgrit.dev/badge/8b2d60f9-69dd-46cc-a56b-621c13dace9a.svg)](https://app.gitgrit.dev/projects/8b2d60f9-69dd-46cc-a56b-621c13dace9a/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-gitgrit.dev-informational)](https://gitgrit.dev)
 
