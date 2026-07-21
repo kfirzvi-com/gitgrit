@@ -13,7 +13,14 @@ from django.views.generic import DetailView, ListView, UpdateView
 from app.application.event_bus import publish
 from app.application.policy_engine import PolicyEngine
 from app.domain.events import ProjectCreated, ProjectDeleted
-from app.domain.models import PlatformConnection, Policy, PolicyExecution, Project, Stack
+from app.domain.models import (
+    AuthMethod,
+    PlatformConnection,
+    Policy,
+    PolicyExecution,
+    Project,
+    Stack,
+)
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
@@ -190,12 +197,16 @@ def add_project_search(request, connection_id):
             except Exception:
                 logger.exception("Failed to fetch metadata for project %s", project.name)
 
-            webhook_secret = secrets.token_hex(32)
-            target_url = f"{settings.SITE_URL}/api/webhooks/{connection.platform}/"
-            webhook_id = client.create_webhook(external_id, target_url, webhook_secret)
-            project.webhook_id = webhook_id
-            project.webhook_secret = webhook_secret
-            project.save(update_fields=["webhook_id", "webhook_secret"])
+            # GitHub App connections receive events through the App's own
+            # webhook (configured once on the App), so no per-repo hook is
+            # created. PAT connections still register a per-repo webhook.
+            if connection.auth_method != AuthMethod.GITHUB_APP:
+                webhook_secret = secrets.token_hex(32)
+                target_url = f"{settings.SITE_URL}/api/webhooks/{connection.platform}/"
+                webhook_id = client.create_webhook(external_id, target_url, webhook_secret)
+                project.webhook_id = webhook_id
+                project.webhook_secret = webhook_secret
+                project.save(update_fields=["webhook_id", "webhook_secret"])
         except Exception:
             logger.exception("Failed to register webhook for project %s", project.name)
             messages.warning(

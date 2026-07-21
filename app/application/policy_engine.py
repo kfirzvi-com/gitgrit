@@ -109,7 +109,12 @@ class PolicyEngine:
         input_config = {
             "platform": project.platform,
             "project_id": project.external_id,
-            "access_token": project.platform_connection.access_token,
+            # Route through the auth-method seam. For GitHub App connections the
+            # installation token is scoped to this project's repository; PAT
+            # connections return their stored token unchanged.
+            "access_token": project.platform_connection.get_access_token(
+                repositories=[project.full_path]
+            ),
             "base_url": project.platform_connection.base_url,
             "full_path": project.full_path,
         }

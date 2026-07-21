@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 from model_bakery import baker
 
@@ -20,7 +22,7 @@ def _setup(monkeypatch, result):
     monkeypatch.setattr(da, "resolve_llm_roles", lambda t: {
         "reasoning": {"model": "anthropic/claude", "base_url": "", "api_key": "k"}
     })
-    monkeypatch.setattr(da, "get_platform_client", lambda c: object())
+    monkeypatch.setattr(da, "get_platform_client", lambda c: SimpleNamespace())
     monkeypatch.setattr(da.LLMAgent, "run", lambda self, **kw: result)
     return tenant, src, api
 
