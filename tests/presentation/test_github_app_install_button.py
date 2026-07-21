@@ -1,9 +1,13 @@
-"""The minimal 'Install GitHub App' entry point on workspace settings, gated on
-the GITHUB_APP_ENABLED feature flag."""
+"""The consolidated '+ Add Connection' modal wizard on workspace settings.
+
+Covers the single entry-point button + modal, the flag-gated GitHub App method,
+the connections-table Method column, and the per-row 'Manage on GitHub' link."""
 import pytest
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from model_bakery import baker
+
+from app.domain.models import AuthMethod
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -41,3 +45,78 @@ class TestInstallButton(TestCase):
         resp = self.client.get(reverse("tenant_settings"))
         assert resp.status_code == 200
         assert "Install GitHub App" not in resp.content.decode()
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_add_connection_button_and_modal_render_for_admin(self):
+        _login_owner(self.client)
+        resp = self.client.get(reverse("tenant_settings"))
+        body = resp.content.decode()
+        assert "+ Add Connection" in body
+        assert 'id="add-connection-modal"' in body
+        # Token form still posts to the reused backend endpoint.
+        assert reverse("add_connection") in body
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_app_method_and_install_link_present_when_flag_enabled(self):
+        _login_owner(self.client)
+        resp = self.client.get(reverse("tenant_settings"))
+        body = resp.content.decode()
+        assert 'id="add-conn-method-row"' in body
+        assert reverse("github_app_install") in body
+
+    @override_settings(GITHUB_APP_ENABLED=False)
+    def test_app_method_absent_when_flag_disabled(self):
+        _login_owner(self.client)
+        resp = self.client.get(reverse("tenant_settings"))
+        body = resp.content.decode()
+        # Modal still renders (token path), but no App method or install link.
+        assert 'id="add-connection-modal"' in body
+        assert 'id="add-conn-method-row"' not in body
+        assert reverse("github_app_install") not in body
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_method_column_and_manage_link_visibility(self):
+        _, tenant = _login_owner(self.client)
+        baker.make(
+            "app.PlatformConnection",
+            tenant=tenant,
+            platform="github",
+            auth_method=AuthMethod.PAT,
+            access_token="ghp_pat",
+            display_name="PAT conn",
+        )
+        baker.make(
+            "app.PlatformConnection",
+            tenant=tenant,
+            platform="github",
+            auth_method=AuthMethod.GITHUB_APP,
+            installation_id=42,
+            account_login="acme",
+            account_type="Organization",
+            display_name="App conn",
+        )
+        resp = self.client.get(reverse("tenant_settings"))
+        body = resp.content.decode()
+        assert "<th>Method</th>" in body
+        assert "Manage on GitHub" in body
+        assert (
+            "https://github.com/organizations/acme/settings/installations/42"
+            in body
+        )
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_manage_link_absent_for_pat_only(self):
+        _, tenant = _login_owner(self.client)
+        baker.make(
+            "app.PlatformConnection",
+            tenant=tenant,
+            platform="github",
+            auth_method=AuthMethod.PAT,
+            access_token="ghp_pat",
+            display_name="PAT conn",
+        )
+        resp = self.client.get(reverse("tenant_settings"))
+        body = resp.content.decode()
+        assert "Manage on GitHub" not in body
+        # PAT rows keep the Edit Token action.
+        assert "Edit Token" in body
