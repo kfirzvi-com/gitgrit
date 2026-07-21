@@ -27,6 +27,7 @@ dependencies = [
     # validated on staging. (Root cause is the Dockerfile installing from
     # pyproject ranges instead of uv.lock — see the sync note there.)
     "litellm==1.88.1",
+    "pyjwt>=2.11.0",
 ]
 
 [dependency-groups]

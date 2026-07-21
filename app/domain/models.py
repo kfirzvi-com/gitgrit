@@ -68,6 +68,11 @@ class Platform(models.TextChoices):
     GITLAB = "gitlab", "GitLab"
 
 
+class AuthMethod(models.TextChoices):
+    PAT = "pat", "Personal Access Token"
+    GITHUB_APP = "github_app", "GitHub App"
+
+
 class PlatformConnection(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
@@ -78,7 +83,21 @@ class PlatformConnection(models.Model):
     platform = models.CharField(max_length=10, choices=Platform.choices)
     display_name = models.CharField(max_length=255)
     base_url = models.URLField(max_length=2048)
-    access_token = EncryptedCharField(max_length=1024)
+    # PAT connections store the encrypted token here; GitHub App connections
+    # mint short-lived installation tokens on demand instead, so this is
+    # nullable/blank for them.
+    access_token = EncryptedCharField(max_length=1024, null=True, blank=True)
+    # How this connection authenticates. Defaults to "pat" so existing rows
+    # and PAT behavior are unchanged.
+    auth_method = models.CharField(
+        max_length=20,
+        choices=AuthMethod.choices,
+        default=AuthMethod.PAT,
+    )
+    # GitHub App installation details (populated only for github_app connections).
+    installation_id = models.BigIntegerField(null=True, blank=True)
+    account_login = models.CharField(max_length=255, null=True, blank=True)
+    account_type = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -86,6 +105,22 @@ class PlatformConnection(models.Model):
 
     def __str__(self):
         return f"{self.display_name} ({self.platform})"
+
+    def get_access_token(self, repositories=None):
+        """Return an access token usable for platform API calls.
+
+        PAT connections return the stored (decrypted) token. GitHub App
+        connections mint a short-lived installation token on demand, optionally
+        scoped to ``repositories``.
+        """
+        if self.auth_method == AuthMethod.GITHUB_APP:
+            # Local import avoids a module-load cycle (domain ← infrastructure).
+            from app.infrastructure import github_app
+
+            return github_app.get_installation_token(
+                self.installation_id, repositories
+            )
+        return self.access_token
 
     def save(self, *args, **kwargs):
         if not self.base_url:

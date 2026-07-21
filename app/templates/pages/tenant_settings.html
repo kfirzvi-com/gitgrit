@@ -84,6 +84,13 @@
   <div class="card bg-base-100 shadow-xl mb-6">
     <div class="card-body">
       <h2 class="card-title">Platform Connections</h2>
+      {% if is_admin and github_app_enabled %}
+        <div class="mb-2">
+          <a href="{% url 'github_app_install' %}" class="btn btn-primary btn-sm">
+            Install GitHub App
+          </a>
+        </div>
+      {% endif %}
       {% if connections %}
         <div class="overflow-x-auto">
           <table class="table">

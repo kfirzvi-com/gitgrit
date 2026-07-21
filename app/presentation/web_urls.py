@@ -48,6 +48,10 @@ from app.presentation.views.tenant_views import (
     test_connection,
     test_llm_provider,
 )
+from app.presentation.views.github_app_views import (
+    github_app_callback,
+    github_app_install,
+)
 from app.presentation.views.badge_views import project_badge
 from app.presentation.views.feedback_views import submit_feedback
 from app.presentation.views.profile_views import ProfileView, disconnect_social
@@ -98,6 +102,17 @@ urlpatterns = [
         "tenants/connections/<uuid:connection_id>/test/",
         test_connection,
         name="test_connection",
+    ),
+    # GitHub App install flow (gated behind GITHUB_APP_ENABLED)
+    path(
+        "tenants/github-app/install/",
+        github_app_install,
+        name="github_app_install",
+    ),
+    path(
+        "tenants/github-app/callback/",
+        github_app_callback,
+        name="github_app_callback",
     ),
     # LLM providers & roles
     path("tenants/llm/providers/add/", add_llm_provider, name="add_llm_provider"),

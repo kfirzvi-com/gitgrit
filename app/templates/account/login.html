@@ -27,6 +27,29 @@
         </a>
         {% endif %}
       </div>
+
+      {# LOCAL-DEV ONLY: email+password sign-in (allauth already supports it). Remove before commit. #}
+      <div class="divider w-full">or</div>
+      <form method="post" class="w-full flex flex-col gap-3 text-left">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-error text-sm">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <label class="form-control w-full">
+          <span class="label-text">Email</span>
+          <input type="text" name="login" value="{{ form.login.value|default:'' }}"
+                 class="input input-bordered w-full" autocomplete="username" required>
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text">Password</span>
+          <input type="password" name="password"
+                 class="input input-bordered w-full" autocomplete="current-password" required>
+        </label>
+        {% if redirect_field_value %}
+          <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+        {% endif %}
+        <button type="submit" class="btn btn-primary w-full">Sign in</button>
+      </form>
     </div>
   </div>
 </div>

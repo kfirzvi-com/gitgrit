@@ -3,6 +3,18 @@ from __future__ import annotations
 import hashlib
 import hmac
 
+from django.conf import settings
+
+
+def verify_github_app_signature(body: bytes, header: str | None) -> bool:
+    """Verify an App-delivered GitHub webhook against ``GITHUB_APP_WEBHOOK_SECRET``.
+
+    App webhooks use the same `X-Hub-Signature-256` HMAC scheme as per-repo
+    webhooks, but are signed with the App's single shared secret rather than a
+    per-project one.
+    """
+    return verify_github_signature(settings.GITHUB_APP_WEBHOOK_SECRET, body, header)
+
 
 def verify_github_signature(secret: str, body: bytes, header: str | None) -> bool:
     """Verify a GitHub `X-Hub-Signature-256` header against the raw body.
