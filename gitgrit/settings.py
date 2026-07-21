@@ -252,7 +252,12 @@ GITHUB_APP_PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "").replace(
     "\\n", "\n"
 )
 GITHUB_APP_WEBHOOK_SECRET = os.environ.get("GITHUB_APP_WEBHOOK_SECRET", "")
-GITHUB_APP_ENABLED = os.environ.get("GITHUB_APP_ENABLED", "False") == "True"
+GITHUB_APP_ENABLED = os.environ.get("GITHUB_APP_ENABLED", "False").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # Sandbox configuration.
 # NETWORK / DNS / CA_BUNDLE_HOST_PATH are env-driven for air-gap deployments.
