@@ -106,6 +106,23 @@ class PlatformConnection(models.Model):
     def __str__(self):
         return f"{self.display_name} ({self.platform})"
 
+    @property
+    def github_app_manage_url(self):
+        """Deep-link to GitHub's installation settings for App connections.
+
+        Returns the org-scoped settings URL for Organization installations and
+        the personal settings URL otherwise. Falsy (``None``) for PAT
+        connections or App connections missing an ``installation_id``.
+        """
+        if self.auth_method != AuthMethod.GITHUB_APP or not self.installation_id:
+            return None
+        if self.account_type == "Organization" and self.account_login:
+            return (
+                f"https://github.com/organizations/{self.account_login}"
+                f"/settings/installations/{self.installation_id}"
+            )
+        return f"https://github.com/settings/installations/{self.installation_id}"
+
     def get_access_token(self, repositories=None):
         """Return an access token usable for platform API calls.
 
