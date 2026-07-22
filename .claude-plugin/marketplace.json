@@ -10,8 +10,28 @@
   "plugins": [
     {
       "name": "gitgrit",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/kfirzvi-com/gitgrit.git",
+        "ref": "plugin-v0.2.0",
+        "path": "plugin"
+      },
+      "description": "Project-aware DevOps compliance enforcement for GitGrit-connected repositories. Stable channel; pinned to the latest tagged release."
+    },
+    {
+      "name": "gitgrit-dev",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/kfirzvi-com/gitgrit.git",
+        "ref": "main",
+        "path": "plugin"
+      },
+      "description": "Internal/unstable build. Do not install in production. Tracks main; may break without notice. Requires a staging API token + staging MCP URL."
+    },
+    {
+      "name": "gitgrit-local",
       "source": "./plugin",
-      "description": "Project-aware DevOps compliance enforcement for GitGrit-connected repositories"
+      "description": "Local working-tree install for plugin developers running from the gitgrit repo. Not for customers."
     }
   ]
 }

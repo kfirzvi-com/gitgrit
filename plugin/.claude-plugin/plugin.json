@@ -6,13 +6,13 @@
     "name": "GitGrit",
     "url": "https://gitgrit.dev"
   },
-  "repository": "https://github.com/kfirzvi-com/gitgrit-plugin",
+  "repository": "https://github.com/kfirzvi-com/gitgrit",
   "license": "MIT",
   "userConfig": {
     "api_token": {
       "type": "string",
       "title": "GitGrit API Token",
-      "description": "Workspace API token from gitgrit.dev/settings/tokens",
+      "description": "Workspace API token from app-staging.gitgrit.dev/settings/tokens",
       "sensitive": true,
       "required": true
     },
@@ -20,7 +20,7 @@
       "type": "string",
       "title": "GitGrit MCP URL",
       "description": "MCP endpoint. Override only for self-hosted deployments.",
-      "default": "https://gitgrit.dev/mcp",
+      "default": "https://app-staging.gitgrit.dev/mcp",
       "required": false
     }
   }
