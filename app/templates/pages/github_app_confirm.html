@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Connect GitHub App — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title">Connect GitHub installation</h1>
+      <p class="text-sm opacity-70 -mt-1">
+        You installed the GitGrit app on GitHub. Choose whether to connect it to
+        the workspace you're in now.
+      </p>
+
+      <div class="my-4 space-y-2">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm opacity-70">GitHub account</span>
+          <span class="font-semibold">
+            {{ account_login|default:"your account" }}
+            {% if account_type %}
+              <span class="badge badge-outline badge-sm ml-1">{{ account_type }}</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm opacity-70">Workspace</span>
+          <span class="font-semibold">{{ target_tenant.name }}</span>
+        </div>
+      </div>
+
+      {% if already_connected %}
+        <div class="alert alert-info block">
+          <p class="text-sm">This workspace is already connected to that
+            installation. Confirming refreshes its details.</p>
+        </div>
+      {% endif %}
+
+      <p class="text-sm opacity-70">
+        To use it in a different workspace, switch workspace first and install again.
+      </p>
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'tenant_settings' %}" class="btn">Cancel</a>
+        <form method="post" action="{% url 'github_app_confirm' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">
+            Connect to {{ target_tenant.name }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

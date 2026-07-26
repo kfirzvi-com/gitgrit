@@ -17,7 +17,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.http import Http404
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from app.domain.models import AuthMethod, Membership, Platform, PlatformConnection
 from app.infrastructure import github_app
@@ -30,6 +31,11 @@ INSTALL_STATE_SALT = "github-app-install-state"
 # A state only has to survive one hop out to GitHub and back. Keeping it short
 # stops a captured state from being replayed indefinitely.
 INSTALL_STATE_MAX_AGE = 600  # seconds
+
+# Where an entitlement-verified installation waits for the user to confirm which
+# workspace it belongs to. Written only after GitHub vouches for the user, so
+# the confirm POST never has to trust anything the client sent.
+PENDING_INSTALL_SESSION_KEY = "pending_github_installation"
 
 
 def _require_app_enabled():
@@ -179,14 +185,79 @@ def _user_is_entitled(request, installation_id: int) -> bool:
     return allowed
 
 
+def _record_connection(tenant, installation_id: int, account_login: str, account_type: str):
+    """Create or refresh this workspace's connection to an installation.
+
+    Scoped to the tenant, so several workspaces can hold the same installation
+    side by side — each one an independent grant by someone with access.
+    """
+    return PlatformConnection.objects.update_or_create(
+        tenant=tenant,
+        platform=Platform.GITHUB,
+        installation_id=installation_id,
+        defaults={
+            "auth_method": AuthMethod.GITHUB_APP,
+            "display_name": (
+                f"GitHub App ({account_login})" if account_login else "GitHub App"
+            ),
+            "account_login": account_login,
+            "account_type": account_type,
+        },
+    )
+
+
+def _existing_connection(tenant, installation_id: int):
+    return PlatformConnection.objects.filter(
+        tenant=tenant,
+        platform=Platform.GITHUB,
+        auth_method=AuthMethod.GITHUB_APP,
+        installation_id=installation_id,
+    ).first()
+
+
+def _refresh_without_code(request, tenant, installation_id: int):
+    """Handle a return trip that carries no authorization code.
+
+    Reconfiguring an existing install comes back via ``setup_on_update`` without
+    re-running user authorization, so there is no code to prove entitlement
+    with. That is only safe when this workspace already holds the installation:
+    refreshing grants nothing it did not already have. Otherwise send them back
+    to start an install properly, without hinting whether the installation
+    exists or who else might hold it.
+    """
+    connection = _existing_connection(tenant, installation_id)
+    if not connection:
+        messages.info(
+            request,
+            "To connect a GitHub App installation, start from Install GitHub App "
+            "in your workspace settings.",
+        )
+        return redirect("tenant_settings")
+
+    installation = github_app.get_installation(installation_id)
+    account = installation.get("account", {}) or {}
+    _record_connection(
+        tenant,
+        installation_id,
+        account.get("login", ""),
+        account.get("type", ""),
+    )
+    messages.success(request, "GitHub App connection updated.")
+    return redirect("tenant_settings")
+
+
 @login_required
 def github_app_callback(request):
     """Handle GitHub's redirect back after an install.
 
-    Accepts the installation only once GitHub confirms the signed-in user may
-    access it, then records a tenant-scoped GitHub App connection. Any number of
-    workspaces may connect the same installation — each is an independent grant
-    by someone GitHub says has access.
+    Two shapes arrive here. An install started from workspace settings carries a
+    signed ``state``, so the target workspace is already known and the
+    connection is made outright. An install started from github.com carries no
+    state — nothing tied that visit to a workspace — so the verified
+    installation is parked in the session and the user confirms where it goes.
+
+    Either way the installation itself is only accepted once GitHub confirms the
+    signed-in user may access it.
     """
     _require_app_enabled()
 
@@ -199,19 +270,32 @@ def github_app_callback(request):
         messages.error(request, "You don't have permission to add a connection.")
         return redirect("tenant_settings")
 
+    # A member without install rights can only *request* one from an org owner;
+    # there is no installation yet, so report it rather than erroring on the id.
+    if request.GET.get("setup_action") == "request":
+        messages.info(
+            request,
+            "Your install request was sent to the organization's owners. "
+            "Connect it here once they approve.",
+        )
+        return redirect("tenant_settings")
+
     if not _state_is_acceptable(request, tenant):
         return redirect("tenant_settings")
 
-    installation_id = request.GET.get("installation_id")
-    if not installation_id:
+    raw_installation_id = request.GET.get("installation_id")
+    if not raw_installation_id:
         messages.error(request, "GitHub did not return an installation id.")
         return redirect("tenant_settings")
 
     try:
-        installation_id = int(installation_id)
+        installation_id = int(raw_installation_id)
     except (TypeError, ValueError):
         messages.error(request, "GitHub returned an unreadable installation id.")
         return redirect("tenant_settings")
+
+    if not request.GET.get("code"):
+        return _refresh_without_code(request, tenant, installation_id)
 
     if not _user_is_entitled(request, installation_id):
         return redirect("tenant_settings")
@@ -221,20 +305,68 @@ def github_app_callback(request):
     account_login = account.get("login", "")
     account_type = account.get("type", "")
 
-    connection, created = PlatformConnection.objects.update_or_create(
-        tenant=tenant,
-        platform=Platform.GITHUB,
-        installation_id=installation_id,
-        defaults={
-            "auth_method": AuthMethod.GITHUB_APP,
-            "display_name": f"GitHub App ({account_login})" if account_login else "GitHub App",
+    # A valid state means the user already chose the workspace on the way out —
+    # don't ask them again.
+    if request.GET.get("state"):
+        _, created = _record_connection(
+            tenant, installation_id, account_login, account_type
+        )
+        messages.success(
+            request,
+            f'GitHub App {"connected" if created else "updated"} for '
+            f'{account_login or "your account"}.',
+        )
+        return redirect("tenant_settings")
+
+    request.session[PENDING_INSTALL_SESSION_KEY] = {
+        "installation_id": installation_id,
+        "account_login": account_login,
+        "account_type": account_type,
+    }
+    return render(
+        request,
+        "pages/github_app_confirm.html",
+        {
             "account_login": account_login,
             "account_type": account_type,
+            "target_tenant": tenant,
+            "already_connected": bool(_existing_connection(tenant, installation_id)),
         },
+    )
+
+
+@login_required
+@require_POST
+def github_app_confirm(request):
+    """Attach the installation the verified callback parked in the session.
+
+    Reads the installation from the session rather than the request: the GET
+    that wrote it had already proven this user may access it, so nothing the
+    client sends here can widen what gets connected.
+    """
+    _require_app_enabled()
+
+    tenant = request.tenant
+    if not tenant or not _admin_membership(request):
+        messages.error(request, "You don't have permission to add a connection.")
+        return redirect("tenant_settings")
+
+    pending = request.session.pop(PENDING_INSTALL_SESSION_KEY, None)
+    if not pending:
+        messages.error(
+            request, "That install request has expired. Please try again."
+        )
+        return redirect("tenant_settings")
+
+    _, created = _record_connection(
+        tenant,
+        pending["installation_id"],
+        pending.get("account_login", ""),
+        pending.get("account_type", ""),
     )
     messages.success(
         request,
         f'GitHub App {"connected" if created else "updated"} for '
-        f'{account_login or "your account"}.',
+        f'{pending.get("account_login") or "your account"}.',
     )
     return redirect("tenant_settings")

@@ -50,6 +50,7 @@ from app.presentation.views.tenant_views import (
 )
 from app.presentation.views.github_app_views import (
     github_app_callback,
+    github_app_confirm,
     github_app_install,
 )
 from app.presentation.views.badge_views import project_badge
@@ -113,6 +114,11 @@ urlpatterns = [
         "tenants/github-app/callback/",
         github_app_callback,
         name="github_app_callback",
+    ),
+    path(
+        "tenants/github-app/confirm/",
+        github_app_confirm,
+        name="github_app_confirm",
     ),
     # LLM providers & roles
     path("tenants/llm/providers/add/", add_llm_provider, name="add_llm_provider"),

@@ -106,7 +106,12 @@ class TestInstallationEntitlement(TestCase):
         assert not PlatformConnection.objects.filter(tenant=tenant).exists()
 
     def test_installation_the_user_can_access_is_accepted(self):
-        """The legitimate direct-from-GitHub install: no state, but a valid code."""
+        """The legitimate direct-from-GitHub install: no state, but a valid code.
+
+        A state-less callback asks which workspace before connecting (see
+        ``test_github_app_direct_install``), so entitlement is what gets it as
+        far as the confirmation.
+        """
         _, tenant = _login_owner(self.client)
         with mock.patch(
             "app.infrastructure.github_app.exchange_user_code",
@@ -118,7 +123,7 @@ class TestInstallationEntitlement(TestCase):
             "app.infrastructure.github_app.get_installation",
             return_value=_VICTIM_INSTALLATION,
         ):
-            self.client.get(
+            resp = self.client.get(
                 reverse("github_app_callback"),
                 {
                     "installation_id": str(VICTIM_INSTALLATION_ID),
@@ -126,6 +131,8 @@ class TestInstallationEntitlement(TestCase):
                     "setup_action": "install",
                 },
             )
+        assert resp.status_code == 200
+        self.client.post(reverse("github_app_confirm"))
         assert PlatformConnection.objects.filter(
             tenant=tenant, installation_id=VICTIM_INSTALLATION_ID
         ).exists()
