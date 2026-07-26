@@ -14,6 +14,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from gitgrit.feature_flags import github_app_enabled, missing_github_app_settings
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -259,12 +261,23 @@ GITHUB_APP_WEBHOOK_SECRET = os.environ.get("GITHUB_APP_WEBHOOK_SECRET", "")
 # installation_id query parameter.
 GITHUB_APP_CLIENT_ID = os.environ.get("GITHUB_APP_CLIENT_ID", "")
 GITHUB_APP_CLIENT_SECRET = os.environ.get("GITHUB_APP_CLIENT_SECRET", "")
-GITHUB_APP_ENABLED = os.environ.get("GITHUB_APP_ENABLED", "False").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
+
+# Availability is derived from the configuration above rather than declared
+# separately, so the feature can never be "on" while half-configured.
+# GITHUB_APP_ENABLED remains as a kill switch: setting it to a false-y value
+# disables a working App without removing its secrets. It cannot enable one.
+_GITHUB_APP_CONFIG = {
+    "GITHUB_APP_ID": GITHUB_APP_ID,
+    "GITHUB_APP_SLUG": GITHUB_APP_SLUG,
+    "GITHUB_APP_PRIVATE_KEY": GITHUB_APP_PRIVATE_KEY,
+    "GITHUB_APP_WEBHOOK_SECRET": GITHUB_APP_WEBHOOK_SECRET,
+    "GITHUB_APP_CLIENT_ID": GITHUB_APP_CLIENT_ID,
+    "GITHUB_APP_CLIENT_SECRET": GITHUB_APP_CLIENT_SECRET,
 }
+GITHUB_APP_MISSING_SETTINGS = missing_github_app_settings(_GITHUB_APP_CONFIG)
+GITHUB_APP_ENABLED = github_app_enabled(
+    _GITHUB_APP_CONFIG, os.environ.get("GITHUB_APP_ENABLED", "")
+)
 
 # Sandbox configuration.
 # NETWORK / DNS / CA_BUNDLE_HOST_PATH are env-driven for air-gap deployments.

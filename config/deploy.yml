@@ -57,10 +57,12 @@ env:
     # ID/slug/client id are public; the private key, webhook secret and OAuth
     # client secret are secrets below.
     #
-    # Enabling the App REQUIRES the OAuth pair below: the install callback
-    # proves the user may access the installation by asking GitHub with a
-    # user-to-server token, and refuses the connection when it cannot.
-    GITHUB_APP_ENABLED: "false"
+    # The feature turns itself on once ALL of these are set: id, slug, private
+    # key, webhook secret, and the OAuth client id/secret. There is no separate
+    # enable flag to get out of step with the config — a half-configured App
+    # stays off. GITHUB_APP_ENABLED is only a kill switch: set it to "false" to
+    # disable a working App without removing its secrets.
+    GITHUB_APP_ENABLED: ""
     GITHUB_APP_ID: ""
     GITHUB_APP_SLUG: ""
     GITHUB_APP_CLIENT_ID: ""
