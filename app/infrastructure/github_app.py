@@ -117,3 +117,66 @@ def get_installation(installation_id: int) -> dict:
     )
     resp.raise_for_status()
     return resp.json()
+
+
+class UserAuthError(Exception):
+    """GitHub refused to issue a user-to-server token for the supplied code."""
+
+
+def exchange_user_code(code: str) -> str:
+    """Exchange an install/authorization ``code`` for a user-to-server token.
+
+    The resulting token acts *as the human*, which is what makes it usable as
+    proof of entitlement — unlike the App JWT, which can read every
+    installation of this App.
+    """
+    resp = requests.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        data={
+            "client_id": settings.GITHUB_APP_CLIENT_ID,
+            "client_secret": settings.GITHUB_APP_CLIENT_SECRET,
+            "code": code,
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    token = data.get("access_token")
+    if not token:
+        # GitHub reports OAuth failures as 200 + {"error": ...}.
+        raise UserAuthError(data.get("error_description") or data.get("error") or "no access_token")
+    return token
+
+
+def user_can_access_installation(user_token: str, installation_id: int) -> bool:
+    """Whether GitHub lists ``installation_id`` as accessible to this user.
+
+    GitHub itself is the authority on who may reach an installation, so this is
+    what stands between a workspace and someone else's repositories. Paginates
+    because a user can belong to many organizations.
+    """
+    headers = {
+        "Authorization": f"Bearer {user_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    per_page = 100
+    page = 1
+    seen = 0
+    while True:
+        resp = requests.get(
+            f"{GITHUB_API_BASE}/user/installations",
+            headers=headers,
+            params={"per_page": per_page, "page": page},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        installations = data.get("installations", [])
+        if any(int(item.get("id", 0)) == installation_id for item in installations):
+            return True
+        seen += len(installations)
+        if not installations or seen >= data.get("total_count", 0):
+            return False
+        page += 1

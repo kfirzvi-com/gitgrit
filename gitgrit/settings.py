@@ -252,6 +252,13 @@ GITHUB_APP_PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "").replace(
     "\\n", "\n"
 )
 GITHUB_APP_WEBHOOK_SECRET = os.environ.get("GITHUB_APP_WEBHOOK_SECRET", "")
+# User-to-server OAuth credentials for the same App. Required to prove that the
+# person finishing an install may actually access the installation they came
+# back with — the install `state` identifies the user, never the installation.
+# Absent credentials fail closed: the callback refuses rather than trusting the
+# installation_id query parameter.
+GITHUB_APP_CLIENT_ID = os.environ.get("GITHUB_APP_CLIENT_ID", "")
+GITHUB_APP_CLIENT_SECRET = os.environ.get("GITHUB_APP_CLIENT_SECRET", "")
 GITHUB_APP_ENABLED = os.environ.get("GITHUB_APP_ENABLED", "False").strip().lower() in {
     "1",
     "true",

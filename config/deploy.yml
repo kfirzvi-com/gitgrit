@@ -54,10 +54,16 @@ env:
     SITE_URL: https://example.com
     # GitHub App: non-secret, per-environment. Real values are set in each
     # destination override (config/deploy.<dest>.yml, in the infra repo).
-    # ID/slug are public; the private key + webhook secret are secrets below.
+    # ID/slug/client id are public; the private key, webhook secret and OAuth
+    # client secret are secrets below.
+    #
+    # Enabling the App REQUIRES the OAuth pair below: the install callback
+    # proves the user may access the installation by asking GitHub with a
+    # user-to-server token, and refuses the connection when it cannot.
     GITHUB_APP_ENABLED: "false"
     GITHUB_APP_ID: ""
     GITHUB_APP_SLUG: ""
+    GITHUB_APP_CLIENT_ID: ""
   secret:
     - SECRET_KEY
     - GITGRIT_ENCRYPTION_KEY
@@ -70,3 +76,4 @@ env:
     - GOOGLE_CLIENT_SECRET
     - GITHUB_APP_PRIVATE_KEY
     - GITHUB_APP_WEBHOOK_SECRET
+    - GITHUB_APP_CLIENT_SECRET
