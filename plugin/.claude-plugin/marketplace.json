@@ -1,0 +1,17 @@
+{
+  "name": "gitgrit",
+  "owner": {
+    "name": "GitGrit",
+    "email": "tzuf@kfirzvi.com"
+  },
+  "metadata": {
+    "description": "GitGrit DevOps compliance plugin marketplace"
+  },
+  "plugins": [
+    {
+      "name": "gitgrit",
+      "source": "./",
+      "description": "Project-aware DevOps compliance enforcement for GitGrit-connected repositories"
+    }
+  ]
+}
