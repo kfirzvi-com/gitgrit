@@ -18,9 +18,9 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "whitenoise>=6.0",
     # Pinned: mcp 2.0 moved FastMCP out of `mcp.server.fastmcp`, so an unbounded
-    # spec breaks every import of our MCP server. The Dockerfile and CI both
-    # install from this file rather than uv.lock, so a float here ships a broken
-    # image — not just a red build.
+    # spec breaks every import of our MCP server. Belt-and-braces now that the
+    # Dockerfile and CI install from uv.lock (`uv sync --locked`) — the pin
+    # documents the incompatibility even where a lockfile isn't in play.
     "mcp==1.27.0",
     "uvicorn>=0.30",
     "procrastinate[django]>=3.8.1",
@@ -28,8 +28,8 @@ dependencies = [
     # -> fastapi during completion(), which isn't a runtime dep here, so the
     # in-process dependency-inference agent crashes with
     # "ModuleNotFoundError: No module named 'fastapi'". 1.88.1 is the version
-    # validated on staging. (Root cause is the Dockerfile installing from
-    # pyproject ranges instead of uv.lock — see the sync note there.)
+    # validated on staging. Also pinned in sandbox_image/Dockerfile, which still
+    # installs with plain pip and has no lockfile of its own.
     "litellm==1.88.1",
 ]
 
