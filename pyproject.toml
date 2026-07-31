@@ -17,7 +17,11 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.2.1",
     "whitenoise>=6.0",
-    "mcp>=1.0",
+    # Pinned: mcp 2.0 moved FastMCP out of `mcp.server.fastmcp`, so an unbounded
+    # spec breaks every import of our MCP server. The Dockerfile and CI both
+    # install from this file rather than uv.lock, so a float here ships a broken
+    # image — not just a red build.
+    "mcp==1.27.0",
     "uvicorn>=0.30",
     "procrastinate[django]>=3.8.1",
     # Pinned: litellm 1.89+ lazily imports litellm.responses.mcp -> litellm.proxy
