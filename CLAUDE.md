@@ -20,4 +20,4 @@ uv run python manage.py runserver
 
 ## Deployment
 
-Deployment is handled by our internal ops tooling and is kept outside this repo. Team members: see the local-only `deploy` skill for deploy commands, the CI/CD flow, and deployment-secret handling.
+For Kamal deploy commands, the CI/CD flow, and `SECRET_KEY` / `GITGRIT_ENCRYPTION_KEY` handling (including the gotcha that rotating either invalidates stored OAuth tokens), see the **`deploy` skill** (`.claude/skills/deploy/SKILL.md`).

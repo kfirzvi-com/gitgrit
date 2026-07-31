@@ -9,5 +9,4 @@ staticfiles/
 config/deploy.*.yml
 site/build/
 .claude/settings.local.json
-.claude/skills/deploy/
 docs/local-oauth-ngrok-setup.md
