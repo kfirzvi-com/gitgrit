@@ -8,5 +8,3 @@ staticfiles/
 .kamal/secrets*
 config/deploy.*.yml
 site/build/
-.claude/settings.local.json
-docs/local-oauth-ngrok-setup.md
