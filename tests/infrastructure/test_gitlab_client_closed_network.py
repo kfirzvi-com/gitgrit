@@ -31,8 +31,6 @@ def _internal_gitlab_connection():
     conn.platform = Platform.GITLAB
     conn.base_url = INTERNAL_GITLAB
     conn.access_token = FAKE_TOKEN
-    # PlatformClient.__init__ now reads the token via the auth-method seam.
-    conn.get_access_token.return_value = FAKE_TOKEN
     return conn
 
 

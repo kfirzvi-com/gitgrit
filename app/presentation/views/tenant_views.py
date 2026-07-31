@@ -1,6 +1,5 @@
 import re
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -118,8 +117,6 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 Membership.Role.OWNER,
                 Membership.Role.ADMIN,
             )
-            # Drives the minimal "Install GitHub App" entry point (Phase 2).
-            context["github_app_enabled"] = settings.GITHUB_APP_ENABLED
         return context
 
 

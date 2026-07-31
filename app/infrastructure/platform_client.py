@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 import requests
 
-from app.domain.models import AuthMethod, Platform, PlatformConnection
+from app.domain.models import Platform, PlatformConnection
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +15,7 @@ class PlatformClient(ABC):
     def __init__(self, connection: PlatformConnection):
         self.connection = connection
         self.base_url = connection.base_url.rstrip("/")
-        # Route through the auth-method seam: PAT connections return the stored
-        # token; GitHub App connections mint a short-lived installation token.
-        self.token = connection.get_access_token()
+        self.token = connection.access_token
 
     @abstractmethod
     def search_projects(self, query: str = "") -> list[dict]:
@@ -65,39 +63,22 @@ class GitHubClient(PlatformClient):
         resp = requests.get(f"{self.base_url}/user", headers=self._headers, timeout=10)
         return resp.status_code == 200
 
-    @property
-    def _is_app(self) -> bool:
-        return self.connection.auth_method == AuthMethod.GITHUB_APP
-
     def search_projects(self, query: str = "") -> list[dict]:
         results = []
         page = 1
         while True:
-            if self._is_app:
-                # GitHub App installation tokens list only the repos the App is
-                # installed on, via a dedicated endpoint that wraps the list in
-                # a {"repositories": [...]} envelope (no "sort" param).
-                resp = requests.get(
-                    f"{self.base_url}/installation/repositories",
-                    headers=self._headers,
-                    params={"per_page": 100, "page": page},
-                    timeout=15,
-                )
-                resp.raise_for_status()
-                repos = resp.json().get("repositories", [])
-            else:
-                resp = requests.get(
-                    f"{self.base_url}/user/repos",
-                    headers=self._headers,
-                    params={
-                        "per_page": 100,
-                        "sort": "updated",
-                        "page": page,
-                    },
-                    timeout=15,
-                )
-                resp.raise_for_status()
-                repos = resp.json()
+            resp = requests.get(
+                f"{self.base_url}/user/repos",
+                headers=self._headers,
+                params={
+                    "per_page": 100,
+                    "sort": "updated",
+                    "page": page,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            repos = resp.json()
             if not repos:
                 break
             for repo in repos:

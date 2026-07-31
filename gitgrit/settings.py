@@ -240,25 +240,6 @@ SOCIALACCOUNT_PROVIDERS = {
     if enabled
 }
 
-# GitHub App (SaaS) configuration.
-# Short-lived installation tokens replace manually-created PATs. Values come
-# from the registered GitHub App (Phase 0, manual). All default to empty/False
-# so unset config never crashes and existing PAT/allauth flows are unchanged.
-# GITHUB_APP_PRIVATE_KEY may be stored with literal "\n" escapes in a single-line
-# env var; normalize those to real newlines so RS256 signing works.
-GITHUB_APP_ID = os.environ.get("GITHUB_APP_ID", "")
-GITHUB_APP_SLUG = os.environ.get("GITHUB_APP_SLUG", "")
-GITHUB_APP_PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "").replace(
-    "\\n", "\n"
-)
-GITHUB_APP_WEBHOOK_SECRET = os.environ.get("GITHUB_APP_WEBHOOK_SECRET", "")
-GITHUB_APP_ENABLED = os.environ.get("GITHUB_APP_ENABLED", "False").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-
 # Sandbox configuration.
 # NETWORK / DNS / CA_BUNDLE_HOST_PATH are env-driven for air-gap deployments.
 # Defaults preserve cloud behaviour byte-for-byte: same network name as the

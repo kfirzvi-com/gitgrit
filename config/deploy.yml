@@ -52,12 +52,6 @@ env:
     DB_NAME: gitgrit
     DB_USER: gitgrit
     SITE_URL: https://example.com
-    # GitHub App: non-secret, per-environment. Real values are set per
-    # destination in the gitignored deploy override (not tracked in this repo).
-    # ID/slug are public; the private key + webhook secret are secrets below.
-    GITHUB_APP_ENABLED: "false"
-    GITHUB_APP_ID: ""
-    GITHUB_APP_SLUG: ""
   secret:
     - SECRET_KEY
     - GITGRIT_ENCRYPTION_KEY
@@ -68,5 +62,3 @@ env:
     - GITLAB_CLIENT_SECRET
     - GOOGLE_CLIENT_ID
     - GOOGLE_CLIENT_SECRET
-    - GITHUB_APP_PRIVATE_KEY
-    - GITHUB_APP_WEBHOOK_SECRET

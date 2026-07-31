@@ -85,3 +85,45 @@ class TestMCPAuthMiddleware(TestCase):
 
         asyncio.run(run())
         assert reached == ["lifespan"]
+
+
+class TestDatabaseConnectionHygiene(TestCase):
+    """Token resolution runs in a thread pool, where Django manages nothing.
+
+    Django's connection hygiene is driven by its request_started/request_finished
+    signals, which never fire for `run_in_executor` work. Left alone, a pool
+    thread reuses one connection forever; when that connection dies (idle
+    timeout, DB restart, failover) every later request on the thread raises
+    `psycopg.OperationalError: the connection is closed`, 500ing the endpoint
+    until the worker is replaced. Staging did exactly that after 13 idle days.
+    """
+
+    def _auth_context(self):
+        return AuthContext(user=MagicMock(), tenant=MagicMock(), client_kind="claude")
+
+    @patch("app.infrastructure.mcp.middleware.close_old_connections")
+    @patch.object(MCPBearerAuth, "resolve")
+    def test_stale_connections_are_dropped_around_resolution(self, mock_resolve, mock_close):
+        mock_resolve.return_value = self._auth_context()
+        client = TestClient(MCPAuthMiddleware(_ok_app), raise_server_exceptions=True)
+
+        response = client.get("/", headers={"Authorization": "Bearer grit_valid"})
+
+        assert response.status_code == 200
+        # Before, so a connection that died since the last request is discarded
+        # rather than reused; after, so this request leaves nothing behind.
+        assert mock_close.call_count == 2
+
+    @patch("app.infrastructure.mcp.middleware.close_old_connections")
+    @patch.object(MCPBearerAuth, "resolve", side_effect=PermissionError("Invalid token"))
+    def test_connections_are_released_even_when_the_token_is_rejected(
+        self, mock_resolve, mock_close
+    ):
+        # The rejection path is the common one for a scanner or a stale client;
+        # it must not strand a connection in the pool thread either.
+        client = TestClient(MCPAuthMiddleware(_ok_app), raise_server_exceptions=True)
+
+        response = client.get("/", headers={"Authorization": "Bearer grit_bogus"})
+
+        assert response.status_code == 401
+        assert mock_close.call_count == 2

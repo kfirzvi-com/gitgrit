@@ -7,6 +7,7 @@ TestTenancyIsolation validates that tool functions enforce tenant boundaries
 against a real database (no service-layer mocking).
 """
 import asyncio
+import hashlib
 
 from django.db import connections
 from django.test import TestCase, TransactionTestCase
@@ -118,3 +119,87 @@ class TestTenancyIsolation(TransactionTestCase):
             context.reset_auth(ctx_token)
         returned_ids = {p["id"] for p in result}
         self.assertIn(str(self.policy_a.id), returned_ids)
+
+
+class TestStatelessTransport(TransactionTestCase):
+    """Pin the transport as stateless so multi-worker deploys keep working.
+
+    Under gunicorn with `--workers 2` the stateful StreamableHTTP session table
+    lives in a single worker's memory. A client that initializes on worker A and
+    then has a follow-up request routed to worker B gets
+    `404 -32600 "Session not found"`, treats it as an expired session, and drops
+    the connection — "Failed to fetch tools: Not connected". A sibling worker
+    sees exactly what this test sends: a request carrying no session ID.
+
+    TransactionTestCase because the auth middleware resolves the token in a
+    thread-pool executor with its own DB connection.
+    """
+
+    def tearDown(self):
+        connections.close_all()
+        super().tearDown()
+
+    def setUp(self):
+        self.raw_token = "grit_stateless_probe_token"
+        baker.make(
+            "app.APIToken",
+            token_hash=hashlib.sha256(self.raw_token.encode()).hexdigest(),
+            client_kind="claude",
+        )
+        self.headers = {
+            "Authorization": f"Bearer {self.raw_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+
+    def test_stateless_http_is_enabled(self):
+        from app.infrastructure.mcp.server import mcp
+
+        self.assertTrue(
+            mcp.settings.stateless_http,
+            "stateless_http must stay on — stateful sessions break under "
+            "gunicorn's multiple workers (see class docstring)",
+        )
+
+    def test_requests_without_a_session_id_are_served(self):
+        """A sibling worker's view: no mcp-session-id, and none handed back.
+
+        Both requests share one `with` block because the session manager's task
+        group is created by ASGI lifespan startup and may only be run once per
+        instance — and `mcp_app` is a module-level singleton.
+        """
+        # base_url pins the Host header to an allowed host — TestClient's
+        # default "testserver" is rejected by DNS-rebinding protection (421).
+        with TestClient(
+            application, base_url="http://localhost", raise_server_exceptions=False
+        ) as client:
+            init = client.post(
+                "/mcp/",
+                headers=self.headers,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-06-18",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test", "version": "1"},
+                    },
+                },
+            )
+            # Stateful mode rejects a bare tools/list outright ("Missing session
+            # ID"); stateless mode must serve it.
+            tools = client.post(
+                "/mcp/",
+                headers=self.headers,
+                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+            )
+
+        self.assertEqual(init.status_code, 200)
+        self.assertNotIn(
+            "mcp-session-id",
+            {k.lower() for k in init.headers},
+            "no session may be issued — clients must not pin themselves to a worker",
+        )
+        self.assertEqual(tools.status_code, 200)
+        self.assertIn("validate_edit", tools.text)
