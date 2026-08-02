@@ -50,6 +50,10 @@
        sidebar opens with the full tree. The custom.css rule shrinks
        .md-header__title so this link doesn't get shoved to the far right
        by Material's default `flex: 1` on the title. #}
+    {# Nav links: Solutions (marketing) + Docs. margin-right:auto lives on
+       the last link (Docs) so it still pushes search + repo to the far
+       right; Solutions overrides it to 0 so the two sit adjacent. #}
+    <a href="{{ 'solutions/' | url }}" class="gg-header__docs" style="margin-right: 0;">Solutions</a>
     <a href="{{ 'getting-started/quickstart/' | url }}" class="gg-header__docs">Docs</a>
 
     {% if config.theme.palette %}
