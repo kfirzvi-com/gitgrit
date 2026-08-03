@@ -45,7 +45,10 @@ WEB_URL=$(printf '%s' "$RAW_URL" \
   | sed 's|\.git$||')
 
 # Derive owner/repo full_path (everything after the host).
-FULL_PATH=$(printf '%s' "$WEB_URL" | sed 's|^https\?://[^/]*/||')
+# -E (ERE) is required: `\?` is a GNU extension that BSD/macOS sed treats as a
+# literal '?', so the BRE form silently matched nothing there and left the whole
+# URL in FULL_PATH — which never matches Project.full_path server-side.
+FULL_PATH=$(printf '%s' "$WEB_URL" | sed -E 's|^https?://[^/]*/||')
 
 # Session state lives under XDG cache, not inside the repo. Inside .git/ gets
 # blocked by Claude Code's sensitive-file guard (the Write tool refuses even
