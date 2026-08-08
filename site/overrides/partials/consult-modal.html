@@ -1,0 +1,50 @@
+{#-
+  Shared "Book a consult" popup. Injected once per page via the scripts
+  block in main.html. Triggered by any element with [data-consult-open].
+  Front-end only for now: submit shows the thank-you state; the POST to the
+  app endpoint is wired in a later step.
+-#}
+<div class="gg-consult-overlay" id="gg-consult" hidden>
+  <div class="gg-consult-modal" role="dialog" aria-modal="true" aria-labelledby="gg-consult-title">
+    <button type="button" class="gg-consult-close" data-consult-close aria-label="Close">&times;</button>
+
+    <div data-consult-form>
+      <h2 class="gg-consult-title" id="gg-consult-title">Book a consult</h2>
+      <p class="gg-consult-lead">Tell us a bit about your setup and we'll follow up within one business day with a few times that work.</p>
+
+      <form id="gg-consult-form" novalidate>
+        <label class="gg-consult-field">
+          <span>Name</span>
+          <input type="text" name="name" autocomplete="name" required>
+        </label>
+        <label class="gg-consult-field">
+          <span>Work email</span>
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label class="gg-consult-field">
+          <span>Company</span>
+          <input type="text" name="company" autocomplete="organization" required>
+        </label>
+        <label class="gg-consult-field">
+          <span>Anything we should know before we talk? <em>(optional)</em></span>
+          <textarea name="notes" rows="3"></textarea>
+        </label>
+
+        <div class="gg-consult-hp" aria-hidden="true">
+          <label>Leave this field empty
+            <input type="text" name="website" tabindex="-1" autocomplete="off">
+          </label>
+        </div>
+
+        <button type="submit" class="gg-btn gg-btn--primary gg-consult-submit">Request my consult</button>
+        <p class="gg-consult-fine">We'll only use this to arrange your consult. No spam, no list.</p>
+      </form>
+    </div>
+
+    <div data-consult-thanks hidden>
+      <h2 class="gg-consult-title">Thanks, <span data-consult-name>there</span>.</h2>
+      <p class="gg-consult-lead">We've got your request. We'll email you shortly at <span data-consult-email>your inbox</span> with a few date and time options. Talk soon.</p>
+      <button type="button" class="gg-btn gg-btn--ghost" data-consult-close>Close</button>
+    </div>
+  </div>
+</div>

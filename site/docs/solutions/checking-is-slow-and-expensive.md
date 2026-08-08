@@ -9,7 +9,7 @@ hide:
 <div class="gg-hero2">
   <h1>Checking Is Slow And Expensive</h1>
   <p class="gg-sol-subhead">Know every repo meets your standards, without the token bill.</p>
-  <p class="gg-hero2__cta"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a></p>
+  <p class="gg-hero2__cta"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a> <button type="button" class="gg-btn gg-btn--ghost" data-consult-open>Book a consult</button></p>
 </div>
 
 <section class="gg-area">
@@ -64,4 +64,4 @@ hide:
   </ul>
 </section>
 
-<p class="gg-hero2__cta" style="text-align: center; margin-top: 3rem;"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a></p>
+<p class="gg-hero2__cta" style="text-align: center; margin-top: 3rem;"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a> <button type="button" class="gg-btn gg-btn--ghost" data-consult-open>Book a consult</button></p>
