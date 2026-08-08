@@ -70,6 +70,7 @@ not_in_nav: |
   /legal/sub-processors.md
   /solutions/index.md
   /solutions/seniors-are-the-bottleneck.md
+  /solutions/unchecked-ai-written-code.md
 
 markdown_extensions:
   - pymdownx.highlight:
