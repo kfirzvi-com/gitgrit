@@ -9,7 +9,7 @@ hide:
 <div class="gg-hero2">
   <h1>Seniors Are The Bottleneck</h1>
   <p class="gg-sol-subhead">Scale your output without scaling your senior headcount.</p>
-  <p class="gg-hero2__cta"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a> <button type="button" class="gg-btn gg-btn--ghost" data-consult-open>Book a consult</button></p>
+  <p class="gg-hero2__cta"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a> <button type="button" class="gg-btn gg-btn--consult" data-consult-open>Book a consult</button></p>
 </div>
 
 <section class="gg-area">
@@ -67,4 +67,4 @@ hide:
   </ul>
 </section>
 
-<p class="gg-hero2__cta" style="text-align: center; margin-top: 3rem;"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a> <button type="button" class="gg-btn gg-btn--ghost" data-consult-open>Book a consult</button></p>
+<p class="gg-hero2__cta" style="text-align: center; margin-top: 3rem;"><a class="gg-btn gg-btn--primary" href="https://app.gitgrit.dev">Try it today</a> <button type="button" class="gg-btn gg-btn--consult" data-consult-open>Book a consult</button></p>

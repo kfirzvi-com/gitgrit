@@ -30,6 +30,24 @@
 /* Make sure any <button class="gg-btn"> resets the UA font. */
 button.gg-btn { font-family: var(--gg-font-mono); cursor: pointer; }
 
+/* Consult trigger: blue (primary) outline, fills blue on hover. The double-
+   class / .md-typeset selectors give it enough specificity to win over the
+   base .gg-btn rules in every context (home + hub inline styles, solution
+   pages via solutions.css). */
+.gg-btn.gg-btn--consult,
+.md-typeset button.gg-btn.gg-btn--consult {
+  background: transparent;
+  color: var(--gg-primary);
+  border: 1.5px solid var(--gg-primary);
+}
+.gg-btn.gg-btn--consult:hover,
+.md-typeset button.gg-btn.gg-btn--consult:hover {
+  background: var(--gg-primary);
+  color: var(--gg-bg-base);
+  border-color: var(--gg-primary);
+  box-shadow: 0 0 20px var(--gg-primary-glow);
+}
+
 /* ---- Popup ---------------------------------------------------------- */
 
 .gg-consult-overlay {
