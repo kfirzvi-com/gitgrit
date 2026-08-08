@@ -1,0 +1,170 @@
+/* Book-a-consult: the trigger button (as used inside .md-typeset solution
+   pages) and the shared popup. Home and the solutions hub style .gg-btn in
+   their own inline <style>, so a <button class="gg-btn"> already inherits
+   there; these .md-typeset rules mirror solutions.css's a.gg-btn so the same
+   button also matches on the solution pages. */
+
+.md-typeset button.gg-btn {
+  display: inline-block;
+  font-family: var(--gg-font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.7rem 1.6rem;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  text-decoration: none;
+  transition: all 0.2s;
+  margin: 0.25rem 0.5rem 0.5rem 0;
+  cursor: pointer;
+}
+.md-typeset button.gg-btn.gg-btn--ghost {
+  background: transparent;
+  color: var(--gg-text-dim);
+  border-color: var(--gg-border);
+}
+.md-typeset button.gg-btn.gg-btn--ghost:hover {
+  color: var(--gg-text);
+  border-color: var(--gg-text-dim);
+}
+
+/* Make sure any <button class="gg-btn"> resets the UA font. */
+button.gg-btn { font-family: var(--gg-font-mono); cursor: pointer; }
+
+/* ---- Popup ---------------------------------------------------------- */
+
+.gg-consult-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: color-mix(in oklch, var(--gg-bg-base) 70%, transparent);
+  backdrop-filter: blur(4px);
+}
+.gg-consult-overlay[hidden] { display: none; }
+
+.gg-consult-modal {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  max-height: calc(100vh - 2.5rem);
+  overflow-y: auto;
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-border);
+  border-radius: var(--gg-radius-lg, 14px);
+  padding: 2rem 1.75rem 1.75rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.gg-consult-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  color: var(--gg-text-dim);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.gg-consult-close:hover { color: var(--gg-text); background: var(--gg-surface-2); }
+
+.gg-consult-title {
+  font-family: var(--gg-font-sans);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--gg-text);
+  margin: 0 0 0.4rem;
+}
+.gg-consult-lead {
+  font-family: var(--gg-font-sans);
+  font-size: 0.95rem;
+  color: var(--gg-text-dim);
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+}
+
+.gg-consult-field { display: block; margin-bottom: 0.9rem; }
+.gg-consult-field > span {
+  display: block;
+  font-family: var(--gg-font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--gg-text-dim);
+  margin-bottom: 0.3rem;
+}
+.gg-consult-field > span em { color: var(--gg-text-dimmer); font-style: normal; }
+.gg-consult-field input,
+.gg-consult-field textarea {
+  width: 100%;
+  font-family: var(--gg-font-sans);
+  font-size: 0.95rem;
+  color: var(--gg-text);
+  background: var(--gg-bg-base);
+  border: 1px solid var(--gg-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  box-sizing: border-box;
+}
+.gg-consult-field textarea { resize: vertical; min-height: 3.5rem; }
+.gg-consult-field input:focus,
+.gg-consult-field textarea:focus {
+  outline: none;
+  border-color: var(--gg-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--gg-primary) 25%, transparent);
+}
+
+.gg-consult-submit { width: 100%; margin-top: 0.35rem; }
+.gg-consult-overlay .gg-btn {
+  font-family: var(--gg-font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.75rem 1.6rem;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.gg-consult-overlay .gg-btn--primary {
+  background: var(--gg-primary);
+  color: var(--gg-bg-base);
+  border-color: var(--gg-primary);
+}
+.gg-consult-overlay .gg-btn--primary:hover {
+  background: transparent;
+  color: var(--gg-primary);
+  box-shadow: 0 0 20px var(--gg-primary-glow);
+}
+.gg-consult-overlay .gg-btn--ghost {
+  background: transparent;
+  color: var(--gg-text-dim);
+  border-color: var(--gg-border);
+  margin-top: 0.75rem;
+}
+.gg-consult-overlay .gg-btn--ghost:hover { color: var(--gg-text); border-color: var(--gg-text-dim); }
+
+.gg-consult-fine {
+  font-family: var(--gg-font-sans);
+  font-size: 0.75rem;
+  color: var(--gg-text-dimmer);
+  text-align: center;
+  margin: 0.75rem 0 0;
+}
+
+/* honeypot: off-screen, not display:none (bots skip display:none) */
+.gg-consult-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.gg-consult-thanks[hidden] { display: none; }
+.gg-consult-thanks .gg-consult-title span { color: var(--gg-primary); }
+.gg-consult-thanks [data-consult-email] { color: var(--gg-text); font-weight: 500; }

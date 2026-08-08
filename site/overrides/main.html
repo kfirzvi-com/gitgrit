@@ -19,3 +19,13 @@
   <script>tailwind = { config: { corePlugins: { preflight: false } } }</script>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 {% endblock %}
+
+{#
+  Inject the shared "Book a consult" popup once per page. The include is placed
+  BEFORE super() so the modal markup is in the DOM before consult.js (loaded via
+  extra_javascript in the theme's scripts block) initialises.
+#}
+{% block scripts %}
+  {% include "partials/consult-modal.html" %}
+  {{ super() }}
+{% endblock %}
