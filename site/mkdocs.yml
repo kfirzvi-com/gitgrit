@@ -71,6 +71,7 @@ not_in_nav: |
   /solutions/index.md
   /solutions/seniors-are-the-bottleneck.md
   /solutions/unchecked-ai-written-code.md
+  /solutions/checking-is-slow-and-expensive.md
 
 markdown_extensions:
   - pymdownx.highlight:
