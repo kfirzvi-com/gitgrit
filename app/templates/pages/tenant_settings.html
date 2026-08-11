@@ -6,144 +6,390 @@
 {% if current_tenant %}
   <h1 class="text-3xl font-bold mb-6">{{ current_tenant.name }}</h1>
 
-  <div class="card bg-base-100 shadow-xl mb-6">
-    <div class="card-body">
-      <h2 class="card-title">Members</h2>
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Email</th>
-              <th>Role</th>
-              {% if is_admin %}<th></th>{% endif %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for member in members %}
-              <tr>
-                <td class="flex items-center gap-3">
-                  <div class="avatar">
-                    <div class="w-8 rounded-full">
-                      {% if member.user.avatar_url %}
-                        <img alt="Avatar" src="{{ member.user.avatar_url }}" />
-                      {% else %}
-                        <div class="bg-neutral text-neutral-content w-8 h-8 rounded-full flex items-center justify-center text-sm">
-                          {{ member.user.email|first|upper }}
-                        </div>
-                      {% endif %}
-                    </div>
-                  </div>
-                  {{ member.user.username }}
-                </td>
-                <td>{{ member.user.email }}</td>
-                <td>
-                  <span class="badge {% if member.role == 'owner' %}badge-primary{% elif member.role == 'admin' %}badge-secondary{% else %}badge-ghost{% endif %}">
-                    {{ member.get_role_display }}
-                  </span>
-                </td>
-                {% if is_admin %}
-                  <td>
-                    {% if member.role != 'owner' %}
-                      <form method="post" action="{% url 'remove_member' member.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-ghost btn-xs text-error"
-                                onclick="return confirm('Remove {{ member.user.username }}?')">
-                          Remove
-                        </button>
-                      </form>
-                    {% endif %}
-                  </td>
-                {% endif %}
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  <div class="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6 lg:items-start">
+    <nav id="settings-nav" aria-label="Settings sections"
+         class="mb-6 lg:mb-0 lg:sticky lg:top-6">
+      <ul class="menu bg-base-100 rounded-box shadow-xl w-full">
+        <li class="menu-title">Workspace</li>
+        <li><a href="#section-members" data-settings-link>Members &amp; Permissions</a></li>
+        <li><a href="#section-connections" data-settings-link>Git Platform Connections</a></li>
+        <li><a href="#section-llm" data-settings-link>LLM Providers</a></li>
+      </ul>
+    </nav>
 
-  {% if is_admin %}
-    <div class="card bg-base-100 shadow-xl mb-6">
-      <div class="card-body">
-        <h2 class="card-title">Invite Member</h2>
-        <form method="post" action="{% url 'invite_member' %}" class="flex flex-col sm:flex-row gap-3">
-          {% csrf_token %}
-          <input type="email" name="email" required placeholder="user@example.com"
-                 class="input input-bordered flex-1">
-          <select name="role" class="select select-bordered">
-            <option value="member">Member</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button type="submit" class="btn btn-primary">Invite</button>
-        </form>
-      </div>
-    </div>
-  {% endif %}
-
-  <div class="card bg-base-100 shadow-xl mb-6">
-    <div class="card-body">
-      <h2 class="card-title">Platform Connections</h2>
-      {% if connections %}
-        <div class="overflow-x-auto">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Platform</th>
-                <th>URL</th>
-                <th>Status</th>
-                {% if is_admin %}<th></th>{% endif %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for conn in connections %}
+    <div class="min-w-0">
+      <section id="section-members" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6"
+               data-settings-section>
+        <input type="radio" name="settings-section" checked aria-label="Toggle Members &amp; Permissions">
+        <h2 class="collapse-title text-xl font-semibold">Members &amp; Permissions</h2>
+        <div class="collapse-content space-y-4">
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">Members</h2>
+          <div class="overflow-x-auto">
+            <table class="table">
+              <thead>
                 <tr>
-                  <td>{{ conn.display_name }}</td>
-                  <td>
-                    <span class="badge {% if conn.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
-                      {{ conn.get_platform_display }}
-                    </span>
-                  </td>
-                  <td class="text-sm opacity-70">{{ conn.base_url }}</td>
-                  <td>
-                    <span id="conn-status-{{ conn.id }}">
-                      <button class="btn btn-ghost btn-xs"
-                              hx-post="{% url 'test_connection' conn.id %}"
-                              hx-target="#conn-status-{{ conn.id }}"
-                              hx-swap="innerHTML">
-                        Test
-                      </button>
-                    </span>
-                  </td>
-                  {% if is_admin %}
-                    <td class="flex gap-1">
-                      <button type="button" class="btn btn-ghost btn-xs"
-                              data-edit-token
-                              data-conn-id="{{ conn.id }}"
-                              data-conn-name="{{ conn.display_name }}">
-                        Edit Token
-                      </button>
-                      <button type="button" class="btn btn-ghost btn-xs text-error"
-                              data-remove-conn
-                              data-conn-id="{{ conn.id }}"
-                              data-conn-name="{{ conn.display_name }}"
-                              data-projects='[{% for p in conn.projects.all %}"{{ p.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}]'>
-                        Remove
-                      </button>
-                    </td>
-                  {% endif %}
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  {% if is_admin %}<th></th>{% endif %}
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {% for member in members %}
+                  <tr>
+                    <td class="flex items-center gap-3">
+                      <div class="avatar">
+                        <div class="w-8 rounded-full">
+                          {% if member.user.avatar_url %}
+                            <img alt="Avatar" src="{{ member.user.avatar_url }}" />
+                          {% else %}
+                            <div class="bg-neutral text-neutral-content w-8 h-8 rounded-full flex items-center justify-center text-sm">
+                              {{ member.user.email|first|upper }}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                      {{ member.user.username }}
+                    </td>
+                    <td>{{ member.user.email }}</td>
+                    <td>
+                      <span class="badge {% if member.role == 'owner' %}badge-primary{% elif member.role == 'admin' %}badge-secondary{% else %}badge-ghost{% endif %}">
+                        {{ member.get_role_display }}
+                      </span>
+                    </td>
+                    {% if is_admin %}
+                      <td>
+                        {% if member.role != 'owner' %}
+                          <form method="post" action="{% url 'remove_member' member.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-ghost btn-xs text-error"
+                                    onclick="return confirm('Remove {{ member.user.username }}?')">
+                              Remove
+                            </button>
+                          </form>
+                        {% endif %}
+                      </td>
+                    {% endif %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
-      {% else %}
-        <p class="text-sm opacity-70">No platform connections configured. Add one to start importing projects.</p>
+      </div>
+
+      {% if is_admin %}
+        <div class="card bg-base-100">
+          <div class="card-body">
+            <h2 class="card-title">Invite Member</h2>
+            <form method="post" action="{% url 'invite_member' %}" class="flex flex-col sm:flex-row gap-3">
+              {% csrf_token %}
+              <input type="email" name="email" required placeholder="user@example.com"
+                     class="input input-bordered flex-1">
+              <select name="role" class="select select-bordered">
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button type="submit" class="btn btn-primary">Invite</button>
+            </form>
+          </div>
+        </div>
       {% endif %}
+        </div>
+      </section>
+
+      <section id="section-connections" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6"
+               data-settings-section>
+        <input type="radio" name="settings-section" aria-label="Toggle Git Platform Connections">
+        <h2 class="collapse-title text-xl font-semibold">Git Platform Connections</h2>
+        <div class="collapse-content space-y-4">
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">Platform Connections</h2>
+          {% if connections %}
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Platform</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    {% if is_admin %}<th></th>{% endif %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for conn in connections %}
+                    <tr>
+                      <td>{{ conn.display_name }}</td>
+                      <td>
+                        <span class="badge {% if conn.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
+                          {{ conn.get_platform_display }}
+                        </span>
+                      </td>
+                      <td class="text-sm opacity-70">{{ conn.base_url }}</td>
+                      <td>
+                        <span id="conn-status-{{ conn.id }}">
+                          <button class="btn btn-ghost btn-xs"
+                                  hx-post="{% url 'test_connection' conn.id %}"
+                                  hx-target="#conn-status-{{ conn.id }}"
+                                  hx-swap="innerHTML">
+                            Test
+                          </button>
+                        </span>
+                      </td>
+                      {% if is_admin %}
+                        <td class="flex gap-1">
+                          <button type="button" class="btn btn-ghost btn-xs"
+                                  data-edit-token
+                                  data-conn-id="{{ conn.id }}"
+                                  data-conn-name="{{ conn.display_name }}">
+                            Edit Token
+                          </button>
+                          <button type="button" class="btn btn-ghost btn-xs text-error"
+                                  data-remove-conn
+                                  data-conn-id="{{ conn.id }}"
+                                  data-conn-name="{{ conn.display_name }}"
+                                  data-projects='[{% for p in conn.projects.all %}"{{ p.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}]'>
+                            Remove
+                          </button>
+                        </td>
+                      {% endif %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-sm opacity-70">No platform connections configured. Add one to start importing projects.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if is_admin %}
+        <div class="card bg-base-100" id="add-connection-card">
+          <div class="card-body">
+            <h2 class="card-title">Add Connection</h2>
+            <form method="post" action="{% url 'add_connection' %}" class="space-y-3">
+              {% csrf_token %}
+              <div class="flex flex-col sm:flex-row gap-3">
+                <select name="platform" id="platform-select" class="select select-bordered" required>
+                  {% for value, label in platform_choices %}
+                    <option value="{{ value }}" {% if value == 'github' %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                <input type="text" name="display_name" id="display-name-input"
+                       placeholder="Display name (e.g. My GitHub)"
+                       class="input input-bordered flex-1">
+              </div>
+              <div class="flex flex-col sm:flex-row gap-3">
+                <input type="url" name="base_url" id="base-url-input"
+                       placeholder="Base URL (leave blank for default)"
+                       class="input input-bordered flex-1">
+                <div class="flex-1">
+                  <input type="password" name="access_token" required placeholder="Access token"
+                         class="input input-bordered w-full">
+                  <a id="token-help-link" href="#" class="link link-secondary text-xs block mt-1"
+                     onclick="event.preventDefault(); handleTokenHelpClick()">How to generate a token?</a>
+                  <span id="token-help-hint" class="text-xs text-warning hidden">Select a platform first</span>
+                </div>
+              </div>
+              <p id="base-url-hint" class="text-sm text-error hidden">URL must start with https:// (e.g. https://gitlab.example.com)</p>
+              <div class="flex flex-wrap items-center gap-3">
+                <button type="submit" id="add-connection-submit" class="btn btn-primary">
+                  Add Connection
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+        </div>
+      </section>
+
+      <section id="section-llm" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6"
+               data-settings-section>
+        <input type="radio" name="settings-section" aria-label="Toggle LLM Providers">
+        <h2 class="collapse-title text-xl font-semibold">LLM Providers</h2>
+        <div class="collapse-content space-y-4">
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">LLM Providers</h2>
+          <p class="text-sm opacity-70 -mt-1 mb-2">Bring your own model. Add an API
+            key per provider; models are auto-detected where supported.</p>
+          {% if llm_providers %}
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Base URL</th>
+                    <th>Models</th>
+                    <th>Status</th>
+                    {% if is_admin %}<th></th>{% endif %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for provider in llm_providers %}
+                    <tr>
+                      <td>{{ provider.display_name }}</td>
+                      <td><span class="badge badge-neutral">{{ provider.get_provider_type_display }}</span></td>
+                      <td class="text-sm opacity-70">{{ provider.base_url|default:"(default)" }}</td>
+                      <td>
+                        <span id="llm-models-{{ provider.id }}">
+                          {% if is_admin %}
+                            <button class="btn btn-ghost btn-xs"
+                                    hx-post="{% url 'fetch_llm_models' provider.id %}"
+                                    hx-target="#llm-models-{{ provider.id }}"
+                                    hx-swap="innerHTML">
+                              {{ provider.available_models|length }} — fetch
+                            </button>
+                          {% else %}
+                            {{ provider.available_models|length }}
+                          {% endif %}
+                        </span>
+                      </td>
+                      <td>
+                        <span id="llm-status-{{ provider.id }}">
+                          <button class="btn btn-ghost btn-xs"
+                                  hx-post="{% url 'test_llm_provider' provider.id %}"
+                                  hx-target="#llm-status-{{ provider.id }}"
+                                  hx-swap="innerHTML">
+                            Test
+                          </button>
+                        </span>
+                      </td>
+                      {% if is_admin %}
+                        <td class="flex gap-1">
+                          <button class="btn btn-ghost btn-xs"
+                                  onclick="openEditProviderModal('{{ provider.id }}', '{{ provider.display_name|escapejs }}', '{{ provider.base_url|escapejs }}')">
+                            Edit
+                          </button>
+                          <form method="post" action="{% url 'remove_llm_provider' provider.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-ghost btn-xs text-error"
+                                    onclick="return confirm('Remove {{ provider.display_name|escapejs }}? Roles using it will be unset.')">
+                              Remove
+                            </button>
+                          </form>
+                        </td>
+                      {% endif %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-sm opacity-70">No LLM providers configured yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if is_admin %}
+        {{ llm_provider_models_map|json_script:"llm-provider-models" }}
+
+        {# Roles #}
+        <div class="card bg-base-100">
+          <div class="card-body">
+            <h2 class="card-title">LLM Roles</h2>
+            <p class="text-sm opacity-70 -mt-1 mb-2">Point each role at a provider and
+              model. Policies use roles (e.g. <code>llm.reasoning</code>), never a
+              provider directly.</p>
+            <div class="space-y-3">
+              {% for role in llm_role_rows %}
+                <form method="post" action="{% url 'set_llm_role' role.name %}"
+                      class="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  {% csrf_token %}
+                  <span class="badge badge-primary w-28 justify-start">{{ role.label }}</span>
+                  <select name="provider_id" id="llm-provider-{{ role.name }}"
+                          data-role-provider="{{ role.name }}"
+                          class="select select-bordered flex-1">
+                    <option value="">— None —</option>
+                    {% for provider in llm_providers %}
+                      <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
+                        {{ provider.display_name }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <select name="model" id="llm-model-{{ role.name }}"
+                          data-current-model="{{ role.model }}"
+                          class="select select-bordered flex-1"></select>
+                  <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        {# Add provider #}
+        <div class="card bg-base-100">
+          <div class="card-body">
+            <h2 class="card-title">Add LLM Provider</h2>
+            <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
+              {% csrf_token %}
+              <div class="flex flex-col sm:flex-row gap-3">
+                <select name="provider_type" class="select select-bordered" required>
+                  <option value="" disabled selected>Provider type</option>
+                  {% for value, label in llm_provider_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+                <input type="text" name="display_name" placeholder="Display name (optional)"
+                       class="input input-bordered flex-1">
+              </div>
+              <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" name="base_url"
+                       placeholder="Base URL (required for LiteLLM Proxy / Ollama; blank for hosted)"
+                       class="input input-bordered flex-1">
+                <input type="password" name="api_key" required placeholder="API key"
+                       class="input input-bordered flex-1">
+              </div>
+              <button type="submit" class="btn btn-primary">Add Provider</button>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+        </div>
+      </section>
+
     </div>
   </div>
 
+  <script>
+    // Side-nav links jump to a section; make sure the target is open first,
+    // since a collapsed section would otherwise scroll to nothing.
+    (function () {
+      function openSection(hash) {
+        if (!hash) return;
+        var target = document.querySelector(hash);
+        if (!target || !target.hasAttribute('data-settings-section')) return;
+        var toggle = target.querySelector('input[name="settings-section"]');
+        if (toggle) toggle.checked = true;
+        document.querySelectorAll('[data-settings-link]').forEach(function (link) {
+          link.classList.toggle('menu-active', link.getAttribute('href') === hash);
+        });
+      }
+
+      document.querySelectorAll('[data-settings-link]').forEach(function (link) {
+        link.addEventListener('click', function () {
+          openSection(link.getAttribute('href'));
+        });
+      });
+
+      window.addEventListener('hashchange', function () {
+        openSection(window.location.hash);
+      });
+      openSection(window.location.hash);
+    })();
+  </script>
+
+  {% comment %}
+    Dialogs live outside the collapsible sections: a collapsed section hides its
+    whole subtree, which would take a <dialog> down with it.
+  {% endcomment %}
   {% if is_admin %}
     <dialog id="edit-token-modal" class="modal">
       <div class="modal-box">
@@ -315,283 +561,146 @@
   {% endif %}
 
   {% if is_admin %}
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Add Connection</h2>
-        <form method="post" action="{% url 'add_connection' %}" class="space-y-3">
-          {% csrf_token %}
-          <div class="flex flex-col sm:flex-row gap-3">
-            <select name="platform" id="platform-select" class="select select-bordered" required>
-              <option value="" disabled selected>Platform</option>
-              {% for value, label in platform_choices %}
-                <option value="{{ value }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-            <input type="text" name="display_name" id="display-name-input" placeholder="Display name (e.g. My GitHub)"
-                   class="input input-bordered flex-1">
-          </div>
-          <div class="flex flex-col sm:flex-row gap-3">
-            <input type="url" name="base_url" id="base-url-input" placeholder="Base URL (leave blank for default)"
-                   class="input input-bordered flex-1">
-            <div class="flex-1">
-              <input type="password" name="access_token" required placeholder="Access token"
-                     class="input input-bordered w-full">
-              <a id="token-help-link" href="#" class="link link-secondary text-xs block mt-1" onclick="event.preventDefault(); handleTokenHelpClick()">How to generate a token?</a>
-              <span id="token-help-hint" class="text-xs text-warning hidden">Select a platform first</span>
-            </div>
-          </div>
-          <p id="base-url-hint" class="text-sm text-error hidden">URL must start with https:// (e.g. https://gitlab.example.com)</p>
-          <button type="submit" class="btn btn-primary">Add Connection</button>
+    <dialog id="token-help-modal" class="modal">
+      <div class="modal-box">
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">X</button>
         </form>
 
-        <dialog id="token-help-modal" class="modal">
-          <div class="modal-box">
-            <form method="dialog">
-              <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">X</button>
-            </form>
+        <div id="github-token-help" class="hidden">
+          <h3 class="font-bold text-lg mb-4">Generate a GitHub Access Token</h3>
+          <ol class="list-decimal list-inside space-y-2 text-sm">
+            <li>Open <a id="github-token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="link link-primary">Fine-grained token settings <span id="github-host-label">(github.com)</span></a></li>
+            <li>Under <strong>Resource owner</strong>, select the organization whose repositories you want to connect</li>
+            <li>Set <strong>Repository access</strong> to "All repositories" or select specific ones</li>
+            <li>Under <strong>Permissions &rarr; Repository permissions</strong>, grant:
+              <ul class="list-disc list-inside ml-4 mt-1">
+                <li><strong>Contents</strong> — Read-only</li>
+                <li><strong>Metadata</strong> — Read-only</li>
+                <li><strong>Webhooks</strong> — Read and write</li>
+              </ul>
+            </li>
+            <li>Click <strong>Generate token</strong> and copy it</li>
+          </ol>
+          <p class="opacity-70 text-sm mt-3">Tip: Fine-grained tokens are scoped per organization. Create one token per organization you want to connect.</p>
+        </div>
 
-            <div id="github-token-help" class="hidden">
-              <h3 class="font-bold text-lg mb-4">Generate a GitHub Access Token</h3>
-              <ol class="list-decimal list-inside space-y-2 text-sm">
-                <li>Open <a id="github-token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="link link-primary">Fine-grained token settings <span id="github-host-label">(github.com)</span></a></li>
-                <li>Under <strong>Resource owner</strong>, select the organization whose repositories you want to connect</li>
-                <li>Set <strong>Repository access</strong> to "All repositories" or select specific ones</li>
-                <li>Under <strong>Permissions &rarr; Repository permissions</strong>, grant:
-                  <ul class="list-disc list-inside ml-4 mt-1">
-                    <li><strong>Contents</strong> — Read-only</li>
-                    <li><strong>Metadata</strong> — Read-only</li>
-                    <li><strong>Webhooks</strong> — Read and write</li>
-                  </ul>
-                </li>
-                <li>Click <strong>Generate token</strong> and copy it</li>
-              </ol>
-              <p class="opacity-70 text-sm mt-3">Tip: Fine-grained tokens are scoped per organization. Create one token per organization you want to connect.</p>
-            </div>
-
-            <div id="gitlab-token-help" class="hidden">
-              <h3 class="font-bold text-lg mb-4">Generate a GitLab Access Token</h3>
-              <ol class="list-decimal list-inside space-y-2 text-sm">
-                <li>Open <a id="gitlab-group-link" href="https://gitlab.com" target="_blank" rel="noopener" class="link link-primary"><span id="gitlab-host-label">gitlab.com</span></a> and go to <strong>Avatar &rarr; Edit profile &rarr; Access &rarr; Personal access tokens</strong></li>
-                <li>From the dropdown, select <strong>Personal access token (legacy)</strong></li>
-                <li>Give it a descriptive name (e.g. "GitGrit") and set an expiration date</li>
-                <li>Select the scope:
-                  <ul class="list-disc list-inside ml-4 mt-1">
-                    <li><strong>api</strong> — required for listing projects, reading repository data, and managing webhooks</li>
-                  </ul>
-                </li>
-                <li>Click <strong>Create personal access token</strong> and copy it</li>
-              </ol>
-              <div class="mt-3 text-sm opacity-70 space-y-1">
-                <p>Tip: You can also use a <strong>group access token</strong> (Group &rarr; Settings &rarr; Access tokens) to scope access to a specific group's projects without tying it to a personal account.</p>
-                <p>Note: GitLab's fine-grained tokens (Beta) don't yet support webhook management, which GitGrit requires for automatic policy evaluation. Use a legacy token for now.</p>
-              </div>
-            </div>
+        <div id="gitlab-token-help" class="hidden">
+          <h3 class="font-bold text-lg mb-4">Generate a GitLab Access Token</h3>
+          <ol class="list-decimal list-inside space-y-2 text-sm">
+            <li>Open <a id="gitlab-group-link" href="https://gitlab.com" target="_blank" rel="noopener" class="link link-primary"><span id="gitlab-host-label">gitlab.com</span></a> and go to <strong>Avatar &rarr; Edit profile &rarr; Access &rarr; Personal access tokens</strong></li>
+            <li>From the dropdown, select <strong>Personal access token (legacy)</strong></li>
+            <li>Give it a descriptive name (e.g. "GitGrit") and set an expiration date</li>
+            <li>Select the scope:
+              <ul class="list-disc list-inside ml-4 mt-1">
+                <li><strong>api</strong> — required for listing projects, reading repository data, and managing webhooks</li>
+              </ul>
+            </li>
+            <li>Click <strong>Create personal access token</strong> and copy it</li>
+          </ol>
+          <div class="mt-3 text-sm opacity-70 space-y-1">
+            <p>Tip: You can also use a <strong>group access token</strong> (Group &rarr; Settings &rarr; Access tokens) to scope access to a specific group's projects without tying it to a personal account.</p>
+            <p>Note: GitLab's fine-grained tokens (Beta) don't yet support webhook management, which GitGrit requires for automatic policy evaluation. Use a legacy token for now.</p>
           </div>
-          <form method="dialog" class="modal-backdrop"><button>close</button></form>
-        </dialog>
-
-        <script>
-          (function() {
-            var platformSelect = document.getElementById('platform-select');
-            var baseUrlInput = document.getElementById('base-url-input');
-            var baseUrlHint = document.getElementById('base-url-hint');
-            var githubHelp = document.getElementById('github-token-help');
-            var gitlabHelp = document.getElementById('gitlab-token-help');
-            var githubLink = document.getElementById('github-token-link');
-            var githubHostLabel = document.getElementById('github-host-label');
-            var gitlabLink = document.getElementById('gitlab-group-link');
-            var gitlabHostLabel = document.getElementById('gitlab-host-label');
-            var displayNameInput = document.getElementById('display-name-input');
-
-            var platformLabels = { github: 'GitHub', gitlab: 'GitLab' };
-            var autoSuggestedValue = '';
-
-            function updateDisplayNameSuggestion(platform) {
-              var label = platformLabels[platform] || '';
-              if (displayNameInput.value === '' || displayNameInput.value === autoSuggestedValue) {
-                autoSuggestedValue = label;
-                displayNameInput.value = label;
-                displayNameInput.placeholder = label || 'Display name (e.g. My GitHub)';
-              }
-            }
-
-            displayNameInput.addEventListener('input', function() {
-              if (displayNameInput.value !== autoSuggestedValue) {
-                autoSuggestedValue = '';
-              }
-            });
-
-            function parseOrigin(url) {
-              try {
-                return new URL(url).origin;
-              } catch (e) {
-                return null;
-              }
-            }
-
-            function update() {
-              var platform = platformSelect.value;
-              var baseUrl = baseUrlInput.value.trim();
-
-              githubHelp.classList.toggle('hidden', platform !== 'github');
-              gitlabHelp.classList.toggle('hidden', platform !== 'gitlab');
-
-              // Show validation hint if URL is entered but missing scheme
-              var showHint = baseUrl && !baseUrl.match(/^https?:\/\//);
-              baseUrlHint.classList.toggle('hidden', !showHint);
-              baseUrlInput.classList.toggle('input-error', showHint);
-
-              if (platform === 'github') {
-                var ghDefault = 'https://github.com';
-                var origin = (!baseUrl || baseUrl === 'https://api.github.com')
-                  ? ghDefault
-                  : (parseOrigin(baseUrl) || ghDefault);
-                githubLink.href = origin + '/settings/personal-access-tokens/new';
-                githubHostLabel.textContent = '(' + origin.replace(/^https?:\/\//, '') + ')';
-              } else if (platform === 'gitlab') {
-                var glDefault = 'https://gitlab.com';
-                var glOrigin = baseUrl ? (parseOrigin(baseUrl) || glDefault) : glDefault;
-                gitlabLink.href = glOrigin;
-                gitlabHostLabel.textContent = glOrigin.replace(/^https?:\/\//, '');
-              }
-            }
-
-            var tokenHelpHint = document.getElementById('token-help-hint');
-
-            window.handleTokenHelpClick = function() {
-              if (!platformSelect.value) {
-                tokenHelpHint.classList.remove('hidden');
-                return;
-              }
-              tokenHelpHint.classList.add('hidden');
-              document.getElementById('token-help-modal').showModal();
-            };
-
-            platformSelect.addEventListener('change', function() {
-              tokenHelpHint.classList.add('hidden');
-              updateDisplayNameSuggestion(platformSelect.value);
-            });
-
-            platformSelect.addEventListener('change', update);
-            baseUrlInput.addEventListener('input', update);
-            baseUrlInput.addEventListener('change', update);
-          })();
-        </script>
+        </div>
       </div>
-    </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <script>
+      (function() {
+        var platformSelect = document.getElementById('platform-select');
+        if (!platformSelect) return;
+
+        var baseUrlInput = document.getElementById('base-url-input');
+        var baseUrlHint = document.getElementById('base-url-hint');
+        var displayNameInput = document.getElementById('display-name-input');
+        var tokenHelpHint = document.getElementById('token-help-hint');
+        var githubHelp = document.getElementById('github-token-help');
+        var gitlabHelp = document.getElementById('gitlab-token-help');
+        var githubLink = document.getElementById('github-token-link');
+        var githubHostLabel = document.getElementById('github-host-label');
+        var gitlabLink = document.getElementById('gitlab-group-link');
+        var gitlabHostLabel = document.getElementById('gitlab-host-label');
+
+        var platformLabels = { github: 'GitHub', gitlab: 'GitLab' };
+        var autoSuggestedValue = '';
+
+        function updateDisplayNameSuggestion(platform) {
+          var label = platformLabels[platform] || '';
+          if (displayNameInput.value === '' || displayNameInput.value === autoSuggestedValue) {
+            autoSuggestedValue = label;
+            displayNameInput.value = label;
+            displayNameInput.placeholder = label || 'Display name (e.g. My GitHub)';
+          }
+        }
+
+        function parseOrigin(url) {
+          try {
+            return new URL(url).origin;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        function update() {
+          var platform = platformSelect.value;
+          var baseUrl = baseUrlInput.value.trim();
+
+          githubHelp.classList.toggle('hidden', platform !== 'github');
+          gitlabHelp.classList.toggle('hidden', platform !== 'gitlab');
+
+          // Show a validation hint if a URL is entered but missing its scheme.
+          var showHint = baseUrl && !baseUrl.match(/^https?:\/\//);
+          baseUrlHint.classList.toggle('hidden', !showHint);
+          baseUrlInput.classList.toggle('input-error', showHint);
+
+          if (platform === 'github') {
+            var ghDefault = 'https://github.com';
+            var origin = (!baseUrl || baseUrl === 'https://api.github.com')
+              ? ghDefault
+              : (parseOrigin(baseUrl) || ghDefault);
+            githubLink.href = origin + '/settings/personal-access-tokens/new';
+            githubHostLabel.textContent = '(' + origin.replace(/^https?:\/\//, '') + ')';
+          } else if (platform === 'gitlab') {
+            var glDefault = 'https://gitlab.com';
+            var glOrigin = baseUrl ? (parseOrigin(baseUrl) || glDefault) : glDefault;
+            gitlabLink.href = glOrigin;
+            gitlabHostLabel.textContent = glOrigin.replace(/^https?:\/\//, '');
+          }
+        }
+
+        window.handleTokenHelpClick = function() {
+          if (!platformSelect.value) {
+            tokenHelpHint.classList.remove('hidden');
+            return;
+          }
+          tokenHelpHint.classList.add('hidden');
+          document.getElementById('token-help-modal').showModal();
+        };
+
+        displayNameInput.addEventListener('input', function() {
+          if (displayNameInput.value !== autoSuggestedValue) {
+            autoSuggestedValue = '';
+          }
+        });
+
+        platformSelect.addEventListener('change', function() {
+          tokenHelpHint.classList.add('hidden');
+          updateDisplayNameSuggestion(platformSelect.value);
+          update();
+        });
+        baseUrlInput.addEventListener('input', update);
+        baseUrlInput.addEventListener('change', update);
+
+        // GitHub is preselected server-side, so seed the dependent fields too.
+        updateDisplayNameSuggestion(platformSelect.value);
+        update();
+      })();
+    </script>
   {% endif %}
 
-  {# ---------- LLM providers & roles ---------- #}
-  <div class="card bg-base-100 shadow-xl mb-6">
-    <div class="card-body">
-      <h2 class="card-title">LLM Providers</h2>
-      <p class="text-sm opacity-70 -mt-1 mb-2">Bring your own model. Add an API
-        key per provider; models are auto-detected where supported.</p>
-      {% if llm_providers %}
-        <div class="overflow-x-auto">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Base URL</th>
-                <th>Models</th>
-                <th>Status</th>
-                {% if is_admin %}<th></th>{% endif %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for provider in llm_providers %}
-                <tr>
-                  <td>{{ provider.display_name }}</td>
-                  <td><span class="badge badge-neutral">{{ provider.get_provider_type_display }}</span></td>
-                  <td class="text-sm opacity-70">{{ provider.base_url|default:"(default)" }}</td>
-                  <td>
-                    <span id="llm-models-{{ provider.id }}">
-                      {% if is_admin %}
-                        <button class="btn btn-ghost btn-xs"
-                                hx-post="{% url 'fetch_llm_models' provider.id %}"
-                                hx-target="#llm-models-{{ provider.id }}"
-                                hx-swap="innerHTML">
-                          {{ provider.available_models|length }} — fetch
-                        </button>
-                      {% else %}
-                        {{ provider.available_models|length }}
-                      {% endif %}
-                    </span>
-                  </td>
-                  <td>
-                    <span id="llm-status-{{ provider.id }}">
-                      <button class="btn btn-ghost btn-xs"
-                              hx-post="{% url 'test_llm_provider' provider.id %}"
-                              hx-target="#llm-status-{{ provider.id }}"
-                              hx-swap="innerHTML">
-                        Test
-                      </button>
-                    </span>
-                  </td>
-                  {% if is_admin %}
-                    <td class="flex gap-1">
-                      <button class="btn btn-ghost btn-xs"
-                              onclick="openEditProviderModal('{{ provider.id }}', '{{ provider.display_name|escapejs }}', '{{ provider.base_url|escapejs }}')">
-                        Edit
-                      </button>
-                      <form method="post" action="{% url 'remove_llm_provider' provider.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-ghost btn-xs text-error"
-                                onclick="return confirm('Remove {{ provider.display_name|escapejs }}? Roles using it will be unset.')">
-                          Remove
-                        </button>
-                      </form>
-                    </td>
-                  {% endif %}
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="text-sm opacity-70">No LLM providers configured yet.</p>
-      {% endif %}
-    </div>
-  </div>
-
   {% if is_admin %}
-    {{ llm_provider_models_map|json_script:"llm-provider-models" }}
-
-    {# Roles #}
-    <div class="card bg-base-100 shadow-xl mb-6">
-      <div class="card-body">
-        <h2 class="card-title">LLM Roles</h2>
-        <p class="text-sm opacity-70 -mt-1 mb-2">Point each role at a provider and
-          model. Policies use roles (e.g. <code>llm.reasoning</code>), never a
-          provider directly.</p>
-        <div class="space-y-3">
-          {% for role in llm_role_rows %}
-            <form method="post" action="{% url 'set_llm_role' role.name %}"
-                  class="flex flex-col sm:flex-row gap-3 sm:items-center">
-              {% csrf_token %}
-              <span class="badge badge-primary w-28 justify-start">{{ role.label }}</span>
-              <select name="provider_id" id="llm-provider-{{ role.name }}"
-                      data-role-provider="{{ role.name }}"
-                      class="select select-bordered flex-1">
-                <option value="">— None —</option>
-                {% for provider in llm_providers %}
-                  <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
-                    {{ provider.display_name }}
-                  </option>
-                {% endfor %}
-              </select>
-              <select name="model" id="llm-model-{{ role.name }}"
-                      data-current-model="{{ role.model }}"
-                      class="select select-bordered flex-1"></select>
-              <button type="submit" class="btn btn-primary">Save</button>
-            </form>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
     {# Edit provider modal #}
     <dialog id="edit-provider-modal" class="modal">
       <div class="modal-box">
@@ -618,34 +727,6 @@
       </div>
       <form method="dialog" class="modal-backdrop"><button>close</button></form>
     </dialog>
-
-    {# Add provider #}
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Add LLM Provider</h2>
-        <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
-          {% csrf_token %}
-          <div class="flex flex-col sm:flex-row gap-3">
-            <select name="provider_type" class="select select-bordered" required>
-              <option value="" disabled selected>Provider type</option>
-              {% for value, label in llm_provider_types %}
-                <option value="{{ value }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-            <input type="text" name="display_name" placeholder="Display name (optional)"
-                   class="input input-bordered flex-1">
-          </div>
-          <div class="flex flex-col sm:flex-row gap-3">
-            <input type="text" name="base_url"
-                   placeholder="Base URL (required for LiteLLM Proxy / Ollama; blank for hosted)"
-                   class="input input-bordered flex-1">
-            <input type="password" name="api_key" required placeholder="API key"
-                   class="input input-bordered flex-1">
-          </div>
-          <button type="submit" class="btn btn-primary">Add Provider</button>
-        </form>
-      </div>
-    </div>
 
     <script>
       function openEditProviderModal(providerId, displayName, baseUrl) {
