@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import secrets
 
+import jwt
 import requests
 from django.conf import settings
 from django.contrib import messages
@@ -185,6 +186,35 @@ def _user_is_entitled(request, installation_id: int) -> bool:
     return allowed
 
 
+def _fetch_account(request, installation_id: int):
+    """Read the installation's account from GitHub, or None if it can't be read.
+
+    GitHub answering with an error here is ordinary, not exceptional: a callback
+    URL replayed after the installation was deleted 404s, and the API has its
+    own bad days. Returning None lets the caller apologise and redirect instead
+    of raising a 500 at someone mid-install.
+
+    ``InvalidKeyError`` belongs here too: availability only checks that a private
+    key is *present*, so a truncated or wrongly-escaped key gets the feature
+    switched on and fails at the first signature.
+    """
+    try:
+        installation = github_app.get_installation(installation_id)
+    except (requests.RequestException, jwt.InvalidKeyError):
+        logger.exception(
+            "Couldn't read GitHub installation %s while completing an install.",
+            installation_id,
+        )
+        messages.error(
+            request,
+            "Couldn't read that installation from GitHub. It may have been "
+            "removed — please try installing again.",
+        )
+        return None
+    account = installation.get("account") or {}
+    return account.get("login", ""), account.get("type", "")
+
+
 def _record_connection(tenant, installation_id: int, account_login: str, account_type: str):
     """Create or refresh this workspace's connection to an installation.
 
@@ -234,14 +264,11 @@ def _refresh_without_code(request, tenant, installation_id: int):
         )
         return redirect("tenant_settings")
 
-    installation = github_app.get_installation(installation_id)
-    account = installation.get("account", {}) or {}
-    _record_connection(
-        tenant,
-        installation_id,
-        account.get("login", ""),
-        account.get("type", ""),
-    )
+    account = _fetch_account(request, installation_id)
+    if account is None:
+        return redirect("tenant_settings")
+
+    _record_connection(tenant, installation_id, *account)
     messages.success(request, "GitHub App connection updated.")
     return redirect("tenant_settings")
 
@@ -300,10 +327,10 @@ def github_app_callback(request):
     if not _user_is_entitled(request, installation_id):
         return redirect("tenant_settings")
 
-    installation = github_app.get_installation(installation_id)
-    account = installation.get("account", {}) or {}
-    account_login = account.get("login", "")
-    account_type = account.get("type", "")
+    account = _fetch_account(request, installation_id)
+    if account is None:
+        return redirect("tenant_settings")
+    account_login, account_type = account
 
     # A valid state means the user already chose the workspace on the way out —
     # don't ask them again.
@@ -318,10 +345,16 @@ def github_app_callback(request):
         )
         return redirect("tenant_settings")
 
+    # Records which workspace the confirm page is about to name. The user can
+    # switch workspace in another tab before pressing the button, and attaching
+    # an installation somewhere other than the page said would be a silent
+    # surprise — so the POST re-checks this instead of trusting the session's
+    # active tenant at that moment.
     request.session[PENDING_INSTALL_SESSION_KEY] = {
         "installation_id": installation_id,
         "account_login": account_login,
         "account_type": account_type,
+        "tenant_id": str(tenant.id),
     }
     return render(
         request,
@@ -355,6 +388,20 @@ def github_app_confirm(request):
     if not pending:
         messages.error(
             request, "That install request has expired. Please try again."
+        )
+        return redirect("tenant_settings")
+
+    if pending.get("tenant_id") != str(tenant.id):
+        logger.warning(
+            "Discarding a pending GitHub installation confirmed under a "
+            "different workspace: pending=%s active=%s",
+            pending.get("tenant_id"),
+            tenant.id,
+        )
+        messages.error(
+            request,
+            "Your active workspace changed since that install started. "
+            "Please install again from the workspace you want it in.",
         )
         return redirect("tenant_settings")
 

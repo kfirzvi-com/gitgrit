@@ -4,6 +4,8 @@ Connection setup uses the same flat inline-card form as Add LLM Provider: a
 platform select plus token fields, with the flag-gated GitHub App install as a
 secondary action. Also covers the connections-table Method column and the
 per-row 'Manage on GitHub' link."""
+import re
+
 import pytest
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -41,6 +43,74 @@ class TestAddConnectionCard(TestCase):
         assert 'id="add-connection-card"' in body
         assert 'id="platform-select"' in body
         assert reverse("add_connection") in body
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_app_install_is_the_emphasised_action(self):
+        """A filled button for the App, an outline one for the token fallback.
+
+        The reverse of how it first shipped, where the App was the outline
+        afterthought next to a filled Add Connection.
+        """
+        _login_owner(self.client)
+        body = self.client.get(reverse("tenant_settings")).content.decode()
+        install = re.search(
+            r'<a [^>]*href="' + reverse("github_app_install") + r'"[^>]*>', body
+        )
+        assert install, "install link not found"
+        assert "btn-primary" in install.group(0)
+        assert "btn-outline" not in install.group(0)
+
+        submit = re.search(r'<button [^>]*id="add-connection-submit"[^>]*>', body)
+        assert submit, "token submit not found"
+        assert "btn-outline" in submit.group(0)
+
+    @override_settings(GITHUB_APP_ENABLED=False)
+    def test_token_submit_stays_emphasised_without_the_app(self):
+        """With no App to recommend, the token path is the primary action."""
+        _login_owner(self.client)
+        body = self.client.get(reverse("tenant_settings")).content.decode()
+        submit = re.search(r'<button [^>]*id="add-connection-submit"[^>]*>', body)
+        assert submit, "token submit not found"
+        assert "btn-primary" in submit.group(0)
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_install_button_is_scoped_to_github(self):
+        """The App is a GitHub thing — it must hide when GitLab is selected.
+
+        Server-side it renders inside a github-only wrapper the platform
+        script toggles, so the markup carries the hook rather than being
+        unconditionally visible.
+        """
+        _login_owner(self.client)
+        body = self.client.get(reverse("tenant_settings")).content.decode()
+        assert 'id="github-app-install-action"' in body
+        assert "data-github-only" in body
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
+    def test_install_button_is_scoped_to_github_dot_com(self):
+        """A GHES base URL must take the App button away.
+
+        The shared App is installed on github.com, so it can't serve a
+        self-hosted host — and a connection made through it would end up
+        pointing at api.github.com regardless of what was typed. Only a token
+        works for GHES, so the button is gated on the host, not just the
+        platform.
+        """
+        _login_owner(self.client)
+        body = self.client.get(reverse("tenant_settings")).content.decode()
+        assert "function isDotComHost(" in body
+        # The visibility toggle consults the host check, not the platform alone.
+        assert re.search(
+            r"isGithubDotCom\s*=\s*platform === 'github' && isDotComHost\(baseUrl\)",
+            body,
+        ), "install button visibility is not gated on the host"
+        assert re.search(
+            r"data-github-only.*?\n\s*el\.classList\.toggle\('hidden', !isGithubDotCom\)",
+            body,
+            re.DOTALL,
+        ), "github-only elements are not toggled by the host check"
+
+    @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
 
     @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_SLUG="gitgrit-app")
     def test_modal_wizard_is_gone(self):
