@@ -115,6 +115,7 @@
                   <tr>
                     <th>Name</th>
                     <th>Platform</th>
+                    <th>Method</th>
                     <th>URL</th>
                     <th>Status</th>
                     {% if is_admin %}<th></th>{% endif %}
@@ -129,6 +130,13 @@
                           {{ conn.get_platform_display }}
                         </span>
                       </td>
+                      <td>
+                        {% if conn.auth_method == 'github_app' %}
+                          <span class="badge badge-outline">App</span>
+                        {% else %}
+                          <span class="badge badge-outline">Token</span>
+                        {% endif %}
+                      </td>
                       <td class="text-sm opacity-70">{{ conn.base_url }}</td>
                       <td>
                         <span id="conn-status-{{ conn.id }}">
@@ -142,12 +150,19 @@
                       </td>
                       {% if is_admin %}
                         <td class="flex gap-1">
-                          <button type="button" class="btn btn-ghost btn-xs"
-                                  data-edit-token
-                                  data-conn-id="{{ conn.id }}"
-                                  data-conn-name="{{ conn.display_name }}">
-                            Edit Token
-                          </button>
+                          {% if conn.github_app_manage_url %}
+                            <a href="{{ conn.github_app_manage_url }}" target="_blank" rel="noopener"
+                               class="btn btn-ghost btn-xs">
+                              Manage on GitHub
+                            </a>
+                          {% else %}
+                            <button type="button" class="btn btn-ghost btn-xs"
+                                    data-edit-token
+                                    data-conn-id="{{ conn.id }}"
+                                    data-conn-name="{{ conn.display_name }}">
+                              Edit Token
+                            </button>
+                          {% endif %}
                           <button type="button" class="btn btn-ghost btn-xs text-error"
                                   data-remove-conn
                                   data-conn-id="{{ conn.id }}"
@@ -201,6 +216,12 @@
                 <button type="submit" id="add-connection-submit" class="btn btn-primary">
                   Add Connection
                 </button>
+                {% if github_app_enabled %}
+                  <span class="text-sm opacity-70">or</span>
+                  <a href="{% url 'github_app_install' %}" class="btn btn-outline btn-primary">
+                    Install GitHub App
+                  </a>
+                {% endif %}
               </div>
             </form>
           </div>

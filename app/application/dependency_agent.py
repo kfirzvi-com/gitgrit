@@ -227,6 +227,12 @@ def infer_and_store(project: Project) -> DependencyResult:
     )
 
     client = get_platform_client(project.platform_connection)
+    # Route through the auth-method seam, scoping a GitHub App installation
+    # token to this project's repository. PAT connections return the stored
+    # token unchanged, so their behavior is identical.
+    client.token = project.platform_connection.get_access_token(
+        repositories=[project.full_path]
+    )
     toolbox = _RepoToolbox(client, project.full_path, project.default_branch)
     agent = LLMAgent(
         model=cfg["model"],

@@ -19,7 +19,12 @@ class _Resp:
 
 def _client():
     return GitHubClient(
-        SimpleNamespace(base_url="https://api.github.com", access_token="t")
+        SimpleNamespace(
+            base_url="https://api.github.com",
+            access_token="t",
+            # PlatformClient.__init__ now reads the token via the auth-method seam.
+            get_access_token=lambda repositories=None: "t",
+        )
     )
 
 
