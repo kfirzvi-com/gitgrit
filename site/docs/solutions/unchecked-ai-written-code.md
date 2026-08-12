@@ -14,7 +14,7 @@ hide:
 
 <section class="gg-area">
   <div class="gg-area__text">
-    <p>You rolled AI assistants out to every team, and now they write <strong>more than you can review</strong>.</p>
+    <p>Identifies AI code redundancy and unwanted code.</p>
   </div>
   <div class="gg-area__visual">
     <div class="gg-mock">
@@ -46,9 +46,9 @@ hide:
   </div>
   <div class="gg-area__visual">
     <div class="gg-mock">
-      <div class="gg-mock__head"><span class="gg-mock__title">LLM &middot; README quality</span><span class="gg-mock__stat"><b class="gg-warn">verify</b></span></div>
+      <div class="gg-mock__head"><span class="gg-mock__title">LLM &middot; clean-code</span><span class="gg-mock__stat"><b class="gg-warn">verify</b></span></div>
       <div class="gg-mock__big gg-mock__big--red">34 / 100</div>
-      <div class="gg-mock__fix"><strong>Verdict</strong> &mdash; no run instructions and no examples; title only.</div>
+      <div class="gg-mock__fix"><strong>Verdict</strong> &mdash; multiple code duplications</div>
     </div>
   </div>
 </section>
