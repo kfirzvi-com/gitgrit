@@ -14,7 +14,7 @@ Before adding a project, you need a **platform connection** configured in your w
 4. Click **Add** — GitGrit will:
     - Register a webhook on the repository
     - Fetch repository metadata (languages, topics, default branch)
-    - Start evaluating policies on incoming events
+    - Start evaluating standards on incoming events
 
 ## Webhook events
 
@@ -30,8 +30,8 @@ GitGrit listens for these events:
 
 Each project page shows:
 
-- **Compliance score** — average of latest policy execution scores
-- **Policies** — which policies apply, with manual run buttons
+- **Compliance score** — average of latest standard execution scores
+- **Standards** — which standards apply, with manual run buttons
 - **Recent activity** — webhook events and their results
 - **Badge** — embeddable compliance badge for your README
 - **Languages & tags** — fetched from the platform API

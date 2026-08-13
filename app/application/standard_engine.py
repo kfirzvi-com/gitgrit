@@ -8,8 +8,8 @@ from django.db.models import QuerySet
 from app.application.event_bus import publish
 from app.domain.events import DomainEvent, RepositoryPushed
 from app.domain.identity import resolve_user
-from app.domain.models import LLMRole, Policy, PolicyExecution, Project
-from app.domain.policy_criteria import language_matches
+from app.domain.models import LLMRole, Standard, StandardExecution, Project
+from app.domain.standard_criteria import language_matches
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def resolve_llm_roles(tenant) -> dict:
     consume: role name -> {model, base_url, api_key}. The model string is
     LiteLLM-formatted (``provider_type/model``). Empty when nothing is set.
 
-    Shared by the PolicyEngine (real runs) and the policy editor's test run.
+    Shared by the StandardEngine (real runs) and the standard editor's test run.
     """
     roles = LLMRole.objects.filter(
         tenant=tenant, provider__enabled=True
@@ -35,7 +35,7 @@ def resolve_llm_roles(tenant) -> dict:
     }
 
 
-class PolicyEngine:
+class StandardEngine:
     def __init__(self) -> None:
         self._runner = None
 
@@ -52,30 +52,30 @@ class PolicyEngine:
             external_id=event.external_project_id,
         ).select_related("platform_connection", "tenant")
 
-    def get_policies_for_project(
+    def get_standards_for_project(
         self, project: Project, event_type: str, ref: str | None = None
-    ) -> list[Policy]:
-        """Return enabled, non-draft policies whose criteria match the event."""
-        policies = Policy.objects.filter(
+    ) -> list[Standard]:
+        """Return enabled, non-draft standards whose criteria match the event."""
+        standards = Standard.objects.filter(
             tenant=project.tenant,
             enabled=True,
             draft=False,
         )
         return [
             p
-            for p in policies
+            for p in standards
             if self._matches_criteria(p, event_type, ref, project)
         ]
 
     def _matches_criteria(
         self,
-        policy: Policy,
+        standard: Standard,
         event_type: str,
         ref: str | None,
         project: Project,
         skip_event_check: bool = False,
     ) -> bool:
-        criteria = policy.criteria or {}
+        criteria = standard.criteria or {}
 
         # Event type must match (unless skipped for manual runs)
         if not skip_event_check and event_type not in criteria.get("events", []):
@@ -91,9 +91,9 @@ class PolicyEngine:
                     return False
             except re.error:
                 logger.warning(
-                    "Invalid ref regex '%s' in policy '%s'",
+                    "Invalid ref regex '%s' in standard '%s'",
                     ref_pattern,
-                    policy.name,
+                    standard.name,
                 )
                 return False
 
@@ -104,7 +104,7 @@ class PolicyEngine:
 
     def _build_input_config(self, project: Project) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
-        only when the workspace has configured them, so deterministic policies
+        only when the workspace has configured them, so deterministic standards
         are unaffected."""
         input_config = {
             "platform": project.platform,
@@ -135,7 +135,7 @@ class PolicyEngine:
         results = []
         for project in projects:
             # A code push may change dependencies — trigger a graph refresh
-            # (async, additive; does not affect the synchronous policy run below).
+            # (async, additive; does not affect the synchronous standard run below).
             if event.event_type == "push":
                 publish(
                     RepositoryPushed(
@@ -145,13 +145,13 @@ class PolicyEngine:
                     )
                 )
 
-            policies = self.get_policies_for_project(
+            standards = self.get_standards_for_project(
                 project, event.event_type, ref=event.ref
             )
 
-            if not policies:
+            if not standards:
                 logger.info(
-                    "No policies matched event_type=%s for project=%s (tenant=%s)",
+                    "No standards matched event_type=%s for project=%s (tenant=%s)",
                     event.event_type,
                     project.name,
                     project.tenant.name,
@@ -160,33 +160,33 @@ class PolicyEngine:
 
             input_config = self._build_input_config(project)
 
-            for policy in policies:
+            for standard in standards:
                 logger.info(
-                    "Running policy '%s' for project '%s' (event=%s)",
-                    policy.name,
+                    "Running standard '%s' for project '%s' (event=%s)",
+                    standard.name,
                     project.name,
                     event.event_type,
                 )
 
-                execution = PolicyExecution.objects.create(
+                execution = StandardExecution.objects.create(
                     project=project,
-                    policy=policy,
-                    policy_name=policy.name,
+                    standard=standard,
+                    standard_name=standard.name,
                     event_type=event.event_type,
-                    status=PolicyExecution.Status.RUNNING,
+                    status=StandardExecution.Status.RUNNING,
                     triggered_by=event.actor or "",
                     triggered_by_user=actor_user,
                     ref=event.ref or "",
                 )
 
-                result = self.runner.run(policy.code, input_config)
+                result = self.runner.run(standard.code, input_config)
 
                 if result.get("details", {}).get("error"):
-                    execution.status = PolicyExecution.Status.ERROR
+                    execution.status = StandardExecution.Status.ERROR
                 elif result.get("passed"):
-                    execution.status = PolicyExecution.Status.PASSED
+                    execution.status = StandardExecution.Status.PASSED
                 else:
-                    execution.status = PolicyExecution.Status.FAILED
+                    execution.status = StandardExecution.Status.FAILED
 
                 execution.score = result.get("score", 0)
                 execution.message = result.get("message", "")
@@ -194,8 +194,8 @@ class PolicyEngine:
                 execution.logs = result.get("logs", [])
                 execution.save()
 
-                result["policy_id"] = str(policy.id)
-                result["policy_name"] = policy.name
+                result["standard_id"] = str(standard.id)
+                result["standard_name"] = standard.name
                 result["execution_id"] = str(execution.id)
                 result["project_id"] = str(project.id)
                 result["project_name"] = project.name
@@ -204,53 +204,53 @@ class PolicyEngine:
         return results
 
     def run_for_project(
-        self, project: Project, policies: list[Policy] | None = None
+        self, project: Project, standards: list[Standard] | None = None
     ) -> list[dict]:
-        """Run policies manually for a project (no webhook event needed)."""
-        if policies is None:
-            policies = list(
-                Policy.objects.filter(
+        """Run standards manually for a project (no webhook event needed)."""
+        if standards is None:
+            standards = list(
+                Standard.objects.filter(
                     tenant=project.tenant, enabled=True, draft=False
                 )
             )
             # Apply language/ref criteria filtering (skip event check for manual runs)
-            policies = [
-                p for p in policies
+            standards = [
+                p for p in standards
                 if self._matches_criteria(
                     p, "manual", ref=None, project=project, skip_event_check=True
                 )
             ]
 
-        if not policies:
+        if not standards:
             return []
 
         input_config = self._build_input_config(project)
 
         results = []
-        for policy in policies:
+        for standard in standards:
             logger.info(
-                "Running policy '%s' for project '%s' (manual)",
-                policy.name,
+                "Running standard '%s' for project '%s' (manual)",
+                standard.name,
                 project.name,
             )
 
-            execution = PolicyExecution.objects.create(
+            execution = StandardExecution.objects.create(
                 project=project,
-                policy=policy,
-                policy_name=policy.name,
+                standard=standard,
+                standard_name=standard.name,
                 event_type="manual",
-                status=PolicyExecution.Status.RUNNING,
+                status=StandardExecution.Status.RUNNING,
                 triggered_by="manual",
             )
 
-            result = self.runner.run(policy.code, input_config)
+            result = self.runner.run(standard.code, input_config)
 
             if result.get("details", {}).get("error"):
-                execution.status = PolicyExecution.Status.ERROR
+                execution.status = StandardExecution.Status.ERROR
             elif result.get("passed"):
-                execution.status = PolicyExecution.Status.PASSED
+                execution.status = StandardExecution.Status.PASSED
             else:
-                execution.status = PolicyExecution.Status.FAILED
+                execution.status = StandardExecution.Status.FAILED
 
             execution.score = result.get("score", 0)
             execution.message = result.get("message", "")
@@ -258,8 +258,8 @@ class PolicyEngine:
             execution.logs = result.get("logs", [])
             execution.save()
 
-            result["policy_id"] = str(policy.id)
-            result["policy_name"] = policy.name
+            result["standard_id"] = str(standard.id)
+            result["standard_name"] = standard.name
             result["execution_id"] = str(execution.id)
             result["project_id"] = str(project.id)
             result["project_name"] = project.name

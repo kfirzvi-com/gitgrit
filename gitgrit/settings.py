@@ -254,7 +254,7 @@ SANDBOX = {
     "MEMORY_LIMIT": "128m",
     "CPU_LIMIT": 0.5,
     "TIMEOUT": 30,
-    # LLM policies run an agentic loop with several model round-trips, so they
+    # LLM standards run an agentic loop with several model round-trips, so they
     # need a higher wall-clock and memory ceiling than deterministic ones.
     # Applied only when the run carries llm_roles config (see SandboxRunner).
     "LLM_TIMEOUT": int(os.environ.get("SANDBOX_LLM_TIMEOUT", "240")),

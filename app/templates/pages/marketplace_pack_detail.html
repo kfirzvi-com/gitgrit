@@ -21,7 +21,7 @@
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
-    <h2 class="card-title text-base">Policies in this pack</h2>
+    <h2 class="card-title text-base">Standards in this pack</h2>
     <div class="overflow-x-auto">
       <table class="table">
         <thead>
@@ -33,10 +33,10 @@
           </tr>
         </thead>
         <tbody>
-          {% for mp in pack.policies.all %}
+          {% for mp in pack.standards.all %}
             <tr>
               <td>
-                <a href="{% url 'marketplace_policy_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
+                <a href="{% url 'marketplace_standard_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
                 {% if mp.description %}
                   <p class="text-sm opacity-60 truncate max-w-md">{{ mp.description }}</p>
                 {% endif %}
@@ -51,7 +51,7 @@
                 {% if mp.slug in installed_map %}
                   <span class="badge badge-success badge-sm">Installed</span>
                 {% else %}
-                  <form method="post" action="{% url 'install_marketplace_policy' mp.slug %}">
+                  <form method="post" action="{% url 'install_marketplace_standard' mp.slug %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-primary btn-xs">Install</button>
                   </form>

@@ -1,16 +1,16 @@
-"""Pure domain rules for policy applicability and health. No I/O, no ORM."""
+"""Pure domain rules for standard applicability and health. No I/O, no ORM."""
 
 
-def language_matches(policy_languages: list[str], project_languages: list[str]) -> bool:
-    """Return True if a policy applies to a project by language overlap.
+def language_matches(standard_languages: list[str], project_languages: list[str]) -> bool:
+    """Return True if a standard applies to a project by language overlap.
 
-    An empty ``policy_languages`` list means the policy is language-agnostic
+    An empty ``standard_languages`` list means the standard is language-agnostic
     and matches every project. Comparison is case-insensitive.
     """
-    if not policy_languages:
+    if not standard_languages:
         return True
     proj = {lang.lower() for lang in project_languages}
-    return any(lang.lower() in proj for lang in policy_languages)
+    return any(lang.lower() in proj for lang in standard_languages)
 
 
 def score_to_grade(score: float | None) -> str:

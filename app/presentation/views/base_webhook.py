@@ -7,7 +7,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.application.policy_engine import PolicyEngine
+from app.application.standard_engine import StandardEngine
 from app.domain.models import Project
 from app.infrastructure.parsers.registry import get_parser
 from app.infrastructure.webhook_signatures import (
@@ -67,7 +67,7 @@ class BaseWebhookView(APIView):
             signature_status,
         )
 
-        engine = PolicyEngine()
+        engine = StandardEngine()
         results = engine.run_for_event(event)
 
         return Response(
@@ -75,7 +75,7 @@ class BaseWebhookView(APIView):
                 "event_type": event.event_type,
                 "platform": event.platform,
                 "external_project_id": event.external_project_id,
-                "policies_run": len(results),
+                "standards_run": len(results),
                 "results": results,
             }
         )

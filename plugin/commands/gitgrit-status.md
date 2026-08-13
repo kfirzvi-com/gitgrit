@@ -1,5 +1,5 @@
 ---
-description: Report the current GitGrit compliance grade and top offending policies for the resolved project.
+description: Report the current GitGrit compliance grade and top offending standards for the resolved project.
 ---
 
 Read the GitGrit session state file to get the resolved `project_id`. Use the Bash tool:

@@ -94,12 +94,12 @@ const DEFAULT_CODE = `def evaluate(project):
     return {
         "passed": True,
         "score": 100,
-        "message": "Policy passed",
+        "message": "Standard passed",
         "details": {},
     }
 `;
 
-export function initPolicyEditor(textareaId) {
+export function initStandardEditor(textareaId) {
   const textarea = document.getElementById(textareaId);
   if (!textarea) return;
 
@@ -177,7 +177,7 @@ export function createJsonEditor(parent, initialValue, onChange) {
   });
 }
 
-export function initPolicyViewer(elementId) {
+export function initStandardViewer(elementId) {
   const el = document.getElementById(elementId);
   if (!el) return;
 

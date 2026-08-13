@@ -20,7 +20,7 @@ class TestValidateEdit(APITestCase):
             "app.Project", tenant=self.tenant, languages=["Python"]
         )
         baker.make(
-            "app.Policy",
+            "app.Standard",
             tenant=self.tenant,
             name="no-console-log",
             code=_BAN_CONSOLE_LOG,
@@ -86,7 +86,7 @@ class TestValidateEdit(APITestCase):
         assert len(out["introduced_violations"]) == 1
         assert out["pre_existing_violations_count"] == 0
 
-    def test_unwatched_file_skips_policy(self):
+    def test_unwatched_file_skips_standard(self):
         out = self.validator.validate_edit(
             self.tenant,
             str(self.project.id),
@@ -94,12 +94,12 @@ class TestValidateEdit(APITestCase):
             "console.log(everywhere)\n",
             prior_content=None,
         )
-        # Policy only watches src/app.py — should skip not block
+        # Standard only watches src/app.py — should skip not block
         assert out["allowed"] is True
         assert out["skipped"] >= 1
         assert len(out["introduced_violations"]) == 0
 
-    def test_violation_carries_policy_name_and_value(self):
+    def test_violation_carries_standard_name_and_value(self):
         out = self.validator.validate_edit(
             self.tenant,
             str(self.project.id),
@@ -108,7 +108,7 @@ class TestValidateEdit(APITestCase):
             prior_content=None,
         )
         v = out["introduced_violations"][0]
-        assert v["policy"] == "no-console-log"
+        assert v["standard"] == "no-console-log"
         assert v["kind"] == "in"
         assert v["value"] == "console.log"
         assert v["matched_substring"] == "console.log"

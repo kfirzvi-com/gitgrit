@@ -7,31 +7,31 @@ from django.views.generic import DetailView, ListView
 
 from app.domain.models import (
     MarketplacePack,
-    MarketplacePolicy,
-    Policy,
-    PolicyLabel,
+    MarketplaceStandard,
+    Standard,
+    StandardLabel,
 )
-from app.application.policy_service import create_policy_version
+from app.application.standard_service import create_standard_version
 
 
 class MarketplaceBrowseView(LoginRequiredMixin, ListView):
     template_name = "pages/marketplace_browse.html"
-    context_object_name = "policies"
+    context_object_name = "standards"
 
     def get_queryset(self):
-        return MarketplacePolicy.objects.all()
+        return MarketplaceStandard.objects.all()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["packs"] = MarketplacePack.objects.prefetch_related("policies").all()
-        # Track which marketplace policies the tenant already installed
+        ctx["packs"] = MarketplacePack.objects.prefetch_related("standards").all()
+        # Track which marketplace standards the tenant already installed
         tenant = self.request.tenant
         if tenant:
             ctx["installed_slugs"] = set(
-                Policy.objects.filter(
+                Standard.objects.filter(
                     tenant=tenant,
-                    source_marketplace_policy__isnull=False,
-                ).values_list("source_marketplace_policy__slug", flat=True)
+                    source_marketplace_standard__isnull=False,
+                ).values_list("source_marketplace_standard__slug", flat=True)
             )
         else:
             ctx["installed_slugs"] = set()
@@ -49,31 +49,31 @@ class MarketplacePackDetailView(LoginRequiredMixin, DetailView):
         tenant = self.request.tenant
         installed_map = {}
         if tenant:
-            for p in Policy.objects.filter(
+            for p in Standard.objects.filter(
                 tenant=tenant,
-                source_marketplace_policy__in=self.object.policies.all(),
-            ).select_related("source_marketplace_policy"):
-                installed_map[p.source_marketplace_policy.slug] = p
+                source_marketplace_standard__in=self.object.standards.all(),
+            ).select_related("source_marketplace_standard"):
+                installed_map[p.source_marketplace_standard.slug] = p
         ctx["installed_map"] = installed_map
         return ctx
 
 
-class MarketplacePolicyPreviewView(LoginRequiredMixin, DetailView):
-    template_name = "pages/marketplace_policy_preview.html"
-    model = MarketplacePolicy
+class MarketplaceStandardPreviewView(LoginRequiredMixin, DetailView):
+    template_name = "pages/marketplace_standard_preview.html"
+    model = MarketplaceStandard
     slug_url_kwarg = "slug"
-    context_object_name = "mp_policy"
+    context_object_name = "mp_standard"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         tenant = self.request.tenant
         installed = None
         if tenant:
-            installed = Policy.objects.filter(
+            installed = Standard.objects.filter(
                 tenant=tenant,
-                source_marketplace_policy=self.object,
+                source_marketplace_standard=self.object,
             ).first()
-        ctx["installed_policy"] = installed
+        ctx["installed_standard"] = installed
         ctx["update_available"] = (
             installed
             and installed.source_version is not None
@@ -84,82 +84,82 @@ class MarketplacePolicyPreviewView(LoginRequiredMixin, DetailView):
 
 @login_required
 @require_POST
-def install_marketplace_policy(request, slug):
-    mp = get_object_or_404(MarketplacePolicy, slug=slug)
+def install_marketplace_standard(request, slug):
+    mp = get_object_or_404(MarketplaceStandard, slug=slug)
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
         return redirect("marketplace_browse")
 
     # Check if already installed
-    existing = Policy.objects.filter(
-        tenant=tenant, source_marketplace_policy=mp
+    existing = Standard.objects.filter(
+        tenant=tenant, source_marketplace_standard=mp
     ).first()
     if existing:
         messages.info(request, f'"{mp.name}" is already installed.')
-        return redirect("policy_detail", pk=existing.pk)
+        return redirect("standard_detail", pk=existing.pk)
 
     # Create/reuse labels
     labels = []
     for label_name in mp.suggested_labels:
-        label, _ = PolicyLabel.objects.get_or_create(
+        label, _ = StandardLabel.objects.get_or_create(
             tenant=tenant, name=label_name
         )
         labels.append(label)
 
-    # Create tenant policy
-    policy = Policy.objects.create(
+    # Create tenant standard
+    standard = Standard.objects.create(
         tenant=tenant,
         name=mp.name,
         description=mp.description,
         code=mp.code,
         criteria=mp.criteria,
         test_cases=mp.test_cases,
-        source_marketplace_policy=mp,
+        source_marketplace_standard=mp,
         source_version=mp.version,
         enabled=True,
         draft=False,
     )
-    policy.labels.set(labels)
-    create_policy_version(policy, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
+    standard.labels.set(labels)
+    create_standard_version(standard, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
 
     messages.success(request, f'Installed "{mp.name}" — you can customize it now.')
-    return redirect("policy_detail", pk=policy.pk)
+    return redirect("standard_detail", pk=standard.pk)
 
 
 @login_required
 @require_POST
-def update_marketplace_policy(request, slug):
-    mp = get_object_or_404(MarketplacePolicy, slug=slug)
+def update_marketplace_standard(request, slug):
+    mp = get_object_or_404(MarketplaceStandard, slug=slug)
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
         return redirect("marketplace_browse")
 
-    policy = get_object_or_404(
-        Policy, tenant=tenant, source_marketplace_policy=mp
+    standard = get_object_or_404(
+        Standard, tenant=tenant, source_marketplace_standard=mp
     )
 
-    policy.code = mp.code
-    policy.description = mp.description
-    policy.criteria = mp.criteria
-    policy.test_cases = mp.test_cases
-    policy.source_version = mp.version
-    policy.save()
+    standard.code = mp.code
+    standard.description = mp.description
+    standard.criteria = mp.criteria
+    standard.test_cases = mp.test_cases
+    standard.source_version = mp.version
+    standard.save()
 
     # Add any new suggested labels
     for label_name in mp.suggested_labels:
-        label, _ = PolicyLabel.objects.get_or_create(
+        label, _ = StandardLabel.objects.get_or_create(
             tenant=tenant, name=label_name
         )
-        policy.labels.add(label)
+        standard.labels.add(label)
 
-    create_policy_version(policy, request.user, f"Updated from marketplace: {mp.name} v{mp.version}")
+    create_standard_version(standard, request.user, f"Updated from marketplace: {mp.name} v{mp.version}")
 
     messages.success(
-        request, f'Updated "{policy.name}" to v{mp.version}.'
+        request, f'Updated "{standard.name}" to v{mp.version}.'
     )
-    return redirect("policy_detail", pk=policy.pk)
+    return redirect("standard_detail", pk=standard.pk)
 
 
 @login_required
@@ -174,9 +174,9 @@ def install_marketplace_pack(request, slug):
     installed_count = 0
     skipped_count = 0
 
-    for mp in pack.policies.all():
-        existing = Policy.objects.filter(
-            tenant=tenant, source_marketplace_policy=mp
+    for mp in pack.standards.all():
+        existing = Standard.objects.filter(
+            tenant=tenant, source_marketplace_standard=mp
         ).first()
         if existing:
             skipped_count += 1
@@ -184,25 +184,25 @@ def install_marketplace_pack(request, slug):
 
         labels = []
         for label_name in mp.suggested_labels:
-            label, _ = PolicyLabel.objects.get_or_create(
+            label, _ = StandardLabel.objects.get_or_create(
                 tenant=tenant, name=label_name
             )
             labels.append(label)
 
-        policy = Policy.objects.create(
+        standard = Standard.objects.create(
             tenant=tenant,
             name=mp.name,
             description=mp.description,
             code=mp.code,
             criteria=mp.criteria,
             test_cases=mp.test_cases,
-            source_marketplace_policy=mp,
+            source_marketplace_standard=mp,
             source_version=mp.version,
             enabled=True,
             draft=False,
         )
-        policy.labels.set(labels)
-        create_policy_version(policy, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
+        standard.labels.set(labels)
+        create_standard_version(standard, request.user, f"Installed from marketplace: {mp.name} v{mp.version}")
         installed_count += 1
 
     parts = []

@@ -1,16 +1,16 @@
 FROM python:3.13-slim
 
-# LiteLLM powers LLM-based policies (provider abstraction + the agentic loop in
+# LiteLLM powers LLM-based standards (provider abstraction + the agentic loop in
 # llm.py). It pulls pydantic. This is the sandbox image's first runtime dep and
 # grows it to a few hundred MB — note the impact on the air-gap bundle size.
 # Pinned to 1.88.1: 1.89+ lazily imports litellm.proxy -> fastapi during
-# completion() with tools, which isn't installed here and would crash policy
+# completion() with tools, which isn't installed here and would crash standard
 # execution. Keep in lockstep with the app's pyproject pin.
 RUN pip install --no-cache-dir litellm==1.88.1
 
 COPY providers/ /providers/
 COPY project_context.py /project_context.py
-COPY policy_log.py /policy_log.py
+COPY standard_log.py /standard_log.py
 COPY llm.py /llm.py
 COPY entrypoint.py /entrypoint.py
 

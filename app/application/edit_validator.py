@@ -3,7 +3,7 @@ from collections import Counter
 
 from django.core.exceptions import ValidationError
 
-from app.application.policy_service import PolicyService
+from app.application.standard_service import StandardService
 from app.domain.models import Project, Tenant
 
 _SNIPPET_PADDING = 40
@@ -16,7 +16,7 @@ def _normalize_file_path(path: str) -> str:
 def _matches(content: str, kind: str, value: str) -> list[str]:
     """Return every substring `content` matches for the given forbidden pattern.
 
-    The kinds mirror :class:`app.domain.policy_extractor.PredicateKind`. Returning
+    The kinds mirror :class:`app.domain.standard_extractor.PredicateKind`. Returning
     a list (not a set) lets callers do multiset diffs against prior content so
     repeated occurrences are attributed correctly.
     """
@@ -56,7 +56,7 @@ def _snippet(content: str, needle: str) -> str:
 
 class EditValidator:
     def __init__(self) -> None:
-        self._policies = PolicyService()
+        self._standards = StandardService()
 
     def validate_edit(
         self,
@@ -66,11 +66,11 @@ class EditValidator:
         new_content: str,
         prior_content: str | None = None,
     ) -> dict:
-        """Run the project's active policies against a proposed edit.
+        """Run the project's active standards against a proposed edit.
 
         Returns introduced violations (multiset diff between new and prior
-        content keyed on (policy, kind, value, matched_substring)), a count of
-        pre-existing violations that survived the edit, and per-policy notes
+        content keyed on (standard, kind, value, matched_substring)), a count of
+        pre-existing violations that survived the edit, and per-standard notes
         when the extractor saw rules it could not fully parse.
         """
         try:
@@ -79,7 +79,7 @@ class EditValidator:
             raise ValueError(f"Project {project_id} not found")
 
         normalized_path = _normalize_file_path(file_path)
-        active_policies = self._policies.list_active_for_project(tenant, project_id)
+        active_standards = self._standards.list_active_for_project(tenant, project_id)
 
         introduced: list[dict] = []
         pre_existing_count = 0
@@ -87,10 +87,10 @@ class EditValidator:
         checked = 0
         skipped = 0
 
-        for policy in active_policies:
-            rules = policy["rules"]
-            policy_name = policy["name"]
-            policy_id = policy["id"]
+        for standard in active_standards:
+            rules = standard["rules"]
+            standard_name = standard["name"]
+            standard_id = standard["id"]
 
             if not rules["locally_enforceable"]:
                 skipped += 1
@@ -100,7 +100,7 @@ class EditValidator:
             if normalized_path not in watched:
                 if not rules["watched_files_complete"]:
                     notes.append(
-                        f"Policy '{policy_name}' has watched_files the extractor "
+                        f"Standard '{standard_name}' has watched_files the extractor "
                         f"could not fully parse; sandbox is authoritative on the "
                         f"next webhook event."
                     )
@@ -125,8 +125,8 @@ class EditValidator:
                     for _ in range(count):
                         introduced.append(
                             {
-                                "policy": policy_name,
-                                "policy_id": policy_id,
+                                "standard": standard_name,
+                                "standard_id": standard_id,
                                 "kind": kind,
                                 "value": value,
                                 "matched_substring": matched_substring,
@@ -136,7 +136,7 @@ class EditValidator:
 
             if not rules["forbidden_patterns_complete"]:
                 notes.append(
-                    f"Policy '{policy_name}' has forbidden_patterns the extractor "
+                    f"Standard '{standard_name}' has forbidden_patterns the extractor "
                     f"could not fully parse; sandbox is authoritative on the next "
                     f"webhook event."
                 )

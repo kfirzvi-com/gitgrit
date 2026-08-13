@@ -37,7 +37,7 @@ def _normalize_full_path(path: str | None) -> str | None:
 _PROJECT_CONTEXT_API = """
 # ProjectContext API Reference
 
-When writing a GitGrit policy, your `evaluate(project)` function receives a `project` object
+When writing a GitGrit standard, your `evaluate(project)` function receives a `project` object
 with the following methods:
 
 ## Methods
@@ -113,7 +113,7 @@ Your `evaluate(project)` function must return a dict with exactly these keys:
 
 ```python
 {
-    "passed": bool,          # True if policy passes, False if it fails
+    "passed": bool,          # True if standard passes, False if it fails
     "score": int,            # 0-100 compliance score
     "message": str,          # Human-readable result summary
     "details": dict,         # Any additional details (can be empty dict)
@@ -217,7 +217,7 @@ class ProjectService:
 
 
 class SandboxService:
-    def run_policy_test(self, policy_code: str, input_data: dict) -> dict:
+    def run_standard_test(self, standard_code: str, input_data: dict) -> dict:
         input_config = {
             "platform": "mock",
             "project_id": "test",
@@ -225,4 +225,4 @@ class SandboxService:
             "mock_data": input_data,
         }
         runner = SandboxRunner()
-        return runner.run(policy_code, input_config)
+        return runner.run(standard_code, input_config)

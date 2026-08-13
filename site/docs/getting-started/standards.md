@@ -1,10 +1,10 @@
-# Writing Policies
+# Writing Standards
 
-Policies are Python functions that evaluate a repository and return a compliance result.
+Standards are Python functions that evaluate a repository and return a compliance result.
 
 ## Structure
 
-Every policy must define an `evaluate` function that receives a `project` object:
+Every standard must define an `evaluate` function that receives a `project` object:
 
 ```python
 def evaluate(project):
@@ -32,7 +32,7 @@ The `evaluate` function must return a dictionary with:
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `passed` | `bool` | Whether the policy passed |
+| `passed` | `bool` | Whether the standard passed |
 | `score` | `int` | Score from 0 to 100 |
 | `message` | `str` | Human-readable result summary |
 | `details` | `dict` | Additional data (shown in execution details) |
@@ -43,7 +43,7 @@ The `project` object provides methods to query the repository. See the full [Pro
 
 ## Criteria filters
 
-Policies can be filtered to run only on specific events, branches, or languages:
+Standards can be filtered to run only on specific events, branches, or languages:
 
 - **Events** — `push`, `pull_request`, `tag`
 - **Branch filter** — regex pattern matched against the event ref (e.g., `^refs/heads/main$`)
@@ -53,9 +53,9 @@ Leaving a filter empty means "match all."
 
 ## Test cases
 
-Each policy can have test cases that validate the logic with mock data. Test cases define:
+Each standard can have test cases that validate the logic with mock data. Test cases define:
 
 - **Input** — mock data for `ProjectContext` methods (e.g., `list_files`, `get_file_content`)
 - **Expected** — expected `passed` and `score` values
 
-Run tests from the policy editor to verify your logic before deploying.
+Run tests from the standard editor to verify your logic before deploying.

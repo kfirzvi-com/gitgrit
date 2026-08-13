@@ -1,13 +1,13 @@
 """Composite health for stacks and projects, surfaced as colour codes.
 
 Health is what points an engineering leader at the things that need attention.
-Today it's derived solely from the compliance score (latest policy results),
+Today it's derived solely from the compliance score (latest standard results),
 but it's structured as a set of *signals* so future inputs slot in without
 touching callers:
 
   * DORA deployment frequency (planned) — add a deployment-frequency signal to
     ``project_level``.
-  * Failing high-severity policies (planned) — add a severity signal that can
+  * Failing high-severity standards (planned) — add a severity signal that can
     push a node to ``CRITICAL`` regardless of the aggregate score.
 
 A node's level is the worst across its signals; a stack's level is the worst
@@ -55,7 +55,7 @@ def project_level(score):
         return worst([
             level_from_score(score),
             deployment_frequency_level(...),   # DORA
-            severity_level(...),               # failing high-severity policies
+            severity_level(...),               # failing high-severity standards
         ])
     """
     return level_from_score(score)

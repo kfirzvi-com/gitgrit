@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Policy Marketplace — GitGrit{% endblock %}
+{% block title %}Standard Marketplace — GitGrit{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-  <h1 class="text-3xl font-bold">Policy Marketplace</h1>
+  <h1 class="text-3xl font-bold">Standard Marketplace</h1>
 </div>
 
 {% if packs %}
@@ -18,7 +18,7 @@
           </h3>
           <p class="text-sm opacity-70">{{ pack.description }}</p>
           <div class="card-actions justify-end mt-2">
-            <span class="badge badge-outline badge-sm">{{ pack.policies.count }} policies</span>
+            <span class="badge badge-outline badge-sm">{{ pack.standards.count }} standards</span>
           </div>
         </div>
       </a>
@@ -26,8 +26,8 @@
   </div>
 {% endif %}
 
-<h2 class="text-xl font-semibold mb-4">Individual Policies</h2>
-{% if policies %}
+<h2 class="text-xl font-semibold mb-4">Individual Standards</h2>
+{% if standards %}
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <div class="overflow-x-auto">
@@ -42,10 +42,10 @@
             </tr>
           </thead>
           <tbody>
-            {% for mp in policies %}
+            {% for mp in standards %}
               <tr>
                 <td class="max-w-xs">
-                  <a href="{% url 'marketplace_policy_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
+                  <a href="{% url 'marketplace_standard_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
                   {% if mp.description %}
                     <p class="text-sm opacity-60 truncate">{{ mp.description }}</p>
                   {% endif %}
@@ -61,7 +61,7 @@
                   {% if mp.slug in installed_slugs %}
                     <span class="badge badge-success badge-sm">Installed</span>
                   {% else %}
-                    <form method="post" action="{% url 'install_marketplace_policy' mp.slug %}">
+                    <form method="post" action="{% url 'install_marketplace_standard' mp.slug %}">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-primary btn-xs">Install</button>
                     </form>
@@ -77,8 +77,8 @@
 {% else %}
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body items-center text-center py-12">
-      <h2 class="card-title">No marketplace policies yet</h2>
-      <p class="opacity-70">Marketplace policies will appear here once seeded.</p>
+      <h2 class="card-title">No marketplace standards yet</h2>
+      <p class="opacity-70">Marketplace standards will appear here once seeded.</p>
     </div>
   </div>
 {% endif %}

@@ -4,9 +4,9 @@ Thanks for taking the time to look at GitGrit. This document covers what you nee
 
 ## Ways to contribute
 
-- **Bug reports.** Open a [GitHub issue](https://github.com/kfirzvi-com/gitgrit/issues/new) with reproduction steps, your environment (hosted vs self-hosted, Docker version, OS), and what you expected vs what you saw. If the bug touches the sandbox, include the policy code and the input data — without those it is very hard to reproduce.
+- **Bug reports.** Open a [GitHub issue](https://github.com/kfirzvi-com/gitgrit/issues/new) with reproduction steps, your environment (hosted vs self-hosted, Docker version, OS), and what you expected vs what you saw. If the bug touches the sandbox, include the standard code and the input data — without those it is very hard to reproduce.
 - **Feature requests.** Open an issue describing the use case before writing code. We would rather discuss the shape early than ask you to refactor a finished PR.
-- **New marketplace policies.** Policies live under `app/marketplace/` (seed data) and execute inside the sandbox. Each policy must ship with at least one passing and one failing test case. See the [policy guide](https://gitgrit.dev/getting-started/policies/) and [`ProjectContext` API](https://gitgrit.dev/api/project-context/).
+- **New marketplace standards.** Standards live under `app/marketplace/` (seed data) and execute inside the sandbox. Each standard must ship with at least one passing and one failing test case. See the [standard guide](https://gitgrit.dev/getting-started/standards/) and [`ProjectContext` API](https://gitgrit.dev/api/project-context/).
 - **Sandbox or platform capabilities.** Anything that changes the runner, the provider clients, or the MCP surface is a larger conversation — open an issue first so we can talk about isolation, scope, and migration impact before you build.
 - **Documentation.** Docs live under `site/` (MkDocs). PRs that fix typos, clarify steps, or fill gaps are very welcome and do not need a prior issue.
 
@@ -28,7 +28,7 @@ docker compose up -d
 # Dependencies
 uv sync
 
-# Build the sandbox image (required before running policy execution or its tests)
+# Build the sandbox image (required before running standard execution or its tests)
 uv run poe sandbox
 
 # Database
@@ -46,12 +46,12 @@ Visit `http://localhost:8000`. The hosted-version setup guides at [gitgrit.dev/g
 ```bash
 uv run poe test               # full suite
 uv run python manage.py test app.domain   # one app
-uv run python manage.py test app.domain.tests.test_policy_extractor.TestPolicyExtractor.test_x   # one test
+uv run python manage.py test app.domain.tests.test_standard_extractor.TestStandardExtractor.test_x   # one test
 ```
 
 The suite uses `testcontainers` to spin up Postgres, so the Docker daemon must be running. Tests that exercise the sandbox runner (`tests/sandbox/`, `tests/plugin/e2e/`) require the `gitgrit-sandbox:latest` image — re-run `uv run poe sandbox` whenever you change anything under `sandbox_image/`.
 
-If you add a new policy or sandbox capability, add tests that cover both the success path and at least one violation path. We do not merge new policy logic without test cases.
+If you add a new standard or sandbox capability, add tests that cover both the success path and at least one violation path. We do not merge new standard logic without test cases.
 
 ## Code style and commit conventions
 

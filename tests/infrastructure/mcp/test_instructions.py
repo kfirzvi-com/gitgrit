@@ -33,7 +33,7 @@ def test_both_flavors_have_core_concepts():
     for kind in ("claude", "generic"):
         text = select_instructions(kind)
         assert "## Core concepts" in text
-        assert "**Policy**" in text
+        assert "**Standard**" in text
         assert "**Project**" in text
 
 
@@ -45,15 +45,15 @@ def test_both_flavors_carry_no_invented_enforcement_rule():
         text = select_instructions(kind)
         assert "no invented enforcement" in text.lower()
         assert "validate_edit" in text
-        assert "no GitGrit policy covers this" in text
+        assert "no GitGrit standard covers this" in text
 
 
 def test_claude_flavor_points_at_plugin_skill():
     """Claude Code users get bootstrap + enforcement via the plugin's
-    SessionStart hook and `policy-enforcement` skill — instructions just
+    SessionStart hook and `standard-enforcement` skill — instructions just
     point there, they don't duplicate the workflow."""
     text = select_instructions("claude")
-    assert "policy-enforcement" in text
+    assert "standard-enforcement" in text
     assert "session_bootstrap" in text
 
 

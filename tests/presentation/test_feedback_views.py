@@ -79,14 +79,14 @@ class TestSubmitFeedback(TestCase):
         response = self.client.post(
             self.url,
             {
-                "body": "Found a bug in the policy editor.",
+                "body": "Found a bug in the standard editor.",
                 "context": json.dumps({"url": "http://x/y", "viewport": "800x600"}),
             },
         )
         assert response.status_code == 200
 
         fb = FeedbackReport.objects.get()
-        assert fb.body == "Found a bug in the policy editor."
+        assert fb.body == "Found a bug in the standard editor."
         assert fb.user_id == user.id
         assert fb.user_email == "dev@example.com"
         assert fb.tenant_slug == ""

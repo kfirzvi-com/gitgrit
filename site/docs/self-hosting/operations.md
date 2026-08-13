@@ -58,7 +58,7 @@ and reach your internal GitLab on the same network.
 
 ## gVisor (`runsc`)
 
-Policy code runs inside containers wrapped by gVisor to keep them
+Standard code runs inside containers wrapped by gVisor to keep them
 isolated from the host. Install `runsc` system-wide on the air-gap host
 before bringing the stack up:
 
@@ -70,7 +70,7 @@ before bringing the stack up:
   available runtimes.
 
 If `runsc` is missing, the sandbox runner logs a warning and falls back
-to the default Docker runtime. Policies still run, but isolation is
+to the default Docker runtime. Standards still run, but isolation is
 weaker. **Treat a missing `runsc` as an install blocker** if your
 security posture relies on the sandbox boundary.
 

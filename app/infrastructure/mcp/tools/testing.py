@@ -5,14 +5,14 @@ _service = SandboxService()
 
 
 @register
-def run_policy_test(policy_code: str, mock_input: dict | None = None) -> dict:
-    """Run policy code against mock project data in the sandbox.
+def run_standard_test(standard_code: str, mock_input: dict | None = None) -> dict:
+    """Run standard code against mock project data in the sandbox.
 
     Executes the evaluate(project) function in an isolated gVisor container
     and returns the result without saving anything.
 
     Args:
-        policy_code: Python source code with an evaluate(project) function.
+        standard_code: Python source code with an evaluate(project) function.
         mock_input: Optional mock project data. Supported keys:
             - files: list of {"path": str, "content": str} dicts
             - languages: dict of {"LanguageName": percentage_float}
@@ -25,4 +25,4 @@ def run_policy_test(policy_code: str, mock_input: dict | None = None) -> dict:
     Returns:
         {passed: bool, score: int, message: str, details: dict}
     """
-    return _service.run_policy_test(policy_code, mock_input or {})
+    return _service.run_standard_test(standard_code, mock_input or {})

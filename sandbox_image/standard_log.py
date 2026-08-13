@@ -1,6 +1,6 @@
-"""Structured logging for policy execution, viewable when a policy fails.
+"""Structured logging for standard execution, viewable when a standard fails.
 
-A ``PolicyLogger`` is created per run and offered to the policy author (as the
+A ``StandardLogger`` is created per run and offered to the standard author (as the
 ``log`` parameter) and used internally by the ``llm`` object to record the
 agentic process. It collects entries in memory — it never writes to stdout,
 which is reserved for the JSON result. The runtime serializes ``entries`` into
@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 
-class PolicyLogger:
+class StandardLogger:
     def __init__(self):
         self.entries = []
 

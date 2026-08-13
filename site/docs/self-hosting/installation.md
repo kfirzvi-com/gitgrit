@@ -284,9 +284,9 @@ From there:
 2. **Settings → Connections** → connect to your internal GitLab (uses
    `GITLAB_URL` from `.env` and the OAuth token just minted).
 3. Import a project — listed via `${GITLAB_URL}/api/v4/projects`.
-4. Create your first policy via the UI editor and activate it.
+4. Create your first standard via the UI editor and activate it.
 5. Push a commit to the project. The webhook fires, the sandbox runner
-   spawns a `runsc`-isolated container, and the policy result lands in
+   spawns a `runsc`-isolated container, and the standard result lands in
    the database and the UI.
 
 You're installed.
@@ -295,5 +295,5 @@ You're installed.
 
 - **[Operations](operations.md)** for backup, upgrade, troubleshooting,
   the network topology diagram, and the environment variable reference.
-- **[Writing Policies](../getting-started/policies.md)** — the policy
+- **[Writing Standards](../getting-started/standards.md)** — the standard
   authoring guide. Same API as cloud.

@@ -5,7 +5,7 @@
 # `git remote get-url origin`, so Layer 4 needs a real git repo on disk whose
 # origin URL matches the full_path seeded by `seed_plugin_scenario`. This script
 # produces that, plus a file that deliberately violates the seeded "No TODOs
-# in source" policy and a control file that doesn't.
+# in source" standard and a control file that doesn't.
 #
 # Usage:
 #   scripts/make_client_repo.sh <target-dir> <full_path>
@@ -32,7 +32,7 @@ git config user.name  "plugin-test"
 cat > main.py <<'PY'
 # Entry point.
 #
-# TODO: refactor this file. The policy "No TODOs in source" forbids this marker.
+# TODO: refactor this file. The standard "No TODOs in source" forbids this marker.
 def main():
     print("hello from main")
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 PY
 
 cat > clean.py <<'PY'
-"""A control file with no policy violations."""
+"""A control file with no standard violations."""
 
 
 def greet(name: str) -> str:
@@ -54,7 +54,7 @@ cat > README.md <<MD
 
 Throwaway client repo for GitGrit Claude Code plugin tests.
 
-- main.py contains a TODO marker and should be flagged by the seeded policy.
+- main.py contains a TODO marker and should be flagged by the seeded standard.
 - clean.py has no violations.
 MD
 
