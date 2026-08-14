@@ -32,13 +32,11 @@ hide:
   </div>
   <div class="gg-area__visual">
     <div class="gg-mock">
-      <div class="gg-mock__head"><span class="gg-mock__title">Architecture</span><span class="gg-mock__stat"><b>28</b> services</span></div>
-      <div class="gg-nodes">
-        <div class="gg-node"><span class="gg-node__name"><span class="gg-dot gg-dot--amber"></span>Storefront</span><span class="gg-chips"><i>Next.js</i><i>React</i></span></div>
-        <div class="gg-node"><span class="gg-node__name"><span class="gg-dot gg-dot--red"></span>Payments</span><span class="gg-chips"><i>Go</i><i>Stripe</i></span></div>
-        <div class="gg-node"><span class="gg-node__name"><span class="gg-dot gg-dot--red"></span>Orders</span><span class="gg-chips"><i>Go</i><i>Postgres</i></span></div>
-        <div class="gg-node"><span class="gg-node__name"><span class="gg-dot gg-dot--amber"></span>Identity</span><span class="gg-chips"><i>FastAPI</i></span></div>
-      </div>
+      <div class="gg-mock__head"><span class="gg-mock__title">This year</span><span class="gg-mock__stat"><b class="gg-warn">growing</b></span></div>
+      <div class="gg-mock__row"><span class="gg-dot gg-dot--amber"></span><span class="gg-mock__name">Repositories</span><span class="gg-score gg-score--mid">61 &rarr; 112</span></div>
+      <div class="gg-mock__row"><span class="gg-dot gg-dot--amber"></span><span class="gg-mock__name">Pull requests / week</span><span class="gg-score gg-score--mid">190 &rarr; 340</span></div>
+      <div class="gg-mock__row"><span class="gg-dot gg-dot--red"></span><span class="gg-mock__name">Senior reviewers</span><span class="gg-score gg-score--low">5 &rarr; 5</span></div>
+      <div class="gg-mock__note gg-mock__note--muted">Staff engineer &middot; role open 127 days</div>
     </div>
   </div>
 </section>
@@ -49,7 +47,7 @@ hide:
   </div>
   <div class="gg-area__visual">
     <div class="gg-mock">
-      <div class="gg-mock__head"><span class="gg-mock__title">Compliance</span><span class="gg-mock__stat"><b>8</b> projects · <b class="gg-warn">62%</b></span></div>
+      <div class="gg-mock__head"><span class="gg-mock__title">Standards</span><span class="gg-mock__stat"><b>8</b> projects · <b class="gg-warn">62%</b></span></div>
       <div class="gg-mock__row"><span class="gg-badge gg-badge--fail">Failed</span><span class="gg-mock__name">billing-api / node-eol</span><span class="gg-score gg-score--mid">40%</span></div>
       <div class="gg-mock__row"><span class="gg-badge gg-badge--pass">Passed</span><span class="gg-mock__name">checkout-svc / codeowners</span><span class="gg-score gg-score--high">100%</span></div>
       <div class="gg-mock__row"><span class="gg-badge gg-badge--pass">Passed</span><span class="gg-mock__name">web-app / ci-config</span><span class="gg-score gg-score--high">100%</span></div>

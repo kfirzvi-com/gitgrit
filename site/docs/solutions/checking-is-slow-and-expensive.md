@@ -18,8 +18,8 @@ hide:
   <div class="gg-area__visual">
     <div class="gg-mock">
       <div class="gg-mock__head"><span class="gg-mock__title">LLM scan · 214 repos</span></div>
-      <div class="gg-mock__big gg-mock__big--red">1.2M tokens</div>
-      <div class="gg-mock__note">&#8776; $18.40 per full scan &middot; every run</div>
+      <div class="gg-mock__big gg-mock__big--red">$4,200 / month</div>
+      <div class="gg-mock__note">&#8776; 32M tokens &middot; $140 per full scan &middot; re-run daily to stay current</div>
     </div>
   </div>
 </section>
@@ -45,11 +45,11 @@ hide:
   </div>
   <div class="gg-area__visual">
     <div class="gg-mock">
-      <div class="gg-mock__head"><span class="gg-mock__title">Fleet check</span><span class="gg-mock__stat"><b class="gg-ok">live</b></span></div>
+      <div class="gg-mock__head"><span class="gg-mock__title">Fleet check · 214 repos</span><span class="gg-mock__stat"><b class="gg-ok">live</b></span></div>
       <div class="gg-mock__row"><span class="gg-badge gg-badge--pass">Passed</span><span class="gg-mock__name">ci-config-required</span><span class="gg-chips"><i class="gg-tag--det">code</i></span></div>
       <div class="gg-mock__row"><span class="gg-badge gg-badge--pass">Passed</span><span class="gg-mock__name">codeowners-file</span><span class="gg-chips"><i class="gg-tag--det">code</i></span></div>
       <div class="gg-mock__row"><span class="gg-badge gg-badge--fail">Failed</span><span class="gg-mock__name">clean-code</span><span class="gg-chips"><i class="gg-tag--llm">LLM</i></span></div>
-      <div class="gg-mock__note">142 checks &middot; 3 used an LLM &middot; $0.02 total</div>
+      <div class="gg-mock__note">1,284 checks &middot; 12 used an LLM &middot; $0.31 total</div>
     </div>
   </div>
 </section>
