@@ -55,8 +55,26 @@ def _app_headers() -> dict:
     }
 
 
+def _repo_names(repositories: list[str] | None) -> list[str] | None:
+    """Normalize repository identifiers to the names GitHub expects.
+
+    ``POST /app/installations/{id}/access_tokens`` scopes a token by repository
+    name *relative to the installation* — ``"app"``, never ``"acme/app"``. Every
+    caller here holds a project's ``full_path``, which is the owner-qualified
+    form, so accept either and keep only the last segment. Passing a full path
+    through is a 422 from GitHub, i.e. a policy run that never happens.
+    """
+    if not repositories:
+        return None
+    return [name.rsplit("/", 1)[-1] for name in repositories]
+
+
 def _scope_key(repositories: list[str] | None) -> str:
-    """Build a stable cache-scope string for a token request."""
+    """Build a stable cache-scope string for a token request.
+
+    Callers pass already-normalized names, so ``acme/app`` and ``app`` share one
+    cache entry rather than minting two identical tokens.
+    """
     if not repositories:
         return "all"
     return ",".join(sorted(repositories))
@@ -77,8 +95,12 @@ def get_installation_token(
 
     A cached token is reused while it is still valid (its real expiry minus a
     safety buffer); otherwise a fresh token is requested from GitHub.
+
+    ``repositories`` may be given as owner-qualified paths (``acme/app``) or bare
+    names; both are normalized to what GitHub accepts.
     """
-    scope = _scope_key(repositories)
+    repo_names = _repo_names(repositories)
+    scope = _scope_key(repo_names)
     cache_key = (installation_id, scope)
 
     with _cache_lock:
@@ -87,8 +109,8 @@ def get_installation_token(
             return cached[0]
 
     body: dict = {}
-    if repositories:
-        body["repositories"] = repositories
+    if repo_names:
+        body["repositories"] = repo_names
     if permissions:
         body["permissions"] = permissions
 

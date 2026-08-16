@@ -61,13 +61,25 @@ class GitHubClient(PlatformClient):
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
-    def test_token(self) -> bool:
-        resp = requests.get(f"{self.base_url}/user", headers=self._headers, timeout=10)
-        return resp.status_code == 200
-
     @property
     def _is_app(self) -> bool:
         return self.connection.auth_method == AuthMethod.GITHUB_APP
+
+    def test_token(self) -> bool:
+        if self._is_app:
+            # `/user` is a user-scoped endpoint: an installation token gets 403
+            # "Resource not accessible by integration" there, which would report
+            # a perfectly healthy App connection as an invalid token. Probe the
+            # endpoint the token is actually for instead.
+            resp = requests.get(
+                f"{self.base_url}/installation/repositories",
+                headers=self._headers,
+                params={"per_page": 1},
+                timeout=10,
+            )
+            return resp.status_code == 200
+        resp = requests.get(f"{self.base_url}/user", headers=self._headers, timeout=10)
+        return resp.status_code == 200
 
     def search_projects(self, query: str = "") -> list[dict]:
         results = []

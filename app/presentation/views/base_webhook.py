@@ -121,9 +121,22 @@ class BaseWebhookView(APIView):
             return self._handle_installation_repositories(payload, installation_id)
 
         # Code events (push, pull_request, …): the App-secret signature already
-        # authenticated the delivery, so no per-project secret is required.
+        # authenticated the delivery, so no per-project secret is required. The
+        # signature proves the delivery is GitHub's, not which installation it
+        # is for, so scope the run to the connections holding this installation
+        # — one shared secret must not reach a workspace this installation was
+        # never granted anything by.
+        if installation_id is None:
+            logger.warning(
+                "GitHub App %s delivery carried no installation id; ignoring.",
+                event_name,
+            )
+            return Response(
+                {"detail": "No installation id on an App delivery."}, status=400
+            )
+
         engine = PolicyEngine()
-        results = engine.run_for_event(event)
+        results = engine.run_for_event(event, installation_id=installation_id)
         return Response(
             {
                 "event_type": event.event_type,

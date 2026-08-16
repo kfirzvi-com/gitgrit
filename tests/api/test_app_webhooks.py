@@ -10,12 +10,18 @@ per-project webhook tests are unaffected (App branch requires the flag +
 import hashlib
 import hmac
 import json
+from unittest import mock
 
 from django.test import override_settings
 from model_bakery import baker
 from rest_framework.test import APITestCase
 
-from app.domain.models import AuthMethod, PlatformConnection, Project
+from app.domain.models import (
+    AuthMethod,
+    PlatformConnection,
+    PolicyExecution,
+    Project,
+)
 
 APP_SECRET = "app-webhook-secret"
 
@@ -122,6 +128,150 @@ class TestGitHubAppWebhooks(APITestCase):
         assert resp.data["removed"] == 1
         assert Project.objects.filter(platform_connection=conn, external_id="20").exists()
         assert not Project.objects.filter(platform_connection=conn, external_id="10").exists()
+
+
+@override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_WEBHOOK_SECRET=APP_SECRET)
+class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
+    """An App delivery must not reach workspaces that installation never granted.
+
+    Every installation of the App signs with the same shared secret, so a valid
+    signature proves the delivery is GitHub's — not which installation it is for.
+    Two workspaces can legitimately connect the same repository (one by App, one
+    by token), and only the one holding this installation should run.
+    """
+
+    url = "/api/webhooks/github/"
+    external_id = "4242"
+
+    def setUp(self):
+        # Keep the sandbox out of it; we assert on which executions were created.
+        patcher = mock.patch("app.application.policy_engine.SandboxRunner")
+        runner_cls = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # An App connection mints its token on demand; don't call GitHub.
+        token_patcher = mock.patch(
+            "app.infrastructure.github_app.get_installation_token",
+            return_value="ghs_minted",
+        )
+        token_patcher.start()
+        self.addCleanup(token_patcher.stop)
+
+        runner_cls.return_value.run.return_value = {
+            "passed": True,
+            "score": 100,
+            "message": "ok",
+            "details": {},
+            "logs": [],
+        }
+
+        # Workspace A holds the installation this delivery belongs to.
+        self.tenant_a = baker.make("app.Tenant")
+        conn_a = baker.make(
+            "app.PlatformConnection",
+            tenant=self.tenant_a,
+            platform="github",
+            auth_method=AuthMethod.GITHUB_APP,
+            access_token=None,
+            installation_id=606,
+        )
+        self.project_a = baker.make(
+            "app.Project",
+            tenant=self.tenant_a,
+            platform_connection=conn_a,
+            platform="github",
+            external_id=self.external_id,
+        )
+        self.policy_a = baker.make(
+            "app.Policy",
+            tenant=self.tenant_a,
+            criteria={"events": ["push"]},
+            enabled=True,
+            draft=False,
+        )
+
+        # Workspace B connects the same repository by token. Unrelated grant.
+        self.tenant_b = baker.make("app.Tenant")
+        conn_b = baker.make(
+            "app.PlatformConnection",
+            tenant=self.tenant_b,
+            platform="github",
+            auth_method=AuthMethod.PAT,
+            access_token="ghp_other",
+        )
+        self.project_b = baker.make(
+            "app.Project",
+            tenant=self.tenant_b,
+            platform_connection=conn_b,
+            platform="github",
+            external_id=self.external_id,
+        )
+        self.policy_b = baker.make(
+            "app.Policy",
+            tenant=self.tenant_b,
+            criteria={"events": ["push"]},
+            enabled=True,
+            draft=False,
+        )
+
+    def _push(self, installation_id: int):
+        payload = {
+            "repository": {"id": int(self.external_id)},
+            "ref": "refs/heads/main",
+            "sender": {"login": "octocat"},
+            "installation": {"id": installation_id},
+        }
+        body = json.dumps(payload).encode()
+        return self.client.post(
+            self.url,
+            data=body,
+            content_type="application/json",
+            HTTP_X_GITHUB_EVENT="push",
+            HTTP_X_HUB_SIGNATURE_256=_sig(APP_SECRET, body),
+        )
+
+    def test_only_the_granting_workspace_runs(self):
+        resp = self._push(606)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            list(
+                PolicyExecution.objects.filter(
+                    project=self.project_b
+                ).values_list("id", flat=True)
+            ),
+            [],
+            "a workspace connected by token ran on another installation's delivery",
+        )
+        self.assertTrue(
+            PolicyExecution.objects.filter(project=self.project_a).exists()
+        )
+
+    def test_an_unknown_installation_runs_nothing(self):
+        resp = self._push(999999)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["policies_run"], 0)
+        self.assertFalse(PolicyExecution.objects.exists())
+
+    def test_delivery_without_an_installation_id_is_refused(self):
+        payload = {
+            "repository": {"id": int(self.external_id)},
+            "ref": "refs/heads/main",
+            "sender": {"login": "octocat"},
+            "installation": {},
+        }
+        body = json.dumps(payload).encode()
+        resp = self.client.post(
+            self.url,
+            data=body,
+            content_type="application/json",
+            HTTP_X_GITHUB_EVENT="push",
+            HTTP_X_HUB_SIGNATURE_256=_sig(APP_SECRET, body),
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(PolicyExecution.objects.exists())
 
 
 @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_WEBHOOK_SECRET=APP_SECRET)

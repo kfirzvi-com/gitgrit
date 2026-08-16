@@ -1,60 +1,60 @@
-"""Unit tests for PlatformConnection.github_app_manage_url — the read-only
-deep-link surfaced in the settings connections table for App connections."""
-import pytest
-from model_bakery import baker
+"""Tests for PlatformConnection.github_app_manage_url — the read-only deep-link
+surfaced in the settings connections table for App connections.
 
-from app.domain.models import AuthMethod
+``TestCase`` subclass rather than bare pytest functions: CI runs
+``manage.py test``, which collects only TestCase subclasses.
+"""
+from django.test import TestCase
 
-
-@pytest.mark.django_db
-def test_manage_url_for_organization_installation():
-    conn = baker.make(
-        "app.PlatformConnection",
-        platform="github",
-        auth_method=AuthMethod.GITHUB_APP,
-        installation_id=555,
-        account_login="acme",
-        account_type="Organization",
-    )
-    assert conn.github_app_manage_url == (
-        "https://github.com/organizations/acme/settings/installations/555"
-    )
+from app.domain.models import AuthMethod, Platform, PlatformConnection, Tenant
 
 
-@pytest.mark.django_db
-def test_manage_url_for_user_installation():
-    conn = baker.make(
-        "app.PlatformConnection",
-        platform="github",
-        auth_method=AuthMethod.GITHUB_APP,
-        installation_id=999,
-        account_login="octocat",
-        account_type="User",
-    )
-    assert conn.github_app_manage_url == (
-        "https://github.com/settings/installations/999"
-    )
+class GitHubAppManageUrlTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant = Tenant.objects.create(name="Acme", slug="acme-manage-url")
 
+    def _conn(self, **kwargs):
+        defaults = {
+            "tenant": self.tenant,
+            "platform": Platform.GITHUB,
+            "display_name": "conn",
+        }
+        return PlatformConnection.objects.create(**{**defaults, **kwargs})
 
-@pytest.mark.django_db
-def test_manage_url_none_for_pat_connection():
-    conn = baker.make(
-        "app.PlatformConnection",
-        platform="github",
-        auth_method=AuthMethod.PAT,
-        access_token="ghp_stored",
-    )
-    assert conn.github_app_manage_url is None
+    def test_manage_url_for_organization_installation(self):
+        conn = self._conn(
+            auth_method=AuthMethod.GITHUB_APP,
+            installation_id=555,
+            account_login="acme",
+            account_type="Organization",
+        )
+        self.assertEqual(
+            conn.github_app_manage_url,
+            "https://github.com/organizations/acme/settings/installations/555",
+        )
 
+    def test_manage_url_for_user_installation(self):
+        conn = self._conn(
+            auth_method=AuthMethod.GITHUB_APP,
+            installation_id=999,
+            account_login="octocat",
+            account_type="User",
+        )
+        self.assertEqual(
+            conn.github_app_manage_url,
+            "https://github.com/settings/installations/999",
+        )
 
-@pytest.mark.django_db
-def test_manage_url_none_when_installation_id_missing():
-    conn = baker.make(
-        "app.PlatformConnection",
-        platform="github",
-        auth_method=AuthMethod.GITHUB_APP,
-        installation_id=None,
-        account_login="acme",
-        account_type="Organization",
-    )
-    assert conn.github_app_manage_url is None
+    def test_manage_url_none_for_pat_connection(self):
+        conn = self._conn(auth_method=AuthMethod.PAT, access_token="ghp_stored")
+        self.assertIsNone(conn.github_app_manage_url)
+
+    def test_manage_url_none_when_installation_id_missing(self):
+        conn = self._conn(
+            auth_method=AuthMethod.GITHUB_APP,
+            installation_id=None,
+            account_login="acme",
+            account_type="Organization",
+        )
+        self.assertIsNone(conn.github_app_manage_url)
