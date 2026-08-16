@@ -261,7 +261,7 @@ class TestPermissions(TestCase):
         resp = self.client.get(reverse("github_app_install"))
         assert resp.status_code == 302
         assert resp["Location"].startswith(
-            "https://github.com/apps/gitgrit-app/installations/new?state="
+            "https://github.com/login/oauth/authorize?client_id="
         )
 
 
@@ -294,9 +294,10 @@ class TestKillSwitch(TestCase):
 @pytest.mark.django_db
 @override_settings(**APP_SETTINGS)
 class TestMalformedCallbacks(TestCase):
-    def test_missing_installation_id_is_reported(self):
+    def test_missing_installation_id_and_no_code_is_reported(self):
+        """Neither shape: not an install return, not an authorize return."""
         _login(self.client)
-        resp = self.client.get(reverse("github_app_callback"), {"code": "c"})
+        resp = self.client.get(reverse("github_app_callback"))
         assert resp.status_code == 302
         assert any("did not return an installation id" in m for m in _messages(resp))
 

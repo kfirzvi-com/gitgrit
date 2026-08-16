@@ -171,12 +171,16 @@ def exchange_user_code(code: str) -> str:
     return token
 
 
-def user_can_access_installation(user_token: str, installation_id: int) -> bool:
-    """Whether GitHub lists ``installation_id`` as accessible to this user.
+def list_user_installations(user_token: str) -> list[dict]:
+    """Every installation of this App that GitHub says the user can reach.
 
-    GitHub itself is the authority on who may reach an installation, so this is
-    what stands between a workspace and someone else's repositories. Paginates
-    because a user can belong to many organizations.
+    GitHub answers this per-user, which is what makes it usable both as an
+    entitlement check and as the set to offer someone connecting an existing
+    installation — if it is in this list they may connect it, and if it is not
+    they may not. Paginates, because a user can belong to many organizations.
+
+    Returns ``[{"id", "account_login", "account_type"}]``, flattened so callers
+    don't reach into GitHub's payload shape.
     """
     headers = {
         "Authorization": f"Bearer {user_token}",
@@ -186,6 +190,7 @@ def user_can_access_installation(user_token: str, installation_id: int) -> bool:
     per_page = 100
     page = 1
     seen = 0
+    found: list[dict] = []
     while True:
         resp = requests.get(
             f"{GITHUB_API_BASE}/user/installations",
@@ -196,9 +201,27 @@ def user_can_access_installation(user_token: str, installation_id: int) -> bool:
         resp.raise_for_status()
         data = resp.json()
         installations = data.get("installations", [])
-        if any(int(item.get("id", 0)) == installation_id for item in installations):
-            return True
+        for item in installations:
+            account = item.get("account") or {}
+            found.append(
+                {
+                    "id": int(item.get("id", 0)),
+                    "account_login": account.get("login", ""),
+                    "account_type": account.get("type", ""),
+                }
+            )
         seen += len(installations)
         if not installations or seen >= data.get("total_count", 0):
-            return False
+            return found
         page += 1
+
+
+def user_can_access_installation(user_token: str, installation_id: int) -> bool:
+    """Whether GitHub lists ``installation_id`` as accessible to this user.
+
+    GitHub itself is the authority on who may reach an installation, so this is
+    what stands between a workspace and someone else's repositories.
+    """
+    return any(
+        item["id"] == installation_id for item in list_user_installations(user_token)
+    )

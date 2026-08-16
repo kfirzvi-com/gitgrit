@@ -38,6 +38,11 @@ INSTALL_STATE_MAX_AGE = 600  # seconds
 # the confirm POST never has to trust anything the client sent.
 PENDING_INSTALL_SESSION_KEY = "pending_github_installation"
 
+# Where the installations GitHub vouched for wait while the user picks one.
+# Same reasoning as above: written only after GitHub answered, so the POST that
+# follows takes only the choice from the client, never the candidates.
+PENDING_CHOICES_SESSION_KEY = "github_installation_choices"
+
 
 def _require_app_enabled():
     if not settings.GITHUB_APP_ENABLED:
@@ -61,10 +66,42 @@ def _admin_membership(request):
     return membership
 
 
+def _sign_state(request) -> str:
+    return signing.dumps(
+        {
+            "tenant_id": str(request.tenant.id),
+            "user_id": str(request.user.id),
+            "nonce": secrets.token_urlsafe(16),
+        },
+        salt=INSTALL_STATE_SALT,
+    )
+
+
+def install_url(state: str) -> str:
+    """Where GitHub sets the App up on an account it isn't installed on yet."""
+    return (
+        f"https://github.com/apps/{settings.GITHUB_APP_SLUG}"
+        f"/installations/new?state={state}"
+    )
+
+
 @login_required
 def github_app_install(request):
-    """Redirect the admin to GitHub to install the shared App, carrying a signed
-    ``state`` that identifies the initiating tenant + user."""
+    """Send the admin to GitHub to identify themselves, not to install.
+
+    Asking GitHub to install is a one-shot: once the App is on an account,
+    ``/installations/new`` stops producing a callback and drops the user on the
+    App's settings page instead. A second workspace wanting that same
+    organization — a supported arrangement, since each workspace holds its own
+    grant — could then never connect it, and the flow dead-ended by telling
+    them to press the button they had just pressed.
+
+    Authorization has no such limit, so it is the entry point. Coming back with
+    a code, we can ask GitHub which installations this person may reach and
+    offer them: the ones already set up become a list to pick from, and
+    installing on a new account stays one link away. Both roads end at a
+    connection; the button no longer has to guess which one is wanted.
+    """
     _require_app_enabled()
 
     membership = _admin_membership(request)
@@ -74,19 +111,29 @@ def github_app_install(request):
         )
         return redirect("tenant_settings")
 
-    state = signing.dumps(
-        {
-            "tenant_id": str(request.tenant.id),
-            "user_id": str(request.user.id),
-            "nonce": secrets.token_urlsafe(16),
-        },
-        salt=INSTALL_STATE_SALT,
+    state = _sign_state(request)
+    return redirect(
+        "https://github.com/login/oauth/authorize"
+        f"?client_id={settings.GITHUB_APP_CLIENT_ID}&state={state}"
     )
-    url = (
-        f"https://github.com/apps/{settings.GITHUB_APP_SLUG}"
-        f"/installations/new?state={state}"
-    )
-    return redirect(url)
+
+
+@login_required
+def github_app_install_new(request):
+    """Straight to GitHub's install page, for adding an account we don't have.
+
+    Reached from the "install on another organization" link on the picker, and
+    used as the fallback when a user can reach no installation at all.
+    """
+    _require_app_enabled()
+
+    if not _admin_membership(request):
+        messages.error(
+            request, "You don't have permission to install the GitHub App."
+        )
+        return redirect("tenant_settings")
+
+    return redirect(install_url(_sign_state(request)))
 
 
 def _state_is_acceptable(request, tenant) -> bool:
@@ -273,6 +320,130 @@ def _refresh_without_code(request, tenant, installation_id: int):
     return redirect("tenant_settings")
 
 
+def _offer_reachable_installations(request, tenant):
+    """Ask GitHub what this person can reach, and offer it.
+
+    The list is the entitlement: GitHub answers per-user, so an installation
+    appearing here means this user may connect it, and one missing means they
+    may not. It is parked in the session for the same reason a direct install
+    is — the POST that follows then needs to trust nothing the client sends.
+
+    Note the list says nothing about other workspaces. An account shows up
+    because *this user* can reach it on GitHub, never because some other
+    workspace connected it.
+    """
+    code = request.GET.get("code", "")
+    try:
+        user_token = github_app.exchange_user_code(code)
+        installations = github_app.list_user_installations(user_token)
+    except (github_app.UserAuthError, requests.RequestException):
+        logger.exception("Couldn't list GitHub installations for user %s.", request.user.id)
+        messages.error(
+            request, "Couldn't check your GitHub access. Please try again."
+        )
+        return redirect("tenant_settings")
+
+    if not installations:
+        # Nothing to choose between — send them where something can happen.
+        messages.info(
+            request,
+            "GitGrit isn't installed on any of your GitHub accounts yet. "
+            "Choose one to install it on.",
+        )
+        return redirect(install_url(_sign_state(request)))
+
+    already = set(
+        PlatformConnection.objects.filter(
+            tenant=tenant,
+            platform=Platform.GITHUB,
+            auth_method=AuthMethod.GITHUB_APP,
+            installation_id__in=[i["id"] for i in installations],
+        ).values_list("installation_id", flat=True)
+    )
+
+    request.session[PENDING_CHOICES_SESSION_KEY] = {
+        "tenant_id": str(tenant.id),
+        "installations": installations,
+    }
+    return render(
+        request,
+        "pages/github_app_choose.html",
+        {
+            "installations": [
+                {**i, "already_connected": i["id"] in already} for i in installations
+            ],
+            "target_tenant": tenant,
+        },
+    )
+
+
+@login_required
+@require_POST
+def github_app_choose(request):
+    """Connect the installation picked from the list GitHub vouched for.
+
+    Reads the candidates from the session rather than the request: the GET that
+    wrote them had already proven this user may reach each one, so the only
+    thing taken from the client here is *which* of them was chosen.
+    """
+    _require_app_enabled()
+
+    tenant = request.tenant
+    if not tenant or not _admin_membership(request):
+        messages.error(request, "You don't have permission to add a connection.")
+        return redirect("tenant_settings")
+
+    pending = request.session.pop(PENDING_CHOICES_SESSION_KEY, None)
+    if not pending:
+        messages.error(request, "That request has expired. Please try again.")
+        return redirect("tenant_settings")
+
+    if pending.get("tenant_id") != str(tenant.id):
+        logger.warning(
+            "Discarding GitHub installation choices confirmed under a different "
+            "workspace: pending=%s active=%s",
+            pending.get("tenant_id"),
+            tenant.id,
+        )
+        messages.error(
+            request,
+            "Your active workspace changed since that started. "
+            "Please try again from the workspace you want it in.",
+        )
+        return redirect("tenant_settings")
+
+    try:
+        chosen_id = int(request.POST.get("installation_id", ""))
+    except (TypeError, ValueError):
+        messages.error(request, "Please choose an organization to connect.")
+        return redirect("tenant_settings")
+
+    chosen = next(
+        (i for i in pending["installations"] if i["id"] == chosen_id), None
+    )
+    if chosen is None:
+        logger.warning(
+            "User %s posted installation %s that GitHub did not vouch for.",
+            request.user.id,
+            chosen_id,
+        )
+        messages.error(request, "You don't have access to that GitHub installation.")
+        return redirect("tenant_settings")
+
+    _, created = _record_connection(
+        tenant,
+        chosen["id"],
+        chosen.get("account_login", ""),
+        chosen.get("account_type", ""),
+    )
+    messages.success(
+        request,
+        f'GitHub App {"connected" if created else "updated"} for '
+        f'{chosen.get("account_login") or "your account"}.',
+    )
+    return redirect("tenant_settings")
+
+
 @login_required
 def github_app_callback(request):
     """Handle GitHub's redirect back after an install.
@@ -312,6 +483,11 @@ def github_app_callback(request):
 
     raw_installation_id = request.GET.get("installation_id")
     if not raw_installation_id:
+        # Authorization with nothing to install: this is the return trip from
+        # github_app_install, and the interesting answer is which installations
+        # this person can already reach.
+        if request.GET.get("code"):
+            return _offer_reachable_installations(request, tenant)
         messages.error(request, "GitHub did not return an installation id.")
         return redirect("tenant_settings")
 

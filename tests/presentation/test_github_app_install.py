@@ -29,10 +29,14 @@ class TestGitHubAppInstall(TestCase):
         resp = self.client.get(reverse("github_app_install"))
         assert resp.status_code == 302
 
+        # Authorization, not installation: GitHub only runs an install once
+        # per account, so pointing the button there stranded every workspace
+        # after the first. Authorizing works every time and tells us what the
+        # user can reach. See test_github_app_connect_existing.py.
         parsed = urlparse(resp["Location"])
         assert parsed.scheme == "https"
         assert parsed.netloc == "github.com"
-        assert parsed.path == "/apps/gitgrit-app/installations/new"
+        assert parsed.path == "/login/oauth/authorize"
 
         state = parse_qs(parsed.query)["state"][0]
         payload = signing.loads(state, salt=INSTALL_STATE_SALT)
