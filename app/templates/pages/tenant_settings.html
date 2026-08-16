@@ -332,7 +332,7 @@
           <div class="card-body">
             <h2 class="card-title">LLM Roles</h2>
             <p class="text-sm opacity-70 -mt-1 mb-2">Point each role at a provider and
-              model. Policies use roles (e.g. <code>llm.reasoning</code>), never a
+              model. Standards use roles (e.g. <code>llm.reasoning</code>), never a
               provider directly.</p>
             <div class="space-y-3">
               {% for role in llm_role_rows %}
@@ -464,7 +464,7 @@
           </svg>
           <div>
             <p class="font-bold">This action is irreversible.</p>
-            <p>Deleting <strong><span id="remove-conn-name"></span></strong> will permanently delete <strong>all <span id="remove-conn-project-count"></span> projects</strong> imported through this connection, including their policy execution history, webhooks, and all associated data.</p>
+            <p>Deleting <strong><span id="remove-conn-name"></span></strong> will permanently delete <strong>all <span id="remove-conn-project-count"></span> projects</strong> imported through this connection, including their standard execution history, webhooks, and all associated data.</p>
           </div>
         </div>
         <div id="remove-conn-projects-list" class="mb-4 hidden">
@@ -636,7 +636,7 @@
           </ol>
           <div class="mt-3 text-sm opacity-70 space-y-1">
             <p>Tip: You can also use a <strong>group access token</strong> (Group &rarr; Settings &rarr; Access tokens) to scope access to a specific group's projects without tying it to a personal account.</p>
-            <p>Note: GitLab's fine-grained tokens (Beta) don't yet support webhook management, which GitGrit requires for automatic policy evaluation. Use a legacy token for now.</p>
+            <p>Note: GitLab's fine-grained tokens (Beta) don't yet support webhook management, which GitGrit requires for automatic standard evaluation. Use a legacy token for now.</p>
           </div>
         </div>
       </div>

@@ -45,7 +45,7 @@
       Add project
     </a>
     <a href="{% url 'create_stack' %}" class="btn btn-sm btn-ghost">Create stack</a>
-    <a href="{% url 'create_policy' %}" class="btn btn-sm btn-ghost">Create policy</a>
+    <a href="{% url 'create_standard' %}" class="btn btn-sm btn-ghost">Create standard</a>
     <a href="{% url 'marketplace_browse' %}" class="btn btn-sm btn-ghost">Browse marketplace</a>
   </div>
 </div>
@@ -65,7 +65,7 @@
         <div class="text-xs opacity-60 flex flex-wrap gap-x-3 gap-y-1">
           <span><b>{{ stack_count }}</b> stacks</span>
           <span><b>{{ project_count }}</b> projects</span>
-          <span><b>{{ policy_count }}</b> policies</span>
+          <span><b>{{ standard_count }}</b> standards</span>
           {% if compliance_score is not None %}
             <span class="{% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}"><b>{{ compliance_score }}%</b> compliance</span>
           {% endif %}
@@ -92,7 +92,7 @@
           <li class="gg-timeline__item gg-health-{{ item.level }}{% if forloop.counter > 3 %} gg-attention-extra{% endif %}">
             <a href="{{ item.url }}" class="gg-timeline__link">
               <div class="gg-timeline__row">
-                <span class="gg-timeline__title">{{ item.policy_name }}</span>
+                <span class="gg-timeline__title">{{ item.standard_name }}</span>
                 <span class="gg-timeline__score">{{ item.score }}%</span>
               </div>
               <div class="gg-timeline__sub">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>

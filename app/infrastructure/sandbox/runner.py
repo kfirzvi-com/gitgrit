@@ -1,4 +1,4 @@
-"""Sandbox runner — executes policy code in a gVisor-sandboxed Docker container.
+"""Sandbox runner — executes standard code in a gVisor-sandboxed Docker container.
 
 Containers run on a Docker bridge network (default ``gitgrit-sandbox``,
 overridable via ``SANDBOX_NETWORK``) that gives them network access while
@@ -19,7 +19,7 @@ from pathlib import Path
 import docker
 from django.conf import settings
 
-from app.domain.policy_runner import PolicyRunner
+from app.domain.standard_runner import StandardRunner
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,14 @@ SANDBOX_TMP = "/tmp/gitgrit-sandbox"
 
 # In-container path where the operator-supplied CA bundle is mounted when
 # settings.SANDBOX["CA_BUNDLE_HOST_PATH"] is set. The same path is exported as
-# SSL_CERT_FILE inside the sandbox so policy-side TLS clients (urllib, and
+# SSL_CERT_FILE inside the sandbox so standard-side TLS clients (urllib, and
 # `requests` via its SSL_CERT_FILE fallback) trust the operator's CA chain.
 # Keep this as the single source of truth — referenced from both the volume
 # bind and the environment dict below.
 CUSTOM_CA_MOUNT_PATH = "/etc/ssl/certs/custom-ca.pem"
 
 
-class SandboxRunner(PolicyRunner):
+class SandboxRunner(StandardRunner):
     def __init__(self):
         self.client = docker.from_env()
         self.config = settings.SANDBOX
@@ -51,25 +51,25 @@ class SandboxRunner(PolicyRunner):
             logger.info("Creating Docker network '%s'", network_name)
             self.client.networks.create(network_name, driver="bridge")
 
-    def run(self, policy_code: str, input_config: dict) -> dict:
-        """Run a policy script in a sandboxed container.
+    def run(self, standard_code: str, input_config: dict) -> dict:
+        """Run a standard script in a sandboxed container.
 
         Args:
-            policy_code: Python source defining an evaluate(project) function.
+            standard_code: Python source defining an evaluate(project) function.
             input_config: Dict with platform, project_id, access_token — written
                 to /input.json inside the container.
 
         Returns:
-            Policy result dict with passed, score, message, details.
+            Standard result dict with passed, score, message, details.
         """
         Path(SANDBOX_TMP).mkdir(parents=True, exist_ok=True)
         tmp_dir = tempfile.mkdtemp(prefix="run-", dir=SANDBOX_TMP)
-        policy_path = Path(tmp_dir) / "policy.py"
+        standard_path = Path(tmp_dir) / "standard.py"
         input_path = Path(tmp_dir) / "input.json"
         container = None
 
         try:
-            policy_path.write_text(policy_code)
+            standard_path.write_text(standard_code)
             input_path.write_text(json.dumps(input_config))
 
             # gVisor can't use Docker's embedded DNS (127.0.0.11) on custom
@@ -79,7 +79,7 @@ class SandboxRunner(PolicyRunner):
                 "".join(f"nameserver {ns}\n" for ns in self.config["DNS"])
             )
 
-            # LLM policies (input carries llm_roles) get higher ceilings; a
+            # LLM standards (input carries llm_roles) get higher ceilings; a
             # multi-round agentic loop won't fit the deterministic 128m/30s.
             is_llm_run = bool(input_config.get("llm_roles"))
             mem_limit = (
@@ -93,7 +93,7 @@ class SandboxRunner(PolicyRunner):
 
             runtime = self._get_runtime()
             volumes = {
-                str(policy_path): {"bind": "/policy.py", "mode": "ro"},
+                str(standard_path): {"bind": "/standard.py", "mode": "ro"},
                 str(input_path): {"bind": "/input.json", "mode": "ro"},
                 str(resolv_path): {"bind": "/etc/resolv.conf", "mode": "ro"},
             }
@@ -151,7 +151,7 @@ class SandboxRunner(PolicyRunner):
             return {
                 "passed": False,
                 "score": 0,
-                "message": "Failed to parse policy output",
+                "message": "Failed to parse standard output",
                 "details": {"error": True},
             }
         except Exception as exc:
@@ -169,7 +169,7 @@ class SandboxRunner(PolicyRunner):
                 except Exception:
                     logger.warning("Failed to remove container", exc_info=True)
             # Clean up temp files
-            for p in (policy_path, input_path, Path(tmp_dir) / "resolv.conf"):
+            for p in (standard_path, input_path, Path(tmp_dir) / "resolv.conf"):
                 p.unlink(missing_ok=True)
             Path(tmp_dir).rmdir()
 

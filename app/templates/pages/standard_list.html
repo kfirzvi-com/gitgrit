@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Policies — GitGrit{% endblock %}
+{% block title %}Standards — GitGrit{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-  <h1 class="text-3xl font-bold">Policies</h1>
+  <h1 class="text-3xl font-bold">Standards</h1>
   <div class="flex gap-2">
     <a href="{% url 'marketplace_browse' %}" class="btn btn-ghost btn-sm">Browse Marketplace</a>
-    <a href="{% url 'create_policy' %}" class="btn btn-primary btn-sm">New Policy</a>
+    <a href="{% url 'create_standard' %}" class="btn btn-primary btn-sm">New Standard</a>
   </div>
 </div>
 
-{% if policies %}
+{% if standards %}
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <div class="overflow-x-auto">
@@ -26,21 +26,21 @@
             </tr>
           </thead>
           <tbody>
-            {% for policy in policies %}
+            {% for standard in standards %}
               <tr>
                 <td class="max-w-xs">
-                  <a href="{% url 'policy_detail' policy.pk %}" class="link font-medium">{{ policy.name }}</a>
-                  {% if policy.description %}
-                    <p class="text-sm opacity-60 truncate">{{ policy.description }}</p>
+                  <a href="{% url 'standard_detail' standard.pk %}" class="link font-medium">{{ standard.name }}</a>
+                  {% if standard.description %}
+                    <p class="text-sm opacity-60 truncate">{{ standard.description }}</p>
                   {% endif %}
                 </td>
                 <td>
-                  {% for label in policy.labels.all %}
+                  {% for label in standard.labels.all %}
                     <span class="badge badge-outline badge-sm">{{ label.name }}</span>
                   {% endfor %}
                 </td>
                 <td>
-                  {% for event in policy.criteria.events %}
+                  {% for event in standard.criteria.events %}
                     <span class="badge badge-outline badge-sm">{{ event }}</span>
                   {% empty %}
                     <span class="text-sm opacity-50">none</span>
@@ -48,26 +48,26 @@
                 </td>
                 <td>
                   <div class="flex gap-1">
-                    <span hx-post="{% url 'toggle_policy' policy.pk %}"
+                    <span hx-post="{% url 'toggle_standard' standard.pk %}"
                           hx-swap="outerHTML"
-                          class="badge {% if policy.enabled %}badge-success{% else %}badge-ghost{% endif %} badge-sm cursor-pointer"
+                          class="badge {% if standard.enabled %}badge-success{% else %}badge-ghost{% endif %} badge-sm cursor-pointer"
                           title="Click to toggle">
-                      {% if policy.enabled %}Enabled{% else %}Disabled{% endif %}
+                      {% if standard.enabled %}Enabled{% else %}Disabled{% endif %}
                     </span>
-                    {% if policy.draft %}
+                    {% if standard.draft %}
                       <span class="badge badge-warning badge-sm">Draft</span>
                     {% endif %}
-                    {% if policy.source_marketplace_policy and policy.source_version < policy.source_marketplace_policy.version %}
-                      <a href="{% url 'marketplace_policy_preview' policy.source_marketplace_policy.slug %}" class="badge badge-warning badge-sm link link-hover">Update available</a>
+                    {% if standard.source_marketplace_standard and standard.source_version < standard.source_marketplace_standard.version %}
+                      <a href="{% url 'marketplace_standard_preview' standard.source_marketplace_standard.slug %}" class="badge badge-warning badge-sm link link-hover">Update available</a>
                     {% endif %}
                   </div>
                 </td>
                 <td class="text-right">
-                  <a href="{% url 'edit_policy' policy.pk %}" class="btn btn-ghost btn-xs">Edit</a>
-                  <form method="post" action="{% url 'delete_policy' policy.pk %}" class="inline">
+                  <a href="{% url 'edit_standard' standard.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+                  <form method="post" action="{% url 'delete_standard' standard.pk %}" class="inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-ghost btn-xs text-error"
-                            onclick="return confirm('Delete policy &quot;{{ policy.name }}&quot;?')">
+                            onclick="return confirm('Delete standard &quot;{{ standard.name }}&quot;?')">
                       Delete
                     </button>
                   </form>
@@ -82,9 +82,9 @@
 {% else %}
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body items-center text-center py-12">
-      <h2 class="card-title">No policies yet</h2>
-      <p class="opacity-70 mb-4">Create compliance policies to evaluate your repositories.</p>
-      <a href="{% url 'create_policy' %}" class="btn btn-primary">New Policy</a>
+      <h2 class="card-title">No standards yet</h2>
+      <p class="opacity-70 mb-4">Create compliance standards to evaluate your repositories.</p>
+      <a href="{% url 'create_standard' %}" class="btn btn-primary">New Standard</a>
     </div>
   </div>
 {% endif %}

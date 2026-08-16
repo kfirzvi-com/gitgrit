@@ -4,7 +4,7 @@ from pathlib import Path
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
-from app.domain.models import PolicyExecution, Project
+from app.domain.models import StandardExecution, Project
 
 _LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "app" / "images" / "logo.svg"
 
@@ -20,13 +20,13 @@ def project_badge(request, pk):
 
     # Calculate compliance score from latest executions
     executions = (
-        PolicyExecution.objects.filter(project=project)
-        .select_related("policy")
+        StandardExecution.objects.filter(project=project)
+        .select_related("standard")
         .order_by("-created_at")[:200]
     )
     seen = {}
     for ex in executions:
-        key = ex.policy_id or ex.policy_name
+        key = ex.standard_id or ex.standard_name
         if key not in seen:
             seen[key] = ex
 

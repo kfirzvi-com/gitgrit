@@ -37,8 +37,8 @@ class TestPathDispatcher(SimpleTestCase):
         self.assertEqual(self.django_calls, [])
 
     def test_api_path_routes_to_django(self):
-        self._dispatch({"type": "http", "path": "/api/policies/"})
-        self.assertEqual(self.django_calls, ["/api/policies/"])
+        self._dispatch({"type": "http", "path": "/api/standards/"})
+        self.assertEqual(self.django_calls, ["/api/standards/"])
         self.assertEqual(self.mcp_calls, [])
 
     def test_health_check_path_routes_to_django(self):

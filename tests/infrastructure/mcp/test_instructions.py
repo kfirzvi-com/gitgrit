@@ -37,7 +37,7 @@ class InstructionsTests(SimpleTestCase):
             with self.subTest(kind=kind):
                 text = select_instructions(kind)
                 self.assertIn("## Core concepts", text)
-                self.assertIn("**Policy**", text)
+                self.assertIn("**Standard**", text)
                 self.assertIn("**Project**", text)
 
     def test_both_flavors_carry_no_invented_enforcement_rule(self):
@@ -49,14 +49,14 @@ class InstructionsTests(SimpleTestCase):
                 text = select_instructions(kind)
                 self.assertIn("no invented enforcement", text.lower())
                 self.assertIn("validate_edit", text)
-                self.assertIn("no GitGrit policy covers this", text)
+                self.assertIn("no GitGrit standard covers this", text)
 
     def test_claude_flavor_points_at_plugin_skill(self):
         """Claude Code users get bootstrap + enforcement via the plugin's
-        SessionStart hook and `policy-enforcement` skill — instructions just
+        SessionStart hook and `standard-enforcement` skill — instructions just
         point there, they don't duplicate the workflow."""
         text = select_instructions("claude")
-        self.assertIn("policy-enforcement", text)
+        self.assertIn("standard-enforcement", text)
         self.assertIn("session_bootstrap", text)
 
     def test_generic_flavor_carries_explicit_bootstrap_and_validate_workflow(self):

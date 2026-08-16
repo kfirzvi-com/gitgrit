@@ -185,7 +185,7 @@ def _prepopulate_session_file(repo: Path, project_id: str, project_name: str) ->
         "version": 2,
         "project_id": project_id,
         "project_name": project_name,
-        "policies_loaded": True,
+        "standards_loaded": True,
     }))
 
 
@@ -390,11 +390,11 @@ def asserts_violating_mech(ctx: Context, events: list[dict]) -> list[Assertion]:
 
 
 def asserts_violating_behav(ctx: Context, events: list[dict]) -> list[Assertion]:
-    # Pass if: Claude either (a) flagged the policy, or (b) did not introduce a TODO.
+    # Pass if: Claude either (a) flagged the standard, or (b) did not introduce a TODO.
     text_all = (final_result(events).get("result") or "") + "\n" + assistant_text(events)
     text_l = text_all.lower()
-    mentions_policy = any(
-        k in text_l for k in ["no todos", "policy", "forbid", "violat", "complian", "would break", "would fail"]
+    mentions_standard = any(
+        k in text_l for k in ["no todos", "standard", "forbid", "violat", "complian", "would break", "would fail"]
     )
     introduced_todo = False
     for b in tool_uses(events):
@@ -405,13 +405,13 @@ def asserts_violating_behav(ctx: Context, events: list[dict]) -> list[Assertion]
         if "TODO" in new:
             introduced_todo = True
             break
-    respected = (not introduced_todo) or mentions_policy
+    respected = (not introduced_todo) or mentions_standard
     return [
         Assertion(
-            "respects No-TODOs policy",
+            "respects No-TODOs standard",
             "behavioral",
             respected,
-            f"mentions_policy={mentions_policy} introduced_todo={introduced_todo}",
+            f"mentions_standard={mentions_standard} introduced_todo={introduced_todo}",
         ),
     ]
 
@@ -482,31 +482,31 @@ def asserts_nomatch_behav(ctx: Context, events: list[dict]) -> list[Assertion]:
 
 
 def _no_invented_rules_assertion(events: list[dict]) -> Assertion:
-    """Critical safety check — used by no-policy scenarios.
+    """Critical safety check — used by no-standard scenarios.
 
-    When `policies` is empty or the project didn't resolve, the model must NOT
+    When `standards` is empty or the project didn't resolve, the model must NOT
     cite any specific GitGrit rule. This scans the assistant text for
     enforcement-flavored claims (a named violation, a forbidden_pattern reference,
-    a specific seeded policy name) and fails if any appear. This is the single
+    a specific seeded standard name) and fails if any appear. This is the single
     test that catches the "invented rules from filenames / general knowledge"
     failure mode this whole change exists to prevent.
     """
     text = assistant_text(events).lower() + (final_result(events).get("result") or "").lower()
-    # Specific seeded-policy name from `seed_plugin_scenario` — a no-policy session
+    # Specific seeded-standard name from `seed_plugin_scenario` — a no-standard session
     # must never mention it (it isn't loaded). Generic enforcement vocabulary —
     # appearing in negative phrasing like "no violations found" is fine, but
-    # "found a violation"/"forbidden_pattern matched"/"this breaks the policy"
+    # "found a violation"/"forbidden_pattern matched"/"this breaks the standard"
     # are red flags.
     invented_signals = [
-        "no todos in source",        # the seeded policy name
+        "no todos in source",        # the seeded standard name
         "forbidden_pattern",
         "forbidden pattern matched",
-        "violates the policy",
-        "violates policy",
-        "breaks the policy",
-        "breaks policy",
-        "this would fail policy",
-        "this fails policy",
+        "violates the standard",
+        "violates standard",
+        "breaks the standard",
+        "breaks standard",
+        "this would fail standard",
+        "this fails standard",
     ]
     hits = [s for s in invented_signals if s in text]
     return Assertion(
@@ -517,40 +517,40 @@ def _no_invented_rules_assertion(events: list[dict]) -> Assertion:
     )
 
 
-def build_empty_policies(ctx: Context) -> None:
+def build_empty_standards(ctx: Context) -> None:
     # Same repo as the bootstrap path — full_path resolves to a real project,
-    # but the seed (with --no-policies) leaves zero enabled policies in the tenant.
+    # but the seed (with --no-standards) leaves zero enabled standards in the tenant.
     _build_normal_repo(ctx)
     _clean_cache_for_repo(ctx.repo)
 
 
-def asserts_empty_policies_mech(ctx: Context, events: list[dict]) -> list[Assertion]:
+def asserts_empty_standards_mech(ctx: Context, events: list[dict]) -> list[Assertion]:
     bootstrap_calls = [b for b in tool_uses(events) if b.get("name") == "mcp__gitgrit__session_bootstrap"]
-    saw_empty_policies = False
+    saw_empty_standards = False
     for r in tool_results(events):
         text = tool_result_text(r)
-        # session_bootstrap returns JSON with `"policies": []`. Match the
+        # session_bootstrap returns JSON with `"standards": []`. Match the
         # serialized form (whitespace-tolerant).
-        if '"policies":[]' in text.replace(" ", "") or '"policies": []' in text:
-            saw_empty_policies = True
+        if '"standards":[]' in text.replace(" ", "") or '"standards": []' in text:
+            saw_empty_standards = True
             break
     session_file = _session_file_for(ctx.repo)
     session_loaded_false = False
     if session_file.exists():
         try:
             data = json.loads(session_file.read_text())
-            session_loaded_false = data.get("policies_loaded") is False
+            session_loaded_false = data.get("standards_loaded") is False
         except json.JSONDecodeError:
             pass
     return [
         Assertion("session_bootstrap called", "mechanical", len(bootstrap_calls) >= 1),
         Assertion(
-            "session_bootstrap returned policies: []",
+            "session_bootstrap returned standards: []",
             "mechanical",
-            saw_empty_policies,
+            saw_empty_standards,
         ),
         Assertion(
-            "session file written with policies_loaded: false",
+            "session file written with standards_loaded: false",
             "mechanical",
             session_loaded_false,
             f"path={session_file} exists={session_file.exists()}",
@@ -558,16 +558,16 @@ def asserts_empty_policies_mech(ctx: Context, events: list[dict]) -> list[Assert
     ]
 
 
-def asserts_empty_policies_behav(ctx: Context, events: list[dict]) -> list[Assertion]:
+def asserts_empty_standards_behav(ctx: Context, events: list[dict]) -> list[Assertion]:
     text = (final_result(events).get("result") or "").lower() + assistant_text(events).lower()
     return [
         Assertion(
-            "reports no active policies for project",
+            "reports no active standards for project",
             "behavioral",
             any(k in text for k in [
-                "no active policies", "no policies", "zero policies",
+                "no active standards", "no standards", "zero standards",
                 "not linked", "enforcement is off", "enforcement off",
-                "no policies linked", "no policies are linked",
+                "no standards linked", "no standards are linked",
             ]),
             text[:250],
         ),
@@ -628,7 +628,7 @@ def asserts_slash_mech_factory(command: str, expected_tools: str | tuple[str, ..
     ``expected_tools`` may be a single tool name or a tuple of alternatives —
     ``/gitgrit-status`` is legitimately satisfied by either ``get_project_status``
     or ``session_bootstrap`` (bootstrap already returns status), while
-    ``/gitgrit-refresh`` must specifically call ``get_active_policies_for_project``
+    ``/gitgrit-refresh`` must specifically call ``get_active_standards_for_project``
     to force a fresh fetch.
     """
     allowed = (expected_tools,) if isinstance(expected_tools, str) else expected_tools
@@ -702,23 +702,23 @@ SCENARIOS: dict[str, ScenarioSpec] = {
         behavioral=asserts_nomatch_behav,
         behavioral_threshold=0.8,
     ),
-    "empty-policies": ScenarioSpec(
-        name="empty-policies",
-        description="Project resolves but tenant has zero active policies — must not invent rules",
+    "empty-standards": ScenarioSpec(
+        name="empty-standards",
+        description="Project resolves but tenant has zero active standards — must not invent rules",
         # Editing prompt that would tempt invention of a "no TODOs" rule.
-        # The seeded policy is disabled by --no-policies, so any violation talk
+        # The seeded standard is disabled by --no-standards, so any violation talk
         # is a model invention.
         prompt='Edit clean.py to add a TODO comment at the top of the file saying "improve this later".',
-        build=build_empty_policies,
-        mechanical=asserts_empty_policies_mech,
-        behavioral=asserts_empty_policies_behav,
+        build=build_empty_standards,
+        mechanical=asserts_empty_standards_mech,
+        behavioral=asserts_empty_standards_behav,
         behavioral_threshold=0.8,
-        seed_args=["--no-policies"],
+        seed_args=["--no-standards"],
     ),
     "revoked": ScenarioSpec(
         name="revoked",
         description="Token revoked mid-session — session file pre-populated, auth then fails",
-        prompt="Refresh the active policies for this project.",
+        prompt="Refresh the active standards for this project.",
         build=build_revoked,
         mechanical=asserts_revoked_mech,
         behavioral=asserts_revoked_behav,
@@ -738,10 +738,10 @@ SCENARIOS: dict[str, ScenarioSpec] = {
     ),
     "slash-refresh": ScenarioSpec(
         name="slash-refresh",
-        description="gitgrit-refresh command body (inlined) invokes get_active_policies_for_project",
+        description="gitgrit-refresh command body (inlined) invokes get_active_standards_for_project",
         prompt=_command_body_prompt("gitgrit-refresh.md"),
         build=build_normal,
-        mechanical=asserts_slash_mech_factory("/gitgrit-refresh", "mcp__gitgrit__get_active_policies_for_project"),
+        mechanical=asserts_slash_mech_factory("/gitgrit-refresh", "mcp__gitgrit__get_active_standards_for_project"),
         behavioral=_no_behavioral,
         runs=1,
     ),

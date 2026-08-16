@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ mp_policy.name }} — Marketplace — GitGrit{% endblock %}
+{% block title %}{{ mp_standard.name }} — Marketplace — GitGrit{% endblock %}
 
 {% block content %}
 <div class="mb-6">
   <a href="{% url 'marketplace_browse' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Marketplace</a>
   <div class="flex justify-between items-center mt-1">
-    <h1 class="text-3xl font-bold">{{ mp_policy.name }}</h1>
+    <h1 class="text-3xl font-bold">{{ mp_standard.name }}</h1>
     <div>
-      {% if installed_policy %}
+      {% if installed_standard %}
         {% if update_available %}
-          <form method="post" action="{% url 'update_marketplace_policy' mp_policy.slug %}" class="inline">
+          <form method="post" action="{% url 'update_marketplace_standard' mp_standard.slug %}" class="inline">
             {% csrf_token %}
             <button type="submit" class="btn btn-warning btn-sm"
-                    onclick="return confirm('This will overwrite your current policy code with the marketplace version. Continue?')">
-              Update to v{{ mp_policy.version }}
+                    onclick="return confirm('This will overwrite your current standard code with the marketplace version. Continue?')">
+              Update to v{{ mp_standard.version }}
             </button>
           </form>
         {% else %}
-          <span class="badge badge-success">Installed (v{{ installed_policy.source_version }})</span>
+          <span class="badge badge-success">Installed (v{{ installed_standard.source_version }})</span>
         {% endif %}
       {% else %}
-        <form method="post" action="{% url 'install_marketplace_policy' mp_policy.slug %}" class="inline">
+        <form method="post" action="{% url 'install_marketplace_standard' mp_standard.slug %}" class="inline">
           {% csrf_token %}
           <button type="submit" class="btn btn-primary btn-sm">Install</button>
         </form>
@@ -36,16 +36,16 @@
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <h2 class="card-title">Code</h2>
-        <div id="code-viewer">{{ mp_policy.code }}</div>
+        <div id="code-viewer">{{ mp_standard.code }}</div>
       </div>
     </div>
 
-    {% if mp_policy.test_cases %}
+    {% if mp_standard.test_cases %}
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title text-base">Test Cases</h2>
           <div class="space-y-2">
-            {% for tc in mp_policy.test_cases %}
+            {% for tc in mp_standard.test_cases %}
               <div class="p-3 bg-base-200 rounded-lg">
                 <p class="font-medium text-sm">{{ tc.name }}</p>
               </div>
@@ -61,63 +61,63 @@
       <div class="card-body">
         <h2 class="card-title text-base">Details</h2>
         <div class="space-y-3 text-sm">
-          {% if mp_policy.description %}
+          {% if mp_standard.description %}
             <div>
               <span class="opacity-70">Description</span>
-              <p>{{ mp_policy.description }}</p>
+              <p>{{ mp_standard.description }}</p>
             </div>
           {% endif %}
-          {% if mp_policy.suggested_labels %}
+          {% if mp_standard.suggested_labels %}
             <div>
               <span class="opacity-70">Labels</span>
               <div class="flex flex-wrap gap-1 mt-1">
-                {% for label in mp_policy.suggested_labels %}
+                {% for label in mp_standard.suggested_labels %}
                   <span class="badge badge-outline badge-sm">{{ label }}</span>
                 {% endfor %}
               </div>
             </div>
           {% endif %}
-          {% if mp_policy.author %}
+          {% if mp_standard.author %}
             <div>
               <span class="opacity-70">Author</span>
-              <p>{{ mp_policy.author }}</p>
+              <p>{{ mp_standard.author }}</p>
             </div>
           {% endif %}
           <div>
             <span class="opacity-70">Version</span>
-            <p>v{{ mp_policy.version }}</p>
+            <p>v{{ mp_standard.version }}</p>
           </div>
-          {% if mp_policy.criteria.events %}
+          {% if mp_standard.criteria.events %}
             <div>
               <span class="opacity-70">Events</span>
               <div class="flex flex-wrap gap-1 mt-1">
-                {% for event in mp_policy.criteria.events %}
+                {% for event in mp_standard.criteria.events %}
                   <span class="badge badge-outline badge-sm">{{ event }}</span>
                 {% endfor %}
               </div>
             </div>
           {% endif %}
-          {% if mp_policy.criteria.ref %}
+          {% if mp_standard.criteria.ref %}
             <div>
               <span class="opacity-70">Branch Filter</span>
-              <p><code class="text-sm">{{ mp_policy.criteria.ref }}</code></p>
+              <p><code class="text-sm">{{ mp_standard.criteria.ref }}</code></p>
             </div>
           {% endif %}
-          {% if mp_policy.criteria.languages %}
+          {% if mp_standard.criteria.languages %}
             <div>
               <span class="opacity-70">Languages</span>
               <div class="flex flex-wrap gap-1 mt-1">
-                {% for lang in mp_policy.criteria.languages %}
+                {% for lang in mp_standard.criteria.languages %}
                   <span class="badge badge-outline badge-sm">{{ lang }}</span>
                 {% endfor %}
               </div>
             </div>
           {% endif %}
-          {% if mp_policy.packs.all %}
+          {% if mp_standard.packs.all %}
             <div>
               <span class="opacity-70">Included in packs</span>
               <div class="flex flex-wrap gap-1 mt-1">
-                {% for pack in mp_policy.packs.all %}
+                {% for pack in mp_standard.packs.all %}
                   <a href="{% url 'marketplace_pack_detail' pack.slug %}" class="badge badge-outline badge-sm link link-hover">
                     {% if pack.icon %}{{ pack.icon }} {% endif %}{{ pack.name }}
                   </a>
@@ -132,7 +132,7 @@
 </div>
 
 <script type="module">
-  import { initPolicyViewer } from "{% static 'app/policy-editor.js' %}";
-  initPolicyViewer("code-viewer");
+  import { initStandardViewer } from "{% static 'app/standard-editor.js' %}";
+  initStandardViewer("code-viewer");
 </script>
 {% endblock %}

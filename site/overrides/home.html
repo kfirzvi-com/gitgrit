@@ -164,7 +164,8 @@
     }
     .gg-video-cta {
       position: absolute;
-      bottom: 14px;
+      /* clears the 46px controls bar (30px toggle + 2×8px padding) + 12px gap */
+      bottom: 58px;
       right: 14px;
       display: inline-flex;
       align-items: center;
@@ -193,6 +194,63 @@
     }
     .gg-video-cta svg {
       flex-shrink: 0;
+    }
+    .gg-video-controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0));
+    }
+    .gg-video-controls[hidden] {
+      display: none;
+    }
+    .gg-video-controls__toggle svg[hidden] {
+      display: none;
+    }
+    .gg-video-controls__toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      flex-shrink: 0;
+      padding: 0;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: background 0.15s ease;
+    }
+    .gg-video-controls__toggle:hover {
+      background: rgba(20, 184, 166, 0.92);
+    }
+    .gg-video-controls__toggle:focus-visible,
+    .gg-video-controls__seek:focus-visible {
+      outline: 2px solid var(--gg-primary, #14b8a6);
+      outline-offset: 2px;
+    }
+    .gg-video-controls__seek {
+      flex: 1;
+      min-width: 0;
+      height: 4px;
+      margin: 0;
+      accent-color: var(--gg-primary, #14b8a6);
+      cursor: pointer;
+    }
+    .gg-video-controls__time {
+      flex-shrink: 0;
+      font-family: var(--gg-font-mono);
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.85);
+      font-variant-numeric: tabular-nums;
     }
 
     /* ── Code panel ── */
@@ -592,7 +650,7 @@
         <div class="gg-hero__tag">Developer Experience Platform</div>
         <h1>Know how your teams build.<br><em>Help them do it better.</em></h1>
         <p class="gg-hero__sub">
-          GitGrit enables engineering leaders <span style="color: var(--gg-primary); font-weight: 700;">move faster</span> by providing visibility into repository standards, team health, and delivery performance — and enables developers actionable guidance to improve.
+          GitGrit enables engineering leaders to <span style="color: var(--gg-primary); font-weight: 700;">move faster</span> by providing visibility into repository standards, team health, and delivery performance — and gives developers actionable guidance to improve.
         </p>
         <div class="gg-hero__actions">
           <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
@@ -634,6 +692,32 @@
               </svg>
               <span>Play with sound</span>
             </button>
+            <div class="gg-video-controls" hidden>
+              <button
+                type="button"
+                id="gg-hero-toggle"
+                class="gg-video-controls__toggle"
+                aria-label="Pause video"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" data-icon="pause">
+                  <path d="M6 5h4v14H6zM14 5h4v14h-4z"/>
+                </svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" data-icon="play" hidden>
+                  <path d="M8 5v14l11-7L8 5z"/>
+                </svg>
+              </button>
+              <input
+                type="range"
+                id="gg-hero-seek"
+                class="gg-video-controls__seek"
+                min="0"
+                max="100"
+                step="0.1"
+                value="0"
+                aria-label="Video progress"
+              />
+              <span id="gg-hero-time" class="gg-video-controls__time">0:00 / 0:00</span>
+            </div>
           </div>
         </div>
       </div>
@@ -652,14 +736,14 @@
           <div class="gg-feat__icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           </div>
-          <h3>Policy as Code</h3>
+          <h3>Standards as Code</h3>
           <p>Write compliance rules in Python. Full access to repo files, languages, members, and metadata.</p>
         </div>
         <div class="gg-feat">
           <div class="gg-feat__icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
-          <h3>Policy Marketplace</h3>
+          <h3>Standard Marketplace</h3>
           <p>Install pre-built packs like Security Essentials or Repository Hygiene. Customize after install.</p>
         </div>
         <div class="gg-feat">
@@ -667,7 +751,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
           <h3>Analytics Dashboard</h3>
-          <p>Track compliance trends, identify failing policies, and monitor scores across all your projects.</p>
+          <p>Track compliance trends, identify failing standards, and monitor scores across all your projects.</p>
         </div>
         <div class="gg-feat">
           <div class="gg-feat__icon">
@@ -681,7 +765,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
           <h3>Sandboxed Execution</h3>
-          <p>Policies run in isolated gVisor containers. Your code and credentials are never exposed.</p>
+          <p>Standards run in isolated gVisor containers. Your code and credentials are never exposed.</p>
         </div>
         <div class="gg-feat">
           <div class="gg-feat__icon">
@@ -714,7 +798,7 @@
         </div>
         <div class="gg-step">
           <span class="gg-step__num">3</span>
-          <h4>Define policies</h4>
+          <h4>Define standards</h4>
           <p>Write your own or install from the marketplace. Test with mock data.</p>
         </div>
         <div class="gg-step">
@@ -757,7 +841,7 @@
         <div class="gg-pillar gg-pillar--active">
           <span class="gg-pillar__status">Live</span>
           <h3>Repository Standards</h3>
-          <p>Policy-as-code enforcement with sandboxed execution, marketplace, analytics, and compliance badges.</p>
+          <p>Standards-as-code enforcement with sandboxed execution, marketplace, analytics, and compliance badges.</p>
         </div>
         <div class="gg-pillar gg-pillar--next">
           <span class="gg-pillar__status">Next</span>
@@ -795,7 +879,7 @@
         vid.pause();
         vid.muted = false;
         vid.loop = false;
-        vid.currentTime = 0;
+        resetToStart();
         var p = vid.play();
         if (p && typeof p.catch === 'function') p.catch(function () {});
         btn.hidden = true;
@@ -805,13 +889,155 @@
           function () {
             vid.muted = true;
             vid.loop = true;
-            vid.currentTime = 0;
+            resetToStart();
             vid.play();
             btn.hidden = false;
           },
           { once: true }
         );
       });
+
+      var controls = document.querySelector('.gg-video-controls');
+      var toggle = document.getElementById('gg-hero-toggle');
+      var seek = document.getElementById('gg-hero-seek');
+      var time = document.getElementById('gg-hero-time');
+      if (!controls || !toggle || !seek || !time) return;
+      controls.hidden = false;
+
+      var iconPause = toggle.querySelector('[data-icon="pause"]');
+      var iconPlay = toggle.querySelector('[data-icon="play"]');
+      var scrubbing = false;
+
+      function fmt(s) {
+        if (!isFinite(s)) s = 0;
+        var m = Math.floor(s / 60);
+        var sec = Math.floor(s % 60);
+        return m + ':' + (sec < 10 ? '0' : '') + sec;
+      }
+
+      function syncTime() {
+        if (isFinite(vid.duration)) seek.max = vid.duration;
+        if (!scrubbing) seek.value = vid.currentTime;
+        seek.setAttribute('aria-valuetext', fmt(vid.currentTime) + ' of ' + fmt(vid.duration));
+        time.textContent = fmt(vid.currentTime) + ' / ' + fmt(vid.duration);
+      }
+
+      function syncToggle() {
+        // hidden must go through the attribute: SVG elements have no
+        // .hidden IDL property, and the svg[hidden] CSS rule does the hiding.
+        if (vid.paused) {
+          iconPause.setAttribute('hidden', '');
+          iconPlay.removeAttribute('hidden');
+        } else {
+          iconPlay.setAttribute('hidden', '');
+          iconPause.removeAttribute('hidden');
+        }
+        toggle.setAttribute('aria-label', vid.paused ? 'Play video' : 'Pause video');
+      }
+
+      toggle.addEventListener('click', function () {
+        if (vid.paused) {
+          var p = vid.play();
+          if (p && typeof p.catch === 'function') p.catch(function () {});
+        } else {
+          vid.pause();
+        }
+      });
+
+      // Servers that ignore Range requests (e.g. `mkdocs serve`) make the
+      // mp4 non-seekable — scrubbing snaps to 0:00. When a scrub targets a
+      // point outside the seekable ranges, reload the video from a blob URL
+      // (always fully seekable) and resume at the requested time. On range-
+      // capable hosts the whole duration is seekable, so this never runs.
+      var blobState = null; // null | 'loading' | 'loaded'
+      var pendingSeek = null;
+
+      function canSeekTo(t) {
+        for (var i = 0; i < vid.seekable.length; i++) {
+          if (t >= vid.seekable.start(i) && t <= vid.seekable.end(i)) return true;
+        }
+        return false;
+      }
+
+      // Restart-from-0 used by the CTA and 'ended' handlers. While a blob
+      // swap is in flight (downloading, or swapped but metadata not yet
+      // loaded), a direct currentTime write would be discarded and the stale
+      // pendingSeek applied instead — route the reset through pendingSeek.
+      function resetToStart() {
+        if (blobState === 'loading' || pendingSeek != null) {
+          pendingSeek = 0;
+        } else {
+          vid.currentTime = 0;
+        }
+      }
+
+      function playGuarded() {
+        var p = vid.play();
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      }
+
+      function seekViaBlob(t) {
+        pendingSeek = t;
+        if (blobState) return;
+        blobState = 'loading';
+        var originalSrc = vid.currentSrc;
+        fetch(originalSrc)
+          .then(function (r) { return r.blob(); })
+          .then(function (blob) {
+            blobState = 'loaded';
+            // read paused at swap time, not fetch start, so a pause/play
+            // the user made during the download wins
+            var wasPaused = vid.paused;
+            // the autoplay attribute would restart playback on src swap
+            vid.autoplay = false;
+            vid.src = URL.createObjectURL(blob);
+            function onSwapLoaded() {
+              vid.removeEventListener('error', onSwapError);
+              if (pendingSeek != null) vid.currentTime = pendingSeek;
+              pendingSeek = null;
+              if (!wasPaused) playGuarded();
+            }
+            function onSwapError() {
+              vid.removeEventListener('loadedmetadata', onSwapLoaded);
+              blobState = null;
+              pendingSeek = null;
+              scrubbing = false;
+              vid.src = originalSrc;
+              if (!wasPaused) playGuarded();
+            }
+            vid.addEventListener('loadedmetadata', onSwapLoaded, { once: true });
+            vid.addEventListener('error', onSwapError, { once: true });
+          })
+          .catch(function () {
+            blobState = null;
+            pendingSeek = null;
+            scrubbing = false;
+          });
+      }
+
+      seek.addEventListener('input', function () {
+        if (!isFinite(vid.duration)) return;
+        scrubbing = true;
+        var t = parseFloat(seek.value);
+        // while the blob downloads, every scrub must go through pendingSeek —
+        // a direct seek would be discarded by the imminent src swap
+        if (blobState !== 'loading' && canSeekTo(t)) {
+          vid.currentTime = t;
+        } else {
+          seekViaBlob(t);
+        }
+        time.textContent = fmt(t) + ' / ' + fmt(vid.duration);
+      });
+      vid.addEventListener('seeked', function () {
+        scrubbing = false;
+      });
+
+      vid.addEventListener('play', syncToggle);
+      vid.addEventListener('pause', syncToggle);
+      vid.addEventListener('timeupdate', syncTime);
+      vid.addEventListener('loadedmetadata', syncTime);
+      syncTime();
+      syncToggle();
     })();
   </script>
 

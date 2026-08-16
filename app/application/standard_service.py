@@ -1,36 +1,36 @@
 from django.core.exceptions import ValidationError
 
-from app.domain.models import Policy, PolicyLabel, PolicyVersion, Project, Tenant, User
-from app.domain.policy_criteria import language_matches
-from app.domain.policy_extractor import extract_rules, to_dict
-from app.domain.policy_validator import validate_policy_code
+from app.domain.models import Standard, StandardLabel, StandardVersion, Project, Tenant, User
+from app.domain.standard_criteria import language_matches
+from app.domain.standard_extractor import extract_rules, to_dict
+from app.domain.standard_validator import validate_standard_code
 
 _DEFAULT_CODE = 'def evaluate(project):\n    return {"passed": True, "score": 100, "message": "OK", "details": {}}\n'
 
 
-def create_policy_version(policy: Policy, user: User, summary: str) -> PolicyVersion:
+def create_standard_version(standard: Standard, user: User, summary: str) -> StandardVersion:
     latest = (
-        PolicyVersion.objects.filter(policy=policy)
+        StandardVersion.objects.filter(standard=standard)
         .order_by("-version")
         .values_list("version", flat=True)
         .first()
     )
     version_num = (latest or 0) + 1
-    return PolicyVersion.objects.create(
-        policy=policy,
+    return StandardVersion.objects.create(
+        standard=standard,
         version=version_num,
-        code=policy.code,
-        description=policy.description,
-        criteria=policy.criteria,
-        test_cases=policy.test_cases,
-        labels_snapshot=list(policy.labels.values_list("name", flat=True)),
+        code=standard.code,
+        description=standard.description,
+        criteria=standard.criteria,
+        test_cases=standard.test_cases,
+        labels_snapshot=list(standard.labels.values_list("name", flat=True)),
         changed_by=user,
         change_summary=summary,
     )
 
 
-class PolicyService:
-    def list_policies(self, tenant: Tenant) -> list[dict]:
+class StandardService:
+    def list_standards(self, tenant: Tenant) -> list[dict]:
         return [
             {
                 "id": str(p.id),
@@ -45,14 +45,14 @@ class PolicyService:
                 "created_at": p.created_at.isoformat(),
                 "updated_at": p.updated_at.isoformat(),
             }
-            for p in Policy.objects.filter(tenant=tenant).prefetch_related("labels")
+            for p in Standard.objects.filter(tenant=tenant).prefetch_related("labels")
         ]
 
-    def get_policy(self, tenant: Tenant, policy_id: str) -> dict:
+    def get_standard(self, tenant: Tenant, standard_id: str) -> dict:
         try:
-            p = Policy.objects.prefetch_related("labels").get(id=policy_id, tenant=tenant)
-        except (Policy.DoesNotExist, ValidationError):
-            raise ValueError(f"Policy {policy_id} not found")
+            p = Standard.objects.prefetch_related("labels").get(id=standard_id, tenant=tenant)
+        except (Standard.DoesNotExist, ValidationError):
+            raise ValueError(f"Standard {standard_id} not found")
 
         recent_executions = list(
             p.executions.order_by("-created_at")[:5].select_related("project")
@@ -81,10 +81,10 @@ class PolicyService:
             ],
         }
 
-    def create_policy(self, tenant: Tenant, user: User, data: dict) -> dict:
-        validate_policy_code(data.get("code", _DEFAULT_CODE))
+    def create_standard(self, tenant: Tenant, user: User, data: dict) -> dict:
+        validate_standard_code(data.get("code", _DEFAULT_CODE))
         label_names = data.get("labels", [])
-        policy = Policy.objects.create(
+        standard = Standard.objects.create(
             tenant=tenant,
             name=data["name"],
             code=data.get("code", _DEFAULT_CODE),
@@ -98,37 +98,37 @@ class PolicyService:
         )
         labels = []
         for name in label_names:
-            lbl, _ = PolicyLabel.objects.get_or_create(tenant=tenant, name=name)
+            lbl, _ = StandardLabel.objects.get_or_create(tenant=tenant, name=name)
             labels.append(lbl)
         if labels:
-            policy.labels.set(labels)
-        create_policy_version(policy, user, data.get("change_summary", "Created"))
-        return {"id": str(policy.id), "name": policy.name, "created": True}
+            standard.labels.set(labels)
+        create_standard_version(standard, user, data.get("change_summary", "Created"))
+        return {"id": str(standard.id), "name": standard.name, "created": True}
 
-    def update_policy(self, tenant: Tenant, user: User, policy_id: str, data: dict) -> dict:
+    def update_standard(self, tenant: Tenant, user: User, standard_id: str, data: dict) -> dict:
         try:
-            policy = Policy.objects.prefetch_related("labels").get(id=policy_id, tenant=tenant)
-        except (Policy.DoesNotExist, ValidationError):
-            raise ValueError(f"Policy {policy_id} not found")
+            standard = Standard.objects.prefetch_related("labels").get(id=standard_id, tenant=tenant)
+        except (Standard.DoesNotExist, ValidationError):
+            raise ValueError(f"Standard {standard_id} not found")
 
         change_summary = data.get("change_summary", "Updated")
         update_fields = ["updated_at"]
 
         if "name" in data:
-            policy.name = data["name"]
+            standard.name = data["name"]
             update_fields.append("name")
         if "code" in data:
-            validate_policy_code(data["code"])
-            policy.code = data["code"]
+            validate_standard_code(data["code"])
+            standard.code = data["code"]
             update_fields.append("code")
         if "description" in data:
-            policy.description = data["description"]
+            standard.description = data["description"]
             update_fields.append("description")
         if "draft" in data:
-            policy.draft = data["draft"]
+            standard.draft = data["draft"]
             update_fields.append("draft")
 
-        criteria = dict(policy.criteria)
+        criteria = dict(standard.criteria)
         criteria_changed = False
         if "events" in data:
             criteria["events"] = data["events"]
@@ -140,35 +140,35 @@ class PolicyService:
             criteria["languages"] = data["languages"]
             criteria_changed = True
         if criteria_changed:
-            policy.criteria = criteria
+            standard.criteria = criteria
             update_fields.append("criteria")
 
-        policy.save(update_fields=update_fields)
+        standard.save(update_fields=update_fields)
 
         if "labels" in data:
             labels = []
             for name in data["labels"]:
-                lbl, _ = PolicyLabel.objects.get_or_create(tenant=tenant, name=name)
+                lbl, _ = StandardLabel.objects.get_or_create(tenant=tenant, name=name)
                 labels.append(lbl)
-            policy.labels.set(labels)
+            standard.labels.set(labels)
 
-        create_policy_version(policy, user, change_summary)
-        return {"id": str(policy.id), "name": policy.name, "updated": True}
+        create_standard_version(standard, user, change_summary)
+        return {"id": str(standard.id), "name": standard.name, "updated": True}
 
-    def delete_policy(self, tenant: Tenant, policy_id: str) -> None:
+    def delete_standard(self, tenant: Tenant, standard_id: str) -> None:
         try:
-            policy = Policy.objects.get(id=policy_id, tenant=tenant)
-        except (Policy.DoesNotExist, ValidationError):
-            raise ValueError(f"Policy {policy_id} not found")
-        policy.delete()
+            standard = Standard.objects.get(id=standard_id, tenant=tenant)
+        except (Standard.DoesNotExist, ValidationError):
+            raise ValueError(f"Standard {standard_id} not found")
+        standard.delete()
 
     def list_active_for_project(
         self, tenant: Tenant, project_id: str
     ) -> list[dict]:
-        """Return active, non-draft policies applicable to a project.
+        """Return active, non-draft standards applicable to a project.
 
-        Shape is tailored for client-side enforcement: each policy carries a
-        ``rules`` block produced by :func:`app.domain.policy_extractor.extract_rules`
+        Shape is tailored for client-side enforcement: each standard carries a
+        ``rules`` block produced by :func:`app.domain.standard_extractor.extract_rules`
         (watched files, kind-tagged forbidden patterns, a local-enforceability
         flag, and per-dimension completeness flags). Raw source is not shipped.
 
@@ -180,33 +180,33 @@ class PolicyService:
         except (Project.DoesNotExist, ValidationError):
             raise ValueError(f"Project {project_id} not found")
 
-        policies = Policy.objects.filter(
+        standards = Standard.objects.filter(
             tenant=tenant, enabled=True, draft=False
         ).prefetch_related("labels")
 
         result = []
-        for policy in policies:
-            criteria = policy.criteria or {}
+        for standard in standards:
+            criteria = standard.criteria or {}
             if not language_matches(
                 criteria.get("languages", []), project.languages or []
             ):
                 continue
 
             last_exec = (
-                policy.executions.filter(project=project)
+                standard.executions.filter(project=project)
                 .order_by("-created_at")
                 .first()
             )
 
             result.append(
                 {
-                    "id": str(policy.id),
-                    "name": policy.name,
-                    "description": policy.description,
-                    "rules": to_dict(extract_rules(policy.code)),
-                    "enabled": policy.enabled,
-                    "draft": policy.draft,
-                    "labels": [lbl.name for lbl in policy.labels.all()],
+                    "id": str(standard.id),
+                    "name": standard.name,
+                    "description": standard.description,
+                    "rules": to_dict(extract_rules(standard.code)),
+                    "enabled": standard.enabled,
+                    "draft": standard.draft,
+                    "labels": [lbl.name for lbl in standard.labels.all()],
                     "languages": criteria.get("languages", []),
                     "last_execution": {
                         "score": last_exec.score,

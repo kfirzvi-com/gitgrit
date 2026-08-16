@@ -4,7 +4,7 @@
 # Purpose: detect the current git repo, emit an additionalContext block that
 # tells the model which GitGrit MCP tools to call and where to write session
 # state. No network calls, no business logic — just git plumbing + a pointer
-# to the server-side Policy Enforcement rule.
+# to the server-side Standard Enforcement rule.
 set -euo pipefail
 
 emit() {
@@ -79,28 +79,28 @@ context = f"""GitGrit session bootstrap — repo detected: {full_path}
 
 At the start of your next response, in this exact order:
 
-1. Call gitgrit/session_bootstrap(repo_full_path="{full_path}", web_url="{web_url}"). The result has three keys: project, status, policies.
+1. Call gitgrit/session_bootstrap(repo_full_path="{full_path}", web_url="{web_url}"). The result has three keys: project, status, standards.
 
 2. Branch on the result and tell the developer in one sentence, then write the session-state file:
 
    a. project.error == "no_match"
       → Tell the developer: "This repo isn't registered as a GitGrit project. Closest matches in your workspace: <project.candidates>. Enforcement is OFF for this session."
-      → Write {session_file} with: {{"version": 2, "project_id": null, "project_name": null, "policies_loaded": false}}
+      → Write {session_file} with: {{"version": 2, "project_id": null, "project_name": null, "standards_loaded": false}}
 
-   b. policies == []  (project resolved, but zero active policies linked)
-      → Tell the developer: "Project <project.name> has no active policies linked in GitGrit. Enforcement is OFF for this session."
-      → Write {session_file} with: {{"version": 2, "project_id": "<project.id>", "project_name": "<project.name>", "policies_loaded": false}}
+   b. standards == []  (project resolved, but zero active standards linked)
+      → Tell the developer: "Project <project.name> has no active standards linked in GitGrit. Enforcement is OFF for this session."
+      → Write {session_file} with: {{"version": 2, "project_id": "<project.id>", "project_name": "<project.name>", "standards_loaded": false}}
 
-   c. otherwise (project resolved + at least one policy)
+   c. otherwise (project resolved + at least one standard)
       → Report status.grade in a single sentence (e.g. "Project <project.name>: grade <status.grade>.")
-      → Write {session_file} with: {{"version": 2, "project_id": "<project.id>", "project_name": "<project.name>", "policies_loaded": true}}
+      → Write {session_file} with: {{"version": 2, "project_id": "<project.id>", "project_name": "<project.name>", "standards_loaded": true}}
 
    If the Write fails, mention it once and continue without enforcement. Do not retry.
 
-3. From now on, follow the `policy-enforcement` skill for every Edit or Write in this session. That skill is the single source of truth for what to check and how to report violations; do not re-derive it.
+3. From now on, follow the `standard-enforcement` skill for every Edit or Write in this session. That skill is the single source of truth for what to check and how to report violations; do not re-derive it.
 
 HARD RULE — no invented enforcement:
-You may only enforce a rule if its exact value appears in `policies[i].rules.forbidden_patterns` or `policies[i].rules.watched_files` for a policy returned in this session for *this* project. If a concern doesn't trace to one of those entries, do not raise it as a GitGrit violation. Filenames, READMEs, language idioms, marketplace policies, prior sessions, and your general knowledge are NOT sources of GitGrit rules. When in doubt, say "no GitGrit policy covers this" and continue.
+You may only enforce a rule if its exact value appears in `standards[i].rules.forbidden_patterns` or `standards[i].rules.watched_files` for a standard returned in this session for *this* project. If a concern doesn't trace to one of those entries, do not raise it as a GitGrit violation. Filenames, READMEs, language idioms, marketplace standards, prior sessions, and your general knowledge are NOT sources of GitGrit rules. When in doubt, say "no GitGrit standard covers this" and continue.
 """
 
 print(json.dumps({

@@ -4,7 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
-from app.domain.models import Membership, PlatformConnection, Policy, Project, Stack
+from app.domain.models import Membership, PlatformConnection, Standard, Project, Stack
 from app.presentation.architecture import (
     attention_items,
     latest_scores_by_project,
@@ -40,7 +40,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 tenant=tenant
             ).exists()
             context["project_count"] = Project.objects.filter(tenant=tenant).count()
-            context["policy_count"] = Policy.objects.filter(
+            context["standard_count"] = Standard.objects.filter(
                 tenant=tenant, enabled=True
             ).count()
             context["stack_count"] = Stack.objects.filter(tenant=tenant).count()
@@ -60,7 +60,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["attention_total"] = len(attention)
         else:
             context["project_count"] = 0
-            context["policy_count"] = 0
+            context["standard_count"] = 0
             context["stack_count"] = 0
             context["compliance_score"] = None
             context["architecture_data"] = json.dumps(

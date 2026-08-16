@@ -102,7 +102,7 @@ class TestSandboxRunnerKwargsShape(SimpleTestCase):
         assert "/etc/ssl/certs/custom-ca.pem" not in binds
         # Volumes should be exactly the three legacy mounts.
         assert sorted(binds) == sorted(
-            ["/policy.py", "/input.json", "/etc/resolv.conf"]
+            ["/standard.py", "/input.json", "/etc/resolv.conf"]
         )
 
     def test_cloud_resolv_conf_bytes_identical(self):

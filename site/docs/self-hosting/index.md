@@ -32,7 +32,7 @@ A single bundle tarball produced by `scripts/build-airgap-bundle.sh` on
 an internet-connected machine, containing:
 
 - `gitgrit-app:<TAG>` — the Django app image, GIT_SHA-stamped at build time
-- `gitgrit-sandbox:<TAG>` — the gVisor-isolated policy execution image
+- `gitgrit-sandbox:<TAG>` — the gVisor-isolated standard execution image
 - `postgres:15` — the database
 - `docker-compose.full.yaml` — the self-contained compose recipe
 - `.env.example` — operator-fillable environment template

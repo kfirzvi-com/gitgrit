@@ -1,12 +1,12 @@
 import ast
 
 
-def validate_policy_code(code: str) -> None:
+def validate_standard_code(code: str) -> None:
     """Raise ValueError if code has a syntax error or missing evaluate(project) function."""
     try:
-        tree = ast.parse(code, filename="<policy>")
+        tree = ast.parse(code, filename="<standard>")
     except SyntaxError as e:
-        raise ValueError(f"Syntax error in policy code: {e}") from e
+        raise ValueError(f"Syntax error in standard code: {e}") from e
 
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "evaluate":
@@ -14,4 +14,4 @@ def validate_policy_code(code: str) -> None:
                 raise ValueError("evaluate() must accept at least one argument (project)")
             return
 
-    raise ValueError("Policy code must define an evaluate(project) function")
+    raise ValueError("Standard code must define an evaluate(project) function")

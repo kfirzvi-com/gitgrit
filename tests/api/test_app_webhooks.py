@@ -19,7 +19,7 @@ from rest_framework.test import APITestCase
 from app.domain.models import (
     AuthMethod,
     PlatformConnection,
-    PolicyExecution,
+    StandardExecution,
     Project,
 )
 
@@ -74,7 +74,7 @@ class TestGitHubAppWebhooks(APITestCase):
         resp = self._post(payload, secret=APP_SECRET, event="push")
         assert resp.status_code == 200
         assert resp.data["external_project_id"] == "42"
-        assert "policies_run" in resp.data
+        assert "standards_run" in resp.data
 
     def test_invalid_app_signature_is_rejected(self):
         tenant = baker.make("app.Tenant")
@@ -145,7 +145,7 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
 
     def setUp(self):
         # Keep the sandbox out of it; we assert on which executions were created.
-        patcher = mock.patch("app.application.policy_engine.SandboxRunner")
+        patcher = mock.patch("app.application.standard_engine.SandboxRunner")
         runner_cls = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -182,8 +182,8 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
             platform="github",
             external_id=self.external_id,
         )
-        self.policy_a = baker.make(
-            "app.Policy",
+        self.standard_a = baker.make(
+            "app.Standard",
             tenant=self.tenant_a,
             criteria={"events": ["push"]},
             enabled=True,
@@ -206,8 +206,8 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
             platform="github",
             external_id=self.external_id,
         )
-        self.policy_b = baker.make(
-            "app.Policy",
+        self.standard_b = baker.make(
+            "app.Standard",
             tenant=self.tenant_b,
             criteria={"events": ["push"]},
             enabled=True,
@@ -236,7 +236,7 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             list(
-                PolicyExecution.objects.filter(
+                StandardExecution.objects.filter(
                     project=self.project_b
                 ).values_list("id", flat=True)
             ),
@@ -244,15 +244,15 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
             "a workspace connected by token ran on another installation's delivery",
         )
         self.assertTrue(
-            PolicyExecution.objects.filter(project=self.project_a).exists()
+            StandardExecution.objects.filter(project=self.project_a).exists()
         )
 
     def test_an_unknown_installation_runs_nothing(self):
         resp = self._push(999999)
 
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["policies_run"], 0)
-        self.assertFalse(PolicyExecution.objects.exists())
+        self.assertEqual(resp.data["standards_run"], 0)
+        self.assertFalse(StandardExecution.objects.exists())
 
     def test_delivery_without_an_installation_id_is_refused(self):
         payload = {
@@ -271,7 +271,7 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
         )
 
         self.assertEqual(resp.status_code, 400)
-        self.assertFalse(PolicyExecution.objects.exists())
+        self.assertFalse(StandardExecution.objects.exists())
 
 
 @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_WEBHOOK_SECRET=APP_SECRET)

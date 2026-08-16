@@ -2,19 +2,19 @@
 
 Reads /input.json for config (platform, project_id, access_token, and an
 optional llm_roles map), creates the appropriate provider, wraps it in a
-ProjectContext, loads /policy.py and calls evaluate(...), then writes the JSON
+ProjectContext, loads /standard.py and calls evaluate(...), then writes the JSON
 result to stdout.
 
-Policy signature is resolved by parameter name: the first parameter is always
+Standard signature is resolved by parameter name: the first parameter is always
 the project; a parameter named ``llm`` receives the LLM object, and one named
-``log`` receives the run's PolicyLogger. So all of these are valid:
+``log`` receives the run's StandardLogger. So all of these are valid:
     evaluate(project)
     evaluate(project, llm)
     evaluate(project, log)
     evaluate(project, llm, log)
 
 stdout is the result channel: the host parses it as a single JSON document.
-Anything else written there (policy prints, or LLM libraries like litellm that
+Anything else written there (standard prints, or LLM libraries like litellm that
 emit banners to stdout) would corrupt that channel, so we redirect stdout to
 stderr during execution and emit only the final JSON on the real stdout. The
 captured log is attached to the result as ``logs`` (even on error).
@@ -25,7 +25,7 @@ import json
 import sys
 import traceback
 
-from policy_log import PolicyLogger
+from standard_log import StandardLogger
 from project_context import ProjectContext
 from providers.factory import create_provider
 
@@ -42,21 +42,21 @@ def _run(config, logger):
     project = ProjectContext(provider)
 
     # Only pull in the LLM stack (litellm) when the workspace has roles
-    # configured — deterministic policies stay fast and dependency-free.
+    # configured — deterministic standards stay fast and dependency-free.
     llm = None
-    policy_globals = {}
+    standard_globals = {}
     if config.get("llm_roles"):
-        from llm import LLM, PolicyVerdict
+        from llm import LLM, StandardVerdict
 
         llm = LLM(config["llm_roles"], project, logger=logger)
-        policy_globals["PolicyVerdict"] = PolicyVerdict
+        standard_globals["StandardVerdict"] = StandardVerdict
 
-    with open("/policy.py") as f:
-        exec(f.read(), policy_globals)
+    with open("/standard.py") as f:
+        exec(f.read(), standard_globals)
 
-    evaluate = policy_globals.get("evaluate")
+    evaluate = standard_globals.get("evaluate")
     if evaluate is None:
-        raise RuntimeError("Policy does not define an evaluate() function")
+        raise RuntimeError("Standard does not define an evaluate() function")
 
     # First parameter is the project; inject llm/log by parameter name.
     params = list(inspect.signature(evaluate).parameters)
@@ -65,7 +65,7 @@ def _run(config, logger):
         if name == "llm":
             if llm is None:
                 raise RuntimeError(
-                    "This policy requires an LLM, but no LLM role is configured "
+                    "This standard requires an LLM, but no LLM role is configured "
                     "for this workspace. Configure one under "
                     "Workspace Settings → LLM."
                 )
@@ -85,19 +85,19 @@ def _run(config, logger):
 
 
 def main():
-    logger = PolicyLogger()
+    logger = StandardLogger()
     real_stdout = sys.stdout
-    sys.stdout = sys.stderr  # keep policy/LLM chatter off the result channel
+    sys.stdout = sys.stderr  # keep standard/LLM chatter off the result channel
     try:
         with open("/input.json") as f:
             config = json.load(f)
         result = _run(config, logger)
     except Exception:
-        logger.error("policy execution raised an exception")
+        logger.error("standard execution raised an exception")
         result = {
             "passed": False,
             "score": 0,
-            "message": f"Policy execution error: {traceback.format_exc()}",
+            "message": f"Standard execution error: {traceback.format_exc()}",
             "details": {"error": True},
         }
     finally:

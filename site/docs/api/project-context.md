@@ -1,6 +1,6 @@
 # ProjectContext API
 
-The `project` object passed to every policy's `evaluate` function provides these methods:
+The `project` object passed to every standard's `evaluate` function provides these methods:
 
 ## Methods
 
@@ -96,7 +96,7 @@ date_str = project.get_file_last_commit_date("CLAUDE.md")
 
 ## Execution environment
 
-- Policies run in **isolated gVisor containers** with no network access
+- Standards run in **isolated gVisor containers** with no network access
 - Execution timeout: **30 seconds**
 - Memory limit: **128 MB**
 - Only the `project` API is available — no filesystem, no imports beyond the standard library

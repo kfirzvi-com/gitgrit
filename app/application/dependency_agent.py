@@ -20,7 +20,7 @@ from django.utils import timezone
 from pydantic import BaseModel, Field
 
 from app.application.naming import canonical_key
-from app.application.policy_engine import resolve_llm_roles
+from app.application.standard_engine import resolve_llm_roles
 from app.domain.models import (
     ExternalDependency,
     InfrastructureComponent,

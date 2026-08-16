@@ -12,10 +12,10 @@ from typing import Literal
 Client = Literal["cursor", "cline"]
 
 _BODY = """\
-# GitGrit policy enforcement
+# GitGrit standard enforcement
 
 GitGrit is a DevOps compliance platform connected to this project via MCP. The MCP \
-server exposes tools that let the assistant resolve the project, fetch active policies, \
+server exposes tools that let the assistant resolve the project, fetch active standards, \
 and validate file edits against forbidden-pattern rules.
 
 You operate without a Claude plugin: there is no SessionStart hook to bootstrap the \
@@ -25,11 +25,11 @@ project for you. Follow the steps below explicitly.
 
 1. Get the git remote URL or org/repo path (e.g. run `git remote get-url origin`).
 2. Call the MCP tool `session_bootstrap(repo_full_path=..., web_url=...)`. The result has \
-three keys: `project`, `status`, `policies`.
+three keys: `project`, `status`, `standards`.
 3. Branch on the result and tell the developer in one sentence:
    - `project.error == "no_match"` → this repo isn't a GitGrit project; enforcement is \
 OFF for this session. Suggest the closest matches in `project.candidates`.
-   - `policies == []` → the project resolved but no active policies are linked; \
+   - `standards == []` → the project resolved but no active standards are linked; \
 enforcement is OFF for this session.
    - Otherwise → enforcement is ON; remember the `project.id` for the rest of the \
 session.
@@ -42,7 +42,7 @@ If you don't have a `project_id` yet, call `session_bootstrap` first.
 
 1. Call `validate_edit(project_id=<id>, file_path=<path>, prior_content=<current file \
 content>, new_content=<proposed content>)`. For new files, pass `prior_content=null`.
-2. Block on `introduced_violations`: name the policy, quote the matched substring, \
+2. Block on `introduced_violations`: name the standard, quote the matched substring, \
 propose a fix, and wait for developer confirmation. If the developer says proceed \
 anyway, proceed — the developer has final say.
 3. Treat `pre_existing_violations_count` as informational only — do not try to fix \
@@ -54,7 +54,7 @@ the server-side sandbox is authoritative on the next webhook event).
 
 Only enforce a rule if its exact `{kind, value}` was returned by `validate_edit` for \
 the current project. Filenames, READMEs, language idioms, and your general knowledge \
-are not sources of GitGrit rules. When in doubt, say "no GitGrit policy covers this" \
+are not sources of GitGrit rules. When in doubt, say "no GitGrit standard covers this" \
 and continue.
 """
 

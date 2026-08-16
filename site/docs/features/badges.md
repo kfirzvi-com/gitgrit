@@ -40,4 +40,4 @@ The badge shows your project's compliance score, color-coded:
 
 ## Caching
 
-Badges are cached for 5 minutes. After a policy evaluation updates the score, the badge will reflect the new score within 5 minutes.
+Badges are cached for 5 minutes. After a standard evaluation updates the score, the badge will reflect the new score within 5 minutes.

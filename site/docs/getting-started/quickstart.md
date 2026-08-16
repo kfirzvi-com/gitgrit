@@ -1,6 +1,6 @@
 # Quick Start
 
-Get GitGrit running and your first policy evaluating in under 5 minutes.
+Get GitGrit running and your first standard evaluating in under 5 minutes.
 
 ## 1. Sign in
 
@@ -18,19 +18,19 @@ Navigate to **Workspace Settings** and add a connection to your GitHub or GitLab
 
 Go to **Projects** → **Add Project**, select your connection, search for a repository, and add it. GitGrit automatically registers a webhook to receive events.
 
-## 4. Create or install a policy
+## 4. Create or install a standard
 
-You can write your own policy or install one from the **Marketplace**:
+You can write your own standard or install one from the **Marketplace**:
 
-- Go to **Marketplace** and click **Install** on any policy
-- Or go to **Policies** → **New Policy** to write your own
+- Go to **Marketplace** and click **Install** on any standard
+- Or go to **Standards** → **New Standard** to write your own
 
-## 5. Run policies
+## 5. Run standards
 
-Policies run automatically on webhook events (push, pull request, etc.). You can also trigger them manually from the project page by clicking **Run All**.
+Standards run automatically on webhook events (push, pull request, etc.). You can also trigger them manually from the project page by clicking **Run All**.
 
 ## What's next?
 
 - [Adding Projects](projects.md) — detailed guide on project setup
-- [Writing Policies](policies.md) — learn the policy API
-- [Policy Marketplace](../features/marketplace.md) — browse pre-built policies
+- [Writing Standards](standards.md) — learn the standard API
+- [Standard Marketplace](../features/marketplace.md) — browse pre-built standards

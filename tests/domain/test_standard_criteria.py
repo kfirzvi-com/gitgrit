@@ -1,10 +1,10 @@
 from django.test import SimpleTestCase
 
-from app.domain.policy_criteria import language_matches, score_to_grade
+from app.domain.standard_criteria import language_matches, score_to_grade
 
 
 class TestLanguageMatches(SimpleTestCase):
-    def test_empty_policy_languages_matches_every_project(self):
+    def test_empty_standard_languages_matches_every_project(self):
         self.assertIs(language_matches([], ["python", "go"]), True)
         self.assertIs(language_matches([], []), True)
 
@@ -18,7 +18,7 @@ class TestLanguageMatches(SimpleTestCase):
     def test_no_overlap_returns_false(self):
         self.assertIs(language_matches(["rust"], ["python", "go"]), False)
 
-    def test_empty_project_languages_with_non_empty_policy_returns_false(self):
+    def test_empty_project_languages_with_non_empty_standard_returns_false(self):
         self.assertIs(language_matches(["python"], []), False)
 
 

@@ -14,7 +14,7 @@ async def validate_edit(
     new_content: str,
     prior_content: str | None = None,
 ) -> dict:
-    """Check whether a proposed file edit introduces policy violations.
+    """Check whether a proposed file edit introduces standard violations.
 
     Call this before every Edit/Write against a tracked file. If you don't
     have a project_id yet, call session_bootstrap first with the git remote
@@ -22,7 +22,7 @@ async def validate_edit(
 
     Pass the file's current content as ``prior_content`` (omit or pass null
     for new files) and the proposed content as ``new_content``. The server
-    runs the project's active-policy forbidden_patterns engine against both
+    runs the project's active-standard forbidden_patterns engine against both
     versions and returns the diff:
 
     - ``introduced_violations`` — violations created by this edit. Block on
@@ -30,7 +30,7 @@ async def validate_edit(
     - ``pre_existing_violations_count`` — violations already in the file
       before this edit. Reported for visibility; never blocks. Don't fix
       these unless the developer asks.
-    - ``checked`` / ``skipped`` — policies evaluated vs. policies that don't
+    - ``checked`` / ``skipped`` — standards evaluated vs. standards that don't
       apply to this file or aren't locally enforceable.
     - ``notes`` — soft warnings (e.g. extractor couldn't fully parse a rule;
       the sandbox will be authoritative on the next webhook event).

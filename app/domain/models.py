@@ -605,18 +605,18 @@ class APIToken(models.Model):
         return instance, raw
 
 
-class PolicyLabel(models.Model):
+class StandardLabel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
         Tenant,
         on_delete=models.CASCADE,
-        related_name="policy_labels",
+        related_name="standard_labels",
     )
     name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "policy_labels"
+        db_table = "standard_labels"
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
@@ -629,12 +629,12 @@ class PolicyLabel(models.Model):
         return self.name
 
 
-class Policy(models.Model):
+class Standard(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
         Tenant,
         on_delete=models.CASCADE,
-        related_name="policies",
+        related_name="standards",
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
@@ -643,13 +643,13 @@ class Policy(models.Model):
     )
     criteria = models.JSONField(default=dict, blank=True)
     test_cases = models.JSONField(default=list, blank=True)
-    labels = models.ManyToManyField(PolicyLabel, related_name="policies", blank=True)
-    source_marketplace_policy = models.ForeignKey(
-        "MarketplacePolicy",
+    labels = models.ManyToManyField(StandardLabel, related_name="standards", blank=True)
+    source_marketplace_standard = models.ForeignKey(
+        "MarketplaceStandard",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="installed_policies",
+        related_name="installed_standards",
     )
     source_version = models.IntegerField(null=True, blank=True)
     enabled = models.BooleanField(default=True)
@@ -659,17 +659,17 @@ class Policy(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "policies"
+        db_table = "standards"
         ordering = ["ordinal", "name"]
 
     def __str__(self):
         return self.name
 
 
-class PolicyVersion(models.Model):
+class StandardVersion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    policy = models.ForeignKey(
-        Policy,
+    standard = models.ForeignKey(
+        Standard,
         on_delete=models.CASCADE,
         related_name="versions",
     )
@@ -690,20 +690,20 @@ class PolicyVersion(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "policy_versions"
+        db_table = "standard_versions"
         ordering = ["-version"]
         constraints = [
             models.UniqueConstraint(
-                fields=["policy", "version"],
-                name="unique_policy_version",
+                fields=["standard", "version"],
+                name="unique_standard_version",
             ),
         ]
 
     def __str__(self):
-        return f"{self.policy.name} v{self.version}"
+        return f"{self.standard.name} v{self.version}"
 
 
-class MarketplacePolicy(models.Model):
+class MarketplaceStandard(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     slug = models.SlugField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
@@ -718,7 +718,7 @@ class MarketplacePolicy(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "marketplace_policies"
+        db_table = "marketplace_standards"
         ordering = ["name"]
 
     def __str__(self):
@@ -731,8 +731,8 @@ class MarketplacePack(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=10, blank=True, default="")
-    policies = models.ManyToManyField(
-        MarketplacePolicy, related_name="packs", blank=True
+    standards = models.ManyToManyField(
+        MarketplaceStandard, related_name="packs", blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -745,7 +745,7 @@ class MarketplacePack(models.Model):
         return self.name
 
 
-class PolicyExecution(models.Model):
+class StandardExecution(models.Model):
     class Status(models.TextChoices):
         RUNNING = "running", "Running"
         PASSED = "passed", "Passed"
@@ -757,15 +757,15 @@ class PolicyExecution(models.Model):
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
-        related_name="policy_executions",
+        related_name="standard_executions",
     )
-    policy = models.ForeignKey(
-        Policy,
+    standard = models.ForeignKey(
+        Standard,
         on_delete=models.SET_NULL,
         null=True,
         related_name="executions",
     )
-    policy_name = models.CharField(max_length=255)
+    standard_name = models.CharField(max_length=255)
     event_type = models.CharField(max_length=50)
     status = models.CharField(
         max_length=10,
@@ -777,7 +777,7 @@ class PolicyExecution(models.Model):
     details = models.JSONField(default=dict, blank=True)
     # Chronological execution log (level/message/t_ms entries) captured from the
     # sandbox — author log() calls plus the LLM agentic trace. Shown on the
-    # execution detail page to help debug why a policy failed.
+    # execution detail page to help debug why a standard failed.
     logs = models.JSONField(default=list, blank=True)
     triggered_by = models.CharField(max_length=255, blank=True, default="")
     triggered_by_user = models.ForeignKey(
@@ -785,27 +785,27 @@ class PolicyExecution(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="policy_executions",
+        related_name="standard_executions",
     )
     ref = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "policy_executions"
+        db_table = "standard_executions"
         ordering = ["-created_at"]
         indexes = [
             models.Index(
                 fields=["project", "-created_at"],
-                name="idx_policyexec_project_date",
+                name="idx_standardexec_project_date",
             ),
             models.Index(
-                fields=["policy", "-created_at"],
-                name="idx_policyexec_policy_date",
+                fields=["standard", "-created_at"],
+                name="idx_standardexec_standard_date",
             ),
         ]
 
     def __str__(self):
-        return f"{self.policy_name} — {self.status} ({self.project})"
+        return f"{self.standard_name} — {self.status} ({self.project})"
 
 
 class FeedbackReport(models.Model):

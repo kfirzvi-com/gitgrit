@@ -219,7 +219,7 @@ class TestEnforceCheckEmitsReminder(TmpPathMixin, SimpleTestCase):
                     "version": 2,
                     "project_id": "abc",
                     "project_name": "acme/backend",
-                    "policies_loaded": True,
+                    "standards_loaded": True,
                 }
             ),
         )
@@ -239,7 +239,7 @@ class TestEnforceCheckEmitsReminder(TmpPathMixin, SimpleTestCase):
         _write_session(
             self.tmp_path,
             cache,
-            json.dumps({"version": 2, "project_id": "abc", "policies_loaded": True}),
+            json.dumps({"version": 2, "project_id": "abc", "standards_loaded": True}),
         )
 
         result = _run(ENFORCE_CHECK, cwd=self.tmp_path, cache_home=cache)
@@ -259,7 +259,7 @@ class TestEnforceCheckEmitsReminder(TmpPathMixin, SimpleTestCase):
         _write_session(
             repo_a,
             cache,
-            json.dumps({"version": 2, "project_id": "a", "project_name": "a/a", "policies_loaded": True}),
+            json.dumps({"version": 2, "project_id": "a", "project_name": "a/a", "standards_loaded": True}),
         )
 
         result = _run(ENFORCE_CHECK, cwd=repo_b, cache_home=cache)

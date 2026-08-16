@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ policy.name }} v{{ version.version }} — GitGrit{% endblock %}
+{% block title %}{{ standard.name }} v{{ version.version }} — GitGrit{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-  <a href="{% url 'policy_detail' policy.pk %}" class="text-sm opacity-70 hover:opacity-100">&larr; {{ policy.name }}</a>
+  <a href="{% url 'standard_detail' standard.pk %}" class="text-sm opacity-70 hover:opacity-100">&larr; {{ standard.name }}</a>
   <div class="flex justify-between items-center mt-1">
-    <h1 class="text-3xl font-bold">{{ policy.name }} <span class="opacity-50">v{{ version.version }}</span></h1>
+    <h1 class="text-3xl font-bold">{{ standard.name }} <span class="opacity-50">v{{ version.version }}</span></h1>
     {% if not is_current %}
-      <form method="post" action="{% url 'revert_policy_version' version.pk %}">
+      <form method="post" action="{% url 'revert_standard_version' version.pk %}">
         {% csrf_token %}
         <button type="submit" class="btn btn-warning btn-sm"
                 onclick="return confirm('Revert to v{{ version.version }}? This creates a new version with the old code.')">
@@ -98,7 +98,7 @@
 </div>
 
 <script type="module">
-  import { initPolicyViewer } from "{% static 'app/policy-editor.js' %}";
-  initPolicyViewer("code-viewer");
+  import { initStandardViewer } from "{% static 'app/standard-editor.js' %}";
+  initStandardViewer("code-viewer");
 </script>
 {% endblock %}

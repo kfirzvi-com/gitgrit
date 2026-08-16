@@ -1,16 +1,16 @@
 from django.urls import path
 
-from app.presentation.views.policy_views import (
-    CreatePolicyView,
-    EditPolicyView,
-    PolicyDetailView,
-    PolicyExecutionDetailView,
-    PolicyListView,
-    PolicyVersionDetailView,
-    delete_policy,
-    revert_policy_version,
-    run_policy_test,
-    toggle_policy,
+from app.presentation.views.standard_views import (
+    CreateStandardView,
+    EditStandardView,
+    StandardDetailView,
+    StandardExecutionDetailView,
+    StandardListView,
+    StandardVersionDetailView,
+    delete_standard,
+    revert_standard_version,
+    run_standard_test,
+    toggle_standard,
 )
 from app.presentation.views.project_views import (
     EditProjectView,
@@ -20,7 +20,7 @@ from app.presentation.views.project_views import (
     add_project_select,
     delete_project,
     retry_webhook,
-    run_project_policies,
+    run_project_standards,
 )
 from app.presentation.views.stack_views import (
     CreateStackView,
@@ -59,10 +59,10 @@ from app.presentation.views.profile_views import ProfileView, disconnect_social
 from app.presentation.views.marketplace_views import (
     MarketplaceBrowseView,
     MarketplacePackDetailView,
-    MarketplacePolicyPreviewView,
+    MarketplaceStandardPreviewView,
     install_marketplace_pack,
-    install_marketplace_policy,
-    update_marketplace_policy,
+    install_marketplace_standard,
+    update_marketplace_standard,
 )
 from app.presentation.views.web_views import DashboardView, HomeView
 from app.presentation.views.token_views import create_api_token, revoke_api_token
@@ -155,9 +155,9 @@ urlpatterns = [
     path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
-        "projects/<uuid:pk>/run-policies/",
-        run_project_policies,
-        name="run_project_policies",
+        "projects/<uuid:pk>/run-standards/",
+        run_project_standards,
+        name="run_project_standards",
     ),
     path(
         "projects/<uuid:pk>/retry-webhook/",
@@ -179,28 +179,28 @@ urlpatterns = [
         remove_project_from_stack,
         name="remove_project_from_stack",
     ),
-    # Policies
-    path("policies/", PolicyListView.as_view(), name="policy_list"),
-    path("policies/new/", CreatePolicyView.as_view(), name="create_policy"),
-    path("policies/<uuid:pk>/", PolicyDetailView.as_view(), name="policy_detail"),
-    path("policies/<uuid:pk>/edit/", EditPolicyView.as_view(), name="edit_policy"),
-    path("policies/<uuid:pk>/delete/", delete_policy, name="delete_policy"),
-    path("policies/<uuid:pk>/toggle/", toggle_policy, name="toggle_policy"),
-    path("policies/test/", run_policy_test, name="run_policy_test"),
+    # Standards
+    path("standards/", StandardListView.as_view(), name="standard_list"),
+    path("standards/new/", CreateStandardView.as_view(), name="create_standard"),
+    path("standards/<uuid:pk>/", StandardDetailView.as_view(), name="standard_detail"),
+    path("standards/<uuid:pk>/edit/", EditStandardView.as_view(), name="edit_standard"),
+    path("standards/<uuid:pk>/delete/", delete_standard, name="delete_standard"),
+    path("standards/<uuid:pk>/toggle/", toggle_standard, name="toggle_standard"),
+    path("standards/test/", run_standard_test, name="run_standard_test"),
     path(
         "executions/<uuid:pk>/",
-        PolicyExecutionDetailView.as_view(),
-        name="policy_execution_detail",
+        StandardExecutionDetailView.as_view(),
+        name="standard_execution_detail",
     ),
     path(
-        "policies/versions/<uuid:pk>/",
-        PolicyVersionDetailView.as_view(),
-        name="policy_version_detail",
+        "standards/versions/<uuid:pk>/",
+        StandardVersionDetailView.as_view(),
+        name="standard_version_detail",
     ),
     path(
-        "policies/versions/<uuid:pk>/revert/",
-        revert_policy_version,
-        name="revert_policy_version",
+        "standards/versions/<uuid:pk>/revert/",
+        revert_standard_version,
+        name="revert_standard_version",
     ),
     # API Tokens
     path("tenants/tokens/create/", create_api_token, name="create_api_token"),
@@ -222,18 +222,18 @@ urlpatterns = [
         name="install_marketplace_pack",
     ),
     path(
-        "marketplace/policies/<slug:slug>/",
-        MarketplacePolicyPreviewView.as_view(),
-        name="marketplace_policy_preview",
+        "marketplace/standards/<slug:slug>/",
+        MarketplaceStandardPreviewView.as_view(),
+        name="marketplace_standard_preview",
     ),
     path(
-        "marketplace/policies/<slug:slug>/install/",
-        install_marketplace_policy,
-        name="install_marketplace_policy",
+        "marketplace/standards/<slug:slug>/install/",
+        install_marketplace_standard,
+        name="install_marketplace_standard",
     ),
     path(
-        "marketplace/policies/<slug:slug>/update/",
-        update_marketplace_policy,
-        name="update_marketplace_policy",
+        "marketplace/standards/<slug:slug>/update/",
+        update_marketplace_standard,
+        name="update_marketplace_standard",
     ),
 ]

@@ -6,12 +6,12 @@ from app.domain.models import (
     LLMProvider,
     LLMRole,
     MarketplacePack,
-    MarketplacePolicy,
+    MarketplaceStandard,
     Membership,
-    PolicyVersion,
+    StandardVersion,
     PlatformConnection,
-    Policy,
-    PolicyExecution,
+    Standard,
+    StandardExecution,
     Project,
     ProjectStack,
     Stack,
@@ -105,20 +105,20 @@ class ProjectStackAdmin(admin.ModelAdmin):
     search_fields = ("project__name", "stack__name")
 
 
-@admin.register(Policy)
-class PolicyAdmin(admin.ModelAdmin):
+@admin.register(Standard)
+class StandardAdmin(admin.ModelAdmin):
     list_display = ("name", "tenant", "enabled", "draft", "ordinal", "created_at")
     list_filter = ("tenant", "enabled", "draft")
     search_fields = ("name",)
 
 
-class MarketplacePolicyInline(admin.TabularInline):
-    model = MarketplacePack.policies.through
+class MarketplaceStandardInline(admin.TabularInline):
+    model = MarketplacePack.standards.through
     extra = 1
 
 
-@admin.register(MarketplacePolicy)
-class MarketplacePolicyAdmin(admin.ModelAdmin):
+@admin.register(MarketplaceStandard)
+class MarketplaceStandardAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "version", "author", "updated_at")
     search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
@@ -129,17 +129,17 @@ class MarketplacePackAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "icon", "updated_at")
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
-    inlines = [MarketplacePolicyInline]
-    exclude = ("policies",)
+    inlines = [MarketplaceStandardInline]
+    exclude = ("standards",)
 
 
-@admin.register(PolicyVersion)
-class PolicyVersionAdmin(admin.ModelAdmin):
-    list_display = ("policy", "version", "change_summary", "changed_by", "created_at")
-    list_filter = ("policy",)
-    search_fields = ("policy__name", "change_summary")
+@admin.register(StandardVersion)
+class StandardVersionAdmin(admin.ModelAdmin):
+    list_display = ("standard", "version", "change_summary", "changed_by", "created_at")
+    list_filter = ("standard",)
+    search_fields = ("standard__name", "change_summary")
     readonly_fields = (
-        "id", "policy", "version", "code", "description", "criteria",
+        "id", "standard", "version", "code", "description", "criteria",
         "test_cases", "labels_snapshot", "changed_by", "change_summary", "created_at",
     )
 
@@ -165,10 +165,10 @@ class FeedbackReportAdmin(admin.ModelAdmin):
         return (obj.body[:80] + "…") if len(obj.body) > 80 else obj.body
 
 
-@admin.register(PolicyExecution)
-class PolicyExecutionAdmin(admin.ModelAdmin):
+@admin.register(StandardExecution)
+class StandardExecutionAdmin(admin.ModelAdmin):
     list_display = (
-        "policy_name",
+        "standard_name",
         "project",
         "event_type",
         "status",
@@ -177,12 +177,12 @@ class PolicyExecutionAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "event_type")
-    search_fields = ("policy_name", "project__name", "triggered_by")
+    search_fields = ("standard_name", "project__name", "triggered_by")
     readonly_fields = (
         "id",
         "project",
-        "policy",
-        "policy_name",
+        "standard",
+        "standard_name",
         "event_type",
         "status",
         "score",

@@ -11,15 +11,15 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 
 from app.application.event_bus import publish
-from app.application.policy_engine import PolicyEngine
+from app.application.standard_engine import StandardEngine
 from app.domain.events import ProjectCreated, ProjectDeleted
 from app.domain.models import (
     AuthMethod,
     PlatformConnection,
-    Policy,
-    PolicyExecution,
     Project,
     Stack,
+    Standard,
+    StandardExecution,
 )
 from app.infrastructure.platform_client import get_platform_client
 
@@ -58,20 +58,20 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         project = self.object
 
-        recent_executions = PolicyExecution.objects.filter(
-            project=project, policy__isnull=False
-        ).select_related("policy")[:50]
+        recent_executions = StandardExecution.objects.filter(
+            project=project, standard__isnull=False
+        ).select_related("standard")[:50]
         context["recent_executions"] = recent_executions
 
-        # Deduplicate: latest execution per policy
-        seen_policies = {}
+        # Deduplicate: latest execution per standard
+        seen_standards = {}
         for ex in recent_executions:
-            if ex.policy_id not in seen_policies:
-                seen_policies[ex.policy_id] = ex
-        latest_executions = list(seen_policies.values())
+            if ex.standard_id not in seen_standards:
+                seen_standards[ex.standard_id] = ex
+        latest_executions = list(seen_standards.values())
         context["latest_executions"] = latest_executions
 
-        # Compliance score: average of latest-per-policy scores
+        # Compliance score: average of latest-per-standard scores
         if latest_executions:
             context["compliance_score"] = round(
                 sum(ex.score for ex in latest_executions) / len(latest_executions)
@@ -79,8 +79,8 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         else:
             context["compliance_score"] = None
 
-        # Available policies for manual trigger
-        context["policies"] = Policy.objects.filter(
+        # Available standards for manual trigger
+        context["standards"] = Standard.objects.filter(
             tenant=project.tenant, enabled=True, draft=False
         ).order_by("ordinal", "name")
 
@@ -306,7 +306,7 @@ def delete_project(request, pk):
 
 @login_required
 @require_POST
-def run_project_policies(request, pk):
+def run_project_standards(request, pk):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
@@ -318,19 +318,19 @@ def run_project_policies(request, pk):
         tenant=tenant,
     )
 
-    policy_id = request.POST.get("policy_id")
-    if policy_id:
-        policies = list(
-            Policy.objects.filter(pk=policy_id, tenant=tenant, enabled=True, draft=False)
+    standard_id = request.POST.get("standard_id")
+    if standard_id:
+        standards = list(
+            Standard.objects.filter(pk=standard_id, tenant=tenant, enabled=True, draft=False)
         )
-        if not policies:
-            messages.error(request, "Policy not found or not active.")
+        if not standards:
+            messages.error(request, "Standard not found or not active.")
             return redirect("project_detail", pk=pk)
     else:
-        policies = None  # run_for_project will pick all eligible
+        standards = None  # run_for_project will pick all eligible
 
-    engine = PolicyEngine()
-    results = engine.run_for_project(project, policies)
+    engine = StandardEngine()
+    results = engine.run_for_project(project, standards)
 
     if results:
         passed = sum(1 for r in results if r.get("passed"))
@@ -340,7 +340,7 @@ def run_project_policies(request, pk):
             f"{passed} passed, {len(results) - passed} failed.",
         )
     else:
-        messages.warning(request, "No eligible policies to run.")
+        messages.warning(request, "No eligible standards to run.")
 
     return redirect("project_detail", pk=pk)
 

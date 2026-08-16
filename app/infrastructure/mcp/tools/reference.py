@@ -8,7 +8,7 @@ _service = ProjectService()
 def get_project_context_api() -> str:
     """Return the full API reference for the project object in evaluate(project).
 
-    Call this before writing any policy code to understand exactly which
+    Call this before writing any standard code to understand exactly which
     methods are available, their return types, and see examples.
     """
     return _service.get_project_context_api()

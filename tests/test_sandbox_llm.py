@@ -185,9 +185,9 @@ class SandboxLLMTests(SimpleTestCase):
             json.dumps({"passed": True, "reason": "ok", "violations": []})
         )
         llm_mod = _load_llm(scripted)
-        from policy_log import PolicyLogger
+        from standard_log import StandardLogger
 
-        logger = PolicyLogger()
+        logger = StandardLogger()
         obj = llm_mod.LLM(
             {"reasoning": {"model": "anthropic/x", "base_url": "", "api_key": "k"}},
             _mock_project(),

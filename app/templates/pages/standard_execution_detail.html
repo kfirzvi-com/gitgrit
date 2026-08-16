@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% load project_tags %}
 
-{% block title %}Execution — {{ execution.policy_name }} — GitGrit{% endblock %}
+{% block title %}Execution — {{ execution.standard_name }} — GitGrit{% endblock %}
 
 {% block content %}
 <div class="mb-4">
   <a href="{% url 'project_detail' execution.project.pk %}" class="link link-hover text-sm opacity-70">← {{ execution.project.name }}</a>
   <div class="flex items-center gap-3 mt-2">
-    <h1 class="text-3xl font-bold">{{ execution.policy_name }}</h1>
+    <h1 class="text-3xl font-bold">{{ execution.standard_name }}</h1>
     <span class="badge {% if execution.status == 'passed' %}badge-success{% elif execution.status == 'failed' %}badge-error{% elif execution.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
       {{ execution.get_status_display }}
     </span>
