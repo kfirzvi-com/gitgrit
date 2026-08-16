@@ -168,7 +168,25 @@ class BaseWebhookView(APIView):
     def _handle_installation_repositories(
         self, payload: dict, installation_id: int | None
     ) -> Response:
-        """Sync projects when repos are added to / removed from an installation."""
+        """React to repositories being added to / removed from an installation.
+
+        Repositories *added* deliberately do not become projects. An
+        installation's repository list is what GitGrit may reach; a workspace's
+        project list is what that workspace chose to track, and those are not
+        the same thing — several workspaces can hold one installation while
+        each tracking a different subset of it. Creating the repo in all of
+        them would overrule that choice on behalf of workspaces whose members
+        did not make the change and have no way to opt out. They import what
+        they want from Add Project, which already lists the installation's
+        repositories.
+
+        Repositories *removed* still drop the matching projects: access is
+        genuinely gone, so leaving them would mean standards that can only
+        fail. That deletion also removes their execution history, and reaches
+        every workspace holding the installation — heavier than it should be
+        for a change made elsewhere. Recording "we lost access" instead needs
+        somewhere to record it, so it is left for its own piece of work.
+        """
         connections = PlatformConnection.objects.filter(
             platform="github",
             auth_method=AuthMethod.GITHUB_APP,
@@ -177,35 +195,18 @@ class BaseWebhookView(APIView):
         removed_ids = [
             str(r.get("id")) for r in payload.get("repositories_removed", [])
         ]
-        added_repos = payload.get("repositories_added", [])
-        added_count = 0
         removed_count = 0
-        for conn in connections:
-            if removed_ids:
+        if removed_ids:
+            for conn in connections:
                 deleted, _ = Project.objects.filter(
                     platform_connection=conn, external_id__in=removed_ids
                 ).delete()
                 removed_count += deleted
-            for repo in added_repos:
-                ext = str(repo.get("id"))
-                full = repo.get("full_name", "")
-                _, created = Project.objects.get_or_create(
-                    tenant=conn.tenant,
-                    platform_connection=conn,
-                    external_id=ext,
-                    defaults={
-                        "platform": "github",
-                        "name": repo.get("name") or full,
-                        "full_path": full,
-                        "web_url": f"https://github.com/{full}" if full else "",
-                    },
-                )
-                if created:
-                    added_count += 1
         return Response(
             {
                 "event": "installation_repositories",
-                "added": added_count,
+                # Repos the installation gained. Reported, not imported.
+                "newly_available": len(payload.get("repositories_added", [])),
                 "removed": removed_count,
             }
         )

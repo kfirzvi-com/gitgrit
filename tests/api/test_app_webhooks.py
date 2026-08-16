@@ -104,7 +104,7 @@ class TestGitHubAppWebhooks(APITestCase):
         assert not PlatformConnection.objects.filter(installation_id=777).exists()
         assert not Project.objects.filter(external_id="99").exists()
 
-    def test_installation_repositories_added_and_removed_syncs_projects(self):
+    def test_repositories_removed_drops_the_matching_projects(self):
         tenant = baker.make("app.Tenant")
         conn = self._app_connection(tenant, 888)
         baker.make(
@@ -115,19 +115,114 @@ class TestGitHubAppWebhooks(APITestCase):
             external_id="10",
         )
         payload = {
-            "action": "added",
+            "action": "removed",
             "installation": {"id": 888},
-            "repositories_added": [
-                {"id": 20, "name": "new-repo", "full_name": "acme/new-repo"}
-            ],
             "repositories_removed": [{"id": 10, "name": "old", "full_name": "acme/old"}],
         }
         resp = self._post(payload, secret=APP_SECRET, event="installation_repositories")
         assert resp.status_code == 200
-        assert resp.data["added"] == 1
         assert resp.data["removed"] == 1
-        assert Project.objects.filter(platform_connection=conn, external_id="20").exists()
-        assert not Project.objects.filter(platform_connection=conn, external_id="10").exists()
+        assert not Project.objects.filter(
+            platform_connection=conn, external_id="10"
+        ).exists()
+
+
+@override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_WEBHOOK_SECRET=APP_SECRET)
+class TestRepositoriesAddedDoNotBecomeProjects(APITestCase):
+    """What an installation may reach is not what a workspace chose to track.
+
+    Several workspaces can hold one installation while each tracking a
+    different subset of its repositories. Importing a newly-granted repo into
+    all of them would overrule that choice on behalf of workspaces whose
+    members did not make the change on GitHub and cannot opt out of it — so
+    nothing is created, and each workspace imports what it wants from Add
+    Project.
+    """
+
+    url = "/api/webhooks/github/"
+    installation_id = 909
+
+    def _post_added(self):
+        payload = {
+            "action": "added",
+            "installation": {"id": self.installation_id},
+            "repositories_added": [
+                {"id": 30, "name": "new-repo", "full_name": "acme/new-repo"}
+            ],
+        }
+        body = json.dumps(payload).encode()
+        return self.client.post(
+            self.url,
+            data=body,
+            content_type="application/json",
+            HTTP_X_GITHUB_EVENT="installation_repositories",
+            HTTP_X_HUB_SIGNATURE_256=_sig(APP_SECRET, body),
+        )
+
+    def _workspace(self, tracked_external_ids):
+        tenant = baker.make("app.Tenant")
+        conn = baker.make(
+            "app.PlatformConnection",
+            tenant=tenant,
+            platform="github",
+            auth_method=AuthMethod.GITHUB_APP,
+            access_token=None,
+            installation_id=self.installation_id,
+        )
+        for ext in tracked_external_ids:
+            baker.make(
+                "app.Project",
+                tenant=tenant,
+                platform_connection=conn,
+                platform="github",
+                external_id=ext,
+            )
+        return tenant, conn
+
+    def test_no_project_is_created_for_a_newly_granted_repo(self):
+        _tenant, conn = self._workspace(["10"])
+
+        resp = self._post_added()
+
+        assert resp.status_code == 200
+        assert not Project.objects.filter(
+            platform_connection=conn, external_id="30"
+        ).exists()
+
+    def test_it_is_reported_as_available_rather_than_imported(self):
+        self._workspace(["10"])
+
+        resp = self._post_added()
+
+        assert resp.data["newly_available"] == 1
+        assert Project.objects.filter(external_id="30").count() == 0
+
+    def test_no_workspace_holding_the_installation_gains_it(self):
+        """The case that motivated this: two workspaces, different subsets."""
+        _tenant_a, conn_a = self._workspace(["10", "20"])
+        _tenant_b, conn_b = self._workspace(["10"])
+
+        self._post_added()
+
+        for conn in (conn_a, conn_b):
+            assert not Project.objects.filter(
+                platform_connection=conn, external_id="30"
+            ).exists()
+        # And nothing already tracked was disturbed.
+        assert Project.objects.filter(platform_connection=conn_a).count() == 2
+        assert Project.objects.filter(platform_connection=conn_b).count() == 1
+
+    def test_a_workspace_that_already_tracks_it_keeps_exactly_one(self):
+        """Idempotence still matters: a repo re-added on GitHub must not
+        duplicate a project a workspace imported itself."""
+        _tenant, conn = self._workspace(["30"])
+
+        self._post_added()
+
+        assert (
+            Project.objects.filter(platform_connection=conn, external_id="30").count()
+            == 1
+        )
 
 
 @override_settings(GITHUB_APP_ENABLED=True, GITHUB_APP_WEBHOOK_SECRET=APP_SECRET)
