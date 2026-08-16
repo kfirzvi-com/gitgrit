@@ -14,7 +14,7 @@ gitlab.com (e.g. a hardcoded URL, a redirect followed blindly, a stray
 from unittest import mock
 from urllib.parse import urlparse
 
-import pytest
+from django.test import SimpleTestCase
 
 from app.domain.models import Platform, PlatformConnection
 from app.infrastructure.platform_client import GitLabClient
@@ -60,49 +60,52 @@ def _payload_for_get(url: str):
     return {}
 
 
-@pytest.fixture
-def closed_network():
-    """Replace `app.infrastructure.platform_client.requests` so any HTTP
-    call to a host other than INTERNAL_HOST raises a closed-network
-    violation. Yields (seen_urls, fake_requests_module)."""
-    seen_urls: list[str] = []
+class _ClosedNetworkTestCase(SimpleTestCase):
+    """Replaces `app.infrastructure.platform_client.requests` so any HTTP call
+    to a host other than INTERNAL_HOST raises a closed-network violation.
 
-    def _guard(payload_fn):
-        def _fn(url, **kwargs):
-            seen_urls.append(url)
-            host = urlparse(url).hostname
-            if host != INTERNAL_HOST:
-                raise AssertionError(
-                    f"Closed-network violation: GitLabClient tried to reach "
-                    f"'{host}' (URL: {url}). Only '{INTERNAL_HOST}' is "
-                    f"reachable in the operator's network."
-                )
-            return _make_response(payload_fn(url))
-        return _fn
+    Sets `self.seen_urls` and `self.fake_req` for each test.
+    """
 
-    with mock.patch(
-        "app.infrastructure.platform_client.requests"
-    ) as fake_req:
-        fake_req.get.side_effect = _guard(_payload_for_get)
-        fake_req.post.side_effect = _guard(lambda _url: {"id": 999})
-        fake_req.delete.side_effect = _guard(lambda _url: None)
-        yield seen_urls, fake_req
+    def setUp(self):
+        super().setUp()
+        self.seen_urls: list[str] = []
+
+        def _guard(payload_fn):
+            def _fn(url, **kwargs):
+                self.seen_urls.append(url)
+                host = urlparse(url).hostname
+                if host != INTERNAL_HOST:
+                    raise AssertionError(
+                        f"Closed-network violation: GitLabClient tried to reach "
+                        f"'{host}' (URL: {url}). Only '{INTERNAL_HOST}' is "
+                        f"reachable in the operator's network."
+                    )
+                return _make_response(payload_fn(url))
+            return _fn
+
+        patcher = mock.patch("app.infrastructure.platform_client.requests")
+        self.fake_req = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.fake_req.get.side_effect = _guard(_payload_for_get)
+        self.fake_req.post.side_effect = _guard(lambda _url: {"id": 999})
+        self.fake_req.delete.side_effect = _guard(lambda _url: None)
 
 
-class TestGitLabClientStaysInsideClosedNetwork:
+class TestGitLabClientStaysInsideClosedNetwork(_ClosedNetworkTestCase):
     """Every public method on GitLabClient must only ever hit the
     operator's base_url, never gitlab.com or anything else."""
 
-    def test_test_token_only_hits_internal_gitlab(self, closed_network):
-        seen_urls, _ = closed_network
+    def test_test_token_only_hits_internal_gitlab(self):
+        seen_urls = self.seen_urls
 
         client = GitLabClient(_internal_gitlab_connection())
         client.test_token()
 
         assert seen_urls == [f"{INTERNAL_GITLAB}/api/v4/user"]
 
-    def test_search_projects_only_hits_internal_gitlab(self, closed_network):
-        seen_urls, _ = closed_network
+    def test_search_projects_only_hits_internal_gitlab(self):
+        seen_urls = self.seen_urls
 
         client = GitLabClient(_internal_gitlab_connection())
         client.search_projects(query="acme")
@@ -110,26 +113,26 @@ class TestGitLabClientStaysInsideClosedNetwork:
         assert len(seen_urls) == 1
         assert seen_urls[0].startswith(f"{INTERNAL_GITLAB}/api/v4/projects")
 
-    def test_get_languages_only_hits_internal_gitlab(self, closed_network):
-        seen_urls, _ = closed_network
+    def test_get_languages_only_hits_internal_gitlab(self):
+        seen_urls = self.seen_urls
 
         client = GitLabClient(_internal_gitlab_connection())
         client.get_languages(external_id="42")
 
         assert seen_urls == [f"{INTERNAL_GITLAB}/api/v4/projects/42/languages"]
 
-    def test_get_topics_only_hits_internal_gitlab(self, closed_network):
-        seen_urls, _ = closed_network
+    def test_get_topics_only_hits_internal_gitlab(self):
+        seen_urls = self.seen_urls
 
         client = GitLabClient(_internal_gitlab_connection())
         client.get_topics(external_id="42")
 
         assert seen_urls == [f"{INTERNAL_GITLAB}/api/v4/projects/42"]
 
-    def test_create_webhook_only_hits_internal_gitlab(self, closed_network):
+    def test_create_webhook_only_hits_internal_gitlab(self):
         # GitLab's create_webhook is single-request (POST). GitHub's version
         # does GET+POST; don't "fix" this to match.
-        seen_urls, _ = closed_network
+        seen_urls = self.seen_urls
 
         client = GitLabClient(_internal_gitlab_connection())
         client.create_webhook(
@@ -140,8 +143,8 @@ class TestGitLabClientStaysInsideClosedNetwork:
 
         assert seen_urls == [f"{INTERNAL_GITLAB}/api/v4/projects/42/hooks"]
 
-    def test_delete_webhook_only_hits_internal_gitlab(self, closed_network):
-        seen_urls, _ = closed_network
+    def test_delete_webhook_only_hits_internal_gitlab(self):
+        seen_urls = self.seen_urls
 
         client = GitLabClient(_internal_gitlab_connection())
         client.delete_webhook(external_id="42", webhook_id="99")
@@ -149,12 +152,12 @@ class TestGitLabClientStaysInsideClosedNetwork:
         assert seen_urls == [f"{INTERNAL_GITLAB}/api/v4/projects/42/hooks/99"]
 
 
-class TestGitLabClientAuthAndTls:
+class TestGitLabClientAuthAndTls(_ClosedNetworkTestCase):
     """Auth header + TLS behavior — the parts that determine whether
     requests against the operator's internal GitLab actually succeed."""
 
-    def test_uses_private_token_header(self, closed_network):
-        _, fake_req = closed_network
+    def test_uses_private_token_header(self):
+        fake_req = self.fake_req
 
         client = GitLabClient(_internal_gitlab_connection())
         client.test_token()
@@ -162,13 +165,13 @@ class TestGitLabClientAuthAndTls:
         sent_headers = fake_req.get.call_args.kwargs["headers"]
         assert sent_headers["PRIVATE-TOKEN"] == FAKE_TOKEN
 
-    def test_never_passes_verify_false(self, closed_network):
+    def test_never_passes_verify_false(self):
         """A common mistake when self-signed certs cause errors is to set
         `verify=False`. Air-gap deployments must instead rely on the
         operator CA chain — propagated into the sandbox via SSL_CERT_FILE
         (which `requests` honors as a fallback when REQUESTS_CA_BUNDLE is
         unset) — so TLS verification stays intact across the wire."""
-        _, fake_req = closed_network
+        fake_req = self.fake_req
 
         client = GitLabClient(_internal_gitlab_connection())
         client.test_token()

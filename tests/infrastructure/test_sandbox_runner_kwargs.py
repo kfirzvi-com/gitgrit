@@ -9,9 +9,10 @@ the EXPECTED constants below AND verify the change is intentional.
 import json
 from unittest import mock
 
-import pytest
+from django.test import SimpleTestCase
 
 from app.infrastructure.sandbox import runner as runner_module
+from tests.support import TmpPathMixin
 
 EXPECTED_NETWORK = "gitgrit-sandbox"
 EXPECTED_RESOLV = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
@@ -67,7 +68,7 @@ def _build_runner_with_captured_kwargs():
     return runner, captured_kwargs, captured_resolv
 
 
-class TestSandboxRunnerKwargsShape:
+class TestSandboxRunnerKwargsShape(SimpleTestCase):
     """With cloud defaults (no air-gap env vars), container_kwargs must equal
     the pre-change shape exactly: no `environment` key, no custom-ca mount,
     network = "gitgrit-sandbox", DNS = 8.8.8.8 + 8.8.4.4."""
@@ -110,24 +111,27 @@ class TestSandboxRunnerKwargsShape:
         assert resolv_list == [EXPECTED_RESOLV]
 
 
-class TestSandboxRunnerAirgapBehavior:
+class TestSandboxRunnerAirgapBehavior(TmpPathMixin, SimpleTestCase):
     """With air-gap env vars set, the runner must add the env propagation and
     the CA mount. This is the positive side of the regression test."""
 
-    def test_airgap_adds_environment_and_ca_mount(self, settings, tmp_path):
-        ca_path = tmp_path / "ca.pem"
+    def test_airgap_adds_environment_and_ca_mount(self):
+        from django.conf import settings as django_settings
+
+        ca_path = self.tmp_path / "ca.pem"
         ca_path.write_text("-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----\n")
         # SSL_CERT_FILE is derived from CA_BUNDLE_HOST_PATH inside the runner —
         # operators only need to set the host path; the env propagation follows.
-        settings.SANDBOX = {
-            **settings.SANDBOX,
+        sandbox = {
+            **django_settings.SANDBOX,
             "CA_BUNDLE_HOST_PATH": str(ca_path),
             "NETWORK": "gitgrit_internal",
             "DNS": ["10.0.0.53"],
         }
 
-        runner, kwargs_list, resolv_list = _build_runner_with_captured_kwargs()
-        runner.run("def evaluate(p): return {}", {"platform": "gitlab"})
+        with self.settings(SANDBOX=sandbox):
+            runner, kwargs_list, resolv_list = _build_runner_with_captured_kwargs()
+            runner.run("def evaluate(p): return {}", {"platform": "gitlab"})
 
         kwargs = kwargs_list[0]
         assert kwargs["environment"] == {

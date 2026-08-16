@@ -45,7 +45,11 @@ WEB_URL=$(printf '%s' "$RAW_URL" \
   | sed 's|\.git$||')
 
 # Derive owner/repo full_path (everything after the host).
-FULL_PATH=$(printf '%s' "$WEB_URL" | sed 's|^https\?://[^/]*/||')
+# `\{0,1\}` not `\?`: the latter is a GNU sed extension that BSD sed (macOS)
+# matches literally, leaving FULL_PATH as the whole URL — so the bootstrap call
+# would carry "https://github.com/acme/backend" as repo_full_path and never
+# match a project. CI runs Linux, so only developers on macOS saw it.
+FULL_PATH=$(printf '%s' "$WEB_URL" | sed 's|^https\{0,1\}://[^/]*/||')
 
 # Session state lives under XDG cache, not inside the repo. Inside .git/ gets
 # blocked by Claude Code's sensitive-file guard (the Write tool refuses even
