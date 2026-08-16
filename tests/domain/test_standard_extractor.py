@@ -1,4 +1,4 @@
-from app.domain.policy_extractor import (
+from app.domain.standard_extractor import (
     ForbiddenPattern,
     extract_rules,
     to_dict,
@@ -181,7 +181,7 @@ def evaluate(project):
         rules = extract_rules(code)
         assert rules.locally_enforceable is True
 
-    def test_false_when_policy_uses_get_members(self):
+    def test_false_when_standard_uses_get_members(self):
         code = """
 def evaluate(project):
     c = project.get_file_content("README.md")
@@ -191,7 +191,7 @@ def evaluate(project):
         rules = extract_rules(code)
         assert rules.locally_enforceable is False
 
-    def test_false_when_policy_uses_get_contributors(self):
+    def test_false_when_standard_uses_get_contributors(self):
         code = """
 def evaluate(project):
     c = project.get_file_content("README.md")
@@ -201,7 +201,7 @@ def evaluate(project):
         rules = extract_rules(code)
         assert rules.locally_enforceable is False
 
-    def test_false_when_policy_uses_unknown_project_api(self):
+    def test_false_when_standard_uses_unknown_project_api(self):
         code = """
 def evaluate(project):
     c = project.get_file_content("README.md")
@@ -232,7 +232,7 @@ def evaluate(project):
         assert rules.locally_enforceable is True
 
 
-class TestPartialPolicies:
+class TestPartialStandards:
     def test_watched_files_complete_and_patterns_incomplete(self):
         # Plan §1 regression guard: one dimension incomplete must NOT disable the other.
         code = """

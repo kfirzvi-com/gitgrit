@@ -1,10 +1,10 @@
 """A small, reusable in-process agentic LLM loop.
 
-Generalised from the in-sandbox policy loop (``sandbox_image/llm.py``): the
+Generalised from the in-sandbox standard loop (``sandbox_image/llm.py``): the
 model is given tool schemas, decides for itself what to inspect, we execute the
 tools and feed results back until it returns a structured (Pydantic) result.
 
-Unlike the policy loop this runs in-process (e.g. in the background worker), so
+Unlike the standard loop this runs in-process (e.g. in the background worker), so
 the caller passes a plain object whose ``@tool``-marked methods back the tools.
 Those methods may touch the network/DB directly — there's no sandbox boundary,
 because this loop only reads (config files, etc.) and never executes untrusted

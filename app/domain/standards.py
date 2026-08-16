@@ -1,15 +1,15 @@
-"""Default policy catalog (DEPRECATED).
+"""Default standard catalog (DEPRECATED).
 
-These hardcoded policies are no longer used by the PolicyEngine, which now
-loads tenant-specific policies from the database. This list is retained as
+These hardcoded standards are no longer used by the StandardEngine, which now
+loads tenant-specific standards from the database. This list is retained as
 reference examples for seeding new tenants.
 
-Use Policy model objects (via admin or API) instead.
+Use Standard model objects (via admin or API) instead.
 """
 
-# DEPRECATED: No longer imported by PolicyEngine.
+# DEPRECATED: No longer imported by StandardEngine.
 # Retained as seed data / reference examples.
-DEFAULT_POLICIES = [
+DEFAULT_STANDARDS = [
     {
         "id": "check_readme",
         "name": "Check README",
@@ -68,10 +68,10 @@ def evaluate(project):
 """,
     },
     {
-        # LLM-based policy: takes a second `llm` argument and evaluates a
+        # LLM-based standard: takes a second `llm` argument and evaluates a
         # subjective standard. Requires a workspace LLM provider + the
         # `reasoning` role configured under Workspace Settings → LLM.
-        # `PolicyVerdict` is injected into scope by the sandbox runtime.
+        # `StandardVerdict` is injected into scope by the sandbox runtime.
         "id": "llm_documentation_quality",
         "name": "Documentation Quality (LLM)",
         "events": ["push"],
@@ -84,7 +84,7 @@ def evaluate(project, llm):
             "A repo passes only if a newcomer could set it up and contribute "
             "without asking the team. List concrete gaps as violations."
         ),
-        response_model=PolicyVerdict,
+        response_model=StandardVerdict,
     )
     return {
         "passed": verdict.passed,

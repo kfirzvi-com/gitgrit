@@ -154,21 +154,21 @@ async def run_scenarios(
             else:
                 r.ok("get_project_status returns grade", f"grade={status['grade']}")
 
-            # 3. get_active_policies_for_project
-            policies = _extract_tool_result(
+            # 3. get_active_standards_for_project
+            standards = _extract_tool_result(
                 await session.call_tool(
-                    "get_active_policies_for_project", {"project_id": project_id}
+                    "get_active_standards_for_project", {"project_id": project_id}
                 )
             )
-            if not isinstance(policies, list) or len(policies) == 0:
+            if not isinstance(standards, list) or len(standards) == 0:
                 r.fail(
-                    "get_active_policies_for_project returns seeded policy",
-                    f"got {policies!r}",
+                    "get_active_standards_for_project returns seeded standard",
+                    f"got {standards!r}",
                 )
             else:
                 r.ok(
-                    "get_active_policies_for_project returns seeded policy",
-                    f"{len(policies)} policies",
+                    "get_active_standards_for_project returns seeded standard",
+                    f"{len(standards)} standards",
                 )
 
             # 4. no_match path

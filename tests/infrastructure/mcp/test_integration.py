@@ -15,7 +15,7 @@ from model_bakery import baker
 from starlette.testclient import TestClient
 
 from app.infrastructure.mcp import context
-from app.infrastructure.mcp.tools.policies import list_policies
+from app.infrastructure.mcp.tools.standards import list_standards
 from gitgrit.asgi import application
 
 
@@ -78,7 +78,7 @@ class TestMCPHTTPAuth(TestCase):
 class TestTenancyIsolation(TransactionTestCase):
     """Verify that MCP tools enforce tenant boundaries against the real database.
 
-    TransactionTestCase (not TestCase) is required because list_policies uses
+    TransactionTestCase (not TestCase) is required because list_standards uses
     sync_to_async, which runs the ORM in a thread-pool executor with its own DB
     connection. TestCase wraps tests in a transaction that is invisible to other
     connections; TransactionTestCase commits data to the real DB so cross-thread
@@ -94,31 +94,31 @@ class TestTenancyIsolation(TransactionTestCase):
         self.tenant_a = baker.make("app.Tenant")
         self.user_b = baker.make("app.User")
         self.tenant_b = baker.make("app.Tenant")
-        self.policy_a = baker.make(
-            "app.Policy", tenant=self.tenant_a, name="Tenant A Policy"
+        self.standard_a = baker.make(
+            "app.Standard", tenant=self.tenant_a, name="Tenant A Standard"
         )
 
-    def test_tenant_b_cannot_see_tenant_a_policies(self):
+    def test_tenant_b_cannot_see_tenant_a_standards(self):
         ctx_token = context.set_auth(
             context.AuthContext(user=self.user_b, tenant=self.tenant_b, client_kind="claude")
         )
         try:
-            result = asyncio.run(list_policies())
+            result = asyncio.run(list_standards())
         finally:
             context.reset_auth(ctx_token)
         returned_ids = {p["id"] for p in result}
-        self.assertNotIn(str(self.policy_a.id), returned_ids)
+        self.assertNotIn(str(self.standard_a.id), returned_ids)
 
-    def test_tenant_a_sees_its_own_policies(self):
+    def test_tenant_a_sees_its_own_standards(self):
         ctx_token = context.set_auth(
             context.AuthContext(user=self.user_a, tenant=self.tenant_a, client_kind="claude")
         )
         try:
-            result = asyncio.run(list_policies())
+            result = asyncio.run(list_standards())
         finally:
             context.reset_auth(ctx_token)
         returned_ids = {p["id"] for p in result}
-        self.assertIn(str(self.policy_a.id), returned_ids)
+        self.assertIn(str(self.standard_a.id), returned_ids)
 
 
 class TestStatelessTransport(TransactionTestCase):

@@ -28,11 +28,11 @@ GitGrit is pre-1.0 and ships from a single `main` branch. We currently support s
 
 ### In scope
 - Webhook signature bypass on `/api/webhooks/github/` and `/api/webhooks/gitlab/`
-- Sandbox escape from a malicious policy (`sandbox_image/`, `app/infrastructure/sandbox/`)
+- Sandbox escape from a malicious standard (`sandbox_image/`, `app/infrastructure/sandbox/`)
 - OAuth token leakage from `PlatformConnection` (database, logs, error pages, admin views)
 - Tenancy isolation bypass in the MCP server (`app/infrastructure/mcp/`) or the web app
 - Authentication bypass on any non-public endpoint
-- Stored XSS or SSRF reachable via policy code, MCP tool input, or webhook payloads
+- Stored XSS or SSRF reachable via standard code, MCP tool input, or webhook payloads
 - Privilege escalation within a workspace (member → admin → owner)
 
 ### Out of scope
@@ -44,20 +44,20 @@ GitGrit is pre-1.0 and ships from a single `main` branch. We currently support s
 
 ## Threat model
 
-### Sandbox isolation (policy execution)
+### Sandbox isolation (standard execution)
 
-Every policy is user-authored Python that runs against a `ProjectContext` exposing the repo's files, languages, and metadata. We assume the policy code is **untrusted**.
+Every standard is user-authored Python that runs against a `ProjectContext` exposing the repo's files, languages, and metadata. We assume the standard code is **untrusted**.
 
 **Defenses:**
-- Each policy runs in a **fresh Docker container** built from `sandbox_image/`, with `cap_drop: ["ALL"]`, no Linux capabilities, and a 30-second wall-clock timeout. Memory is capped at 128 MB and CPU at 0.5 cores.
+- Each standard runs in a **fresh Docker container** built from `sandbox_image/`, with `cap_drop: ["ALL"]`, no Linux capabilities, and a 30-second wall-clock timeout. Memory is capped at 128 MB and CPU at 0.5 cores.
 - The runtime is configured as **gVisor (`runsc`)**. See `app/infrastructure/sandbox/runner.py`.
-- Policy code is bind-mounted **read-only** at `/policy.py`; the only writable filesystem is a 16 MB tmpfs at `/tmp`.
+- Standard code is bind-mounted **read-only** at `/standard.py`; the only writable filesystem is a 16 MB tmpfs at `/tmp`.
 - Network access is restricted to a custom Docker bridge that allows outbound HTTPS to platform APIs but blocks the host network and other containers.
 
 **Known limitations:**
 - If `runsc` is not installed on the host, the runner **falls back to the default Docker runtime (runc)** with a warning log. `runc` provides container isolation but not the syscall-level sandbox gVisor offers — operators must verify gVisor is installed (the `.kamal/hooks/docker-setup` hook handles this on production deploys; self-hosters must do it themselves).
 - The container runs as **root** inside the namespace. Capabilities are dropped, but a root-in-namespace + missing-gVisor combination is meaningfully weaker than non-root + gVisor. **Setting a non-root `USER` in `sandbox_image/Dockerfile` is a planned hardening.**
-- There is **no PID limit** on the container. A fork-bomb policy will be killed by the timeout but can briefly stress the host.
+- There is **no PID limit** on the container. A fork-bomb standard will be killed by the timeout but can briefly stress the host.
 - Fernet-style key rotation for sandbox-passed tokens is not implemented; a long-lived OAuth token leaked from a sandbox compromise stays valid until manually revoked.
 
 ### Webhook ingress
@@ -68,7 +68,7 @@ Every policy is user-authored Python that runs against a `ProjectContext` exposi
 - **GitHub**: `X-Hub-Signature-256` is verified as HMAC-SHA256 of the raw request body using the per-`Project` `webhook_secret` (`app/presentation/views/base_webhook.py`, `app/infrastructure/webhook_signatures.py`). Comparison is constant-time (`hmac.compare_digest`).
 - **GitLab**: `X-Gitlab-Token` is constant-time-compared against the per-`Project` `webhook_secret`.
 - Each `Project` registered through the UI gets a fresh 32-byte hex secret; that secret is sent to the platform when the webhook is created and stored locally.
-- Signature mismatch → **HTTP 401**. The signature is verified before any policy is run.
+- Signature mismatch → **HTTP 401**. The signature is verified before any standard is run.
 
 **Known limitations:**
 - For backward compatibility with v0.1 projects that predate signature verification, projects with an empty `webhook_secret` are accepted unsigned with a warning log. Operators with such projects should re-register the webhook (the UI generates a fresh secret) or run a backfill. **This relaxation is intended to be removed in a future release on a best-effort basis** — flipping the `unsecured` branch in `BaseWebhookView._verify_signature` to return `"rejected"` once all projects in your install have a secret. No specific timeline is committed.
@@ -92,18 +92,18 @@ GitGrit stores GitHub and GitLab personal access tokens on `PlatformConnection.a
 
 ### MCP server
 
-`app/infrastructure/mcp/` exposes an authenticated MCP endpoint at `/mcp/`. LLM clients (Claude Code, Cline, Cursor, generic MCP-aware tools) call its tools to read project state and, with the right token, mutate policies.
+`app/infrastructure/mcp/` exposes an authenticated MCP endpoint at `/mcp/`. LLM clients (Claude Code, Cline, Cursor, generic MCP-aware tools) call its tools to read project state and, with the right token, mutate standards.
 
 **Defenses:**
 - All tools require `Authorization: Bearer <token>` via `app/infrastructure/mcp/middleware.py`. Tokens are SHA-256 hashed at rest in `APIToken.token_hash` (raw token never stored).
 - Each token belongs to a (user, tenant) pair via FKs on the `APIToken` model. Tool calls are scoped to that tenant.
-- Read-only tools: `validate_edit`, `validate_action`, `list_policies`, `get_policy`, `list_projects`, `resolve_project`, `get_project_status`, `get_active_policies_for_project`, `session_bootstrap`, `run_policy_test`, `export_setup_files`, `get_project_context_api`.
-- Write-capable tools: `create_policy`, `update_policy`, `delete_policy`, `set_policy_code`. These mutate workspace state and should only be granted to tokens issued for trusted clients.
+- Read-only tools: `validate_edit`, `validate_action`, `list_standards`, `get_standard`, `list_projects`, `resolve_project`, `get_project_status`, `get_active_standards_for_project`, `session_bootstrap`, `run_standard_test`, `export_setup_files`, `get_project_context_api`.
+- Write-capable tools: `create_standard`, `update_standard`, `delete_standard`, `set_standard_code`. These mutate workspace state and should only be granted to tokens issued for trusted clients.
 
 **Known limitations:**
-- **All tools are accessible from any valid token.** There is no per-tool scope (no read-only token kind). If an LLM client receives a token, it can create or delete policies in that user's tenant. Treat MCP tokens as workspace-write-capable until per-token scopes ship.
+- **All tools are accessible from any valid token.** There is no per-tool scope (no read-only token kind). If an LLM client receives a token, it can create or delete standards in that user's tenant. Treat MCP tokens as workspace-write-capable until per-token scopes ship.
 - Tool inputs may contain text from PR diffs. **An LLM driving the MCP server is exposed to prompt injection from untrusted PR content.** Mitigations: do not let the LLM auto-merge or auto-deploy based on tool outputs; require human review for any write tool the LLM chains into.
-- `run_policy_test` executes user-supplied policy code in the sandbox with mock data. The same sandbox defenses and limitations described above apply.
+- `run_standard_test` executes user-supplied standard code in the sandbox with mock data. The same sandbox defenses and limitations described above apply.
 
 ### API tokens
 

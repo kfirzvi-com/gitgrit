@@ -24,7 +24,7 @@ uv run python manage.py runserver
 - **Framework:** Django 6.x + django-allauth + django-htmx
 - **Database:** PostgreSQL
 - **Templates:** Django templates + HTMX + DaisyUI/Tailwind (CDN)
-- **Sandbox:** gVisor-sandboxed Docker containers for policy execution
+- **Sandbox:** gVisor-sandboxed Docker containers for standard execution
 - **Deployment:** Kamal (Docker-based) to AWS VM
 
 ### Key Directories
@@ -34,19 +34,19 @@ uv run python manage.py runserver
 - `app/presentation/` — Web views and URL routing
 - `app/infrastructure/` — External integrations (sandbox runner, platform clients)
 - `app/domain/` — Business logic and domain services
-- `sandbox_image/` — Docker image for sandboxed policy execution
+- `sandbox_image/` — Docker image for sandboxed standard execution
 - `config/` — Kamal deployment configuration
 
 ## Core Concepts
 
-### Policy as Code
-- Policies are version-controlled Python scripts
+### Standards as Code
+- Standards are version-controlled Python scripts
 - Executed in gVisor-sandboxed Docker containers
 - Support GitHub and GitLab integrations
 
 ### Multi-Tenant
 - Workspace-based multi-tenancy
-- Members, connections, projects, stacks, policies per workspace
+- Members, connections, projects, stacks, standards per workspace
 
 ## Deployment
 

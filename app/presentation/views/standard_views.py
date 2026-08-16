@@ -9,9 +9,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from app.application.policy_service import create_policy_version
-from app.domain.models import Policy, PolicyExecution, PolicyLabel, PolicyVersion
-from app.domain.policy_validator import validate_policy_code
+from app.application.standard_service import create_standard_version
+from app.domain.models import Standard, StandardExecution, StandardLabel, StandardVersion
+from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
@@ -21,24 +21,24 @@ LANGUAGE_CHOICES = [
 ]
 
 
-class PolicyListView(LoginRequiredMixin, ListView):
-    template_name = "pages/policy_list.html"
-    context_object_name = "policies"
+class StandardListView(LoginRequiredMixin, ListView):
+    template_name = "pages/standard_list.html"
+    context_object_name = "standards"
 
     def get_queryset(self):
         tenant = self.request.tenant
         if not tenant:
-            return Policy.objects.none()
+            return Standard.objects.none()
         return (
-            Policy.objects.filter(tenant=tenant)
+            Standard.objects.filter(tenant=tenant)
             .prefetch_related("labels")
-            .select_related("source_marketplace_policy")
+            .select_related("source_marketplace_standard")
         )
 
 
-class CreatePolicyView(LoginRequiredMixin, CreateView):
-    template_name = "pages/policy_form.html"
-    model = Policy
+class CreateStandardView(LoginRequiredMixin, CreateView):
+    template_name = "pages/standard_form.html"
+    model = Standard
     fields = ["name", "description", "code", "enabled", "draft"]
 
     def dispatch(self, request, *args, **kwargs):
@@ -51,7 +51,7 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["event_choices"] = EVENT_CHOICES
         context["language_choices"] = LANGUAGE_CHOICES
-        context["tenant_labels"] = PolicyLabel.objects.filter(tenant=self.request.tenant)
+        context["tenant_labels"] = StandardLabel.objects.filter(tenant=self.request.tenant)
         context["selected_events"] = []
         context["selected_languages"] = []
         context["selected_label_ids"] = []
@@ -61,7 +61,7 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         try:
-            validate_policy_code(form.cleaned_data.get("code", ""))
+            validate_standard_code(form.cleaned_data.get("code", ""))
         except ValueError as e:
             form.add_error("code", str(e))
             return self.form_invalid(form)
@@ -81,49 +81,49 @@ class CreatePolicyView(LoginRequiredMixin, CreateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
-        create_policy_version(self.object, self.request.user, "Created")
-        messages.success(self.request, f'Policy "{self.object.name}" created.')
-        return redirect("policy_detail", pk=self.object.pk)
+        create_standard_version(self.object, self.request.user, "Created")
+        messages.success(self.request, f'Standard "{self.object.name}" created.')
+        return redirect("standard_detail", pk=self.object.pk)
 
     def _save_labels(self):
         label_ids = self.request.POST.getlist("labels")
         new_label = self.request.POST.get("new_label", "").strip()
-        labels = list(PolicyLabel.objects.filter(pk__in=label_ids, tenant=self.request.tenant))
+        labels = list(StandardLabel.objects.filter(pk__in=label_ids, tenant=self.request.tenant))
         if new_label:
             for name in [n.strip() for n in new_label.split(",") if n.strip()]:
-                label, _ = PolicyLabel.objects.get_or_create(
+                label, _ = StandardLabel.objects.get_or_create(
                     tenant=self.request.tenant, name=name,
                 )
                 labels.append(label)
         self.object.labels.set(labels)
 
 
-class PolicyExecutionDetailView(LoginRequiredMixin, DetailView):
-    """Full detail of a single policy execution — message, violations, token
+class StandardExecutionDetailView(LoginRequiredMixin, DetailView):
+    """Full detail of a single standard execution — message, violations, token
     usage, and the chronological execution log — for debugging failures."""
 
-    template_name = "pages/policy_execution_detail.html"
+    template_name = "pages/standard_execution_detail.html"
     context_object_name = "execution"
 
     def get_queryset(self):
         tenant = self.request.tenant
         if not tenant:
-            return PolicyExecution.objects.none()
-        return PolicyExecution.objects.filter(
+            return StandardExecution.objects.none()
+        return StandardExecution.objects.filter(
             project__tenant=tenant
-        ).select_related("project", "policy")
+        ).select_related("project", "standard")
 
 
-class PolicyDetailView(LoginRequiredMixin, DetailView):
-    template_name = "pages/policy_detail.html"
-    context_object_name = "policy"
+class StandardDetailView(LoginRequiredMixin, DetailView):
+    template_name = "pages/standard_detail.html"
+    context_object_name = "standard"
 
     def get_queryset(self):
         tenant = self.request.tenant
         if not tenant:
-            return Policy.objects.none()
-        return Policy.objects.filter(tenant=tenant).select_related(
-            "source_marketplace_policy"
+            return Standard.objects.none()
+        return Standard.objects.filter(tenant=tenant).select_related(
+            "source_marketplace_standard"
         )
 
     def get_context_data(self, **kwargs):
@@ -135,22 +135,22 @@ class PolicyDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class EditPolicyView(LoginRequiredMixin, UpdateView):
-    template_name = "pages/policy_form.html"
-    model = Policy
+class EditStandardView(LoginRequiredMixin, UpdateView):
+    template_name = "pages/standard_form.html"
+    model = Standard
     fields = ["name", "description", "code", "enabled", "draft"]
 
     def get_queryset(self):
         tenant = self.request.tenant
         if not tenant:
-            return Policy.objects.none()
-        return Policy.objects.filter(tenant=tenant)
+            return Standard.objects.none()
+        return Standard.objects.filter(tenant=tenant)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["event_choices"] = EVENT_CHOICES
         context["language_choices"] = LANGUAGE_CHOICES
-        context["tenant_labels"] = PolicyLabel.objects.filter(tenant=self.request.tenant)
+        context["tenant_labels"] = StandardLabel.objects.filter(tenant=self.request.tenant)
         criteria = self.object.criteria or {}
         context["selected_events"] = criteria.get("events", [])
         context["selected_languages"] = criteria.get("languages", [])
@@ -163,7 +163,7 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         try:
-            validate_policy_code(form.cleaned_data.get("code", ""))
+            validate_standard_code(form.cleaned_data.get("code", ""))
         except ValueError as e:
             form.add_error("code", str(e))
             return self.form_invalid(form)
@@ -182,123 +182,123 @@ class EditPolicyView(LoginRequiredMixin, UpdateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
-        create_policy_version(self.object, self.request.user, "Updated")
-        messages.success(self.request, f'Policy "{self.object.name}" updated.')
-        return redirect("policy_detail", pk=self.object.pk)
+        create_standard_version(self.object, self.request.user, "Updated")
+        messages.success(self.request, f'Standard "{self.object.name}" updated.')
+        return redirect("standard_detail", pk=self.object.pk)
 
     def _save_labels(self):
         label_ids = self.request.POST.getlist("labels")
         new_label = self.request.POST.get("new_label", "").strip()
-        labels = list(PolicyLabel.objects.filter(pk__in=label_ids, tenant=self.request.tenant))
+        labels = list(StandardLabel.objects.filter(pk__in=label_ids, tenant=self.request.tenant))
         if new_label:
             for name in [n.strip() for n in new_label.split(",") if n.strip()]:
-                label, _ = PolicyLabel.objects.get_or_create(
+                label, _ = StandardLabel.objects.get_or_create(
                     tenant=self.request.tenant, name=name,
                 )
                 labels.append(label)
         self.object.labels.set(labels)
 
 
-class PolicyVersionDetailView(LoginRequiredMixin, DetailView):
-    template_name = "pages/policy_version_detail.html"
+class StandardVersionDetailView(LoginRequiredMixin, DetailView):
+    template_name = "pages/standard_version_detail.html"
     context_object_name = "version"
 
     def get_queryset(self):
         tenant = self.request.tenant
         if not tenant:
-            return PolicyVersion.objects.none()
-        return PolicyVersion.objects.filter(
-            policy__tenant=tenant
-        ).select_related("policy", "changed_by")
+            return StandardVersion.objects.none()
+        return StandardVersion.objects.filter(
+            standard__tenant=tenant
+        ).select_related("standard", "changed_by")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["policy"] = self.object.policy
-        ctx["is_current"] = not PolicyVersion.objects.filter(
-            policy=self.object.policy, version__gt=self.object.version
+        ctx["standard"] = self.object.standard
+        ctx["is_current"] = not StandardVersion.objects.filter(
+            standard=self.object.standard, version__gt=self.object.version
         ).exists()
         return ctx
 
 
 @login_required
 @require_POST
-def revert_policy_version(request, pk):
+def revert_standard_version(request, pk):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("policy_list")
+        return redirect("standard_list")
 
     version = get_object_or_404(
-        PolicyVersion, pk=pk, policy__tenant=tenant
+        StandardVersion, pk=pk, standard__tenant=tenant
     )
-    policy = version.policy
-    policy.code = version.code
-    policy.description = version.description
-    policy.criteria = version.criteria
-    policy.test_cases = version.test_cases
-    policy.save()
+    standard = version.standard
+    standard.code = version.code
+    standard.description = version.description
+    standard.criteria = version.criteria
+    standard.test_cases = version.test_cases
+    standard.save()
 
     # Restore labels
     label_objs = []
     for name in version.labels_snapshot:
-        label, _ = PolicyLabel.objects.get_or_create(
+        label, _ = StandardLabel.objects.get_or_create(
             tenant=tenant, name=name
         )
         label_objs.append(label)
-    policy.labels.set(label_objs)
+    standard.labels.set(label_objs)
 
-    create_policy_version(policy, request.user, f"Reverted to v{version.version}")
+    create_standard_version(standard, request.user, f"Reverted to v{version.version}")
 
-    messages.success(request, f'Reverted "{policy.name}" to v{version.version}.')
-    return redirect("policy_detail", pk=policy.pk)
-
-
-@login_required
-@require_POST
-def delete_policy(request, pk):
-    tenant = request.tenant
-    if not tenant:
-        messages.error(request, "No active workspace.")
-        return redirect("policy_list")
-
-    policy = get_object_or_404(Policy, pk=pk, tenant=tenant)
-    name = policy.name
-    policy.delete()
-    messages.success(request, f'Policy "{name}" deleted.')
-    return redirect("policy_list")
+    messages.success(request, f'Reverted "{standard.name}" to v{version.version}.')
+    return redirect("standard_detail", pk=standard.pk)
 
 
 @login_required
 @require_POST
-def toggle_policy(request, pk):
+def delete_standard(request, pk):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("policy_list")
+        return redirect("standard_list")
 
-    policy = get_object_or_404(Policy, pk=pk, tenant=tenant)
-    policy.enabled = not policy.enabled
-    policy.save(update_fields=["enabled", "updated_at"])
+    standard = get_object_or_404(Standard, pk=pk, tenant=tenant)
+    name = standard.name
+    standard.delete()
+    messages.success(request, f'Standard "{name}" deleted.')
+    return redirect("standard_list")
+
+
+@login_required
+@require_POST
+def toggle_standard(request, pk):
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("standard_list")
+
+    standard = get_object_or_404(Standard, pk=pk, tenant=tenant)
+    standard.enabled = not standard.enabled
+    standard.save(update_fields=["enabled", "updated_at"])
 
     if request.headers.get("HX-Request"):
-        label = "Enabled" if policy.enabled else "Disabled"
-        badge_class = "badge-success" if policy.enabled else "badge-ghost"
-        url = reverse("toggle_policy", kwargs={"pk": policy.pk})
+        label = "Enabled" if standard.enabled else "Disabled"
+        badge_class = "badge-success" if standard.enabled else "badge-ghost"
+        url = reverse("toggle_standard", kwargs={"pk": standard.pk})
         return HttpResponse(
             f'<span hx-post="{url}" hx-swap="outerHTML"'
             f' class="badge {badge_class} badge-sm cursor-pointer"'
             f' title="Click to toggle">{label}</span>'
         )
 
-    state = "enabled" if policy.enabled else "disabled"
-    messages.success(request, f'Policy "{policy.name}" {state}.')
-    return redirect("policy_list")
+    state = "enabled" if standard.enabled else "disabled"
+    messages.success(request, f'Standard "{standard.name}" {state}.')
+    return redirect("standard_list")
 
 
 @login_required
 @require_POST
-def run_policy_test(request):
-    """Run policy code against a test case input. Returns JSON result."""
+def run_standard_test(request):
+    """Run standard code against a test case input. Returns JSON result."""
     try:
         body = json.loads(request.body)
     except json.JSONDecodeError:
@@ -308,7 +308,7 @@ def run_policy_test(request):
     mock_data = body.get("input", {})
 
     if not code.strip():
-        return JsonResponse({"error": "No policy code provided"}, status=400)
+        return JsonResponse({"error": "No standard code provided"}, status=400)
 
     input_config = {
         "platform": "mock",
@@ -317,10 +317,10 @@ def run_policy_test(request):
         "mock_data": mock_data,
     }
 
-    # Make LLM policies testable in the editor: attach the workspace's roles so
+    # Make LLM standards testable in the editor: attach the workspace's roles so
     # evaluate(project, llm) runs against the mock repo just like a real run.
     if request.tenant:
-        from app.application.policy_engine import resolve_llm_roles
+        from app.application.standard_engine import resolve_llm_roles
 
         llm_roles = resolve_llm_roles(request.tenant)
         if llm_roles:

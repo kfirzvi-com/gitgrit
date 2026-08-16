@@ -1,4 +1,4 @@
-"""View tests for the policy execution detail page."""
+"""View tests for the standard execution detail page."""
 import pytest
 from django.test import TestCase, override_settings
 from model_bakery import baker
@@ -13,7 +13,7 @@ NON_MANIFEST_STORAGES = {
 
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
-class TestPolicyExecutionDetailView(TestCase):
+class TestStandardExecutionDetailView(TestCase):
     def _login(self, role="admin"):
         user = baker.make("app.User")
         tenant = baker.make("app.Tenant")
@@ -25,7 +25,7 @@ class TestPolicyExecutionDetailView(TestCase):
         project = baker.make("app.Project", tenant=tenant)
         defaults = dict(
             project=project,
-            policy_name="Documentation Quality (LLM)",
+            standard_name="Documentation Quality (LLM)",
             status="failed",
             score=0,
             message="The docs have significant gaps.",
@@ -47,7 +47,7 @@ class TestPolicyExecutionDetailView(TestCase):
             ],
         )
         defaults.update(kw)
-        return baker.make("app.PolicyExecution", **defaults)
+        return baker.make("app.StandardExecution", **defaults)
 
     def test_anonymous_redirects(self):
         tenant = baker.make("app.Tenant")

@@ -1,6 +1,6 @@
 from . import (  # noqa: F401
     enforcement,
-    policies,
+    standards,
     project_status,
     projects,
     prompts,

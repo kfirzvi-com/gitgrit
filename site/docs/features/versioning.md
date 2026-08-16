@@ -1,10 +1,10 @@
-# Policy Versioning
+# Standard Versioning
 
-Every change to a policy is tracked as a version, giving you a full audit trail of who changed what and when.
+Every change to a standard is tracked as a version, giving you a full audit trail of who changed what and when.
 
 ## What's tracked
 
-A version snapshot is created whenever a policy is:
+A version snapshot is created whenever a standard is:
 
 - **Created** — v1
 - **Edited** — v2, v3, ...
@@ -16,7 +16,7 @@ Each version stores: code, description, criteria, test cases, labels, the user w
 
 ## Viewing history
 
-On any policy detail page, scroll down to the **Version History** table. You'll see:
+On any standard detail page, scroll down to the **Version History** table. You'll see:
 
 | Column | Description |
 |--------|-------------|
@@ -27,7 +27,7 @@ On any policy detail page, scroll down to the **Version History** table. You'll 
 
 ## Reverting
 
-Click **Revert** on any older version to restore the policy to that state. This creates a *new* version (non-destructive) — your history is preserved.
+Click **Revert** on any older version to restore the standard to that state. This creates a *new* version (non-destructive) — your history is preserved.
 
 ## Version detail
 

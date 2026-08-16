@@ -5,7 +5,7 @@ import json
 from model_bakery import baker
 from rest_framework.test import APITestCase
 
-from app.domain.models import PolicyExecution
+from app.domain.models import StandardExecution
 
 
 def _github_sig(secret: str, body: bytes) -> str:
@@ -34,20 +34,20 @@ class TestGitHubWebhookView(APITestCase):
         assert response.data["platform"] == "github"
         assert response.data["event_type"] == "push"
         assert response.data["external_project_id"] == "99999"
-        assert response.data["policies_run"] == 0
+        assert response.data["standards_run"] == 0
         assert response.data["results"] == []
 
-    def test_matching_project_no_policies_returns_zero_policies_run(self):
+    def test_matching_project_no_standards_returns_zero_standards_run(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         baker.make("app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="42")
 
         response = self._post({"repository": {"id": 42}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
-        assert response.data["policies_run"] == 0
+        assert response.data["standards_run"] == 0
         assert response.data["results"] == []
 
-    def test_matching_project_with_policy_creates_execution_record(self):
+    def test_matching_project_with_standard_creates_execution_record(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         project = baker.make(
@@ -57,8 +57,8 @@ class TestGitHubWebhookView(APITestCase):
             platform="github",
             external_id="100",
         )
-        policy = baker.make(
-            "app.Policy",
+        standard = baker.make(
+            "app.Standard",
             tenant=tenant,
             enabled=True,
             draft=False,
@@ -70,26 +70,26 @@ class TestGitHubWebhookView(APITestCase):
         )
 
         assert response.status_code == 200
-        assert response.data["policies_run"] == 1
+        assert response.data["standards_run"] == 1
 
         result = response.data["results"][0]
-        assert result["policy_name"] == policy.name
+        assert result["standard_name"] == standard.name
         assert result["project_name"] == project.name
 
-        execution = PolicyExecution.objects.get(project=project, policy=policy)
+        execution = StandardExecution.objects.get(project=project, standard=standard)
         assert execution.event_type == "push"
         assert execution.triggered_by == "octocat"
         assert execution.ref == "refs/heads/main"
-        assert execution.status in PolicyExecution.Status.values
+        assert execution.status in StandardExecution.Status.values
 
-    def test_policy_not_matching_event_is_skipped(self):
+    def test_standard_not_matching_event_is_skipped(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="111"
         )
         baker.make(
-            "app.Policy",
+            "app.Standard",
             tenant=tenant,
             enabled=True,
             draft=False,
@@ -98,17 +98,17 @@ class TestGitHubWebhookView(APITestCase):
 
         response = self._post({"repository": {"id": 111}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
-        assert response.data["policies_run"] == 0
-        assert not PolicyExecution.objects.filter(project=project).exists()
+        assert response.data["standards_run"] == 0
+        assert not StandardExecution.objects.filter(project=project).exists()
 
-    def test_disabled_policy_is_not_run(self):
+    def test_disabled_standard_is_not_run(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="222"
         )
         baker.make(
-            "app.Policy",
+            "app.Standard",
             tenant=tenant,
             enabled=False,
             draft=False,
@@ -117,17 +117,17 @@ class TestGitHubWebhookView(APITestCase):
 
         response = self._post({"repository": {"id": 222}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
-        assert response.data["policies_run"] == 0
-        assert not PolicyExecution.objects.filter(project=project).exists()
+        assert response.data["standards_run"] == 0
+        assert not StandardExecution.objects.filter(project=project).exists()
 
-    def test_draft_policy_is_not_run(self):
+    def test_draft_standard_is_not_run(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="333"
         )
         baker.make(
-            "app.Policy",
+            "app.Standard",
             tenant=tenant,
             enabled=True,
             draft=True,
@@ -136,8 +136,8 @@ class TestGitHubWebhookView(APITestCase):
 
         response = self._post({"repository": {"id": 333}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
-        assert response.data["policies_run"] == 0
-        assert not PolicyExecution.objects.filter(project=project).exists()
+        assert response.data["standards_run"] == 0
+        assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_pull_request_event_maps_to_merge_request(self):
         response = self._post({"repository": {"id": 77777}, "sender": {"login": "octocat"}}, event="pull_request")
@@ -149,20 +149,20 @@ class TestGitHubWebhookView(APITestCase):
         assert response.status_code == 200
         assert response.data["event_type"] == "deployment"
 
-    def test_multiple_policies_all_executed(self):
+    def test_multiple_standards_all_executed(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="444"
         )
-        baker.make("app.Policy", tenant=tenant, enabled=True, draft=False, criteria={"events": ["push"]}, _quantity=3)
+        baker.make("app.Standard", tenant=tenant, enabled=True, draft=False, criteria={"events": ["push"]}, _quantity=3)
 
         response = self._post({"repository": {"id": 444}, "ref": "refs/heads/main", "sender": {"login": "octocat"}})
         assert response.status_code == 200
-        assert response.data["policies_run"] == 3
-        assert PolicyExecution.objects.filter(project=project).count() == 3
+        assert response.data["standards_run"] == 3
+        assert StandardExecution.objects.filter(project=project).count() == 3
 
-    def test_policy_from_different_tenant_is_not_run(self):
+    def test_standard_from_different_tenant_is_not_run(self):
         tenant = baker.make("app.Tenant")
         other_tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
@@ -170,7 +170,7 @@ class TestGitHubWebhookView(APITestCase):
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="555"
         )
         baker.make(
-            "app.Policy",
+            "app.Standard",
             tenant=other_tenant,
             enabled=True,
             draft=False,
@@ -179,8 +179,8 @@ class TestGitHubWebhookView(APITestCase):
 
         response = self._post({"repository": {"id": 555}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
-        assert response.data["policies_run"] == 0
-        assert not PolicyExecution.objects.filter(project=project).exists()
+        assert response.data["standards_run"] == 0
+        assert not StandardExecution.objects.filter(project=project).exists()
 
 
 class TestGitHubWebhookSignatureVerification(APITestCase):
@@ -409,9 +409,9 @@ class TestGitLabWebhookView(APITestCase):
         assert response.data["platform"] == "gitlab"
         assert response.data["event_type"] == "push"
         assert response.data["external_project_id"] == "55555"
-        assert response.data["policies_run"] == 0
+        assert response.data["standards_run"] == 0
 
-    def test_matching_project_no_policies_returns_zero_policies_run(self):
+    def test_matching_project_no_standards_returns_zero_standards_run(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="gitlab")
         baker.make(
@@ -422,7 +422,7 @@ class TestGitLabWebhookView(APITestCase):
             {"object_kind": "push", "project_id": 200, "project": {"id": 200}, "user_username": "gitlabuser"}
         )
         assert response.status_code == 200
-        assert response.data["policies_run"] == 0
+        assert response.data["standards_run"] == 0
 
     def test_event_name_takes_precedence_over_object_kind(self):
         response = self._post(
@@ -431,14 +431,14 @@ class TestGitLabWebhookView(APITestCase):
         assert response.status_code == 200
         assert response.data["event_type"] == "tag_push"
 
-    def test_matching_project_with_policy_creates_execution_record(self):
+    def test_matching_project_with_standard_creates_execution_record(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="gitlab")
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="gitlab", external_id="300"
         )
-        policy = baker.make(
-            "app.Policy",
+        standard = baker.make(
+            "app.Standard",
             tenant=tenant,
             enabled=True,
             draft=False,
@@ -456,13 +456,13 @@ class TestGitLabWebhookView(APITestCase):
         )
 
         assert response.status_code == 200
-        assert response.data["policies_run"] == 1
+        assert response.data["standards_run"] == 1
 
         result = response.data["results"][0]
-        assert result["policy_name"] == policy.name
+        assert result["standard_name"] == standard.name
         assert result["project_name"] == project.name
 
-        execution = PolicyExecution.objects.get(project=project, policy=policy)
+        execution = StandardExecution.objects.get(project=project, standard=standard)
         assert execution.event_type == "push"
         assert execution.triggered_by == "gitlabuser"
-        assert execution.status in PolicyExecution.Status.values
+        assert execution.status in StandardExecution.Status.values

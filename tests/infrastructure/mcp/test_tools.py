@@ -7,24 +7,24 @@ from mcp.server.fastmcp.prompts.base import UserMessage
 from rest_framework.test import APITestCase
 
 from app.infrastructure.mcp import context
-from app.infrastructure.mcp.tools import policies, project_status, projects, reference, testing
-from app.infrastructure.mcp.tools.policies import (
-    create_policy,
-    delete_policy,
-    get_policy,
-    list_policies,
-    update_policy,
+from app.infrastructure.mcp.tools import standards, project_status, projects, reference, testing
+from app.infrastructure.mcp.tools.standards import (
+    create_standard,
+    delete_standard,
+    get_standard,
+    list_standards,
+    update_standard,
 )
 from app.infrastructure.mcp.tools.project_status import (
-    get_active_policies_for_project,
+    get_active_standards_for_project,
     get_project_status,
     resolve_project,
     session_bootstrap,
 )
 from app.infrastructure.mcp.tools.projects import list_projects
-from app.infrastructure.mcp.tools.prompts import audit_workspace, write_policy_from_requirement
+from app.infrastructure.mcp.tools.prompts import audit_workspace, write_standard_from_requirement
 from app.infrastructure.mcp.tools.reference import get_project_context_api
-from app.infrastructure.mcp.tools.testing import run_policy_test
+from app.infrastructure.mcp.tools.testing import run_standard_test
 
 
 class _AuthedTestCase(APITestCase):
@@ -39,22 +39,22 @@ class _AuthedTestCase(APITestCase):
         context.reset_auth(self._ctx_token)
 
 
-class TestPolicyTools(_AuthedTestCase):
-    def test_list_policies_passes_tenant(self):
-        with patch.object(policies._service, "list_policies", return_value=[{"id": "1"}]) as mock:
-            result = asyncio.run(list_policies())
+class TestStandardTools(_AuthedTestCase):
+    def test_list_standards_passes_tenant(self):
+        with patch.object(standards._service, "list_standards", return_value=[{"id": "1"}]) as mock:
+            result = asyncio.run(list_standards())
         mock.assert_called_once_with(self.tenant)
         assert result == [{"id": "1"}]
 
-    def test_get_policy_passes_tenant_and_id(self):
-        with patch.object(policies._service, "get_policy", return_value={"id": "abc"}) as mock:
-            result = asyncio.run(get_policy("abc"))
+    def test_get_standard_passes_tenant_and_id(self):
+        with patch.object(standards._service, "get_standard", return_value={"id": "abc"}) as mock:
+            result = asyncio.run(get_standard("abc"))
         mock.assert_called_once_with(self.tenant, "abc")
         assert result == {"id": "abc"}
 
-    def test_create_policy_passes_user_tenant_and_data(self):
-        with patch.object(policies._service, "create_policy", return_value={"id": "new"}) as mock:
-            result = asyncio.run(create_policy(name="P", code="def evaluate(p): ..."))
+    def test_create_standard_passes_user_tenant_and_data(self):
+        with patch.object(standards._service, "create_standard", return_value={"id": "new"}) as mock:
+            result = asyncio.run(create_standard(name="P", code="def evaluate(p): ..."))
         args = mock.call_args
         assert args[0][0] == self.tenant
         assert args[0][1] == self.user
@@ -63,33 +63,33 @@ class TestPolicyTools(_AuthedTestCase):
         assert data["code"] == "def evaluate(p): ..."
         assert result == {"id": "new"}
 
-    def test_create_policy_defaults_events_and_labels_to_empty_lists(self):
-        with patch.object(policies._service, "create_policy", return_value={}) as mock:
-            asyncio.run(create_policy(name="P", code="..."))
+    def test_create_standard_defaults_events_and_labels_to_empty_lists(self):
+        with patch.object(standards._service, "create_standard", return_value={}) as mock:
+            asyncio.run(create_standard(name="P", code="..."))
         data = mock.call_args[0][2]
         assert data["events"] == []
         assert data["labels"] == []
         assert data["languages"] == []
 
-    def test_update_policy_only_sends_non_none_fields(self):
-        with patch.object(policies._service, "update_policy", return_value={}) as mock:
-            asyncio.run(update_policy("abc", name="NewName"))
+    def test_update_standard_only_sends_non_none_fields(self):
+        with patch.object(standards._service, "update_standard", return_value={}) as mock:
+            asyncio.run(update_standard("abc", name="NewName"))
         data = mock.call_args[0][3]
         assert "name" in data
         assert data["name"] == "NewName"
         assert "code" not in data
         assert "description" not in data
 
-    def test_update_policy_always_includes_change_summary(self):
-        with patch.object(policies._service, "update_policy", return_value={}) as mock:
-            asyncio.run(update_policy("abc", name="X"))
+    def test_update_standard_always_includes_change_summary(self):
+        with patch.object(standards._service, "update_standard", return_value={}) as mock:
+            asyncio.run(update_standard("abc", name="X"))
         data = mock.call_args[0][3]
         assert "change_summary" in data
 
-    def test_delete_policy_returns_confirmed_dict(self):
-        with patch.object(policies._service, "delete_policy", return_value=None):
-            result = asyncio.run(delete_policy("abc"))
-        assert result == {"deleted": True, "policy_id": "abc"}
+    def test_delete_standard_returns_confirmed_dict(self):
+        with patch.object(standards._service, "delete_standard", return_value=None):
+            result = asyncio.run(delete_standard("abc"))
+        assert result == {"deleted": True, "standard_id": "abc"}
 
 
 class TestProjectTools(_AuthedTestCase):
@@ -121,7 +121,7 @@ class TestProjectStatusTools(_AuthedTestCase):
         mock.assert_called_once_with(self.tenant, "abc")
         assert result == {"grade": "good"}
 
-    def test_get_active_policies_passes_tenant_and_id(self):
+    def test_get_active_standards_passes_tenant_and_id(self):
         sample = {
             "id": "p",
             "rules": {
@@ -133,18 +133,18 @@ class TestProjectStatusTools(_AuthedTestCase):
             },
         }
         with patch.object(
-            project_status._policy_service,
+            project_status._standard_service,
             "list_active_for_project",
             return_value=[sample],
         ) as mock:
-            result = asyncio.run(get_active_policies_for_project("abc"))
+            result = asyncio.run(get_active_standards_for_project("abc"))
         mock.assert_called_once_with(self.tenant, "abc")
         assert result[0]["rules"]["watched_files"] == ["README.md"]
 
     def test_session_bootstrap_fans_out_to_three_services(self):
         project = {"id": "p1", "name": "backend", "matched_by": "full_path"}
         status = {"grade": "good", "overall_score": 85}
-        policies_list = [{"id": "pol1", "rules": {"watched_files": []}}]
+        standards_list = [{"id": "pol1", "rules": {"watched_files": []}}]
         with (
             patch.object(
                 project_status._project_service,
@@ -157,22 +157,22 @@ class TestProjectStatusTools(_AuthedTestCase):
                 return_value=status,
             ) as status_mock,
             patch.object(
-                project_status._policy_service,
+                project_status._standard_service,
                 "list_active_for_project",
-                return_value=policies_list,
-            ) as policies_mock,
+                return_value=standards_list,
+            ) as standards_mock,
         ):
             result = asyncio.run(
                 session_bootstrap(repo_full_path="acme/backend")
             )
         resolve_mock.assert_called_once_with(self.tenant, "acme/backend", None)
         status_mock.assert_called_once_with(self.tenant, "p1")
-        policies_mock.assert_called_once_with(self.tenant, "p1")
-        assert result == {"project": project, "status": status, "policies": policies_list}
+        standards_mock.assert_called_once_with(self.tenant, "p1")
+        assert result == {"project": project, "status": status, "standards": standards_list}
 
-    def test_session_bootstrap_match_no_policies(self):
+    def test_session_bootstrap_match_no_standards(self):
         project = {"id": "p1", "name": "backend", "matched_by": "full_path"}
-        status = {"grade": "unknown", "overall_score": None, "total_policies": 0}
+        status = {"grade": "unknown", "overall_score": None, "total_standards": 0}
         with (
             patch.object(
                 project_status._project_service,
@@ -185,15 +185,15 @@ class TestProjectStatusTools(_AuthedTestCase):
                 return_value=status,
             ),
             patch.object(
-                project_status._policy_service,
+                project_status._standard_service,
                 "list_active_for_project",
                 return_value=[],
             ),
         ):
             result = asyncio.run(session_bootstrap(repo_full_path="acme/backend"))
-        # Project resolved but zero applicable policies — wire shape still has all
-        # three keys; policies is the empty list (not None).
-        assert result == {"project": project, "status": status, "policies": []}
+        # Project resolved but zero applicable standards — wire shape still has all
+        # three keys; standards is the empty list (not None).
+        assert result == {"project": project, "status": status, "standards": []}
 
     def test_session_bootstrap_stable_shape_on_project_error(self):
         error_project = {"error": "no_match", "candidates": [{"full_path": "x/y"}]}
@@ -207,18 +207,18 @@ class TestProjectStatusTools(_AuthedTestCase):
                 project_status._status_service, "get_project_status"
             ) as status_mock,
             patch.object(
-                project_status._policy_service, "list_active_for_project"
-            ) as policies_mock,
+                project_status._standard_service, "list_active_for_project"
+            ) as standards_mock,
         ):
             result = asyncio.run(session_bootstrap(repo_full_path="x/y"))
-        # On project error, status and policies are not called — and the result
+        # On project error, status and standards are not called — and the result
         # still carries all three keys with null for the missing data.
         status_mock.assert_not_called()
-        policies_mock.assert_not_called()
+        standards_mock.assert_not_called()
         assert result == {
             "project": error_project,
             "status": None,
-            "policies": None,
+            "standards": None,
         }
 
 
@@ -231,40 +231,40 @@ class TestReferenceTools(_AuthedTestCase):
 
 
 class TestTestingTools(APITestCase):
-    def test_run_policy_test_calls_sandbox(self):
+    def test_run_standard_test_calls_sandbox(self):
         mock_input = {"files": []}
-        with patch.object(testing._service, "run_policy_test", return_value={"passed": True}) as mock:
-            result = run_policy_test("def evaluate(p): ...", mock_input)
+        with patch.object(testing._service, "run_standard_test", return_value={"passed": True}) as mock:
+            result = run_standard_test("def evaluate(p): ...", mock_input)
         mock.assert_called_once_with("def evaluate(p): ...", mock_input)
         assert result == {"passed": True}
 
-    def test_run_policy_test_defaults_mock_input_to_empty_dict(self):
-        with patch.object(testing._service, "run_policy_test", return_value={}) as mock:
-            run_policy_test("code")
+    def test_run_standard_test_defaults_mock_input_to_empty_dict(self):
+        with patch.object(testing._service, "run_standard_test", return_value={}) as mock:
+            run_standard_test("code")
         mock.assert_called_once_with("code", {})
 
-    def test_run_policy_test_works_without_auth_context(self):
-        with patch.object(testing._service, "run_policy_test", return_value={"passed": False}):
-            result = run_policy_test("code")
+    def test_run_standard_test_works_without_auth_context(self):
+        with patch.object(testing._service, "run_standard_test", return_value={"passed": False}):
+            result = run_standard_test("code")
         assert result == {"passed": False}
 
 
 class TestPromptTools:
-    def test_write_policy_prompt_returns_one_user_message(self):
-        result = write_policy_from_requirement(requirement="every repo must have a README")
+    def test_write_standard_prompt_returns_one_user_message(self):
+        result = write_standard_from_requirement(requirement="every repo must have a README")
         assert len(result) == 1
         assert isinstance(result[0], UserMessage)
 
-    def test_write_policy_prompt_contains_requirement_text(self):
-        result = write_policy_from_requirement(requirement="every repo must have a README")
+    def test_write_standard_prompt_contains_requirement_text(self):
+        result = write_standard_from_requirement(requirement="every repo must have a README")
         assert "README" in result[0].content.text
 
-    def test_write_policy_prompt_with_language_includes_language(self):
-        result = write_policy_from_requirement(requirement="check CI", language="python")
+    def test_write_standard_prompt_with_language_includes_language(self):
+        result = write_standard_from_requirement(requirement="check CI", language="python")
         assert "python" in result[0].content.text
 
-    def test_write_policy_prompt_without_language_omits_language_step(self):
-        result = write_policy_from_requirement(requirement="check CI")
+    def test_write_standard_prompt_without_language_omits_language_step(self):
+        result = write_standard_from_requirement(requirement="check CI")
         assert "languages=" not in result[0].content.text
 
     def test_audit_workspace_returns_one_user_message(self):

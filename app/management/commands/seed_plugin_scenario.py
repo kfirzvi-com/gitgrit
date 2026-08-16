@@ -1,6 +1,6 @@
-"""Seed a minimal tenant + project + policy + APIToken for plugin integration tests.
+"""Seed a minimal tenant + project + standard + APIToken for plugin integration tests.
 
-Idempotent on the tenant/user/connection/project/policy; always mints a fresh
+Idempotent on the tenant/user/connection/project/standard; always mints a fresh
 APIToken per invocation (tokens aren't readable after creation, so the script
 has to print one at some point).
 
@@ -20,14 +20,14 @@ from app.domain.models import (
     APIToken,
     Membership,
     PlatformConnection,
-    Policy,
+    Standard,
     Project,
     Tenant,
     User,
 )
 
-# Policy that forbids "TODO" markers — used by Layer 4's violating-edit scenario.
-_POLICY_CODE = '''def evaluate(project):
+# Standard that forbids "TODO" markers — used by Layer 4's violating-edit scenario.
+_STANDARD_CODE = '''def evaluate(project):
     """Fail if any tracked source file contains a TODO marker."""
     offenders = []
     for path in project.list_files():
@@ -53,7 +53,7 @@ _POLICY_CODE = '''def evaluate(project):
 
 
 class Command(BaseCommand):
-    help = "Seed a minimal GitGrit scenario (tenant/project/policy/token) for plugin tests."
+    help = "Seed a minimal GitGrit scenario (tenant/project/standard/token) for plugin tests."
 
     def add_arguments(self, parser):
         parser.add_argument("--tenant-slug", default="plugin-test")
@@ -63,11 +63,11 @@ class Command(BaseCommand):
         parser.add_argument("--project-name", default="acme/backend")
         parser.add_argument("--token-name", default="plugin-scenario")
         parser.add_argument(
-            "--no-policies",
+            "--no-standards",
             action="store_true",
             help=(
-                "Skip creating the No-TODOs policy and disable any existing policies "
-                "for the tenant. Used by the empty-policies plugin scenario."
+                "Skip creating the No-TODOs standard and disable any existing standards "
+                "for the tenant. Used by the empty-standards plugin scenario."
             ),
         )
 
@@ -108,19 +108,19 @@ class Command(BaseCommand):
                 "languages": ["Python", "JavaScript"],
             },
         )
-        if opts["no_policies"]:
-            # Empty-policies scenario: ensure no enabled, non-draft policies remain
+        if opts["no_standards"]:
+            # Empty-standards scenario: ensure no enabled, non-draft standards remain
             # for this tenant so `list_active_for_project` returns []. Disabling
             # (rather than deleting) keeps re-runs idempotent — a subsequent
             # default seed will re-enable via update_or_create on the same name.
-            Policy.objects.filter(tenant=tenant).update(enabled=False)
+            Standard.objects.filter(tenant=tenant).update(enabled=False)
         else:
-            Policy.objects.update_or_create(
+            Standard.objects.update_or_create(
                 tenant=tenant,
                 name="No TODOs in source",
                 defaults={
                     "description": "Fails if any tracked Python/JS/TS file contains a TODO marker.",
-                    "code": _POLICY_CODE,
+                    "code": _STANDARD_CODE,
                     "criteria": {
                         "events": ["push", "pull_request"],
                         "ref": "",

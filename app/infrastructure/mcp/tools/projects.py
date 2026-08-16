@@ -12,7 +12,7 @@ async def list_projects() -> list[dict]:
     """List all projects connected to the current workspace.
 
     Useful for understanding what languages and platforms are in use
-    before writing targeted policies.
+    before writing targeted standards.
     """
     tenant = get_auth().tenant
     return await sync_to_async(_service.list_projects)(tenant)

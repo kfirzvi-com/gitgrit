@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if is_edit %}Edit {{ form.instance.name }}{% else %}New Policy{% endif %} — GitGrit{% endblock %}
+{% block title %}{% if is_edit %}Edit {{ form.instance.name }}{% else %}New Standard{% endif %} — GitGrit{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
-  <a href="{% url 'policy_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Policies</a>
-  <h1 class="text-3xl font-bold mb-6">{% if is_edit %}Edit Policy{% else %}New Policy{% endif %}</h1>
+  <a href="{% url 'standard_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Standards</a>
+  <h1 class="text-3xl font-bold mb-6">{% if is_edit %}Edit Standard{% else %}New Standard{% endif %}</h1>
 
-  <form method="post" id="policy-form" class="card bg-base-100 shadow-xl">
+  <form method="post" id="standard-form" class="card bg-base-100 shadow-xl">
     {% csrf_token %}
     <div class="card-body space-y-4">
       <div class="form-control">
@@ -31,7 +31,7 @@
         </label>
         <textarea name="description" id="id_description" rows="2"
                   class="textarea textarea-bordered w-full"
-                  placeholder="What does this policy check?">{{ form.instance.description|default:'' }}</textarea>
+                  placeholder="What does this standard check?">{{ form.instance.description|default:'' }}</textarea>
       </div>
 
       <div class="form-control">
@@ -54,7 +54,7 @@
           <input type="text" name="new_label" class="input input-bordered input-sm flex-1"
                  placeholder="Add new labels (comma-separated)">
         </div>
-        <p class="text-xs opacity-60 mt-1">Categorize policies for filtering (e.g. security, quality, documentation).</p>
+        <p class="text-xs opacity-60 mt-1">Categorize standards for filtering (e.g. security, quality, documentation).</p>
       </div>
 
       <div class="form-control">
@@ -142,7 +142,7 @@
       </div>
 
       <div class="card-actions justify-end mt-4">
-        <a href="{% url 'policy_list' %}" class="btn btn-ghost">Cancel</a>
+        <a href="{% url 'standard_list' %}" class="btn btn-ghost">Cancel</a>
         <button type="submit" class="btn btn-primary">{% if is_edit %}Save{% else %}Create{% endif %}</button>
       </div>
     </div>
@@ -162,8 +162,8 @@ function switchTab(tab) {
 {{ form.instance.test_cases|json_script:"test-cases-data" }}
 
 <script type="module">
-import { initPolicyEditor, createJsonEditor } from "{% static 'app/policy-editor.js' %}";
-initPolicyEditor("id_code");
+import { initStandardEditor, createJsonEditor } from "{% static 'app/standard-editor.js' %}";
+initStandardEditor("id_code");
 
 const DEFAULT_INPUT = {
   list_files: ["README.md", "src/main.py"],
@@ -265,7 +265,7 @@ function renderTestCase(tc, index) {
     }
 
     try {
-      const resp = await fetch('{% url "run_policy_test" %}', {
+      const resp = await fetch('{% url "run_standard_test" %}', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -353,6 +353,6 @@ if (testCases.length > 0) {
 }
 
 // Sync before submit
-document.getElementById('policy-form').addEventListener('submit', syncHiddenField);
+document.getElementById('standard-form').addEventListener('submit', syncHiddenField);
 </script>
 {% endblock %}

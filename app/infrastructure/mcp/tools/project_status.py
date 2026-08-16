@@ -1,6 +1,6 @@
 from asgiref.sync import sync_to_async
 
-from app.application.policy_service import PolicyService
+from app.application.standard_service import StandardService
 from app.application.project_service import ProjectService
 from app.application.project_status_service import ProjectStatusService
 from app.infrastructure.mcp.context import get_auth
@@ -8,7 +8,7 @@ from app.infrastructure.mcp.registry import register
 
 _project_service = ProjectService()
 _status_service = ProjectStatusService()
-_policy_service = PolicyService()
+_standard_service = StandardService()
 
 
 @register
@@ -22,7 +22,7 @@ async def resolve_project(
     close matches.
 
     Deprecated for plugin use; prefer ``session_bootstrap`` for SessionStart,
-    which fans out project + status + policies in a single round-trip. Retained
+    which fans out project + status + standards in a single round-trip. Retained
     for external MCP clients.
     """
     tenant = get_auth().tenant
@@ -33,12 +33,12 @@ async def resolve_project(
 
 @register
 async def get_project_status(project_id: str) -> dict:
-    """Return overall compliance grade and top offending policies for a project.
+    """Return overall compliance grade and top offending standards for a project.
 
     If you don't have a project_id yet, call ``session_bootstrap`` first with the
     git remote URL or the org/repo path.
 
-    Aggregates the latest execution per policy.
+    Aggregates the latest execution per standard.
 
     Deprecated for plugin use; prefer ``session_bootstrap`` for SessionStart.
     Retained for external MCP clients.
@@ -48,13 +48,13 @@ async def get_project_status(project_id: str) -> dict:
 
 
 @register
-async def get_active_policies_for_project(project_id: str) -> list[dict]:
-    """Return all active, non-draft policies applicable to a project.
+async def get_active_standards_for_project(project_id: str) -> list[dict]:
+    """Return all active, non-draft standards applicable to a project.
 
     If you don't have a project_id yet, call ``session_bootstrap`` first with the
     git remote URL or the org/repo path.
 
-    Each policy carries a ``rules`` block (watched files, kind-tagged forbidden
+    Each standard carries a ``rules`` block (watched files, kind-tagged forbidden
     patterns, and local-enforceability / completeness flags) produced by the
     server-side extractor; raw ``code`` is not shipped. Only language-match is
     applied — events and ref patterns are webhook-time filters and are omitted
@@ -64,7 +64,7 @@ async def get_active_policies_for_project(project_id: str) -> list[dict]:
     Retained for external MCP clients.
     """
     tenant = get_auth().tenant
-    return await sync_to_async(_policy_service.list_active_for_project)(
+    return await sync_to_async(_standard_service.list_active_for_project)(
         tenant, project_id
     )
 
@@ -73,16 +73,16 @@ async def get_active_policies_for_project(project_id: str) -> list[dict]:
 async def session_bootstrap(
     repo_full_path: str | None = None, web_url: str | None = None
 ) -> dict:
-    """One-shot SessionStart bootstrap: project + status + active policies.
+    """One-shot SessionStart bootstrap: project + status + active standards.
 
     Fans out the work previously done by three sequential tool calls
-    (``resolve_project`` → ``get_project_status`` → ``get_active_policies_for_project``)
+    (``resolve_project`` → ``get_project_status`` → ``get_active_standards_for_project``)
     into a single round-trip. Call at session start to map the developer's
     working directory to a GitGrit project and load enforcement rules.
 
     Always returns the same three keys. On project resolution failure the
     ``project`` entry carries ``{"error": "no_match", "candidates": [...]}`` and
-    both ``status`` and ``policies`` are ``None`` — callers should branch on
+    both ``status`` and ``standards`` are ``None`` — callers should branch on
     ``"error" in project``, not on key presence.
     """
     tenant = get_auth().tenant
@@ -90,11 +90,11 @@ async def session_bootstrap(
         tenant, repo_full_path, web_url
     )
     if "error" in project:
-        return {"project": project, "status": None, "policies": None}
+        return {"project": project, "status": None, "standards": None}
     status = await sync_to_async(_status_service.get_project_status)(
         tenant, project["id"]
     )
-    policies = await sync_to_async(_policy_service.list_active_for_project)(
+    standards = await sync_to_async(_standard_service.list_active_for_project)(
         tenant, project["id"]
     )
-    return {"project": project, "status": status, "policies": policies}
+    return {"project": project, "status": status, "standards": standards}

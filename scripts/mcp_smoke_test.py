@@ -29,8 +29,8 @@ async def main() -> int:
                 await session.initialize()
                 print("  [OK] initialize")
 
-                await session.call_tool("list_policies", {})
-                print("  [OK] list_policies")
+                await session.call_tool("list_standards", {})
+                print("  [OK] list_standards")
 
                 await session.call_tool("get_project_context_api", {})
                 print("  [OK] get_project_context_api")

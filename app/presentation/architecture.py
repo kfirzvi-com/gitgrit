@@ -25,7 +25,7 @@ from app.application.naming import canonical_key
 from app.domain.models import (
     ExternalDependency,
     InfrastructureComponent,
-    PolicyExecution,
+    StandardExecution,
     Project,
     ProjectDependency,
     Stack,
@@ -44,24 +44,24 @@ MAX_TECHNOLOGIES = 8
 
 
 def latest_scores_by_project(tenant):
-    """Map each project to its latest result per policy.
+    """Map each project to its latest result per standard.
 
-    Returns ``{project_id: {policy_key: {"name", "score"}}}`` where
-    ``policy_key`` is the policy id (or name, for deleted policies). The policy
-    name is kept so health tooltips can name the specific policies dragging a
+    Returns ``{project_id: {standard_key: {"name", "score"}}}`` where
+    ``standard_key`` is the standard id (or name, for deleted standards). The standard
+    name is kept so health tooltips can name the specific standards dragging a
     project down.
     """
     executions = (
-        PolicyExecution.objects.filter(project__tenant=tenant)
+        StandardExecution.objects.filter(project__tenant=tenant)
         .order_by("-created_at")
-        .values("project_id", "policy_id", "policy_name", "score")
+        .values("project_id", "standard_id", "standard_name", "score")
     )
     latest = defaultdict(dict)
     for ex in executions:
-        key = ex["policy_id"] or ex["policy_name"]
+        key = ex["standard_id"] or ex["standard_name"]
         results = latest[ex["project_id"]]
         if key not in results:
-            results[key] = {"name": ex["policy_name"], "score": ex["score"]}
+            results[key] = {"name": ex["standard_name"], "score": ex["score"]}
     return latest
 
 
@@ -73,22 +73,22 @@ def _project_score(project_id, latest):
 
 
 def attention_items(tenant):
-    """Current policy results that need attention, worst-first.
+    """Current standard results that need attention, worst-first.
 
-    The latest result per (project, policy) that is needs-attention/critical by
+    The latest result per (project, standard) that is needs-attention/critical by
     score or failed/errored. Returns the full ranked list; the dashboard shows
     the top few and counts the rest. Each item links to its execution detail.
     """
     executions = (
-        PolicyExecution.objects.filter(project__tenant=tenant)
-        .select_related("project", "policy")
+        StandardExecution.objects.filter(project__tenant=tenant)
+        .select_related("project", "standard")
         .order_by("-created_at")[:500]
     )
 
     seen = set()
     items = []
     for ex in executions:
-        key = (ex.project_id, ex.policy_id or ex.policy_name)
+        key = (ex.project_id, ex.standard_id or ex.standard_name)
         if key in seen:
             continue
         seen.add(key)
@@ -105,15 +105,15 @@ def attention_items(tenant):
                 "level": level,
                 "project_name": ex.project.name,
                 "project_url": reverse("project_detail", args=[ex.project_id]),
-                "policy_name": ex.policy_name,
-                "policy_url": (
-                    reverse("policy_detail", args=[ex.policy_id])
-                    if ex.policy_id
+                "standard_name": ex.standard_name,
+                "standard_url": (
+                    reverse("standard_detail", args=[ex.standard_id])
+                    if ex.standard_id
                     else ""
                 ),
                 "score": ex.score,
                 "status": ex.get_status_display(),
-                "url": reverse("policy_execution_detail", args=[ex.id]),
+                "url": reverse("standard_execution_detail", args=[ex.id]),
                 "when": ex.created_at,
             }
         )
@@ -124,11 +124,11 @@ def attention_items(tenant):
 
 
 def _project_issues(project_id, latest):
-    """Reasons a project needs attention — its lowest sub-threshold policies.
+    """Reasons a project needs attention — its lowest sub-threshold standards.
 
     Returns a list of short strings for the hover tooltip. Empty when the
     project is healthy or has no results. Future signals (DORA deployment
-    frequency, failing high-severity policies) should append their own
+    frequency, failing high-severity standards) should append their own
     reasons here so the tooltip stays the single explanation of node health.
     """
     results = latest.get(project_id, {})

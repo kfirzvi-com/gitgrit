@@ -27,7 +27,7 @@ class ForbiddenPattern:
 
 
 @dataclass
-class PolicyRules:
+class StandardRules:
     watched_files: list[str]
     forbidden_patterns: list[ForbiddenPattern]
     locally_enforceable: bool
@@ -35,12 +35,12 @@ class PolicyRules:
     forbidden_patterns_complete: bool
 
 
-def to_dict(rules: PolicyRules) -> dict:
+def to_dict(rules: StandardRules) -> dict:
     return asdict(rules)
 
 
-def extract_rules(code: str) -> PolicyRules:
-    """Parse policy source and return the subset of enforcement data the plugin can act on.
+def extract_rules(code: str) -> StandardRules:
+    """Parse standard source and return the subset of enforcement data the plugin can act on.
 
     Literals only. Any non-literal argument to a watched predicate flips the matching
     ``*_complete`` flag to ``False`` and is not captured. ``locally_enforceable`` is
@@ -48,9 +48,9 @@ def extract_rules(code: str) -> PolicyRules:
     AND no disallowed project API is touched.
     """
     try:
-        tree = ast.parse(code, filename="<policy>")
+        tree = ast.parse(code, filename="<standard>")
     except SyntaxError:
-        return PolicyRules(
+        return StandardRules(
             watched_files=[],
             forbidden_patterns=[],
             locally_enforceable=False,
@@ -108,7 +108,7 @@ def extract_rules(code: str) -> PolicyRules:
 
         elif isinstance(node, ast.Compare):
             # "literal" in <expr> → Compare(left=Constant, ops=[In()]).
-            # "literal" not in <expr> → Compare(ops=[NotIn()]). Policies commonly
+            # "literal" not in <expr> → Compare(ops=[NotIn()]). Standards commonly
             # phrase forbidden substrings as ``"X" not in content`` (passes when
             # absent), so treat NotIn the same as In for extraction.
             # Chained comparisons (`a in b in c`) fall through untreated.
@@ -127,7 +127,7 @@ def extract_rules(code: str) -> PolicyRules:
         and not touches_unknown_project_call
     )
 
-    return PolicyRules(
+    return StandardRules(
         watched_files=watched_files,
         forbidden_patterns=forbidden_patterns,
         locally_enforceable=locally_enforceable,

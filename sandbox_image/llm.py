@@ -1,6 +1,6 @@
-"""LLM support for policies — runs entirely inside the sandbox.
+"""LLM support for standards — runs entirely inside the sandbox.
 
-Exposes an ``llm`` object to policy authors with a fixed set of role
+Exposes an ``llm`` object to standard authors with a fixed set of role
 attributes (``llm.reasoning``, ``llm.code``). Each role runs an agentic loop:
 the model is given tools bound to the token-bearing ``ProjectContext`` and
 decides for itself what to inspect; we execute the tools and feed the results
@@ -11,8 +11,8 @@ sees tool *signatures* (JSON schemas) and tool *results*. The closure over
 ``project`` — which holds the token — is the only thing that touches the repo.
 
 The loop logs its process (role/model, each tool call, token usage, the final
-verdict) into the run's PolicyLogger so authors can see what the model did when
-a policy fails.
+verdict) into the run's StandardLogger so authors can see what the model did when
+a standard fails.
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ _SYSTEM_PROMPT = (
 )
 
 
-class PolicyVerdict(BaseModel):
+class StandardVerdict(BaseModel):
     """Default structured result authors get back from ``role.evaluate``."""
 
     passed: bool
@@ -56,7 +56,7 @@ class PolicyVerdict(BaseModel):
 
 
 class LLMRoleNotConfigured(RuntimeError):
-    """Raised when a policy uses a role the workspace hasn't configured."""
+    """Raised when a standard uses a role the workspace hasn't configured."""
 
 
 _PY_TO_JSON = {
@@ -168,7 +168,7 @@ def _truncate_for_model(value, limit=MAX_TOOL_RESULT_CHARS):
 class _RoleRunner:
     """Runs the agentic loop for one role. Accumulates token usage into the
     shared ``usage`` dict owned by the parent ``LLM`` so the entrypoint can
-    report totals regardless of how many roles a policy touches, and records
+    report totals regardless of how many roles a standard touches, and records
     its process into the optional logger."""
 
     def __init__(self, role_name, model, base_url, api_key, project, usage, logger):
@@ -215,7 +215,7 @@ class _RoleRunner:
         self._usage["calls"] += 1
         return resp
 
-    def evaluate(self, instructions, response_model=PolicyVerdict):
+    def evaluate(self, instructions, response_model=StandardVerdict):
         """Run the loop, then return a validated ``response_model`` instance."""
         self._emit(f"llm.{self._role_name}: starting evaluation with {self._model}")
         tool_schemas, dispatch = make_project_tools(self._project)
@@ -285,7 +285,7 @@ class _RoleRunner:
 
 
 class LLM:
-    """The object passed to policies as ``llm``. Roles are a fixed, static set
+    """The object passed to standards as ``llm``. Roles are a fixed, static set
     — the workspace assigns a provider+model to each, but cannot add new ones."""
 
     def __init__(self, roles_config, project, logger=None):

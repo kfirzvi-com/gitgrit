@@ -3,13 +3,13 @@ from pathlib import Path
 import yaml
 from django.core.management.base import BaseCommand
 
-from app.domain.models import MarketplacePack, MarketplacePolicy
+from app.domain.models import MarketplacePack, MarketplaceStandard
 
 CONTENT_FIELDS = ("name", "description", "code", "criteria", "test_cases", "suggested_labels", "author")
 
 
 class Command(BaseCommand):
-    help = "Seed marketplace policies and packs from YAML fixtures"
+    help = "Seed marketplace standards and packs from YAML fixtures"
 
     def handle(self, *args, **options):
         fixtures_dir = (
@@ -18,18 +18,18 @@ class Command(BaseCommand):
             / "marketplace"
         )
 
-        # Load policies
-        policies_dir = fixtures_dir / "policies"
+        # Load standards
+        standards_dir = fixtures_dir / "standards"
         loaded = 0
-        for yaml_file in sorted(policies_dir.glob("*.yaml")):
+        for yaml_file in sorted(standards_dir.glob("*.yaml")):
             data = yaml.safe_load(yaml_file.read_text())
             slug = data.pop("slug")
             data.pop("version", None)  # version is managed by the seed script, not the fixture
 
-            existing = MarketplacePolicy.objects.filter(slug=slug).first()
+            existing = MarketplaceStandard.objects.filter(slug=slug).first()
 
             if existing is None:
-                mp = MarketplacePolicy.objects.create(slug=slug, version=1, **data)
+                mp = MarketplaceStandard.objects.create(slug=slug, version=1, **data)
                 self.stdout.write(f"  Created: {mp.name} v{mp.version}")
             else:
                 changed = any(
@@ -53,14 +53,14 @@ class Command(BaseCommand):
         if packs_file.exists():
             packs_data = yaml.safe_load(packs_file.read_text())
             for pack_data in packs_data:
-                policy_slugs = pack_data.pop("policies", [])
+                standard_slugs = pack_data.pop("standards", [])
                 slug = pack_data.pop("slug")
                 pack, created = MarketplacePack.objects.update_or_create(
                     slug=slug, defaults=pack_data
                 )
-                policies = MarketplacePolicy.objects.filter(slug__in=policy_slugs)
-                pack.policies.set(policies)
+                standards = MarketplaceStandard.objects.filter(slug__in=standard_slugs)
+                pack.standards.set(standards)
                 verb = "Created" if created else "Updated"
-                self.stdout.write(f"  {verb} pack: {pack.name} ({policies.count()} policies)")
+                self.stdout.write(f"  {verb} pack: {pack.name} ({standards.count()} standards)")
 
-        self.stdout.write(self.style.SUCCESS(f"\nDone. {loaded} policies loaded."))
+        self.stdout.write(self.style.SUCCESS(f"\nDone. {loaded} standards loaded."))
