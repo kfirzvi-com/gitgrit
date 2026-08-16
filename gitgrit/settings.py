@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import base64
 import os
 from pathlib import Path
 from urllib.parse import urlparse
@@ -246,13 +247,44 @@ SOCIALACCOUNT_PROVIDERS = {
 # Short-lived installation tokens replace manually-created PATs. Values come
 # from the registered GitHub App (Phase 0, manual). All default to empty/False
 # so unset config never crashes and existing PAT/allauth flows are unchanged.
-# GITHUB_APP_PRIVATE_KEY may be stored with literal "\n" escapes in a single-line
-# env var; normalize those to real newlines so RS256 signing works.
+#
+# The private key is a multi-line PEM travelling through env plumbing that is
+# strictly one line per value, so it has to be carried in a single-line form.
+# Two are accepted, and base64 is the one to use:
+#
+#   GITHUB_APP_PRIVATE_KEY_B64  base64 of the PEM. Preferred, and the only form
+#                               that is safe end to end: the alphabet has no
+#                               backslash, no $ and no backtick, so nothing
+#                               between here and the secret store can chew on
+#                               it.  base64 -w0 < app.private-key.pem
+#   GITHUB_APP_PRIVATE_KEY      the PEM with newlines written as \n. Kept for
+#                               local .env files. Avoid it in deployments: the
+#                               value crosses a shell heredoc and a dotenv
+#                               parser on its way to the container, each of
+#                               which may consume a backslash level, and the
+#                               damage is silent — the key simply stops parsing
+#                               at the first signature.
 GITHUB_APP_ID = os.environ.get("GITHUB_APP_ID", "")
 GITHUB_APP_SLUG = os.environ.get("GITHUB_APP_SLUG", "")
-GITHUB_APP_PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "").replace(
-    "\\n", "\n"
-)
+
+
+def _read_app_private_key() -> str:
+    encoded = os.environ.get("GITHUB_APP_PRIVATE_KEY_B64", "").strip()
+    if encoded:
+        try:
+            return base64.b64decode(encoded, validate=True).decode()
+        except (ValueError, UnicodeDecodeError):
+            # Deliberately not silent-empty: an unreadable key here would
+            # otherwise present as "the feature is switched off" with nothing
+            # naming the cause.
+            raise ValueError(
+                "GITHUB_APP_PRIVATE_KEY_B64 is set but is not valid base64 of "
+                "a PEM. Regenerate it with: base64 -w0 < app.private-key.pem"
+            )
+    return os.environ.get("GITHUB_APP_PRIVATE_KEY", "").replace("\\n", "\n")
+
+
+GITHUB_APP_PRIVATE_KEY = _read_app_private_key()
 GITHUB_APP_WEBHOOK_SECRET = os.environ.get("GITHUB_APP_WEBHOOK_SECRET", "")
 # User-to-server OAuth credentials for the same App. Required to prove that the
 # person finishing an install may actually access the installation they came
