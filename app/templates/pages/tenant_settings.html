@@ -115,6 +115,7 @@
                   <tr>
                     <th>Name</th>
                     <th>Platform</th>
+                    <th>Method</th>
                     <th>URL</th>
                     <th>Status</th>
                     {% if is_admin %}<th></th>{% endif %}
@@ -129,6 +130,13 @@
                           {{ conn.get_platform_display }}
                         </span>
                       </td>
+                      <td>
+                        {% if conn.auth_method == 'github_app' %}
+                          <span class="badge badge-outline">App</span>
+                        {% else %}
+                          <span class="badge badge-outline">Token</span>
+                        {% endif %}
+                      </td>
                       <td class="text-sm opacity-70">{{ conn.base_url }}</td>
                       <td>
                         <span id="conn-status-{{ conn.id }}">
@@ -142,12 +150,19 @@
                       </td>
                       {% if is_admin %}
                         <td class="flex gap-1">
-                          <button type="button" class="btn btn-ghost btn-xs"
-                                  data-edit-token
-                                  data-conn-id="{{ conn.id }}"
-                                  data-conn-name="{{ conn.display_name }}">
-                            Edit Token
-                          </button>
+                          {% if conn.github_app_manage_url %}
+                            <a href="{{ conn.github_app_manage_url }}" target="_blank" rel="noopener"
+                               class="btn btn-ghost btn-xs">
+                              Manage on GitHub
+                            </a>
+                          {% else %}
+                            <button type="button" class="btn btn-ghost btn-xs"
+                                    data-edit-token
+                                    data-conn-id="{{ conn.id }}"
+                                    data-conn-name="{{ conn.display_name }}">
+                              Edit Token
+                            </button>
+                          {% endif %}
                           <button type="button" class="btn btn-ghost btn-xs text-error"
                                   data-remove-conn
                                   data-conn-id="{{ conn.id }}"
@@ -172,6 +187,16 @@
         <div class="card bg-base-100" id="add-connection-card">
           <div class="card-body">
             <h2 class="card-title">Add Connection</h2>
+            {% if github_app_enabled %}
+              {% comment %}
+                Recommending the App only makes sense where it's on offer, so the
+                blurb rides the same github-only toggle as the button itself.
+              {% endcomment %}
+              <p data-github-only class="text-sm opacity-70 -mt-1 mb-2">For GitHub,
+                installing the app is recommended — you choose which repositories to
+                share and there's no token to rotate. Access is revoked automatically
+                when you uninstall.</p>
+            {% endif %}
             <form method="post" action="{% url 'add_connection' %}" class="space-y-3">
               {% csrf_token %}
               <div class="flex flex-col sm:flex-row gap-3">
@@ -198,7 +223,18 @@
               </div>
               <p id="base-url-hint" class="text-sm text-error hidden">URL must start with https:// (e.g. https://gitlab.example.com)</p>
               <div class="flex flex-wrap items-center gap-3">
-                <button type="submit" id="add-connection-submit" class="btn btn-primary">
+                {% if github_app_enabled %}
+                  <span id="github-app-install-action" data-github-only
+                        class="flex flex-wrap items-center gap-3">
+                    <a href="{% url 'github_app_install' %}" class="btn btn-primary">
+                      Install GitHub App
+                      <span class="badge badge-sm">Recommended</span>
+                    </a>
+                    <span class="text-sm opacity-70">or use a token</span>
+                  </span>
+                {% endif %}
+                <button type="submit" id="add-connection-submit"
+                        class="btn {% if github_app_enabled %}btn-outline{% else %}btn-primary{% endif %}">
                   Add Connection
                 </button>
               </div>
@@ -616,6 +652,8 @@
         var baseUrlHint = document.getElementById('base-url-hint');
         var displayNameInput = document.getElementById('display-name-input');
         var tokenHelpHint = document.getElementById('token-help-hint');
+        var tokenSubmit = document.getElementById('add-connection-submit');
+        var appAction = document.getElementById('github-app-install-action');
         var githubHelp = document.getElementById('github-token-help');
         var gitlabHelp = document.getElementById('gitlab-token-help');
         var githubLink = document.getElementById('github-token-link');
@@ -643,12 +681,41 @@
           }
         }
 
+        // Blank means "the default", which for GitHub is github.com itself.
+        // A half-typed URL isn't a GHES host yet, so don't yank the App button
+        // away mid-keystroke — only a parseable non-github.com origin counts.
+        function isDotComHost(baseUrl) {
+          if (!baseUrl) return true;
+          var origin = parseOrigin(baseUrl);
+          if (!origin) return true;
+          var host = origin.replace(/^https?:\/\//, '').toLowerCase();
+          return host === 'github.com' || host === 'api.github.com';
+        }
+
         function update() {
           var platform = platformSelect.value;
           var baseUrl = baseUrlInput.value.trim();
 
           githubHelp.classList.toggle('hidden', platform !== 'github');
           gitlabHelp.classList.toggle('hidden', platform !== 'gitlab');
+
+          // The shared App lives on github.com, so it can only serve github.com
+          // hosts. A GitHub Enterprise Server base URL points somewhere the App
+          // was never installed — offering it there would send the user to
+          // install against the wrong host and store a connection aimed at
+          // api.github.com. Token is the only way in for GHES.
+          var isGithubDotCom = platform === 'github' && isDotComHost(baseUrl);
+          document.querySelectorAll('[data-github-only]').forEach(function (el) {
+            el.classList.toggle('hidden', !isGithubDotCom);
+          });
+
+          // Emphasis follows whichever action is actually on offer: the App
+          // when it applies, the token form when it's the only way in.
+          var appShown = !!appAction && isGithubDotCom;
+          if (tokenSubmit) {
+            tokenSubmit.classList.toggle('btn-outline', appShown);
+            tokenSubmit.classList.toggle('btn-primary', !appShown);
+          }
 
           // Show a validation hint if a URL is entered but missing its scheme.
           var showHint = baseUrl && !baseUrl.match(/^https?:\/\//);

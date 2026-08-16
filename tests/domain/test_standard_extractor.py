@@ -1,3 +1,5 @@
+from django.test import SimpleTestCase
+
 from app.domain.standard_extractor import (
     ForbiddenPattern,
     extract_rules,
@@ -5,7 +7,7 @@ from app.domain.standard_extractor import (
 )
 
 
-class TestWatchedFiles:
+class TestWatchedFiles(SimpleTestCase):
     def test_captures_literal_file_path(self):
         code = """
 def evaluate(project):
@@ -39,7 +41,7 @@ def evaluate(project):
         assert rules.watched_files_complete is False
 
 
-class TestPredicateKinds:
+class TestPredicateKinds(SimpleTestCase):
     def test_re_search_literal(self):
         code = """
 import re
@@ -111,7 +113,7 @@ def evaluate(project):
         ]
 
 
-class TestIncompleteExtraction:
+class TestIncompleteExtraction(SimpleTestCase):
     def test_re_search_string_concat_flips_flag(self):
         code = """
 import re
@@ -170,7 +172,7 @@ def evaluate(project):
         assert rules.forbidden_patterns_complete is False
 
 
-class TestLocallyEnforceable:
+class TestLocallyEnforceable(SimpleTestCase):
     def test_true_when_only_allowed_apis_and_file_content_present(self):
         code = """
 def evaluate(project):
@@ -232,7 +234,7 @@ def evaluate(project):
         assert rules.locally_enforceable is True
 
 
-class TestPartialStandards:
+class TestPartialStandards(SimpleTestCase):
     def test_watched_files_complete_and_patterns_incomplete(self):
         # Plan §1 regression guard: one dimension incomplete must NOT disable the other.
         code = """
@@ -266,7 +268,7 @@ def evaluate(project):
         assert rules.locally_enforceable is True
 
 
-class TestDefensive:
+class TestDefensive(SimpleTestCase):
     def test_syntax_error_returns_non_enforceable_block(self):
         rules = extract_rules("def evaluate(project):\n    return !!!")
         assert rules.locally_enforceable is False

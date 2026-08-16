@@ -8,7 +8,13 @@ from django.db.models import QuerySet
 from app.application.event_bus import publish
 from app.domain.events import DomainEvent, RepositoryPushed
 from app.domain.identity import resolve_user
-from app.domain.models import LLMRole, Standard, StandardExecution, Project
+from app.domain.models import (
+    AuthMethod,
+    LLMRole,
+    Project,
+    Standard,
+    StandardExecution,
+)
 from app.domain.standard_criteria import language_matches
 from app.infrastructure.sandbox.runner import SandboxRunner
 
@@ -45,12 +51,28 @@ class StandardEngine:
             self._runner = SandboxRunner()
         return self._runner
 
-    def resolve_projects(self, event: DomainEvent) -> QuerySet[Project]:
-        """Find all projects matching the webhook's platform + external ID."""
-        return Project.objects.filter(
+    def resolve_projects(
+        self, event: DomainEvent, installation_id: int | None = None
+    ) -> QuerySet[Project]:
+        """Find all projects matching the webhook's platform + external ID.
+
+        ``installation_id`` narrows the match to the GitHub App connections
+        holding that installation. An App delivery is authenticated with one
+        secret shared by every installation of the App, so without this narrowing
+        a delivery would also fire policies in an unrelated workspace that
+        happens to connect the same repository by token — a workspace that
+        installation was never granted anything by.
+        """
+        projects = Project.objects.filter(
             platform=event.platform,
             external_id=event.external_project_id,
         ).select_related("platform_connection", "tenant")
+        if installation_id is not None:
+            projects = projects.filter(
+                platform_connection__auth_method=AuthMethod.GITHUB_APP,
+                platform_connection__installation_id=installation_id,
+            )
+        return projects
 
     def get_standards_for_project(
         self, project: Project, event_type: str, ref: str | None = None
@@ -109,7 +131,12 @@ class StandardEngine:
         input_config = {
             "platform": project.platform,
             "project_id": project.external_id,
-            "access_token": project.platform_connection.access_token,
+            # Route through the auth-method seam. For GitHub App connections the
+            # installation token is scoped to this project's repository; PAT
+            # connections return their stored token unchanged.
+            "access_token": project.platform_connection.get_access_token(
+                repositories=[project.full_path]
+            ),
             "base_url": project.platform_connection.base_url,
             "full_path": project.full_path,
         }
@@ -118,8 +145,10 @@ class StandardEngine:
             input_config["llm_roles"] = llm_roles
         return input_config
 
-    def run_for_event(self, event: DomainEvent) -> list[dict]:
-        projects = self.resolve_projects(event)
+    def run_for_event(
+        self, event: DomainEvent, installation_id: int | None = None
+    ) -> list[dict]:
+        projects = self.resolve_projects(event, installation_id=installation_id)
 
         if not projects.exists():
             logger.info(

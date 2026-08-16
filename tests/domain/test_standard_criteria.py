@@ -1,31 +1,30 @@
-import pytest
+from django.test import SimpleTestCase
 
 from app.domain.standard_criteria import language_matches, score_to_grade
 
 
-class TestLanguageMatches:
+class TestLanguageMatches(SimpleTestCase):
     def test_empty_standard_languages_matches_every_project(self):
-        assert language_matches([], ["python", "go"]) is True
-        assert language_matches([], []) is True
+        self.assertIs(language_matches([], ["python", "go"]), True)
+        self.assertIs(language_matches([], []), True)
 
     def test_matches_when_any_language_overlaps(self):
-        assert language_matches(["python"], ["Python", "YAML"]) is True
+        self.assertIs(language_matches(["python"], ["Python", "YAML"]), True)
 
     def test_is_case_insensitive(self):
-        assert language_matches(["Python"], ["python"]) is True
-        assert language_matches(["PYTHON"], ["python"]) is True
+        self.assertIs(language_matches(["Python"], ["python"]), True)
+        self.assertIs(language_matches(["PYTHON"], ["python"]), True)
 
     def test_no_overlap_returns_false(self):
-        assert language_matches(["rust"], ["python", "go"]) is False
+        self.assertIs(language_matches(["rust"], ["python", "go"]), False)
 
     def test_empty_project_languages_with_non_empty_standard_returns_false(self):
-        assert language_matches(["python"], []) is False
+        self.assertIs(language_matches(["python"], []), False)
 
 
-class TestScoreToGrade:
-    @pytest.mark.parametrize(
-        "score,expected",
-        [
+class TestScoreToGrade(SimpleTestCase):
+    def test_boundaries(self):
+        cases = [
             (None, "unknown"),
             (100, "excellent"),
             (90, "excellent"),
@@ -35,7 +34,7 @@ class TestScoreToGrade:
             (50, "warning"),
             (49.9, "critical"),
             (0, "critical"),
-        ],
-    )
-    def test_boundaries(self, score, expected):
-        assert score_to_grade(score) == expected
+        ]
+        for score, expected in cases:
+            with self.subTest(score=score):
+                self.assertEqual(score_to_grade(score), expected)

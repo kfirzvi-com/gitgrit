@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 import requests
 
-from app.domain.models import Platform, PlatformConnection
+from app.domain.models import AuthMethod, Platform, PlatformConnection
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,9 @@ class PlatformClient(ABC):
     def __init__(self, connection: PlatformConnection):
         self.connection = connection
         self.base_url = connection.base_url.rstrip("/")
-        self.token = connection.access_token
+        # Route through the auth-method seam: PAT connections return the stored
+        # token; GitHub App connections mint a short-lived installation token.
+        self.token = connection.get_access_token()
 
     @abstractmethod
     def search_projects(self, query: str = "") -> list[dict]:
@@ -59,7 +61,23 @@ class GitHubClient(PlatformClient):
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
+    @property
+    def _is_app(self) -> bool:
+        return self.connection.auth_method == AuthMethod.GITHUB_APP
+
     def test_token(self) -> bool:
+        if self._is_app:
+            # `/user` is a user-scoped endpoint: an installation token gets 403
+            # "Resource not accessible by integration" there, which would report
+            # a perfectly healthy App connection as an invalid token. Probe the
+            # endpoint the token is actually for instead.
+            resp = requests.get(
+                f"{self.base_url}/installation/repositories",
+                headers=self._headers,
+                params={"per_page": 1},
+                timeout=10,
+            )
+            return resp.status_code == 200
         resp = requests.get(f"{self.base_url}/user", headers=self._headers, timeout=10)
         return resp.status_code == 200
 
@@ -67,18 +85,31 @@ class GitHubClient(PlatformClient):
         results = []
         page = 1
         while True:
-            resp = requests.get(
-                f"{self.base_url}/user/repos",
-                headers=self._headers,
-                params={
-                    "per_page": 100,
-                    "sort": "updated",
-                    "page": page,
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            repos = resp.json()
+            if self._is_app:
+                # GitHub App installation tokens list only the repos the App is
+                # installed on, via a dedicated endpoint that wraps the list in
+                # a {"repositories": [...]} envelope (no "sort" param).
+                resp = requests.get(
+                    f"{self.base_url}/installation/repositories",
+                    headers=self._headers,
+                    params={"per_page": 100, "page": page},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                repos = resp.json().get("repositories", [])
+            else:
+                resp = requests.get(
+                    f"{self.base_url}/user/repos",
+                    headers=self._headers,
+                    params={
+                        "per_page": 100,
+                        "sort": "updated",
+                        "page": page,
+                    },
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                repos = resp.json()
             if not repos:
                 break
             for repo in repos:

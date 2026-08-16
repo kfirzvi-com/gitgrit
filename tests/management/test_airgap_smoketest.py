@@ -8,10 +8,12 @@ failure) so install scripts can chain it safely.
 from io import StringIO
 from unittest import mock
 
-import pytest
 import requests
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.test import SimpleTestCase
+
+from tests.support import MonkeyPatchMixin
 
 
 GITLAB_URL = "https://gitlab.acme.internal"
@@ -38,36 +40,36 @@ def _gitlab_401_response():
     return resp
 
 
-class TestGitlabUrlValidation:
-    def test_fails_when_gitlab_url_unset(self, monkeypatch):
-        monkeypatch.delenv("GITLAB_URL", raising=False)
+class TestGitlabUrlValidation(MonkeyPatchMixin, SimpleTestCase):
+    def test_fails_when_gitlab_url_unset(self):
+        self.monkeypatch.delenv("GITLAB_URL", raising=False)
         out, ok = _run()
         assert not ok
         assert "GITLAB_URL is not set" in out
 
-    def test_fails_on_non_https_scheme(self, monkeypatch):
+    def test_fails_on_non_https_scheme(self):
         # Anti-SSRF: an `http://` or `file://` GITLAB_URL would let a
         # misconfigured value probe arbitrary local services via requests.
-        monkeypatch.setenv("GITLAB_URL", "http://gitlab.acme.internal")
+        self.monkeypatch.setenv("GITLAB_URL", "http://gitlab.acme.internal")
         out, ok = _run()
         assert not ok
         assert "must use https://" in out
 
-    def test_warns_on_public_gitlab_com(self, monkeypatch):
-        monkeypatch.setenv("GITLAB_URL", "https://gitlab.com")
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    def test_warns_on_public_gitlab_com(self):
+        self.monkeypatch.setenv("GITLAB_URL", "https://gitlab.com")
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         with mock.patch.object(
             requests, "get", return_value=_gitlab_401_response()
         ):
             out, _ = _run()
         assert "points at public gitlab.com" in out
 
-    def test_no_warning_for_gitlab_lookalike_hostname(self, monkeypatch):
+    def test_no_warning_for_gitlab_lookalike_hostname(self):
         # `gitlab.acme.com` contains the substring "gitlab.com" but is
         # not the public service. Hostname equality (not substring) is
         # the only way to keep this from false-positiving.
-        monkeypatch.setenv("GITLAB_URL", "https://gitlab.acme.com")
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+        self.monkeypatch.setenv("GITLAB_URL", "https://gitlab.acme.com")
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         with mock.patch.object(
             requests, "get", return_value=_gitlab_401_response()
         ):
@@ -75,19 +77,19 @@ class TestGitlabUrlValidation:
         assert "points at public gitlab.com" not in out
 
 
-class TestCaBundleEnv:
-    def test_warns_when_unset(self, monkeypatch):
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+class TestCaBundleEnv(MonkeyPatchMixin, SimpleTestCase):
+    def test_warns_when_unset(self):
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         with mock.patch.object(
             requests, "get", return_value=_gitlab_401_response()
         ):
             out, _ = _run()
         assert "REQUESTS_CA_BUNDLE is not set" in out
 
-    def test_fails_when_file_missing(self, monkeypatch):
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/custom-ca.pem")
+    def test_fails_when_file_missing(self):
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/custom-ca.pem")
         with mock.patch(
             "app.management.commands.airgap_smoketest.os.path.isfile",
             return_value=False,
@@ -98,9 +100,9 @@ class TestCaBundleEnv:
         assert not ok
         assert "is not readable" in out
 
-    def test_fails_on_zero_byte_bundle(self, monkeypatch):
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/custom-ca.pem")
+    def test_fails_on_zero_byte_bundle(self):
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/custom-ca.pem")
         with mock.patch(
             "app.management.commands.airgap_smoketest.os.path.isfile",
             return_value=True,
@@ -115,15 +117,15 @@ class TestCaBundleEnv:
         assert "zero bytes" in out
 
 
-class TestGitlabReachability:
-    @pytest.fixture(autouse=True)
-    def _gitlab_env(self, monkeypatch):
+class TestGitlabReachability(MonkeyPatchMixin, SimpleTestCase):
+    def setUp(self):
+        super().setUp()
         # Common base env every test in this class shares. Each test then
         # only sets/varies what it actually needs to exercise.
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
 
-    def test_passes_on_gitlab_shaped_401(self, monkeypatch):
+    def test_passes_on_gitlab_shaped_401(self):
         with mock.patch.object(
             requests, "get", return_value=_gitlab_401_response()
         ):
@@ -132,8 +134,8 @@ class TestGitlabReachability:
         assert "airgap_smoketest PASSED" in out
         assert "looks like a real GitLab" in out
 
-    def test_fails_on_ssl_error(self, monkeypatch):
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    def test_fails_on_ssl_error(self):
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         with mock.patch.object(
             requests,
             "get",
@@ -144,8 +146,8 @@ class TestGitlabReachability:
         assert "TLS handshake" in out
         assert "REQUESTS_CA_BUNDLE" in out
 
-    def test_fails_on_connection_error(self, monkeypatch):
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    def test_fails_on_connection_error(self):
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         with mock.patch.object(
             requests,
             "get",
@@ -155,8 +157,8 @@ class TestGitlabReachability:
         assert not ok
         assert "could not connect" in out
 
-    def test_fails_on_html_404_from_wrong_service(self, monkeypatch):
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    def test_fails_on_html_404_from_wrong_service(self):
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         resp = mock.MagicMock()
         resp.status_code = 404
         resp.headers = {"Content-Type": "text/html"}
@@ -165,11 +167,11 @@ class TestGitlabReachability:
         assert not ok
         assert "does not look like a GitLab API" in out
 
-    def test_fails_on_401_with_html_body(self, monkeypatch):
+    def test_fails_on_401_with_html_body(self):
         # An auth-proxy login page in front of a non-GitLab service often
         # returns 401 + HTML. Without the content-type + body check we'd
         # silently pass.
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         resp = mock.MagicMock()
         resp.status_code = 401
         resp.headers = {"Content-Type": "text/html"}
@@ -178,10 +180,10 @@ class TestGitlabReachability:
         assert not ok
         assert "does not look like a GitLab API" in out
 
-    def test_fails_on_401_json_without_gitlab_shape(self, monkeypatch):
+    def test_fails_on_401_json_without_gitlab_shape(self):
         # Some other JSON-speaking service that returns 401 — e.g. a
         # fronting auth gateway returning `{"error": "no_token"}`.
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
         resp = mock.MagicMock()
         resp.status_code = 401
         resp.headers = {"Content-Type": "application/json"}
@@ -192,7 +194,7 @@ class TestGitlabReachability:
         assert "does not look like a GitLab API" in out
 
 
-class TestIsolationProbe:
+class TestIsolationProbe(MonkeyPatchMixin, SimpleTestCase):
     """The probe runs at TCP layer (socket.create_connection), not HTTPS.
     A customer-only REQUESTS_CA_BUNDLE makes every public TLS host raise
     SSLError, which an HTTP-layer probe mis-classifies as 'unreachable' —
@@ -202,9 +204,9 @@ class TestIsolationProbe:
 
     PROBE_TARGET = ("www.google.com", 443)
 
-    def test_passes_when_internet_unreachable(self, monkeypatch):
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    def test_passes_when_internet_unreachable(self):
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
 
         with mock.patch.object(requests, "get", return_value=_gitlab_401_response()), \
              mock.patch(
@@ -219,12 +221,12 @@ class TestIsolationProbe:
         m_sock.assert_called_once()
         assert m_sock.call_args.args[0] == self.PROBE_TARGET
 
-    def test_fails_when_internet_reachable(self, monkeypatch):
+    def test_fails_when_internet_reachable(self):
         # If www.google.com:443 accepts a TCP connection from the container,
         # the network is not actually closed and the customer is *not*
         # air-gapped — the smoke test must catch this.
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
 
         fake_sock = mock.MagicMock()
         # Context-manager protocol: socket.create_connection's return value
@@ -240,13 +242,13 @@ class TestIsolationProbe:
         assert "public internet is reachable" in out
         assert "NOT an air-gapped install" in out
 
-    def test_probe_uses_tcp_not_https(self, monkeypatch):
+    def test_probe_uses_tcp_not_https(self):
         # Regression guard: a previous version of the probe used
         # requests.get(), which silently false-negatived under the
         # customer-CA bundle (SSLError == 'blocked'). The probe MUST NOT
         # send an HTTPS request to the probe target.
-        monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
-        monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+        self.monkeypatch.setenv("GITLAB_URL", GITLAB_URL)
+        self.monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
 
         def _requests_get(url, **kwargs):
             # Make any accidental HTTPS probe to google.com a test failure.

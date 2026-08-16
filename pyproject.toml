@@ -31,6 +31,7 @@ dependencies = [
     # validated on staging. Also pinned in sandbox_image/Dockerfile, which still
     # installs with plain pip and has no lockfile of its own.
     "litellm==1.88.1",
+    "pyjwt>=2.11.0",
 ]
 
 [dependency-groups]

@@ -8,51 +8,62 @@ up a broken stack and finds out at first login.
 from io import StringIO
 from unittest import mock
 
-import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.test import TestCase, override_settings
+
+from tests.support import MonkeyPatchMixin
 
 
-def _run(**settings_overrides):
+def _run():
     """Invoke `airgap_setup` with stdout captured. Returns the captured text."""
     out = StringIO()
     call_command("airgap_setup", stdout=out)
     return out.getvalue()
 
 
-class TestCheckSiteUrl:
+class _AirgapTestCase(MonkeyPatchMixin, TestCase):
+    def override(self, **kwargs):
+        """Mutable-settings equivalent of pytest-django's `settings` fixture."""
+        ctx = override_settings(**kwargs)
+        ctx.enable()
+        self.addCleanup(ctx.disable)
+
+
+class TestCheckSiteUrl(_AirgapTestCase):
     """`SITE_URL` must be a real public hostname — air-gap webhook callbacks
     from the customer's GitLab can't reach `localhost`."""
 
-    @pytest.mark.parametrize(
-        "bad_url",
-        [
+    def test_rejects_non_public_host(self):
+        bad_urls = [
             "",
             "http://localhost:8000",
             "http://127.0.0.1",
             "http://0.0.0.0/",
             "http://[::1]/",
-        ],
-    )
-    def test_rejects_non_public_host(self, settings, bad_url):
-        settings.SITE_URL = bad_url
-        with pytest.raises(CommandError, match="not a public hostname"):
-            call_command("airgap_setup")
+        ]
+        for bad_url in bad_urls:
+            with self.subTest(url=bad_url):
+                with override_settings(SITE_URL=bad_url):
+                    with self.assertRaisesRegex(
+                        CommandError, "not a public hostname"
+                    ):
+                        call_command("airgap_setup")
 
-    def test_accepts_public_host(self, settings, db):
+    def test_accepts_public_host(self):
         # A reachable hostname should pass the SITE_URL check. We patch the
         # downstream side effects so the test stays focused on this branch.
-        settings.SITE_URL = "https://gitgrit.acme.internal"
+        self.override(SITE_URL="https://gitgrit.acme.internal")
         with mock.patch(
             "app.management.commands.airgap_setup.Command._run_migrations"
         ), mock.patch(
             "app.management.commands.airgap_setup.Command._check_ca_bundle"
         ):
             out = _run()
-        assert "SITE_URL OK: https://gitgrit.acme.internal" in out
+        self.assertIn("SITE_URL OK: https://gitgrit.acme.internal", out)
 
 
-class TestCheckCaBundle:
+class TestCheckCaBundle(_AirgapTestCase):
     """The operator CA bundle is the linchpin of air-gap TLS — a missing or
     empty file means every outbound request to the operator's GitLab fails
     with a verify error. We hard-fail at install time so the operator can't
@@ -60,28 +71,34 @@ class TestCheckCaBundle:
 
     IN_CONTAINER = "/etc/ssl/certs/custom-ca.pem"
 
-    def test_errors_when_env_var_unset(self, settings, monkeypatch):
-        # GITGRIT_CUSTOM_CA_FILE_PATH is required, not optional: TLS to the internal
-        # GitLab needs it. Setup must fail loud here so the operator finds
-        # out at install time, not at first OAuth handshake.
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.delenv("GITGRIT_CUSTOM_CA_FILE_PATH", raising=False)
-        with pytest.raises(CommandError, match="GITGRIT_CUSTOM_CA_FILE_PATH is not set"):
+    def test_errors_when_env_var_unset(self):
+        # GITGRIT_CUSTOM_CA_FILE_PATH is required, not optional: TLS to the
+        # internal GitLab needs it. Setup must fail loud here so the operator
+        # finds out at install time, not at first OAuth handshake.
+        self.override(SITE_URL="https://gitgrit.acme.internal")
+        self.monkeypatch.delenv("GITGRIT_CUSTOM_CA_FILE_PATH", raising=False)
+        with self.assertRaisesRegex(
+            CommandError, "GITGRIT_CUSTOM_CA_FILE_PATH is not set"
+        ):
             call_command("airgap_setup")
 
-    def test_errors_when_mount_missing(self, settings, monkeypatch):
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.setenv("GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem")
+    def test_errors_when_mount_missing(self):
+        self.override(SITE_URL="https://gitgrit.acme.internal")
+        self.monkeypatch.setenv(
+            "GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem"
+        )
         with mock.patch(
             "app.management.commands.airgap_setup.os.path.isfile",
             return_value=False,
         ):
-            with pytest.raises(CommandError, match="readable inside the container"):
+            with self.assertRaisesRegex(CommandError, "readable inside the container"):
                 call_command("airgap_setup")
 
-    def test_errors_when_bundle_zero_bytes(self, settings, monkeypatch):
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.setenv("GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem")
+    def test_errors_when_bundle_zero_bytes(self):
+        self.override(SITE_URL="https://gitgrit.acme.internal")
+        self.monkeypatch.setenv(
+            "GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem"
+        )
         with mock.patch(
             "app.management.commands.airgap_setup.os.path.isfile",
             return_value=True,
@@ -89,12 +106,14 @@ class TestCheckCaBundle:
             "app.management.commands.airgap_setup.os.path.getsize",
             return_value=0,
         ):
-            with pytest.raises(CommandError, match="zero bytes"):
+            with self.assertRaisesRegex(CommandError, "zero bytes"):
                 call_command("airgap_setup")
 
-    def test_accepts_valid_bundle(self, settings, db, monkeypatch):
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        monkeypatch.setenv("GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem")
+    def test_accepts_valid_bundle(self):
+        self.override(SITE_URL="https://gitgrit.acme.internal")
+        self.monkeypatch.setenv(
+            "GITGRIT_CUSTOM_CA_FILE_PATH", "/opt/gitgrit/ca-bundle.pem"
+        )
         with mock.patch(
             "app.management.commands.airgap_setup.os.path.isfile",
             return_value=True,
@@ -105,21 +124,25 @@ class TestCheckCaBundle:
             "app.management.commands.airgap_setup.Command._run_migrations"
         ):
             out = _run()
-        assert f"Operator CA bundle OK: {self.IN_CONTAINER} (4096 bytes)" in out
+        self.assertIn(
+            f"Operator CA bundle OK: {self.IN_CONTAINER} (4096 bytes)", out
+        )
 
 
-@pytest.mark.django_db
-class TestPurgeDisabledSocialapps:
+class TestPurgeDisabledSocialapps(_AirgapTestCase):
     """If the operator disables a provider in `.env` (e.g. flips
     AUTH_PROVIDER_GITHUB_ENABLED=False) and re-runs `airgap_setup`, any
     leftover SocialApp row for that provider must be purged. Otherwise
     allauth still tries to render the login button for it and 500s when
     the SocialApp lookup succeeds but the URL conf has no route."""
 
-    def setup_method(self):
+    def setUp(self):
+        super().setUp()
         from allauth.socialaccount.models import SocialApp
 
-        SocialApp.objects.filter(provider__in=("github", "gitlab", "google")).delete()
+        SocialApp.objects.filter(
+            provider__in=("github", "gitlab", "google")
+        ).delete()
 
     def _seed(self, provider: str):
         from allauth.socialaccount.models import SocialApp
@@ -131,67 +154,70 @@ class TestPurgeDisabledSocialapps:
             secret="secret",
         )
 
-    def test_deletes_row_for_disabled_provider(self, settings):
-        from allauth.socialaccount.models import SocialApp
-
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        settings.AUTH_PROVIDER_GITHUB_ENABLED = False
-        settings.AUTH_PROVIDER_GITLAB_ENABLED = True
-        settings.AUTH_PROVIDER_GOOGLE_ENABLED = False
-        self._seed("github")
-        self._seed("gitlab")
-        self._seed("google")
-
+    def _run_patched(self):
         with mock.patch(
             "app.management.commands.airgap_setup.Command._run_migrations"
         ), mock.patch(
             "app.management.commands.airgap_setup.Command._check_ca_bundle"
         ):
-            out = _run()
+            return _run()
 
-        assert not SocialApp.objects.filter(provider="github").exists()
-        assert not SocialApp.objects.filter(provider="google").exists()
-        assert SocialApp.objects.filter(provider="gitlab").exists()
-        assert "Deleted 1 SocialApp row(s) for disabled provider 'github'." in out
-        assert "Deleted 1 SocialApp row(s) for disabled provider 'google'." in out
-
-    def test_keeps_all_when_all_enabled(self, settings):
+    def test_deletes_row_for_disabled_provider(self):
         from allauth.socialaccount.models import SocialApp
 
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        settings.AUTH_PROVIDER_GITHUB_ENABLED = True
-        settings.AUTH_PROVIDER_GITLAB_ENABLED = True
-        settings.AUTH_PROVIDER_GOOGLE_ENABLED = True
+        self.override(
+            SITE_URL="https://gitgrit.acme.internal",
+            AUTH_PROVIDER_GITHUB_ENABLED=False,
+            AUTH_PROVIDER_GITLAB_ENABLED=True,
+            AUTH_PROVIDER_GOOGLE_ENABLED=False,
+        )
         self._seed("github")
         self._seed("gitlab")
         self._seed("google")
 
-        with mock.patch(
-            "app.management.commands.airgap_setup.Command._run_migrations"
-        ), mock.patch(
-            "app.management.commands.airgap_setup.Command._check_ca_bundle"
-        ):
-            _run()
+        out = self._run_patched()
 
-        assert SocialApp.objects.filter(provider="github").exists()
-        assert SocialApp.objects.filter(provider="gitlab").exists()
-        assert SocialApp.objects.filter(provider="google").exists()
+        self.assertFalse(SocialApp.objects.filter(provider="github").exists())
+        self.assertFalse(SocialApp.objects.filter(provider="google").exists())
+        self.assertTrue(SocialApp.objects.filter(provider="gitlab").exists())
+        self.assertIn(
+            "Deleted 1 SocialApp row(s) for disabled provider 'github'.", out
+        )
+        self.assertIn(
+            "Deleted 1 SocialApp row(s) for disabled provider 'google'.", out
+        )
 
-    def test_idempotent_when_no_rows_to_delete(self, settings):
+    def test_keeps_all_when_all_enabled(self):
+        from allauth.socialaccount.models import SocialApp
+
+        self.override(
+            SITE_URL="https://gitgrit.acme.internal",
+            AUTH_PROVIDER_GITHUB_ENABLED=True,
+            AUTH_PROVIDER_GITLAB_ENABLED=True,
+            AUTH_PROVIDER_GOOGLE_ENABLED=True,
+        )
+        self._seed("github")
+        self._seed("gitlab")
+        self._seed("google")
+
+        self._run_patched()
+
+        self.assertTrue(SocialApp.objects.filter(provider="github").exists())
+        self.assertTrue(SocialApp.objects.filter(provider="gitlab").exists())
+        self.assertTrue(SocialApp.objects.filter(provider="google").exists())
+
+    def test_idempotent_when_no_rows_to_delete(self):
         # The customer may re-run airgap_setup after every .env change. If
         # there's nothing to purge, the command must succeed silently and
         # not log a misleading "Deleted 0" line.
-        settings.SITE_URL = "https://gitgrit.acme.internal"
-        settings.AUTH_PROVIDER_GITHUB_ENABLED = False
-        settings.AUTH_PROVIDER_GITLAB_ENABLED = True
-        settings.AUTH_PROVIDER_GOOGLE_ENABLED = False
+        self.override(
+            SITE_URL="https://gitgrit.acme.internal",
+            AUTH_PROVIDER_GITHUB_ENABLED=False,
+            AUTH_PROVIDER_GITLAB_ENABLED=True,
+            AUTH_PROVIDER_GOOGLE_ENABLED=False,
+        )
 
-        with mock.patch(
-            "app.management.commands.airgap_setup.Command._run_migrations"
-        ), mock.patch(
-            "app.management.commands.airgap_setup.Command._check_ca_bundle"
-        ):
-            out = _run()
+        out = self._run_patched()
 
-        assert "Deleted" not in out
-        assert "Air-gap setup complete." in out
+        self.assertNotIn("Deleted", out)
+        self.assertIn("Air-gap setup complete.", out)

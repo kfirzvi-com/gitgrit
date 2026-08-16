@@ -52,6 +52,20 @@ env:
     DB_NAME: gitgrit
     DB_USER: gitgrit
     SITE_URL: https://example.com
+    # GitHub App: non-secret, per-environment. Real values are set in each
+    # destination override (config/deploy.<dest>.yml, in the infra repo).
+    # ID/slug/client id are public; the private key, webhook secret and OAuth
+    # client secret are secrets below.
+    #
+    # The feature turns itself on once ALL of these are set: id, slug, private
+    # key, webhook secret, and the OAuth client id/secret. There is no separate
+    # enable flag to get out of step with the config — a half-configured App
+    # stays off. GITHUB_APP_ENABLED is only a kill switch: set it to "false" to
+    # disable a working App without removing its secrets.
+    GITHUB_APP_ENABLED: ""
+    GITHUB_APP_ID: ""
+    GITHUB_APP_SLUG: ""
+    GITHUB_APP_CLIENT_ID: ""
   secret:
     - SECRET_KEY
     - GITGRIT_ENCRYPTION_KEY
@@ -62,3 +76,6 @@ env:
     - GITLAB_CLIENT_SECRET
     - GOOGLE_CLIENT_ID
     - GOOGLE_CLIENT_SECRET
+    - GITHUB_APP_PRIVATE_KEY_B64
+    - GITHUB_APP_WEBHOOK_SECRET
+    - GITHUB_APP_CLIENT_SECRET

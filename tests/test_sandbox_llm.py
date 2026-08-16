@@ -9,7 +9,7 @@ import sys
 import types
 from pathlib import Path
 
-import pytest
+from django.test import SimpleTestCase
 
 SANDBOX_DIR = Path(__file__).resolve().parents[1] / "sandbox_image"
 
@@ -115,102 +115,103 @@ def _mock_project():
     return ProjectContext(create_provider("mock", "p", None))
 
 
-def test_tools_are_derived_from_project_context():
-    # No litellm needed for schema generation, but _load_llm wires the path.
-    llm_mod = _load_llm(ScriptedCompletion("{}"))
-    schemas, dispatch = llm_mod.make_project_tools(_mock_project())
+class SandboxLLMTests(SimpleTestCase):
+    def test_tools_are_derived_from_project_context(self):
+        # No litellm needed for schema generation, but _load_llm wires the path.
+        llm_mod = _load_llm(ScriptedCompletion("{}"))
+        schemas, dispatch = llm_mod.make_project_tools(_mock_project())
 
-    by_name = {s["function"]["name"]: s["function"] for s in schemas}
-    # Exactly the @tool-marked ProjectContext methods are exposed.
-    assert set(by_name) == {
-        "get_file_content",
-        "list_files",
-        "get_languages",
-        "get_metadata",
-        "get_members",
-        "get_contributors",
-        "get_default_branch",
-        "get_topics",
-        "get_file_last_commit_date",
-    }
-    assert set(dispatch) == set(by_name)
-    # Description comes from the method docstring; params from type hints.
-    assert by_name["list_files"]["description"].startswith("List every file path")
-    path_param = by_name["get_file_content"]["parameters"]
-    assert path_param["properties"]["path"]["type"] == "string"
-    assert path_param["properties"]["path"]["description"]  # from Annotated
-    assert path_param["required"] == ["path"]
-    # Dispatch actually calls through to the project.
-    assert isinstance(dispatch["list_files"](), list)
-
-
-def test_loop_runs_tools_and_returns_structured_verdict():
-    scripted = ScriptedCompletion(
-        json.dumps({"passed": True, "reason": "Docs are clear", "violations": []})
-    )
-    llm_mod = _load_llm(scripted)
-
-    obj = llm_mod.LLM(
-        {"reasoning": {"model": "anthropic/claude-x", "base_url": "", "api_key": "k"}},
-        _mock_project(),
-    )
-    verdict = obj.reasoning.evaluate("Check docs")
-
-    assert verdict.passed is True
-    assert verdict.reason == "Docs are clear"
-    # two loop calls (tool, then stop) + one final structured call
-    assert obj.usage["calls"] == 3
-    assert obj.usage["total_tokens"] == 50
-    # the list_files tool result was fed back into the conversation
-    final_messages = scripted.calls[-1]["messages"]
-    assert any(m.get("role") == "tool" for m in final_messages)
+        by_name = {s["function"]["name"]: s["function"] for s in schemas}
+        # Exactly the @tool-marked ProjectContext methods are exposed.
+        assert set(by_name) == {
+            "get_file_content",
+            "list_files",
+            "get_languages",
+            "get_metadata",
+            "get_members",
+            "get_contributors",
+            "get_default_branch",
+            "get_topics",
+            "get_file_last_commit_date",
+        }
+        assert set(dispatch) == set(by_name)
+        # Description comes from the method docstring; params from type hints.
+        assert by_name["list_files"]["description"].startswith("List every file path")
+        path_param = by_name["get_file_content"]["parameters"]
+        assert path_param["properties"]["path"]["type"] == "string"
+        assert path_param["properties"]["path"]["description"]  # from Annotated
+        assert path_param["required"] == ["path"]
+        # Dispatch actually calls through to the project.
+        assert isinstance(dispatch["list_files"](), list)
 
 
-def test_unconfigured_role_raises():
-    llm_mod = _load_llm(
-        ScriptedCompletion(
-            json.dumps({"passed": True, "reason": "x", "violations": []})
+    def test_loop_runs_tools_and_returns_structured_verdict(self):
+        scripted = ScriptedCompletion(
+            json.dumps({"passed": True, "reason": "Docs are clear", "violations": []})
         )
-    )
-    obj = llm_mod.LLM(
-        {"reasoning": {"model": "m", "base_url": "", "api_key": "k"}}, _mock_project()
-    )
-    with pytest.raises(llm_mod.LLMRoleNotConfigured):
-        obj.code.evaluate("nope")
+        llm_mod = _load_llm(scripted)
+
+        obj = llm_mod.LLM(
+            {"reasoning": {"model": "anthropic/claude-x", "base_url": "", "api_key": "k"}},
+            _mock_project(),
+        )
+        verdict = obj.reasoning.evaluate("Check docs")
+
+        assert verdict.passed is True
+        assert verdict.reason == "Docs are clear"
+        # two loop calls (tool, then stop) + one final structured call
+        assert obj.usage["calls"] == 3
+        assert obj.usage["total_tokens"] == 50
+        # the list_files tool result was fed back into the conversation
+        final_messages = scripted.calls[-1]["messages"]
+        assert any(m.get("role") == "tool" for m in final_messages)
 
 
-def test_logger_records_tools_and_verdict():
-    scripted = ScriptedCompletion(
-        json.dumps({"passed": True, "reason": "ok", "violations": []})
-    )
-    llm_mod = _load_llm(scripted)
-    from standard_log import StandardLogger
-
-    logger = StandardLogger()
-    obj = llm_mod.LLM(
-        {"reasoning": {"model": "anthropic/x", "base_url": "", "api_key": "k"}},
-        _mock_project(),
-        logger=logger,
-    )
-    obj.reasoning.evaluate("check docs")
-
-    messages = [e["message"] for e in logger.entries]
-    assert any("starting evaluation" in m for m in messages)
-    assert any(m.startswith("tool: list_files(") for m in messages)
-    assert any("verdict passed=True" in m for m in messages)
-    # every entry is a structured record with a wall-clock timestamp
-    assert all(set(e) >= {"level", "message", "ts"} for e in logger.entries)
+    def test_unconfigured_role_raises(self):
+        llm_mod = _load_llm(
+            ScriptedCompletion(
+                json.dumps({"passed": True, "reason": "x", "violations": []})
+            )
+        )
+        obj = llm_mod.LLM(
+            {"reasoning": {"model": "m", "base_url": "", "api_key": "k"}}, _mock_project()
+        )
+        with self.assertRaises(llm_mod.LLMRoleNotConfigured):
+            obj.code.evaluate("nope")
 
 
-def test_loop_respects_max_iterations():
-    always = AlwaysToolCompletion()
-    llm_mod = _load_llm(always)
+    def test_logger_records_tools_and_verdict(self):
+        scripted = ScriptedCompletion(
+            json.dumps({"passed": True, "reason": "ok", "violations": []})
+        )
+        llm_mod = _load_llm(scripted)
+        from standard_log import StandardLogger
 
-    obj = llm_mod.LLM(
-        {"reasoning": {"model": "m", "base_url": "", "api_key": "k"}}, _mock_project()
-    )
-    verdict = obj.reasoning.evaluate("loop forever")
+        logger = StandardLogger()
+        obj = llm_mod.LLM(
+            {"reasoning": {"model": "anthropic/x", "base_url": "", "api_key": "k"}},
+            _mock_project(),
+            logger=logger,
+        )
+        obj.reasoning.evaluate("check docs")
 
-    loop_calls = sum(1 for c in always.calls if "response_format" not in c)
-    assert loop_calls == llm_mod.MAX_ITERATIONS
-    assert verdict.passed is False
+        messages = [e["message"] for e in logger.entries]
+        assert any("starting evaluation" in m for m in messages)
+        assert any(m.startswith("tool: list_files(") for m in messages)
+        assert any("verdict passed=True" in m for m in messages)
+        # every entry is a structured record with a wall-clock timestamp
+        assert all(set(e) >= {"level", "message", "ts"} for e in logger.entries)
+
+
+    def test_loop_respects_max_iterations(self):
+        always = AlwaysToolCompletion()
+        llm_mod = _load_llm(always)
+
+        obj = llm_mod.LLM(
+            {"reasoning": {"model": "m", "base_url": "", "api_key": "k"}}, _mock_project()
+        )
+        verdict = obj.reasoning.evaluate("loop forever")
+
+        loop_calls = sum(1 for c in always.calls if "response_format" not in c)
+        assert loop_calls == llm_mod.MAX_ITERATIONS
+        assert verdict.passed is False

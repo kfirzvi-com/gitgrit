@@ -18,3 +18,18 @@ from gitgrit.settings import *  # noqa: F401, F403, E402
 BAKER_CUSTOM_FIELDS_GEN = {
     "app.infrastructure.model_fields.EncryptedCharField": "app.infrastructure.model_fields.gen_encrypted_charfield_for_baker",
 }
+
+# Production serves static files through ManifestStaticFilesStorage, which
+# refuses any path missing from the manifest `collectstatic` writes. Tests
+# don't run collectstatic, so every `{% static %}` in a rendered template
+# raises "Missing staticfiles manifest entry" and any test that renders a page
+# errors.
+#
+# Set here rather than per-test-class because the failure hides locally: a
+# staticfiles/ directory left over from an earlier build satisfies the manifest,
+# so a developer sees green and CI — which always starts clean — does not.
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}

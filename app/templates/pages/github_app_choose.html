@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Connect GitHub — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title">Connect a GitHub organization</h1>
+      <p class="text-sm opacity-70 -mt-1">
+        These are the accounts GitGrit is installed on that you can reach.
+        Connecting one links it to <span class="font-semibold">{{ target_tenant.name }}</span>.
+      </p>
+
+      <form method="post" action="{% url 'github_app_choose' %}" class="mt-4">
+        {% csrf_token %}
+        <div class="space-y-2">
+          {% for installation in installations %}
+            <label class="flex items-center gap-3 p-3 rounded-lg border border-base-300
+                          hover:border-primary cursor-pointer">
+              <input type="radio" name="installation_id" value="{{ installation.id }}"
+                     class="radio radio-primary" {% if forloop.first %}checked{% endif %}>
+              <span class="flex-1">
+                <span class="font-semibold">{{ installation.account_login }}</span>
+                {% if installation.account_type %}
+                  <span class="badge badge-outline badge-sm ml-1">{{ installation.account_type }}</span>
+                {% endif %}
+              </span>
+              {% if installation.already_connected %}
+                <span class="badge badge-ghost badge-sm">Already connected</span>
+              {% endif %}
+            </label>
+          {% endfor %}
+        </div>
+
+        <div class="card-actions justify-end mt-5">
+          <a href="{% url 'tenant_settings' %}" class="btn">Cancel</a>
+          <button type="submit" class="btn btn-primary">Connect</button>
+        </div>
+      </form>
+
+      <div class="divider text-xs opacity-60">or</div>
+
+      <a href="{% url 'github_app_install_new' %}" class="btn btn-outline btn-sm">
+        Install on another organization
+      </a>
+      <p class="text-xs opacity-60 mt-1">
+        Adds GitGrit to a GitHub account it isn't installed on yet. You'll need to
+        be an owner there, or GitHub will ask an owner to approve.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
