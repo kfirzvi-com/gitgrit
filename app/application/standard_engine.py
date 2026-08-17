@@ -77,9 +77,9 @@ class StandardEngine:
     def get_standards_for_project(
         self, project: Project, event_type: str, ref: str | None = None
     ) -> list[Standard]:
-        """Return enabled, non-draft standards whose criteria match the event."""
-        standards = Standard.objects.filter(
-            tenant=project.tenant,
+        """Return the project's attached, enabled, non-draft standards whose
+        criteria match the event."""
+        standards = project.standards.filter(
             enabled=True,
             draft=False,
         )
@@ -235,12 +235,13 @@ class StandardEngine:
     def run_for_project(
         self, project: Project, standards: list[Standard] | None = None
     ) -> list[dict]:
-        """Run standards manually for a project (no webhook event needed)."""
+        """Run standards manually for a project (no webhook event needed).
+
+        With no explicit list, runs all of the project's attached standards.
+        """
         if standards is None:
             standards = list(
-                Standard.objects.filter(
-                    tenant=project.tenant, enabled=True, draft=False
-                )
+                project.standards.filter(enabled=True, draft=False)
             )
             # Apply language/ref criteria filtering (skip event check for manual runs)
             standards = [
