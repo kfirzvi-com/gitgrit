@@ -14,41 +14,38 @@ class TestListActiveForProject(APITestCase):
             "app.Project", tenant=self.tenant, languages=["Python"]
         )
 
+    def _attached_standard(self, **kwargs):
+        standard = baker.make("app.Standard", tenant=self.tenant, **kwargs)
+        self.project.standards.add(standard)
+        return standard
+
     def test_excludes_disabled_and_draft_standards(self):
+        self._attached_standard(enabled=True, draft=False, criteria={})
+        self._attached_standard(enabled=False, draft=False, criteria={})
+        self._attached_standard(enabled=True, draft=True, criteria={})
+
+        result = self.service.list_active_for_project(self.tenant, str(self.project.id))
+        assert len(result) == 1
+
+    def test_excludes_unattached_standards(self):
+        self._attached_standard(enabled=True, draft=False, criteria={})
+        # Active and language-agnostic, but not attached to the project.
         baker.make(
             "app.Standard", tenant=self.tenant, enabled=True, draft=False, criteria={}
-        )
-        baker.make(
-            "app.Standard", tenant=self.tenant, enabled=False, draft=False, criteria={}
-        )
-        baker.make(
-            "app.Standard", tenant=self.tenant, enabled=True, draft=True, criteria={}
         )
 
         result = self.service.list_active_for_project(self.tenant, str(self.project.id))
         assert len(result) == 1
 
     def test_filters_by_language_match(self):
-        baker.make(
-            "app.Standard",
-            tenant=self.tenant,
-            enabled=True,
-            draft=False,
-            criteria={"languages": ["Python"]},
+        self._attached_standard(
+            enabled=True, draft=False, criteria={"languages": ["Python"]}
         )
-        baker.make(
-            "app.Standard",
-            tenant=self.tenant,
-            enabled=True,
-            draft=False,
-            criteria={"languages": ["Rust"]},
+        self._attached_standard(
+            enabled=True, draft=False, criteria={"languages": ["Rust"]}
         )
-        baker.make(
-            "app.Standard",
-            tenant=self.tenant,
-            enabled=True,
-            draft=False,
-            criteria={"languages": []},  # language-agnostic
+        self._attached_standard(
+            enabled=True, draft=False, criteria={"languages": []}  # language-agnostic
         )
 
         result = self.service.list_active_for_project(self.tenant, str(self.project.id))
@@ -61,14 +58,7 @@ def evaluate(project):
     c = project.get_file_content("README.md") or ""
     return {"passed": "FIXME" not in c, "score": 100, "message": "", "details": {}}
 """
-        baker.make(
-            "app.Standard",
-            tenant=self.tenant,
-            enabled=True,
-            draft=False,
-            code=code,
-            criteria={},
-        )
+        self._attached_standard(enabled=True, draft=False, code=code, criteria={})
         result = self.service.list_active_for_project(self.tenant, str(self.project.id))
         assert len(result) == 1
         standard = result[0]
@@ -81,9 +71,7 @@ def evaluate(project):
         assert rules["forbidden_patterns_complete"] is True
 
     def test_includes_last_execution_for_project(self):
-        standard = baker.make(
-            "app.Standard", tenant=self.tenant, enabled=True, draft=False, criteria={}
-        )
+        standard = self._attached_standard(enabled=True, draft=False, criteria={})
         baker.make(
             "app.StandardExecution",
             project=self.project,
@@ -98,9 +86,7 @@ def evaluate(project):
         assert result[0]["last_execution"]["message"] == "almost"
 
     def test_last_execution_is_null_when_never_run(self):
-        baker.make(
-            "app.Standard", tenant=self.tenant, enabled=True, draft=False, criteria={}
-        )
+        self._attached_standard(enabled=True, draft=False, criteria={})
         result = self.service.list_active_for_project(self.tenant, str(self.project.id))
         assert result[0]["last_execution"] is None
 

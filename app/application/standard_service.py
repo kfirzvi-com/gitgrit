@@ -165,7 +165,10 @@ class StandardService:
     def list_active_for_project(
         self, tenant: Tenant, project_id: str
     ) -> list[dict]:
-        """Return active, non-draft standards applicable to a project.
+        """Return the active, non-draft standards attached to a project.
+
+        Only standards attached to the project are considered — a workspace
+        standard that is not attached does not apply, no matter its criteria.
 
         Shape is tailored for client-side enforcement: each standard carries a
         ``rules`` block produced by :func:`app.domain.standard_extractor.extract_rules`
@@ -173,15 +176,16 @@ class StandardService:
         flag, and per-dimension completeness flags). Raw source is not shipped.
 
         Event and ref-pattern criteria are intentionally ignored — those are
-        webhook-time filters. Language match is the only applicability gate.
+        webhook-time filters. Language match is the only applicability gate
+        within the attached set.
         """
         try:
             project = Project.objects.get(tenant=tenant, id=project_id)
         except (Project.DoesNotExist, ValidationError):
             raise ValueError(f"Project {project_id} not found")
 
-        standards = Standard.objects.filter(
-            tenant=tenant, enabled=True, draft=False
+        standards = project.standards.filter(
+            enabled=True, draft=False
         ).prefetch_related("labels")
 
         result = []

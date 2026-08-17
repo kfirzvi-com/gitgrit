@@ -19,7 +19,7 @@ class TestValidateEdit(APITestCase):
         self.project = baker.make(
             "app.Project", tenant=self.tenant, languages=["Python"]
         )
-        baker.make(
+        standard = baker.make(
             "app.Standard",
             tenant=self.tenant,
             name="no-console-log",
@@ -28,6 +28,7 @@ class TestValidateEdit(APITestCase):
             draft=False,
             criteria={"languages": ["Python"]},
         )
+        self.project.standards.add(standard)
 
     def test_introduced_violation_blocks(self):
         prior = "a console.log(1)\n"

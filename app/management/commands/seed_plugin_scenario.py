@@ -115,7 +115,7 @@ class Command(BaseCommand):
             # default seed will re-enable via update_or_create on the same name.
             Standard.objects.filter(tenant=tenant).update(enabled=False)
         else:
-            Standard.objects.update_or_create(
+            standard, _ = Standard.objects.update_or_create(
                 tenant=tenant,
                 name="No TODOs in source",
                 defaults={
@@ -130,6 +130,9 @@ class Command(BaseCommand):
                     "draft": False,
                 },
             )
+            # Only attached standards apply to a project; without this the
+            # seeded scenario would bootstrap with zero standards.
+            project.standards.add(standard)
         token, raw = APIToken.generate()
         token.user = user
         token.tenant = tenant
