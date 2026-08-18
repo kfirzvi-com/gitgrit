@@ -51,7 +51,6 @@
                 <button hx-post="{% url 'switch_tenant' %}"
                         hx-vals='{"tenant_id": "{{ tenant.id }}"}'
                         hx-swap="none"
-                        hx-on::after-request="window.location.reload()"
                         class="{% if tenant.id == current_tenant.id %}active{% endif %}">
                   {{ tenant.name }}
                 </button>
