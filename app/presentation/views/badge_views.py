@@ -18,17 +18,18 @@ def project_badge(request, pk):
     """Serve an SVG compliance badge for a project. Unauthenticated."""
     project = get_object_or_404(Project, pk=pk)
 
-    # Calculate compliance score from latest executions
+    # Calculate compliance score from the latest execution per attached
+    # standard — detached standards' history must not move the badge.
     executions = (
-        StandardExecution.objects.filter(project=project)
-        .select_related("standard")
+        StandardExecution.objects.filter(
+            project=project, standard__in=project.standards.all()
+        )
         .order_by("-created_at")[:200]
     )
     seen = {}
     for ex in executions:
-        key = ex.standard_id or ex.standard_name
-        if key not in seen:
-            seen[key] = ex
+        if ex.standard_id not in seen:
+            seen[ex.standard_id] = ex
 
     latest = list(seen.values())
     if latest:
