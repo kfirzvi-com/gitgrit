@@ -59,7 +59,7 @@ class StandardEngine:
         ``installation_id`` narrows the match to the GitHub App connections
         holding that installation. An App delivery is authenticated with one
         secret shared by every installation of the App, so without this narrowing
-        a delivery would also fire policies in an unrelated workspace that
+        a delivery would also fire standards in an unrelated workspace that
         happens to connect the same repository by token — a workspace that
         installation was never granted anything by.
         """

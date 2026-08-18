@@ -114,7 +114,7 @@ class TestGetInstallationToken(GitHubAppTokenCacheTestCase):
 class TestRepositoryScopeIsSentAsGitHubExpects(GitHubAppTokenCacheTestCase):
     """GitHub scopes an installation token by repository name *relative to the
     installation* — ``"app"``, never ``"acme/app"``. Callers hold owner-qualified
-    ``full_path`` values, so sending them through unchanged is a 422 and a policy
+    ``full_path`` values, so sending them through unchanged is a 422 and a standard
     run that silently never happens.
     """
 

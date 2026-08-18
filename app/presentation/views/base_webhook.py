@@ -104,7 +104,7 @@ class BaseWebhookView(APIView):
         Verifies the delivery against the App's single shared webhook secret
         (not a per-project secret), then dispatches by event type: lifecycle
         events (`installation`, `installation_repositories`) sync connections
-        and projects; ordinary code events (`push`, `pull_request`) run policies
+        and projects; ordinary code events (`push`, `pull_request`) run standards
         for the App connection's projects.
         """
         if not verify_github_app_signature(body, headers.get("x-hub-signature-256")):

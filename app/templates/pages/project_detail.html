@@ -86,14 +86,23 @@
       <div class="card-body">
         <div class="flex justify-between items-center">
           <h2 class="card-title">Standards</h2>
-          {% if standards %}
-            <form method="post" action="{% url 'run_project_standards' project.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-primary btn-sm">Run All</button>
-            </form>
-          {% endif %}
+          <div class="flex gap-2">
+            {% if has_runnable_standards %}
+              <form method="post" action="{% url 'run_project_standards' project.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm">Run All</button>
+              </form>
+            {% endif %}
+            <button type="button" class="btn btn-outline btn-sm"
+                    hx-get="{% url 'project_standards' project.pk %}"
+                    hx-target="#standards-modal-body"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('standards-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading standards...&lt;/p&gt;'; document.getElementById('standards_modal').showModal()">
+              Attach standards
+            </button>
+          </div>
         </div>
-        {% if standards %}
+        {% if attached_standards %}
           <div class="overflow-x-auto">
             <table class="table table-sm">
               <thead>
@@ -104,10 +113,15 @@
                 </tr>
               </thead>
               <tbody>
-                {% for standard in standards %}
+                {% for standard in attached_standards %}
                   <tr>
                     <td>
                       <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover">{{ standard.name }}</a>
+                      {% if standard.draft %}
+                        <span class="badge badge-ghost badge-xs align-middle">Draft</span>
+                      {% elif not standard.enabled %}
+                        <span class="badge badge-ghost badge-xs align-middle">Disabled</span>
+                      {% endif %}
                       {% if standard.description %}
                         <p class="text-xs opacity-50 truncate max-w-xs">{{ standard.description }}</p>
                       {% endif %}
@@ -120,11 +134,13 @@
                       {% endfor %}
                     </td>
                     <td class="text-right">
-                      <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="standard_id" value="{{ standard.pk }}">
-                        <button type="submit" class="btn btn-ghost btn-xs">Run</button>
-                      </form>
+                      {% if standard.enabled and not standard.draft %}
+                        <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="standard_id" value="{{ standard.pk }}">
+                          <button type="submit" class="btn btn-ghost btn-xs">Run</button>
+                        </form>
+                      {% endif %}
                     </td>
                   </tr>
                 {% endfor %}
@@ -132,10 +148,20 @@
             </table>
           </div>
         {% else %}
-          <p class="text-sm opacity-70">No active standards. <a href="{% url 'create_standard' %}" class="link">Create one</a> to get started.</p>
+          <p class="text-sm opacity-70">No standards attached. Attach standards from your workspace to start enforcing them on this project.</p>
         {% endif %}
       </div>
     </div>
+
+    <dialog id="standards_modal" class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-2">Attach standards</h3>
+        <div id="standards-modal-body">
+          <p class="text-sm opacity-70">Loading standards...</p>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
 
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
@@ -147,7 +173,7 @@
               {{ compliance_score }}%
             </div>
             <div>
-              <p class="text-sm opacity-70">Overall score based on {{ latest_executions|length }} polic{{ latest_executions|length|pluralize:"y,ies" }}</p>
+              <p class="text-sm opacity-70">Overall score based on {{ latest_executions|length }} standard{{ latest_executions|length|pluralize }}</p>
             </div>
           </div>
           {% if latest_executions %}

@@ -62,7 +62,7 @@ def _repo_names(repositories: list[str] | None) -> list[str] | None:
     name *relative to the installation* — ``"app"``, never ``"acme/app"``. Every
     caller here holds a project's ``full_path``, which is the owner-qualified
     form, so accept either and keep only the last segment. Passing a full path
-    through is a 422 from GitHub, i.e. a policy run that never happens.
+    through is a 422 from GitHub, i.e. a standard run that never happens.
     """
     if not repositories:
         return None

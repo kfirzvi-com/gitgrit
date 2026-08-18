@@ -1,0 +1,46 @@
+{# Searchable standard picker — shared by add_project.html and the project-page modal. #}
+{# Context: workspace_standards (queryset), attached_standard_ids (set of pks to pre-check). #}
+<div class="standard-picker">
+  <input type="text" placeholder="Search standards..."
+         class="input input-bordered input-sm w-full mb-2"
+         oninput="filterStandardPicker(this)" autocomplete="off"
+         onkeydown="if (event.key === 'Enter') event.preventDefault()">
+  <div class="max-h-64 overflow-y-auto rounded-box border border-base-300 p-2 space-y-1">
+    {% for standard in workspace_standards %}
+      <label class="label cursor-pointer justify-start gap-3 py-1 standard-picker-row"
+             data-standard-search="{{ standard.name|lower }} {{ standard.description|lower|truncatechars:200 }}">
+        <input type="checkbox" name="standards" value="{{ standard.pk }}"
+               class="checkbox checkbox-sm"
+               {% if standard.pk in attached_standard_ids %}checked{% endif %}>
+        <span class="label-text">
+          {{ standard.name }}
+          {% if standard.draft %}
+            <span class="badge badge-ghost badge-xs align-middle">Draft</span>
+          {% elif not standard.enabled %}
+            <span class="badge badge-ghost badge-xs align-middle">Disabled</span>
+          {% endif %}
+        </span>
+      </label>
+    {% empty %}
+      <p class="text-sm opacity-70">No standards in this workspace yet.</p>
+    {% endfor %}
+    <p class="text-sm opacity-70 hidden standard-picker-no-match">No standards match your search.</p>
+  </div>
+</div>
+<script>
+// Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
+if (!window.filterStandardPicker) {
+  window.filterStandardPicker = function (input) {
+    var picker = input.closest('.standard-picker');
+    var q = input.value.trim().toLowerCase();
+    var anyVisible = false;
+    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      var match = !q || row.dataset.standardSearch.indexOf(q) !== -1;
+      row.classList.toggle('hidden', !match);
+      if (match) anyVisible = true;
+    });
+    var noMatch = picker.querySelector('.standard-picker-no-match');
+    if (noMatch) noMatch.classList.toggle('hidden', anyVisible);
+  };
+}
+</script>

@@ -58,8 +58,16 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         project = self.object
 
+        attached_standards = list(project.standards.order_by("ordinal", "name"))
+        context["attached_standards"] = attached_standards
+        context["has_runnable_standards"] = any(
+            s.enabled and not s.draft for s in attached_standards
+        )
+
+        # Executions of detached standards must not drag the score
         recent_executions = StandardExecution.objects.filter(
-            project=project, standard__isnull=False
+            project=project,
+            standard__in=attached_standards,
         ).select_related("standard")[:50]
         context["recent_executions"] = recent_executions
 
@@ -78,11 +86,6 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
             )
         else:
             context["compliance_score"] = None
-
-        # Available standards for manual trigger
-        context["standards"] = Standard.objects.filter(
-            tenant=project.tenant, enabled=True, draft=False
-        ).order_by("ordinal", "name")
 
         return context
 
@@ -167,6 +170,7 @@ def add_project_search(request, connection_id):
             return redirect("project_list")
 
         stack_ids = request.POST.getlist("stacks")
+        standard_ids = request.POST.getlist("standards")
 
         project = Project.objects.create(
             tenant=tenant,
@@ -185,6 +189,10 @@ def add_project_search(request, connection_id):
         if stack_ids:
             stacks = Stack.objects.filter(pk__in=stack_ids, tenant=tenant)
             project.stacks.set(stacks)
+
+        if standard_ids:
+            standards = Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
+            project.standards.set(standards)
 
         try:
             client = get_platform_client(connection)
@@ -229,6 +237,10 @@ def add_project_search(request, connection_id):
             "lifecycle_choices": Project.Lifecycle.choices,
             "stacks": stacks,
             "existing_owners": _existing_owners(tenant),
+            "workspace_standards": Standard.objects.filter(tenant=tenant).order_by(
+                "ordinal", "name"
+            ),
+            "attached_standard_ids": set(),
         },
     )
 
@@ -321,7 +333,13 @@ def run_project_standards(request, pk):
     standard_id = request.POST.get("standard_id")
     if standard_id:
         standards = list(
-            Standard.objects.filter(pk=standard_id, tenant=tenant, enabled=True, draft=False)
+            Standard.objects.filter(
+                pk=standard_id,
+                tenant=tenant,
+                enabled=True,
+                draft=False,
+                projects=project,
+            )
         )
         if not standards:
             messages.error(request, "Standard not found or not active.")
@@ -336,13 +354,59 @@ def run_project_standards(request, pk):
         passed = sum(1 for r in results if r.get("passed"))
         messages.success(
             request,
-            f"Ran {len(results)} polic{'y' if len(results) == 1 else 'ies'}: "
+            f"Ran {len(results)} standard{'' if len(results) == 1 else 's'}: "
             f"{passed} passed, {len(results) - passed} failed.",
         )
     else:
         messages.warning(request, "No eligible standards to run.")
 
     return redirect("project_detail", pk=pk)
+
+
+@login_required
+def project_standards(request, pk):
+    """Manage which workspace standards are attached to a project.
+
+    GET returns the searchable picker partial (for the HTMX modal on the
+    project page); POST replaces the attachment set and redirects back.
+    """
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("project_list")
+
+    project = get_object_or_404(Project, pk=pk, tenant=tenant)
+
+    if request.method == "POST":
+        standard_ids = request.POST.getlist("standards")
+        standards = Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
+        project.standards.set(standards)
+        count = len(standards)
+        if count:
+            messages.success(
+                request,
+                f"{count} standard{'' if count == 1 else 's'} attached to \"{project.name}\".",
+            )
+        else:
+            messages.success(request, f'All standards detached from "{project.name}".')
+        return redirect("project_detail", pk=pk)
+
+    if not request.headers.get("HX-Request"):
+        return redirect("project_detail", pk=pk)
+
+    return render(
+        request,
+        "partials/project_standards_form.html",
+        {
+            "project": project,
+            "workspace_standards": Standard.objects.filter(tenant=tenant).order_by(
+                "ordinal", "name"
+            ),
+            "attached_standard_ids": set(
+                project.standards.values_list("pk", flat=True)
+            ),
+        },
+    )
 
 
 @login_required

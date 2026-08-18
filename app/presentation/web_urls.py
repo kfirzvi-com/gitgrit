@@ -19,6 +19,7 @@ from app.presentation.views.project_views import (
     add_project_search,
     add_project_select,
     delete_project,
+    project_standards,
     retry_webhook,
     run_project_standards,
 )
@@ -170,6 +171,11 @@ urlpatterns = [
         "projects/<uuid:pk>/run-standards/",
         run_project_standards,
         name="run_project_standards",
+    ),
+    path(
+        "projects/<uuid:pk>/standards/",
+        project_standards,
+        name="project_standards",
     ),
     path(
         "projects/<uuid:pk>/retry-webhook/",

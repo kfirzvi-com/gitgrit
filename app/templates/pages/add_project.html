@@ -96,6 +96,22 @@
           </div>
         {% endif %}
 
+        <div class="form-control">
+          <label class="label"><span class="label-text">Attach standards</span></label>
+          {% if workspace_standards %}
+            {% include "partials/standard_picker.html" %}
+            <label class="label">
+              <span class="label-text-alt opacity-70">
+                Only attached standards run on this project. None are attached by default.
+              </span>
+            </label>
+          {% else %}
+            <p class="text-sm opacity-70">
+              No standards in this workspace yet. You can attach standards later from the project page.
+            </p>
+          {% endif %}
+        </div>
+
         <div class="card-actions justify-end mt-4">
           <a href="{% url 'add_project_select' %}" class="btn btn-ghost">Back</a>
           <button type="submit" class="btn btn-primary">Add Project</button>
