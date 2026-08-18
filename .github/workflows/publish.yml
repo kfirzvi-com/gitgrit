@@ -49,7 +49,18 @@ jobs:
 
   publish:
     needs: detect
-    if: always() && (needs.detect.outputs.app == 'true' || github.event_name != 'push')
+    # A tag always publishes. `detect` only looks at the tip commit's diff,
+    # which is the right gate for a push to main — don't rebuild the app for a
+    # docs-only change — but wrong for a tag: a tag releases the whole tree, not
+    # a delta. v0.8.0 landed on a commit that only touched site/, so the image
+    # was never built and production was never deployed, while the docs and the
+    # air-gap bundle shipped as if it had been.
+    if: >-
+      always() && (
+        github.ref_type == 'tag'
+        || needs.detect.outputs.app == 'true'
+        || github.event_name != 'push'
+      )
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
