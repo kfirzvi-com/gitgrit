@@ -6,9 +6,11 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
+from django_htmx.http import HttpResponseClientRedirect
 
 from app.domain.models import (
     LLMProvider,
@@ -34,6 +36,8 @@ def switch_tenant(request):
     ).first()
     if membership:
         request.session["active_tenant_id"] = str(membership.tenant_id)
+    if request.htmx:
+        return HttpResponseClientRedirect(reverse("dashboard"))
     return redirect("dashboard")
 
 
