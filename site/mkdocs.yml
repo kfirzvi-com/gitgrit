@@ -68,10 +68,6 @@ not_in_nav: |
   /legal/cookies.md
   /legal/accessibility.md
   /legal/sub-processors.md
-  /solutions/index.md
-  /solutions/seniors-are-the-bottleneck.md
-  /solutions/unchecked-ai-written-code.md
-  /solutions/checking-is-slow-and-expensive.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -88,11 +84,6 @@ markdown_extensions:
 extra_css:
   - stylesheets/tokens.css    # shared design tokens — single source of truth
   - stylesheets/custom.css    # Material theme variable mappings and component overrides
-  - stylesheets/solutions.css # solutions pages: benefits, visual frames, subhead
-  - stylesheets/consult.css   # book-a-consult button + popup
-
-extra_javascript:
-  - javascripts/consult.js    # book-a-consult popup behaviour
 
 extra:
   is_staging: !ENV [DOCS_IS_STAGING, false]
