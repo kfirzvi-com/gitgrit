@@ -237,9 +237,9 @@ def add_project_search(request, connection_id):
             "lifecycle_choices": Project.Lifecycle.choices,
             "stacks": stacks,
             "existing_owners": _existing_owners(tenant),
-            "workspace_standards": Standard.objects.filter(tenant=tenant).order_by(
-                "ordinal", "name"
-            ),
+            "workspace_standards": Standard.objects.filter(tenant=tenant)
+            .prefetch_related("labels")
+            .order_by("ordinal", "name"),
             "attached_standard_ids": set(),
         },
     )
@@ -399,9 +399,9 @@ def project_standards(request, pk):
         "partials/project_standards_form.html",
         {
             "project": project,
-            "workspace_standards": Standard.objects.filter(tenant=tenant).order_by(
-                "ordinal", "name"
-            ),
+            "workspace_standards": Standard.objects.filter(tenant=tenant)
+            .prefetch_related("labels")
+            .order_by("ordinal", "name"),
             "attached_standard_ids": set(
                 project.standards.values_list("pk", flat=True)
             ),

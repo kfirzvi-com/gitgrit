@@ -1,31 +1,79 @@
-{# Searchable standard picker — shared by add_project.html and the project-page modal. #}
-{# Context: workspace_standards (queryset), attached_standard_ids (set of pks to pre-check). #}
+{# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
+{# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check). #}
 <div class="standard-picker">
-  <input type="text" placeholder="Search standards..."
+  <input type="text" placeholder="Search standards by name, description, or tag..."
          class="input input-bordered input-sm w-full mb-2"
          oninput="filterStandardPicker(this)" autocomplete="off"
          onkeydown="if (event.key === 'Enter') event.preventDefault()">
-  <div class="max-h-64 overflow-y-auto rounded-box border border-base-300 p-2 space-y-1">
-    {% for standard in workspace_standards %}
-      <label class="label cursor-pointer justify-start gap-3 py-1 standard-picker-row"
-             data-standard-search="{{ standard.name|lower }} {{ standard.description|lower|truncatechars:200 }}">
-        <input type="checkbox" name="standards" value="{{ standard.pk }}"
-               class="checkbox checkbox-sm"
-               {% if standard.pk in attached_standard_ids %}checked{% endif %}>
-        <span class="label-text">
-          {{ standard.name }}
-          {% if standard.draft %}
-            <span class="badge badge-ghost badge-xs align-middle">Draft</span>
-          {% elif not standard.enabled %}
-            <span class="badge badge-ghost badge-xs align-middle">Disabled</span>
-          {% endif %}
-        </span>
-      </label>
-    {% empty %}
-      <p class="text-sm opacity-70">No standards in this workspace yet.</p>
-    {% endfor %}
-    <p class="text-sm opacity-70 hidden standard-picker-no-match">No standards match your search.</p>
+  <div class="max-h-80 overflow-y-auto rounded-box border border-base-300">
+    <table class="table table-sm table-pin-rows">
+      <thead>
+        <tr>
+          <th class="w-8"></th>
+          <th>
+            <button type="button" class="link link-hover font-semibold"
+                    title="Sort by name"
+                    onclick="sortStandardPicker(this, 'name')">Name</button>
+          </th>
+          <th>Description</th>
+          <th>
+            <button type="button" class="link link-hover font-semibold"
+                    title="Sort by first tag"
+                    onclick="sortStandardPicker(this, 'firstTag')">Tags</button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for standard in workspace_standards %}
+          <tr class="standard-picker-row"
+              data-standard-search="{{ standard.name|lower }} {{ standard.description|lower }}{% for label in standard.labels.all %} {{ label.name|lower }}{% endfor %}"
+              data-name="{{ standard.name|lower }}"
+              data-first-tag="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}">
+            <td>
+              <input type="checkbox" name="standards" value="{{ standard.pk }}"
+                     class="checkbox checkbox-sm"
+                     {% if standard.pk in attached_standard_ids %}checked{% endif %}>
+            </td>
+            <td>
+              <a href="{% url 'standard_detail' standard.pk %}" target="_blank" rel="noopener"
+                 class="link link-hover font-medium">{{ standard.name }}</a>
+              {% if standard.draft %}
+                <span class="badge badge-ghost badge-xs align-middle">Draft</span>
+              {% elif not standard.enabled %}
+                <span class="badge badge-ghost badge-xs align-middle">Disabled</span>
+              {% endif %}
+            </td>
+            <td class="max-w-48">
+              {% if standard.description %}
+                <span class="block truncate text-xs opacity-70 cursor-help"
+                      data-full-description="{{ standard.description }}"
+                      onmouseenter="showStandardDescPopover(this)"
+                      onmouseleave="hideStandardDescPopover()">{{ standard.description|truncatewords:6 }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="flex flex-wrap gap-1">
+                {% for label in standard.labels.all %}
+                  <span class="badge badge-outline badge-xs cursor-pointer"
+                        title="Filter by this tag"
+                        data-tag="{{ label.name|lower }}"
+                        onclick="filterStandardPickerByTag(this)">{{ label.name }}</span>
+                {% empty %}
+                  <span class="text-xs opacity-40">—</span>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
+        {% endfor %}
+        <tr class="standard-picker-no-match hidden">
+          <td colspan="4"><p class="text-sm opacity-70">No standards match your search.</p></td>
+        </tr>
+      </tbody>
+    </table>
   </div>
+  <div class="standard-desc-popover hidden fixed z-[100] max-w-sm rounded-box border border-base-300 bg-base-100 p-3 text-xs shadow-lg whitespace-pre-line"></div>
 </div>
 <script>
 // Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
@@ -42,5 +90,67 @@ if (!window.filterStandardPicker) {
     var noMatch = picker.querySelector('.standard-picker-no-match');
     if (noMatch) noMatch.classList.toggle('hidden', anyVisible);
   };
+
+  // Tag chip click: filter to that tag; clicking a chip of the active tag clears the filter.
+  window.filterStandardPickerByTag = function (chip) {
+    var picker = chip.closest('.standard-picker');
+    var input = picker.querySelector('input[type="text"]');
+    var tag = chip.dataset.tag;
+    input.value = input.value.trim().toLowerCase() === tag ? '' : tag;
+    window.filterStandardPicker(input);
+  };
+
+  // key: 'name' or 'firstTag' (rows without the value sort last).
+  window.sortStandardPicker = function (btn, key) {
+    var picker = btn.closest('.standard-picker');
+    var tbody = picker.querySelector('tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('.standard-picker-row'));
+    rows.sort(function (a, b) {
+      var av = a.dataset[key];
+      var bv = b.dataset[key];
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv);
+    });
+    rows.forEach(function (row) { tbody.appendChild(row); });
+    var noMatch = picker.querySelector('.standard-picker-no-match');
+    if (noMatch) tbody.appendChild(noMatch);
+  };
+
+  window.showStandardDescPopover = function (cell) {
+    var pop = cell.closest('.standard-picker').querySelector('.standard-desc-popover');
+    // DaisyUI's .modal-box has translate/scale, which would make it the containing
+    // block (and clipping box) for this fixed-position popover — host it on the
+    // <dialog> itself instead: top layer, untransformed, so viewport coords hold.
+    var dlg = cell.closest('dialog');
+    if (dlg) {
+      if (pop) {
+        dlg.querySelectorAll(':scope > .standard-desc-popover').forEach(function (old) { old.remove(); });
+        dlg.appendChild(pop);
+      } else {
+        pop = dlg.querySelector(':scope > .standard-desc-popover');
+      }
+    }
+    if (!pop) return;
+    pop.textContent = cell.dataset.fullDescription;
+    pop.classList.remove('hidden');
+    var rect = cell.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = (rect.bottom + 4) + 'px';
+    if (rect.bottom + 4 + pop.offsetHeight > window.innerHeight) {
+      pop.style.top = Math.max(8, rect.top - pop.offsetHeight - 4) + 'px';
+    }
+  };
+
+  window.hideStandardDescPopover = function () {
+    document.querySelectorAll('.standard-desc-popover').forEach(function (pop) {
+      pop.classList.add('hidden');
+    });
+  };
+
+  // Fixed-position popover would drift from its row on scroll — hide it on any
+  // scroll (capture catches the table container, modal box, and window alike).
+  window.addEventListener('scroll', window.hideStandardDescPopover, { capture: true, passive: true });
 }
 </script>
