@@ -10,7 +10,9 @@ class ProjectStatusService:
 
         Aggregates the *latest* execution per standard (DISTINCT ON in Postgres —
         safe here because the stack is Postgres-only) so a standard run many
-        times does not skew the average.
+        times does not skew the average. Only standards currently attached to
+        the project count — detaching a standard removes its history from the
+        score.
         """
         try:
             project = Project.objects.get(tenant=tenant, id=project_id)
@@ -20,7 +22,7 @@ class ProjectStatusService:
         latest = list(
             StandardExecution.objects.filter(
                 project=project,
-                standard__isnull=False,
+                standard__in=project.standards.all(),
                 status__in=[
                     StandardExecution.Status.PASSED,
                     StandardExecution.Status.FAILED,

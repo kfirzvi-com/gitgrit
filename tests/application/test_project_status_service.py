@@ -32,6 +32,7 @@ class TestGetProjectStatus(APITestCase):
     def test_grade_excellent_when_all_scores_high(self):
         for score in (95, 92, 98):
             standard = baker.make("app.Standard", tenant=self.tenant)
+            self.project.standards.add(standard)
             baker.make(
                 "app.StandardExecution",
                 project=self.project,
@@ -77,6 +78,7 @@ class TestGetProjectStatus(APITestCase):
         scores = [95, 30, 70, 20, 55]
         for score in scores:
             standard = baker.make("app.Standard", tenant=self.tenant)
+            self.project.standards.add(standard)
             baker.make(
                 "app.StandardExecution",
                 project=self.project,
@@ -90,6 +92,7 @@ class TestGetProjectStatus(APITestCase):
 
     def test_uses_only_latest_execution_per_standard(self):
         standard = baker.make("app.Standard", tenant=self.tenant)
+        self.project.standards.add(standard)
         now = timezone.now()
         old = baker.make(
             "app.StandardExecution",
@@ -113,6 +116,31 @@ class TestGetProjectStatus(APITestCase):
         assert result["total_standards"] == 1
         assert result["overall_score"] == 100
         assert result["passed"] == 1
+        assert result["failed"] == 0
+
+    def test_detached_standard_executions_are_excluded_from_score(self):
+        attached = baker.make("app.Standard", tenant=self.tenant)
+        detached = baker.make("app.Standard", tenant=self.tenant)
+        self.project.standards.add(attached)
+        baker.make(
+            "app.StandardExecution",
+            project=self.project,
+            standard=attached,
+            score=100,
+            status=StandardExecution.Status.PASSED,
+        )
+        baker.make(
+            "app.StandardExecution",
+            project=self.project,
+            standard=detached,
+            score=0,
+            status=StandardExecution.Status.FAILED,
+        )
+
+        result = self.service.get_project_status(self.tenant, str(self.project.id))
+
+        assert result["total_standards"] == 1
+        assert result["overall_score"] == 100
         assert result["failed"] == 0
 
     def test_unknown_project_raises_value_error(self):

@@ -50,7 +50,7 @@
                   <div class="flex gap-1">
                     <span hx-post="{% url 'toggle_standard' standard.pk %}"
                           hx-swap="outerHTML"
-                          class="badge {% if standard.enabled %}badge-success{% else %}badge-ghost{% endif %} badge-sm cursor-pointer"
+                          class="badge {% if standard.enabled %}badge-success{% else %}badge-error{% endif %} badge-sm cursor-pointer"
                           title="Click to toggle">
                       {% if standard.enabled %}Enabled{% else %}Disabled{% endif %}
                     </span>

@@ -282,7 +282,7 @@ def toggle_standard(request, pk):
 
     if request.headers.get("HX-Request"):
         label = "Enabled" if standard.enabled else "Disabled"
-        badge_class = "badge-success" if standard.enabled else "badge-ghost"
+        badge_class = "badge-success" if standard.enabled else "badge-error"
         url = reverse("toggle_standard", kwargs={"pk": standard.pk})
         return HttpResponse(
             f'<span hx-post="{url}" hx-swap="outerHTML"'

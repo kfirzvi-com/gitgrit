@@ -64,6 +64,7 @@ class TestGitHubWebhookView(APITestCase):
             draft=False,
             criteria={"events": ["push"]},
         )
+        project.standards.add(standard)
 
         response = self._post(
             {"repository": {"id": 100}, "ref": "refs/heads/main", "sender": {"login": "octocat"}}
@@ -88,13 +89,14 @@ class TestGitHubWebhookView(APITestCase):
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="111"
         )
-        baker.make(
+        standard = baker.make(
             "app.Standard",
             tenant=tenant,
             enabled=True,
             draft=False,
             criteria={"events": ["release"]},  # only matches "release", not "push"
         )
+        project.standards.add(standard)
 
         response = self._post({"repository": {"id": 111}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
@@ -107,13 +109,14 @@ class TestGitHubWebhookView(APITestCase):
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="222"
         )
-        baker.make(
+        standard = baker.make(
             "app.Standard",
             tenant=tenant,
             enabled=False,
             draft=False,
             criteria={"events": ["push"]},
         )
+        project.standards.add(standard)
 
         response = self._post({"repository": {"id": 222}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
@@ -126,13 +129,14 @@ class TestGitHubWebhookView(APITestCase):
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="333"
         )
-        baker.make(
+        standard = baker.make(
             "app.Standard",
             tenant=tenant,
             enabled=True,
             draft=True,
             criteria={"events": ["push"]},
         )
+        project.standards.add(standard)
 
         response = self._post({"repository": {"id": 333}, "sender": {"login": "octocat"}})
         assert response.status_code == 200
@@ -155,12 +159,33 @@ class TestGitHubWebhookView(APITestCase):
         project = baker.make(
             "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="444"
         )
-        baker.make("app.Standard", tenant=tenant, enabled=True, draft=False, criteria={"events": ["push"]}, _quantity=3)
+        standards = baker.make("app.Standard", tenant=tenant, enabled=True, draft=False, criteria={"events": ["push"]}, _quantity=3)
+        project.standards.set(standards)
 
         response = self._post({"repository": {"id": 444}, "ref": "refs/heads/main", "sender": {"login": "octocat"}})
         assert response.status_code == 200
         assert response.data["standards_run"] == 3
         assert StandardExecution.objects.filter(project=project).count() == 3
+
+    def test_unattached_standard_is_not_run(self):
+        tenant = baker.make("app.Tenant")
+        connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
+        project = baker.make(
+            "app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="666"
+        )
+        # Enabled, non-draft, event matches — but not attached to the project.
+        baker.make(
+            "app.Standard",
+            tenant=tenant,
+            enabled=True,
+            draft=False,
+            criteria={"events": ["push"]},
+        )
+
+        response = self._post({"repository": {"id": 666}, "sender": {"login": "octocat"}})
+        assert response.status_code == 200
+        assert response.data["standards_run"] == 0
+        assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_standard_from_different_tenant_is_not_run(self):
         tenant = baker.make("app.Tenant")
@@ -444,6 +469,7 @@ class TestGitLabWebhookView(APITestCase):
             draft=False,
             criteria={"events": ["push"]},
         )
+        project.standards.add(standard)
 
         response = self._post(
             {

@@ -284,6 +284,7 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
             enabled=True,
             draft=False,
         )
+        self.project_a.standards.add(self.standard_a)
 
         # Workspace B connects the same repository by token. Unrelated grant.
         self.tenant_b = baker.make("app.Tenant")
@@ -308,6 +309,7 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
             enabled=True,
             draft=False,
         )
+        self.project_b.standards.add(self.standard_b)
 
     def _push(self, installation_id: int):
         payload = {

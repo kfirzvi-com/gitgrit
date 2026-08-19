@@ -302,6 +302,12 @@ class Project(models.Model):
         blank=True,
         related_name="projects",
     )
+    standards = models.ManyToManyField(
+        "Standard",
+        through="ProjectStandard",
+        blank=True,
+        related_name="projects",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -363,6 +369,38 @@ class ProjectStack(models.Model):
 
     def __str__(self):
         return f"{self.project} — {self.stack}"
+
+
+class ProjectStandard(models.Model):
+    """Attachment of a workspace standard to a project.
+
+    Only attached standards are candidates to run on a project; criteria
+    (events, ref regex, languages) still filter within the attached set.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="project_standards",
+    )
+    standard = models.ForeignKey(
+        "Standard",
+        on_delete=models.CASCADE,
+        related_name="project_standards",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "project_standards"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "standard"], name="unique_project_standard"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project} — {self.standard}"
 
 
 class StackDependency(models.Model):

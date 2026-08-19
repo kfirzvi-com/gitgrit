@@ -18,7 +18,7 @@ model is reserved for future manual stack-level labels and is not read here).
 
 from collections import Counter, defaultdict
 
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.urls import reverse
 
 from app.application.naming import canonical_key
@@ -28,6 +28,7 @@ from app.domain.models import (
     StandardExecution,
     Project,
     ProjectDependency,
+    ProjectStandard,
     Stack,
 )
 from app.presentation.health import (
@@ -43,25 +44,40 @@ from app.presentation.health import (
 MAX_TECHNOLOGIES = 8
 
 
-def latest_scores_by_project(tenant):
-    """Map each project to its latest result per standard.
+def _attached_executions(tenant):
+    """Tenant executions whose standard is currently attached to their project.
 
-    Returns ``{project_id: {standard_key: {"name", "score"}}}`` where
-    ``standard_key`` is the standard id (or name, for deleted standards). The standard
+    Detached (or deleted) standards' old executions must not drag project
+    scores or raise attention items, so every dashboard read starts here.
+    """
+    attached = ProjectStandard.objects.filter(
+        project_id=OuterRef("project_id"), standard_id=OuterRef("standard_id")
+    )
+    return StandardExecution.objects.filter(
+        Exists(attached), project__tenant=tenant
+    )
+
+
+def latest_scores_by_project(tenant):
+    """Map each attached project/standard pair to its latest result.
+
+    Returns ``{project_id: {standard_id: {"name", "score"}}}``. The standard
     name is kept so health tooltips can name the specific standards dragging a
     project down.
     """
     executions = (
-        StandardExecution.objects.filter(project__tenant=tenant)
+        _attached_executions(tenant)
         .order_by("-created_at")
         .values("project_id", "standard_id", "standard_name", "score")
     )
     latest = defaultdict(dict)
     for ex in executions:
-        key = ex["standard_id"] or ex["standard_name"]
         results = latest[ex["project_id"]]
-        if key not in results:
-            results[key] = {"name": ex["standard_name"], "score": ex["score"]}
+        if ex["standard_id"] not in results:
+            results[ex["standard_id"]] = {
+                "name": ex["standard_name"],
+                "score": ex["score"],
+            }
     return latest
 
 
@@ -80,7 +96,7 @@ def attention_items(tenant):
     the top few and counts the rest. Each item links to its execution detail.
     """
     executions = (
-        StandardExecution.objects.filter(project__tenant=tenant)
+        _attached_executions(tenant)
         .select_related("project", "standard")
         .order_by("-created_at")[:500]
     )
@@ -88,7 +104,7 @@ def attention_items(tenant):
     seen = set()
     items = []
     for ex in executions:
-        key = (ex.project_id, ex.standard_id or ex.standard_name)
+        key = (ex.project_id, ex.standard_id)
         if key in seen:
             continue
         seen.add(key)
@@ -106,11 +122,7 @@ def attention_items(tenant):
                 "project_name": ex.project.name,
                 "project_url": reverse("project_detail", args=[ex.project_id]),
                 "standard_name": ex.standard_name,
-                "standard_url": (
-                    reverse("standard_detail", args=[ex.standard_id])
-                    if ex.standard_id
-                    else ""
-                ),
+                "standard_url": reverse("standard_detail", args=[ex.standard_id]),
                 "score": ex.score,
                 "status": ex.get_status_display(),
                 "url": reverse("standard_execution_detail", args=[ex.id]),

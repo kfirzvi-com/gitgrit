@@ -49,7 +49,10 @@ async def get_project_status(project_id: str) -> dict:
 
 @register
 async def get_active_standards_for_project(project_id: str) -> list[dict]:
-    """Return all active, non-draft standards applicable to a project.
+    """Return the active, non-draft standards attached to a project.
+
+    Only standards attached to the project apply; other workspace standards
+    are not returned and do not run on it.
 
     If you don't have a project_id yet, call ``session_bootstrap`` first with the
     git remote URL or the org/repo path.
@@ -73,7 +76,7 @@ async def get_active_standards_for_project(project_id: str) -> list[dict]:
 async def session_bootstrap(
     repo_full_path: str | None = None, web_url: str | None = None
 ) -> dict:
-    """One-shot SessionStart bootstrap: project + status + active standards.
+    """One-shot SessionStart bootstrap: project + status + attached active standards.
 
     Fans out the work previously done by three sequential tool calls
     (``resolve_project`` → ``get_project_status`` → ``get_active_standards_for_project``)
