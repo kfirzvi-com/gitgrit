@@ -2,11 +2,18 @@
 {# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check). #}
 <div class="standard-picker">
   <input type="text" placeholder="Search standards by name, description, or tag..."
-         class="input input-bordered input-sm w-full mb-2"
+         class="input input-bordered w-full mb-2"
          oninput="filterStandardPicker(this)" autocomplete="off"
          onkeydown="if (event.key === 'Enter') event.preventDefault()">
-  <div class="max-h-80 overflow-y-auto rounded-box border border-base-300">
-    <table class="table table-sm table-pin-rows">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
+    <span class="opacity-70">
+      {{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
+      · <span class="standard-picker-selected">{{ attached_standard_ids|length }}</span> selected
+    </span>
+    <span class="standard-picker-warning text-warning font-medium hidden"></span>
+  </div>
+  <div class="max-h-96 overflow-y-auto rounded-box border border-base-300">
+    <table class="table table-pin-rows">
       <thead>
         <tr>
           <th class="w-8"></th>
@@ -28,24 +35,27 @@
           <tr class="standard-picker-row"
               data-standard-search="{{ standard.name|lower }} {{ standard.description|lower }}{% for label in standard.labels.all %} {{ label.name|lower }}{% endfor %}"
               data-name="{{ standard.name|lower }}"
-              data-first-tag="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}">
+              data-first-tag="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}"
+              data-draft="{% if standard.draft %}1{% endif %}"
+              data-disabled="{% if not standard.enabled %}1{% endif %}">
             <td>
               <input type="checkbox" name="standards" value="{{ standard.pk }}"
                      class="checkbox checkbox-sm"
+                     onchange="updateStandardPickerCounts(this.closest('.standard-picker'))"
                      {% if standard.pk in attached_standard_ids %}checked{% endif %}>
             </td>
             <td>
               <a href="{% url 'standard_detail' standard.pk %}" target="_blank" rel="noopener"
                  class="link link-hover font-medium">{{ standard.name }}</a>
               {% if standard.draft %}
-                <span class="badge badge-ghost badge-xs align-middle">Draft</span>
+                <span class="badge badge-warning badge-sm align-middle">Draft</span>
               {% elif not standard.enabled %}
-                <span class="badge badge-ghost badge-xs align-middle">Disabled</span>
+                <span class="badge badge-error badge-sm align-middle">Disabled</span>
               {% endif %}
             </td>
-            <td class="max-w-48">
+            <td class="max-w-56">
               {% if standard.description %}
-                <span class="block truncate text-xs opacity-70 cursor-help"
+                <span class="block truncate text-sm opacity-70 cursor-help"
                       data-full-description="{{ standard.description }}"
                       onmouseenter="showStandardDescPopover(this)"
                       onmouseleave="hideStandardDescPopover()">{{ standard.description|truncatewords:6 }}</span>
@@ -54,12 +64,12 @@
             <td>
               <div class="flex flex-wrap gap-1">
                 {% for label in standard.labels.all %}
-                  <span class="badge badge-outline badge-xs cursor-pointer"
+                  <span class="badge badge-outline badge-sm cursor-pointer"
                         title="Filter by this tag"
                         data-tag="{{ label.name|lower }}"
                         onclick="filterStandardPickerByTag(this)">{{ label.name }}</span>
                 {% empty %}
-                  <span class="text-xs opacity-40">—</span>
+                  <span class="text-sm opacity-40">—</span>
                 {% endfor %}
               </div>
             </td>
@@ -73,7 +83,7 @@
       </tbody>
     </table>
   </div>
-  <div class="standard-desc-popover hidden fixed z-[100] max-w-sm rounded-box border border-base-300 bg-base-100 p-3 text-xs shadow-lg whitespace-pre-line"></div>
+  <div class="standard-desc-popover hidden fixed z-[100] max-w-sm rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-lg whitespace-pre-line"></div>
 </div>
 <script>
 // Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
@@ -118,6 +128,27 @@ if (!window.filterStandardPicker) {
     if (noMatch) tbody.appendChild(noMatch);
   };
 
+  window.updateStandardPickerCounts = function (picker) {
+    var selected = 0, draft = 0, disabled = 0;
+    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      var cb = row.querySelector('input[type="checkbox"]');
+      if (!cb || !cb.checked) return;
+      selected++;
+      if (row.dataset.draft) draft++;
+      else if (row.dataset.disabled) disabled++;
+    });
+    picker.querySelector('.standard-picker-selected').textContent = selected;
+    var warn = picker.querySelector('.standard-picker-warning');
+    var inactive = draft + disabled;
+    if (inactive) {
+      var parts = [];
+      if (draft) parts.push(draft + ' draft' + (draft === 1 ? '' : 's'));
+      if (disabled) parts.push(disabled + ' disabled');
+      warn.textContent = inactive + " selected won't run during checks (" + parts.join(', ') + ')';
+    }
+    warn.classList.toggle('hidden', !inactive);
+  };
+
   window.showStandardDescPopover = function (cell) {
     var pop = cell.closest('.standard-picker').querySelector('.standard-desc-popover');
     // DaisyUI's .modal-box has translate/scale, which would make it the containing
@@ -153,4 +184,9 @@ if (!window.filterStandardPicker) {
   // scroll (capture catches the table container, modal box, and window alike).
   window.addEventListener('scroll', window.hideStandardDescPopover, { capture: true, passive: true });
 }
+// Runs on every insertion (page load and each HTMX fetch): sync the selection
+// counter and the won't-run warning with the pre-checked boxes.
+document.querySelectorAll('.standard-picker').forEach(function (picker) {
+  window.updateStandardPickerCounts(picker);
+});
 </script>

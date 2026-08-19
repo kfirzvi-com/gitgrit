@@ -85,7 +85,14 @@
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <div class="flex justify-between items-center">
-          <h2 class="card-title">Standards</h2>
+          <h2 class="card-title">
+            Standards
+            {% if attached_standards %}
+              <span class="text-sm font-normal opacity-70">
+                {{ attached_standards|length }} attached · {{ active_standards_count }} active
+              </span>
+            {% endif %}
+          </h2>
           <div class="flex gap-2">
             {% if has_runnable_standards %}
               <form method="post" action="{% url 'run_project_standards' project.pk %}">
@@ -118,9 +125,9 @@
                     <td>
                       <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover">{{ standard.name }}</a>
                       {% if standard.draft %}
-                        <span class="badge badge-ghost badge-xs align-middle">Draft</span>
+                        <span class="badge badge-warning badge-xs align-middle">Draft</span>
                       {% elif not standard.enabled %}
-                        <span class="badge badge-ghost badge-xs align-middle">Disabled</span>
+                        <span class="badge badge-error badge-xs align-middle">Disabled</span>
                       {% endif %}
                       {% if standard.description %}
                         <p class="text-xs opacity-50 truncate max-w-xs">{{ standard.description }}</p>
@@ -154,7 +161,7 @@
     </div>
 
     <dialog id="standards_modal" class="modal">
-      <div class="modal-box max-w-3xl">
+      <div class="modal-box max-w-5xl">
         <h3 class="font-bold text-lg mb-2">Attach standards</h3>
         <div id="standards-modal-body">
           <p class="text-sm opacity-70">Loading standards...</p>

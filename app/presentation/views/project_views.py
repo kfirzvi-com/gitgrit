@@ -63,6 +63,9 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context["has_runnable_standards"] = any(
             s.enabled and not s.draft for s in attached_standards
         )
+        context["active_standards_count"] = sum(
+            1 for s in attached_standards if s.enabled and not s.draft
+        )
 
         # Executions of detached standards must not drag the score
         recent_executions = StandardExecution.objects.filter(
@@ -360,6 +363,31 @@ def run_project_standards(request, pk):
     else:
         messages.warning(request, "No eligible standards to run.")
 
+    # On a run-all, report anything attached that was skipped, and why —
+    # silent skips read as "everything ran" (single-standard runs already
+    # error out above when the standard isn't eligible).
+    if standards is None:
+        ran_ids = {r["standard_id"] for r in results}
+        skipped = [
+            s for s in project.standards.all() if str(s.id) not in ran_ids
+        ]
+        if skipped:
+            draft_count = sum(1 for s in skipped if s.draft)
+            disabled_count = sum(1 for s in skipped if not s.enabled and not s.draft)
+            criteria_count = len(skipped) - draft_count - disabled_count
+            parts = []
+            if disabled_count:
+                parts.append(f"{disabled_count} disabled")
+            if draft_count:
+                parts.append(f"{draft_count} draft{'' if draft_count == 1 else 's'}")
+            if criteria_count:
+                parts.append(f"{criteria_count} language/criteria mismatch")
+            messages.warning(
+                request,
+                f"Skipped {len(skipped)} standard{'' if len(skipped) == 1 else 's'}: "
+                f"{', '.join(parts)}.",
+            )
+
     return redirect("project_detail", pk=pk)
 
 
@@ -387,6 +415,24 @@ def project_standards(request, pk):
                 request,
                 f"{count} standard{'' if count == 1 else 's'} attached to \"{project.name}\".",
             )
+            draft_count = sum(1 for s in standards if s.draft)
+            disabled_count = sum(1 for s in standards if not s.enabled and not s.draft)
+            if draft_count or disabled_count:
+                parts = []
+                if draft_count:
+                    parts.append(f"{draft_count} draft{'' if draft_count == 1 else 's'}")
+                if disabled_count:
+                    parts.append(f"{disabled_count} disabled")
+                total_inactive = draft_count + disabled_count
+                reminder = (
+                    "This standard will not run during checks."
+                    if total_inactive == 1
+                    else "These standards will not run during checks."
+                )
+                messages.warning(
+                    request,
+                    f"Among the selected standards: {' and '.join(parts)}. {reminder}",
+                )
         else:
             messages.success(request, f'All standards detached from "{project.name}".')
         return redirect("project_detail", pk=pk)

@@ -99,7 +99,7 @@
           <div>
             <span class="opacity-70">Status</span>
             <div class="flex gap-1 mt-1">
-              <span class="badge {% if standard.enabled %}badge-success{% else %}badge-ghost{% endif %} badge-sm">
+              <span class="badge {% if standard.enabled %}badge-success{% else %}badge-error{% endif %} badge-sm">
                 {% if standard.enabled %}Enabled{% else %}Disabled{% endif %}
               </span>
               {% if standard.draft %}
