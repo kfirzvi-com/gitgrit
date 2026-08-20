@@ -9,7 +9,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from app.application.event_bus import publish
 from app.application.standard_service import create_standard_version
+from app.domain.events import StandardActivated
 from app.domain.models import Standard, StandardExecution, StandardLabel, StandardVersion
 from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
@@ -279,6 +281,14 @@ def toggle_standard(request, pk):
     standard = get_object_or_404(Standard, pk=pk, tenant=tenant)
     standard.enabled = not standard.enabled
     standard.save(update_fields=["enabled", "updated_at"])
+
+    # Flipping to runnable is a coverage change — run it on its projects now.
+    if standard.enabled and not standard.draft:
+        publish(
+            StandardActivated(
+                standard_id=str(standard.id), tenant_id=str(tenant.id)
+            )
+        )
 
     if request.headers.get("HX-Request"):
         label = "Enabled" if standard.enabled else "Disabled"

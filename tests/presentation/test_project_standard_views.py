@@ -90,7 +90,11 @@ class TestProjectStandardsPicker(TestCase):
         project.standards.add(s1)
 
         url = reverse("project_standards", args=[project.pk])
-        resp = self.client.post(url, data={"standards": [str(s2.pk), str(s3.pk)]})
+        with mock.patch(
+            "app.application.standard_engine.StandardEngine.run_for_project",
+            return_value=[],
+        ):
+            resp = self.client.post(url, data={"standards": [str(s2.pk), str(s3.pk)]})
         assert resp.status_code == 302
         assert set(project.standards.all()) == {s2, s3}
 
@@ -177,6 +181,9 @@ class TestAddProjectPersistsStandards(TestCase):
         with mock.patch(
             "app.presentation.views.project_views.get_platform_client",
             return_value=client,
+        ), mock.patch(
+            "app.application.standard_engine.StandardEngine.run_for_project",
+            return_value=[],
         ):
             resp = self.client.post(
                 reverse("add_project_search", args=[connection.id]),

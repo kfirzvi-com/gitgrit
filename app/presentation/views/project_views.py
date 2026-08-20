@@ -12,7 +12,7 @@ from django.views.generic import DetailView, ListView, UpdateView
 
 from app.application.event_bus import publish
 from app.application.standard_engine import StandardEngine
-from app.domain.events import ProjectCreated, ProjectDeleted
+from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
     AuthMethod,
     PlatformConnection,
@@ -24,6 +24,25 @@ from app.domain.models import (
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
+
+
+def _run_newly_attached(request, project, standards, previously_attached_ids):
+    """Publish the attach delta — newly attached, runnable standards run on
+    the project immediately."""
+    newly_runnable = [
+        s
+        for s in standards
+        if s.pk not in previously_attached_ids and s.enabled and not s.draft
+    ]
+    if not newly_runnable:
+        return
+    publish(
+        StandardsAttached(
+            project_id=str(project.pk),
+            tenant_id=str(project.tenant_id),
+            standard_ids=tuple(str(s.pk) for s in newly_runnable),
+        )
+    )
 
 
 def _existing_owners(tenant):
@@ -193,9 +212,12 @@ def add_project_search(request, connection_id):
             stacks = Stack.objects.filter(pk__in=stack_ids, tenant=tenant)
             project.stacks.set(stacks)
 
+        attached_standards = []
         if standard_ids:
-            standards = Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
-            project.standards.set(standards)
+            attached_standards = list(
+                Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
+            )
+            project.standards.set(attached_standards)
 
         try:
             client = get_platform_client(connection)
@@ -227,6 +249,10 @@ def add_project_search(request, connection_id):
 
         publish(ProjectCreated(project_id=str(project.id), tenant_id=str(tenant.id)))
         messages.success(request, f'Project "{project.name}" added.')
+        # After the metadata fetch above, so language criteria see real data.
+        _run_newly_attached(
+            request, project, attached_standards, previously_attached_ids=set()
+        )
         return redirect("project_detail", pk=project.pk)
 
     stacks = Stack.objects.filter(tenant=tenant).order_by("name")
@@ -407,7 +433,10 @@ def project_standards(request, pk):
 
     if request.method == "POST":
         standard_ids = request.POST.getlist("standards")
-        standards = Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
+        standards = list(Standard.objects.filter(pk__in=standard_ids, tenant=tenant))
+        previously_attached_ids = set(
+            project.standards.values_list("pk", flat=True)
+        )
         project.standards.set(standards)
         count = len(standards)
         if count:
@@ -435,6 +464,7 @@ def project_standards(request, pk):
                 )
         else:
             messages.success(request, f'All standards detached from "{project.name}".')
+        _run_newly_attached(request, project, standards, previously_attached_ids)
         return redirect("project_detail", pk=pk)
 
     if not request.headers.get("HX-Request"):
