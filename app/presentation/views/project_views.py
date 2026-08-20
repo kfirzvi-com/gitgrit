@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def _run_newly_attached(request, project, standards, previously_attached_ids):
     """Publish the attach delta — newly attached, runnable standards run on
-    the project immediately."""
+    the project immediately — and flash the run summary."""
     newly_runnable = [
         s
         for s in standards
@@ -36,13 +36,15 @@ def _run_newly_attached(request, project, standards, previously_attached_ids):
     ]
     if not newly_runnable:
         return
-    publish(
+    results = publish(
         StandardsAttached(
             project_id=str(project.pk),
             tenant_id=str(project.tenant_id),
             standard_ids=tuple(str(s.pk) for s in newly_runnable),
         )
     )
+    if results:
+        messages.info(request, results[0]["message"])
 
 
 def _existing_owners(tenant):

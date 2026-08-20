@@ -119,8 +119,11 @@ class StandardService:
             labels.append(lbl)
         if labels:
             standard.labels.set(labels)
-        create_standard_version(standard, user, data.get("change_summary", "Created"))
-        return {"id": str(standard.id), "name": standard.name, "created": True}
+        runs = create_standard_version(standard, user, data.get("change_summary", "Created"))
+        result = {"id": str(standard.id), "name": standard.name, "created": True}
+        if runs:
+            result["runs"] = runs
+        return result
 
     def update_standard(self, tenant: Tenant, user: User, standard_id: str, data: dict) -> dict:
         try:
@@ -169,8 +172,11 @@ class StandardService:
                 labels.append(lbl)
             standard.labels.set(labels)
 
-        create_standard_version(standard, user, change_summary)
-        return {"id": str(standard.id), "name": standard.name, "updated": True}
+        runs = create_standard_version(standard, user, change_summary)
+        result = {"id": str(standard.id), "name": standard.name, "updated": True}
+        if runs:
+            result["runs"] = runs
+        return result
 
     def delete_standard(self, tenant: Tenant, standard_id: str) -> None:
         try:
