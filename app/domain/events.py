@@ -56,3 +56,30 @@ class RepositoryPushed:
     project_id: str
     tenant_id: str
     ref: str | None = None
+
+
+# --- Coverage-change events ----------------------------------------------------
+# A standard's *coverage* changes when its association or definition does:
+# attached to a project, saved, or activated. Subscribers run the affected
+# (project, standard) delta immediately — see app.application.subscribers.
+# Contract: each event has exactly one result-returning subscriber (the
+# coverage runner), so publish sites read the run summary as ``results[0]``.
+
+
+@dataclass(frozen=True)
+class StandardsAttached:
+    project_id: str
+    tenant_id: str
+    standard_ids: tuple[str, ...]  # only the newly attached, runnable ones
+
+
+@dataclass(frozen=True)
+class StandardSaved:
+    standard_id: str
+    tenant_id: str
+
+
+@dataclass(frozen=True)
+class StandardActivated:
+    standard_id: str
+    tenant_id: str
