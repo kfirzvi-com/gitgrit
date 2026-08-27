@@ -38,3 +38,22 @@ class EventBusTests(SimpleTestCase):
         event_bus.subscribe(_Evt, boom)
         # Must not raise — a misbehaving reaction can't break the domain op.
         event_bus.publish(_Evt())
+
+    def test_publish_returns_non_none_handler_results(self):
+        class _Evt:
+            pass
+
+        event_bus.subscribe(_Evt, lambda e: {"ran": 1})
+        event_bus.subscribe(_Evt, lambda e: None)
+        self.assertEqual(event_bus.publish(_Evt()), [{"ran": 1}])
+
+    def test_failing_handler_contributes_no_result(self):
+        class _Evt:
+            pass
+
+        def boom(_):
+            raise ValueError("nope")
+
+        event_bus.subscribe(_Evt, boom)
+        event_bus.subscribe(_Evt, lambda e: "ok")
+        self.assertEqual(event_bus.publish(_Evt()), ["ok"])

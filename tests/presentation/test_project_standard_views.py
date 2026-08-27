@@ -90,7 +90,11 @@ class TestProjectStandardsPicker(TestCase):
         project.standards.add(s1)
 
         url = reverse("project_standards", args=[project.pk])
-        resp = self.client.post(url, data={"standards": [str(s2.pk), str(s3.pk)]})
+        with mock.patch(
+            "app.application.standard_engine.StandardEngine.run_for_project",
+            return_value=[],
+        ):
+            resp = self.client.post(url, data={"standards": [str(s2.pk), str(s3.pk)]})
         assert resp.status_code == 302
         assert set(project.standards.all()) == {s2, s3}
 
@@ -177,7 +181,10 @@ class TestAddProjectPersistsStandards(TestCase):
         with mock.patch(
             "app.presentation.views.project_views.get_platform_client",
             return_value=client,
-        ):
+        ), mock.patch(
+            "app.application.standard_engine.StandardEngine.run_for_project",
+            return_value=[],
+        ) as run:
             resp = self.client.post(
                 reverse("add_project_search", args=[connection.id]),
                 data={
@@ -193,6 +200,8 @@ class TestAddProjectPersistsStandards(TestCase):
         assert resp.status_code == 302
         project = Project.objects.get(tenant=tenant, external_id="42")
         assert set(project.standards.all()) == {s1}
+        # Attaching at creation is a coverage change — the standard ran.
+        run.assert_called_once_with(project, [s1])
 
     def test_no_selection_attaches_nothing(self):
         _, tenant = _login_member(self.client)
@@ -226,6 +235,46 @@ class TestAddProjectPersistsStandards(TestCase):
         assert resp.status_code == 302
         project = Project.objects.get(tenant=tenant, external_id="43")
         assert project.standards.count() == 0
+
+
+@pytest.mark.django_db
+class TestAttachTriggersRuns(TestCase):
+    """Attachment is a coverage change: the newly attached, runnable delta
+    runs immediately (engine mocked — trigger wiring under test)."""
+
+    def _post(self, project, standards):
+        with mock.patch(
+            "app.application.standard_engine.StandardEngine.run_for_project",
+            return_value=[{"passed": True, "details": {}}],
+        ) as run:
+            resp = self.client.post(
+                reverse("project_standards", args=[project.pk]),
+                data={"standards": [str(s.pk) for s in standards]},
+            )
+        assert resp.status_code == 302
+        return run
+
+    def test_only_newly_attached_runnable_standards_run(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        already = _standard(tenant)
+        new_runnable = _standard(tenant)
+        new_draft = _standard(tenant, draft=True)
+        project.standards.add(already)
+
+        run = self._post(project, [already, new_runnable, new_draft])
+
+        run.assert_called_once_with(project, [new_runnable])
+
+    def test_reposting_the_same_set_runs_nothing(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        standard = _standard(tenant)
+        project.standards.add(standard)
+
+        run = self._post(project, [standard])
+
+        run.assert_not_called()
 
 
 @pytest.mark.django_db

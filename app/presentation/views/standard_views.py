@@ -9,7 +9,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from app.application.event_bus import publish
 from app.application.standard_service import create_standard_version
+from app.domain.events import StandardActivated
 from app.domain.models import Standard, StandardExecution, StandardLabel, StandardVersion
 from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
@@ -81,8 +83,10 @@ class CreateStandardView(LoginRequiredMixin, CreateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
-        create_standard_version(self.object, self.request.user, "Created")
+        runs = create_standard_version(self.object, self.request.user, "Created")
         messages.success(self.request, f'Standard "{self.object.name}" created.')
+        if runs:
+            messages.info(self.request, runs["message"])
         return redirect("standard_detail", pk=self.object.pk)
 
     def _save_labels(self):
@@ -182,8 +186,10 @@ class EditStandardView(LoginRequiredMixin, UpdateView):
             form.instance.test_cases = []
         self.object = form.save()
         self._save_labels()
-        create_standard_version(self.object, self.request.user, "Updated")
+        runs = create_standard_version(self.object, self.request.user, "Updated")
         messages.success(self.request, f'Standard "{self.object.name}" updated.')
+        if runs:
+            messages.info(self.request, runs["message"])
         return redirect("standard_detail", pk=self.object.pk)
 
     def _save_labels(self):
@@ -247,9 +253,11 @@ def revert_standard_version(request, pk):
         label_objs.append(label)
     standard.labels.set(label_objs)
 
-    create_standard_version(standard, request.user, f"Reverted to v{version.version}")
+    runs = create_standard_version(standard, request.user, f"Reverted to v{version.version}")
 
     messages.success(request, f'Reverted "{standard.name}" to v{version.version}.')
+    if runs:
+        messages.info(request, runs["message"])
     return redirect("standard_detail", pk=standard.pk)
 
 
@@ -280,6 +288,16 @@ def toggle_standard(request, pk):
     standard.enabled = not standard.enabled
     standard.save(update_fields=["enabled", "updated_at"])
 
+    # Flipping to runnable is a coverage change — run it on its projects now.
+    run_summary = None
+    if standard.enabled and not standard.draft:
+        results = publish(
+            StandardActivated(
+                standard_id=str(standard.id), tenant_id=str(tenant.id)
+            )
+        )
+        run_summary = results[0] if results else None
+
     if request.headers.get("HX-Request"):
         label = "Enabled" if standard.enabled else "Disabled"
         badge_class = "badge-success" if standard.enabled else "badge-error"
@@ -292,6 +310,8 @@ def toggle_standard(request, pk):
 
     state = "enabled" if standard.enabled else "disabled"
     messages.success(request, f'Standard "{standard.name}" {state}.')
+    if run_summary:
+        messages.info(request, run_summary["message"])
     return redirect("standard_list")
 
 

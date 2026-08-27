@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError
 
+from app.application.event_bus import publish
+from app.domain.events import StandardSaved
 from app.domain.models import Standard, StandardLabel, StandardVersion, Project, Tenant, User
 from app.domain.standard_criteria import language_matches
 from app.domain.standard_extractor import extract_rules, to_dict
@@ -8,7 +10,14 @@ from app.domain.standard_validator import validate_standard_code
 _DEFAULT_CODE = 'def evaluate(project):\n    return {"passed": True, "score": 100, "message": "OK", "details": {}}\n'
 
 
-def create_standard_version(standard: Standard, user: User, summary: str) -> StandardVersion:
+def create_standard_version(standard: Standard, user: User, summary: str) -> dict | None:
+    """Snapshot the standard's current state as an immutable version.
+
+    Every definition mutation (web forms, MCP tools, revert) funnels through
+    here, which makes it the coverage-change choke point: after the snapshot,
+    a runnable standard is re-run on its linked projects via ``StandardSaved``.
+    Returns the run summary for user feedback, or None when nothing ran.
+    """
     latest = (
         StandardVersion.objects.filter(standard=standard)
         .order_by("-version")
@@ -16,7 +25,7 @@ def create_standard_version(standard: Standard, user: User, summary: str) -> Sta
         .first()
     )
     version_num = (latest or 0) + 1
-    return StandardVersion.objects.create(
+    StandardVersion.objects.create(
         standard=standard,
         version=version_num,
         code=standard.code,
@@ -27,6 +36,14 @@ def create_standard_version(standard: Standard, user: User, summary: str) -> Sta
         changed_by=user,
         change_summary=summary,
     )
+    if not (standard.enabled and not standard.draft):
+        return None
+    results = publish(
+        StandardSaved(
+            standard_id=str(standard.id), tenant_id=str(standard.tenant_id)
+        )
+    )
+    return results[0] if results else None
 
 
 class StandardService:
@@ -102,8 +119,11 @@ class StandardService:
             labels.append(lbl)
         if labels:
             standard.labels.set(labels)
-        create_standard_version(standard, user, data.get("change_summary", "Created"))
-        return {"id": str(standard.id), "name": standard.name, "created": True}
+        runs = create_standard_version(standard, user, data.get("change_summary", "Created"))
+        result = {"id": str(standard.id), "name": standard.name, "created": True}
+        if runs:
+            result["runs"] = runs
+        return result
 
     def update_standard(self, tenant: Tenant, user: User, standard_id: str, data: dict) -> dict:
         try:
@@ -152,8 +172,11 @@ class StandardService:
                 labels.append(lbl)
             standard.labels.set(labels)
 
-        create_standard_version(standard, user, change_summary)
-        return {"id": str(standard.id), "name": standard.name, "updated": True}
+        runs = create_standard_version(standard, user, change_summary)
+        result = {"id": str(standard.id), "name": standard.name, "updated": True}
+        if runs:
+            result["runs"] = runs
+        return result
 
     def delete_standard(self, tenant: Tenant, standard_id: str) -> None:
         try:
