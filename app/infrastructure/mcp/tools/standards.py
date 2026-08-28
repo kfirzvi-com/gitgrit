@@ -47,7 +47,8 @@ async def create_standard(
         code: Python source code with an evaluate(project) function.
         description: Human-readable description of what the standard checks.
         events: Trigger events — any of ["push", "pull_request", "tag"].
-        ref_pattern: Regex pattern for branch/ref filtering (e.g. "^main$").
+        ref_pattern: Regex pattern for branch/tag filtering (e.g. "^main$";
+            the refs/heads/ / refs/tags/ prefix is stripped before matching).
         languages: Limit to projects using these languages (e.g. ["python"]).
         labels: Label names to assign (created if they don't exist).
         draft: If True, standard is saved but not executed on events.

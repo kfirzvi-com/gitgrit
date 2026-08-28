@@ -75,13 +75,13 @@
 
       <div class="form-control">
         <label class="label" for="id_ref_pattern">
-          <span class="label-text">Branch Filter</span>
+          <span class="label-text">Branch/Tag Filter</span>
         </label>
         <input type="text" name="ref_pattern" id="id_ref_pattern"
                value="{{ ref_pattern }}"
                class="input input-bordered input-sm w-full font-mono"
-               placeholder="e.g. ^main$ or ^release/.*">
-        <p class="text-xs opacity-60 mt-1">Regex to match branch names. Leave empty to match all branches.</p>
+               placeholder="e.g. ^main$, ^release/.* or ^v\d+\.">
+        <p class="text-xs opacity-60 mt-1">Regex to match branch or tag names (the <code>refs/heads/</code> / <code>refs/tags/</code> prefix is stripped before matching). Leave empty to match all branches and tags.</p>
       </div>
 
       <div class="form-control">
