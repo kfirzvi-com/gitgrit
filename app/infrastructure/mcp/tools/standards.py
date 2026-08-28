@@ -51,6 +51,7 @@ async def create_standard(
         languages: Limit to projects using these languages (e.g. ["python"]).
         labels: Label names to assign (created if they don't exist).
         draft: If True, standard is saved but not executed on events.
+            Draft standards are always disabled.
     """
     auth = get_auth()
     user, tenant = auth.user, auth.tenant
@@ -77,11 +78,15 @@ async def update_standard(
     languages: list[str] | None = None,
     labels: list[str] | None = None,
     draft: bool | None = None,
+    enabled: bool | None = None,
     change_summary: str = "Updated via MCP",
 ) -> dict:
     """Update an existing standard. Only provided fields are changed.
 
     Creates a version snapshot so changes are tracked and reversible.
+    Draft standards are always disabled: setting draft=True also disables
+    the standard, and enabled=True is ignored while it is a draft. To
+    publish a draft, pass draft=False together with enabled=True.
     """
     auth = get_auth()
     user, tenant = auth.user, auth.tenant
@@ -102,6 +107,8 @@ async def update_standard(
         data["labels"] = labels
     if draft is not None:
         data["draft"] = draft
+    if enabled is not None:
+        data["enabled"] = enabled
     return await sync_to_async(_service.update_standard)(tenant, user, standard_id, data)
 
 

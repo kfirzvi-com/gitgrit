@@ -122,23 +122,22 @@
         <input type="hidden" name="test_cases" id="test-cases-json">
       </div>
 
-      <div class="flex gap-6">
-        <div class="form-control">
+      <div class="form-control">
+        <div class="flex gap-6">
           <label class="label cursor-pointer gap-2">
-            <input type="checkbox" name="enabled" value="true"
+            <input type="checkbox" name="enabled" value="true" id="id_enabled"
                    class="toggle toggle-success toggle-sm"
                    {% if form.enabled.value %}checked{% endif %}>
             <span class="label-text">Enabled</span>
           </label>
-        </div>
-        <div class="form-control">
           <label class="label cursor-pointer gap-2">
-            <input type="checkbox" name="draft" value="true"
+            <input type="checkbox" name="draft" value="true" id="id_draft"
                    class="toggle toggle-warning toggle-sm"
                    {% if form.draft.value %}checked{% endif %}>
             <span class="label-text">Draft</span>
           </label>
         </div>
+        <p class="text-xs opacity-60 mt-1">Draft standards are always disabled — they never run on events or manual checks. Turn off Draft to enable this standard.</p>
       </div>
 
       <div class="card-actions justify-end mt-4">
@@ -150,6 +149,20 @@
 </div>
 
 <script>
+// Drafts never run, so a draft can only be disabled (mirrors the server rule).
+const draftToggle = document.getElementById('id_draft');
+const enabledToggle = document.getElementById('id_enabled');
+function syncDraftState() {
+  if (draftToggle.checked) {
+    enabledToggle.checked = false;
+    enabledToggle.disabled = true;
+  } else {
+    enabledToggle.disabled = false;
+  }
+}
+draftToggle.addEventListener('change', syncDraftState);
+syncDraftState();
+
 function switchTab(tab) {
   document.getElementById('tab-code').classList.toggle('hidden', tab !== 'code');
   document.getElementById('tab-tests').classList.toggle('hidden', tab !== 'tests');
