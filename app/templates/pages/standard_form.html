@@ -127,7 +127,7 @@
           <label class="label cursor-pointer gap-2">
             <input type="checkbox" name="enabled" value="true"
                    class="toggle toggle-success toggle-sm"
-                   {% if form.instance.enabled|default:True %}checked{% endif %}>
+                   {% if form.enabled.value %}checked{% endif %}>
             <span class="label-text">Enabled</span>
           </label>
         </div>
@@ -135,7 +135,7 @@
           <label class="label cursor-pointer gap-2">
             <input type="checkbox" name="draft" value="true"
                    class="toggle toggle-warning toggle-sm"
-                   {% if form.instance.draft %}checked{% endif %}>
+                   {% if form.draft.value %}checked{% endif %}>
             <span class="label-text">Draft</span>
           </label>
         </div>
