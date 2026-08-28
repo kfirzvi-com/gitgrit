@@ -58,7 +58,9 @@ class ToggleStandardTriggersRunsTests(TestCase):
         assert standard.enabled is False
         run.assert_not_called()
 
-    def test_enabling_a_draft_runs_nothing(self):
+    def test_toggling_a_draft_refuses_and_runs_nothing(self):
+        # Drafts never run, so a draft can only be disabled — the toggle
+        # refuses to enable it rather than enabling a standard that won't run.
         _, tenant = _login_member(self.client)
         standard = baker.make("app.Standard", tenant=tenant, enabled=False, draft=True)
         project = baker.make("app.Project", tenant=tenant)
@@ -67,5 +69,5 @@ class ToggleStandardTriggersRunsTests(TestCase):
         run = self._toggle(standard)
 
         standard.refresh_from_db()
-        assert standard.enabled is True
+        assert standard.enabled is False
         run.assert_not_called()

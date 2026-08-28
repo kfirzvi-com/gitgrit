@@ -76,6 +76,9 @@ class CreateStandardView(LoginRequiredMixin, CreateView):
             "ref": ref_pattern,
             "languages": languages,
         }
+        # Drafts never run, so a draft can only be disabled.
+        if form.instance.draft:
+            form.instance.enabled = False
         test_cases_raw = self.request.POST.get("test_cases", "[]")
         try:
             form.instance.test_cases = json.loads(test_cases_raw)
@@ -179,6 +182,9 @@ class EditStandardView(LoginRequiredMixin, UpdateView):
             "ref": ref_pattern,
             "languages": languages,
         }
+        # Drafts never run, so a draft can only be disabled.
+        if form.instance.draft:
+            form.instance.enabled = False
         test_cases_raw = self.request.POST.get("test_cases", "[]")
         try:
             form.instance.test_cases = json.loads(test_cases_raw)
@@ -285,6 +291,23 @@ def toggle_standard(request, pk):
         return redirect("standard_list")
 
     standard = get_object_or_404(Standard, pk=pk, tenant=tenant)
+
+    # Drafts never run, so a draft can only be disabled.
+    if standard.draft and not standard.enabled:
+        msg = (
+            "Draft standards can't be enabled — edit the standard and turn "
+            "off Draft first."
+        )
+        if request.headers.get("HX-Request"):
+            url = reverse("toggle_standard", kwargs={"pk": standard.pk})
+            return HttpResponse(
+                f'<span hx-post="{url}" hx-swap="outerHTML"'
+                f' class="badge badge-error badge-sm cursor-pointer"'
+                f' title="{msg}">Disabled</span>'
+            )
+        messages.info(request, msg)
+        return redirect("standard_list")
+
     standard.enabled = not standard.enabled
     standard.save(update_fields=["enabled", "updated_at"])
 

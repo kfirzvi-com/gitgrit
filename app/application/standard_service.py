@@ -107,6 +107,8 @@ class StandardService:
             code=data.get("code", _DEFAULT_CODE),
             description=data.get("description", ""),
             draft=data.get("draft", False),
+            # Drafts never run, so a draft can only be disabled.
+            enabled=not data.get("draft", False),
             criteria={
                 "events": data.get("events", []),
                 "ref": data.get("ref_pattern", ""),
@@ -144,9 +146,17 @@ class StandardService:
         if "description" in data:
             standard.description = data["description"]
             update_fields.append("description")
+        if "enabled" in data:
+            standard.enabled = data["enabled"]
+            update_fields.append("enabled")
         if "draft" in data:
             standard.draft = data["draft"]
             update_fields.append("draft")
+        # Drafts never run, so a draft can only be disabled.
+        if standard.draft and standard.enabled:
+            standard.enabled = False
+            if "enabled" not in update_fields:
+                update_fields.append("enabled")
 
         criteria = dict(standard.criteria)
         criteria_changed = False
