@@ -162,7 +162,11 @@
 
     <dialog id="standards_modal" class="modal">
       <div class="modal-box max-w-5xl">
-        <h3 class="font-bold text-lg mb-2">Attach standards</h3>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h3 class="font-bold text-lg">Attach standards</h3>
+          <a href="{% url 'create_standard' %}" target="_blank" rel="noopener"
+             class="btn btn-primary btn-sm">New Standard</a>
+        </div>
         <div id="standards-modal-body">
           <p class="text-sm opacity-70">Loading standards...</p>
         </div>
