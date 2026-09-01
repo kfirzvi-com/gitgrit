@@ -89,6 +89,22 @@ class StandardEngine:
             if self._matches_criteria(p, event_type, ref, project)
         ]
 
+    def runnable_standards(
+        self, project: Project, standards: list[Standard]
+    ) -> list[Standard]:
+        """Filter to the standards that would run on a manual check of this
+        project: enabled, non-draft, and criteria-matching (event check
+        skipped, like manual runs)."""
+        return [
+            s
+            for s in standards
+            if s.enabled
+            and not s.draft
+            and self._matches_criteria(
+                s, "manual", ref=None, project=project, skip_event_check=True
+            )
+        ]
+
     def _matches_criteria(
         self,
         standard: Standard,
@@ -240,16 +256,9 @@ class StandardEngine:
         With no explicit list, runs all of the project's attached standards.
         """
         if standards is None:
-            standards = list(
-                project.standards.filter(enabled=True, draft=False)
+            standards = self.runnable_standards(
+                project, list(project.standards.all())
             )
-            # Apply language/ref criteria filtering (skip event check for manual runs)
-            standards = [
-                p for p in standards
-                if self._matches_criteria(
-                    p, "manual", ref=None, project=project, skip_event_check=True
-                )
-            ]
 
         if not standards:
             return []

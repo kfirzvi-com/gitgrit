@@ -22,14 +22,24 @@ def subscribe(event_type: type, handler: Callable) -> None:
         _subscribers[event_type].append(handler)
 
 
-def publish(event) -> None:
+def publish(event) -> list:
+    """Deliver ``event`` to its subscribers.
+
+    Returns the non-None return values of the handlers, in subscription
+    order, so a publisher that wants feedback (e.g. a view flashing a run
+    summary) can read it. A handler that raises contributes nothing.
+    """
+    results = []
     for handler in _subscribers[type(event)]:
         try:
-            handler(event)
+            result = handler(event)
+            if result is not None:
+                results.append(result)
         except Exception:
             logger.exception(
                 "event handler %r failed for %s", handler, type(event).__name__
             )
+    return results
 
 
 def clear() -> None:

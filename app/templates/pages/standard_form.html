@@ -75,13 +75,13 @@
 
       <div class="form-control">
         <label class="label" for="id_ref_pattern">
-          <span class="label-text">Branch Filter</span>
+          <span class="label-text">Branch/Tag Filter</span>
         </label>
         <input type="text" name="ref_pattern" id="id_ref_pattern"
                value="{{ ref_pattern }}"
                class="input input-bordered input-sm w-full font-mono"
-               placeholder="e.g. ^main$ or ^release/.*">
-        <p class="text-xs opacity-60 mt-1">Regex to match branch names. Leave empty to match all branches.</p>
+               placeholder="e.g. ^main$, ^release/.* or ^v\d+\.">
+        <p class="text-xs opacity-60 mt-1">Regex to match branch or tag names (the <code>refs/heads/</code> / <code>refs/tags/</code> prefix is stripped before matching). Leave empty to match all branches and tags.</p>
       </div>
 
       <div class="form-control">
@@ -122,23 +122,22 @@
         <input type="hidden" name="test_cases" id="test-cases-json">
       </div>
 
-      <div class="flex gap-6">
-        <div class="form-control">
+      <div class="form-control">
+        <div class="flex gap-6">
           <label class="label cursor-pointer gap-2">
-            <input type="checkbox" name="enabled" value="true"
+            <input type="checkbox" name="enabled" value="true" id="id_enabled"
                    class="toggle toggle-success toggle-sm"
-                   {% if form.instance.enabled|default:True %}checked{% endif %}>
+                   {% if form.enabled.value %}checked{% endif %}>
             <span class="label-text">Enabled</span>
           </label>
-        </div>
-        <div class="form-control">
           <label class="label cursor-pointer gap-2">
-            <input type="checkbox" name="draft" value="true"
+            <input type="checkbox" name="draft" value="true" id="id_draft"
                    class="toggle toggle-warning toggle-sm"
-                   {% if form.instance.draft %}checked{% endif %}>
+                   {% if form.draft.value %}checked{% endif %}>
             <span class="label-text">Draft</span>
           </label>
         </div>
+        <p class="text-xs opacity-60 mt-1">Draft standards are always disabled — they never run on events or manual checks. Turn off Draft to enable this standard.</p>
       </div>
 
       <div class="card-actions justify-end mt-4">
@@ -150,6 +149,20 @@
 </div>
 
 <script>
+// Drafts never run, so a draft can only be disabled (mirrors the server rule).
+const draftToggle = document.getElementById('id_draft');
+const enabledToggle = document.getElementById('id_enabled');
+function syncDraftState() {
+  if (draftToggle.checked) {
+    enabledToggle.checked = false;
+    enabledToggle.disabled = true;
+  } else {
+    enabledToggle.disabled = false;
+  }
+}
+draftToggle.addEventListener('change', syncDraftState);
+syncDraftState();
+
 function switchTab(tab) {
   document.getElementById('tab-code').classList.toggle('hidden', tab !== 'code');
   document.getElementById('tab-tests').classList.toggle('hidden', tab !== 'tests');
