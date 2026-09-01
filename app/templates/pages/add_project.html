@@ -50,7 +50,8 @@
       </div>
     </div>
 
-    <form method="post" id="add-project-form" class="card bg-base-100 shadow-xl hidden">
+    <form method="post" id="add-project-form" class="card bg-base-100 shadow-xl hidden"
+          data-loading="CONNECTING PROJECT">
       {% csrf_token %}
       <div class="card-body">
         <h2 class="card-title">Project Details</h2>

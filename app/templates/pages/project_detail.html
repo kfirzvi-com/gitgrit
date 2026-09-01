@@ -95,7 +95,8 @@
           </h2>
           <div class="flex gap-2">
             {% if has_runnable_standards %}
-              <form method="post" action="{% url 'run_project_standards' project.pk %}">
+              <form method="post" action="{% url 'run_project_standards' project.pk %}"
+                    data-loading="RUNNING STANDARDS">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary btn-sm">Run All</button>
               </form>
@@ -142,7 +143,8 @@
                     </td>
                     <td class="text-right">
                       {% if standard.enabled and not standard.draft %}
-                        <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline">
+                        <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline"
+                              data-loading="RUNNING STANDARD">
                           {% csrf_token %}
                           <input type="hidden" name="standard_id" value="{{ standard.pk }}">
                           <button type="submit" class="btn btn-ghost btn-xs">Run</button>

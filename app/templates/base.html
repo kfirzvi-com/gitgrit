@@ -70,7 +70,8 @@
     var MIN_VISIBLE = 1000; // ms — if loader was shown, keep it for at least this long
     var loaderShownAt = 0;  // 0 = loader not currently shown
 
-    function showLoader() {
+    function showLoader(text) {
+      label.textContent = text || 'LOADING';
       loaderShownAt = Date.now();
       el.style.display = 'flex';
     }
@@ -127,6 +128,29 @@
       clearTimeout(htmxTimer);
       htmxShown = false;
       reveal();
+    });
+
+    // --- Full-page form POSTs that do slow server work ---
+    // A plain form submit leaves the old page on screen for the whole
+    // round-trip, so the page-load timer above only starts once the response
+    // is already back. Running standards happens inside such a POST, so opt
+    // those forms in with data-loading="LABEL" to show the loader on submit.
+    document.addEventListener('submit', function (e) {
+      if (e.defaultPrevented) return;
+      var form = e.target;
+      if (!form || !form.hasAttribute || !form.hasAttribute('data-loading')) return;
+      showLoader(form.getAttribute('data-loading'));
+    });
+
+    // bfcache: going Back into a page we left with the loader up restores it
+    // still visible, so hide it on a persisted pageshow.
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      clearTimeout(pageTimer);
+      el.style.display = 'none';
+      loaderShownAt = 0;
+      var main = document.querySelector('main');
+      if (main) main.style.visibility = 'visible';
     });
   })();
   </script>

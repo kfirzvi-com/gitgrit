@@ -1,5 +1,6 @@
 {# Body of the "Attach standards" modal on the project page (fetched via HTMX). #}
-<form method="post" action="{% url 'project_standards' project.pk %}">
+<form method="post" action="{% url 'project_standards' project.pk %}"
+      data-loading="RUNNING STANDARDS">
   {% csrf_token %}
   {% include "partials/standard_picker.html" %}
   <div class="modal-action">
