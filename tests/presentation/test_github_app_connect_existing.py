@@ -28,6 +28,7 @@ from app.domain.models import (
     User,
 )
 from app.presentation.views.github_app_views import PENDING_CHOICES_SESSION_KEY
+from tests.support import administers_account
 
 ORG_INSTALLATION = {"id": 5001, "account_login": "kfirzvi-com", "account_type": "Organization"}
 OTHER_INSTALLATION = {"id": 5002, "account_login": "acme-corp", "account_type": "Organization"}
@@ -51,6 +52,7 @@ def _reachable(installations):
             "app.infrastructure.github_app.list_user_installations",
             return_value=installations,
         ),
+        administers_account(),
     )
 
 
@@ -121,8 +123,8 @@ class ConnectExistingInstallationTests(TestCase):
         )
         self._activate(self.tenant_b)
 
-        exchange, listing = _reachable([ORG_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
+        with exchange, listing, reach:
             page = self._authorize_return()
             self.assertContains(page, "kfirzvi-com")
             resp = self.client.post(
@@ -167,8 +169,8 @@ class ConnectExistingInstallationTests(TestCase):
         )
         self._activate(self.tenant_b)
 
-        exchange, listing = _reachable([ORG_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
+        with exchange, listing, reach:
             page = self._authorize_return()
 
         body = page.content.decode()
@@ -182,8 +184,8 @@ class ConnectExistingInstallationTests(TestCase):
     def test_several_reachable_installations_are_all_offered(self):
         self._activate(self.tenant_b)
 
-        exchange, listing = _reachable([ORG_INSTALLATION, OTHER_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION, OTHER_INSTALLATION])
+        with exchange, listing, reach:
             page = self._authorize_return()
 
         self.assertContains(page, "kfirzvi-com")
@@ -199,17 +201,17 @@ class ConnectExistingInstallationTests(TestCase):
         )
         self._activate(self.tenant_b)
 
-        exchange, listing = _reachable([ORG_INSTALLATION, OTHER_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION, OTHER_INSTALLATION])
+        with exchange, listing, reach:
             page = self._authorize_return()
 
         self.assertContains(page, "Already connected")
 
     def test_reconnecting_the_same_installation_updates_rather_than_duplicates(self):
         self._activate(self.tenant_b)
-        exchange, listing = _reachable([ORG_INSTALLATION])
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
         for _ in range(2):
-            with exchange, listing:
+            with exchange, listing, reach:
                 self._authorize_return()
                 self.client.post(
                     reverse("github_app_choose"),
@@ -229,8 +231,8 @@ class ConnectExistingInstallationTests(TestCase):
         """An empty list is not an error — it means nothing is set up yet."""
         self._activate(self.tenant_b)
 
-        exchange, listing = _reachable([])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([])
+        with exchange, listing, reach:
             resp = self._authorize_return()
 
         self.assertEqual(resp.status_code, 302)
@@ -244,8 +246,8 @@ class ConnectExistingInstallationTests(TestCase):
         check closed on the direct-install path."""
         self._activate(self.tenant_b)
 
-        exchange, listing = _reachable([ORG_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
+        with exchange, listing, reach:
             self._authorize_return()
 
         resp = self.client.post(
@@ -272,8 +274,8 @@ class ConnectExistingInstallationTests(TestCase):
         """The page named a workspace; attaching it somewhere else would be a
         silent surprise, so the parked choices carry the tenant they were for."""
         self._activate(self.tenant_b)
-        exchange, listing = _reachable([ORG_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
+        with exchange, listing, reach:
             self._authorize_return()
 
         self._activate(self.tenant_a)  # switched in another tab
@@ -289,8 +291,8 @@ class ConnectExistingInstallationTests(TestCase):
 
     def test_candidates_are_cleared_after_use(self):
         self._activate(self.tenant_b)
-        exchange, listing = _reachable([ORG_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
+        with exchange, listing, reach:
             self._authorize_return()
             self.assertIn(PENDING_CHOICES_SESSION_KEY, self.client.session)
             self.client.post(
@@ -316,8 +318,8 @@ class ConnectExistingInstallationTests(TestCase):
 
     def test_a_plain_member_cannot_choose(self):
         self._activate(self.tenant_b)
-        exchange, listing = _reachable([ORG_INSTALLATION])
-        with exchange, listing:
+        exchange, listing, reach = _reachable([ORG_INSTALLATION])
+        with exchange, listing, reach:
             self._authorize_return()
 
         Membership.objects.filter(user=self.user, tenant=self.tenant_b).update(

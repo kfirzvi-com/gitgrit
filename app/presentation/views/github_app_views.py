@@ -176,6 +176,61 @@ def _state_is_acceptable(request, tenant) -> bool:
     return True
 
 
+def _user_administers_the_account(
+    request, user_token: str, installation_id: int
+) -> bool:
+    """Confirm this user administers the account the installation sits on.
+
+    ``GET /user/installations`` — the check above — answers "can this user reach
+    *anything* in this installation". GitHub lists an installation there as soon
+    as the user has explicit read/write/admin on **one** of its repositories, so
+    an outside collaborator on a single repo qualifies. A connection is not
+    repository-shaped, though: it holds an installation, mints installation-wide
+    tokens, and lists the installation's own repository set in Add Project. Read
+    as installation-level permission, that one collaborator grant becomes read
+    access to every private repository on the account.
+
+    So the question asked here is the one GitHub itself asks before letting
+    anyone install or uninstall the App: do you own this account? An owner is
+    entitled to whatever their installation covers, including whatever is added
+    to it tomorrow — which is why this is asked of the account and not of
+    today's repository list, a snapshot that a single "add repository" undoes.
+
+    Fails closed. The account is deliberately not named: the same refusal has to
+    serve an installation belonging to someone else and one that does not exist.
+    """
+    try:
+        administers = github_app.user_administers_installation(
+            user_token, installation_id
+        )
+    except (requests.RequestException, jwt.InvalidKeyError):
+        logger.exception(
+            "Couldn't establish whether user %s administers installation %s.",
+            request.user.id,
+            installation_id,
+        )
+        messages.error(
+            request,
+            "Couldn't check your GitHub access to that installation. Please try again.",
+        )
+        return False
+
+    if not administers:
+        logger.warning(
+            "Refusing installation %s for user %s: they don't administer its "
+            "GitHub account.",
+            installation_id,
+            request.user.id,
+        )
+        messages.error(
+            request,
+            "Only an owner of that GitHub account can connect its installation "
+            "to a workspace. Ask an owner to connect it instead.",
+        )
+        return False
+    return True
+
+
 def _user_is_entitled(request, installation_id: int) -> bool:
     """Confirm with GitHub that this user may access this installation.
 
@@ -183,6 +238,11 @@ def _user_is_entitled(request, installation_id: int) -> bool:
     until proven otherwise: the App JWT can read *every* installation of this
     App, which would let any workspace attach any organization's repositories.
     The only authority on access is GitHub, asked with a user-to-server token.
+
+    Two gates, and both matter. The installation must appear in the user's own
+    installation list, which is what stops a foreign id being claimed outright;
+    and the user must administer the account it sits on, which is what stops a
+    partial grant being cashed in for the whole account.
     """
     if not (settings.GITHUB_APP_CLIENT_ID and settings.GITHUB_APP_CLIENT_SECRET):
         logger.error(
@@ -230,7 +290,9 @@ def _user_is_entitled(request, installation_id: int) -> bool:
             request,
             "You don't have access to that GitHub installation.",
         )
-    return allowed
+        return False
+
+    return _user_administers_the_account(request, user_token, installation_id)
 
 
 def _fetch_account(request, installation_id: int):
@@ -320,13 +382,67 @@ def _refresh_without_code(request, tenant, installation_id: int):
     return redirect("tenant_settings")
 
 
-def _offer_reachable_installations(request, tenant):
-    """Ask GitHub what this person can reach, and offer it.
+def _account_list(installations) -> str:
+    """Join account logins for a message: "a", "a and b", "a, b and c"."""
+    logins = [i.get("account_login") or f'installation {i["id"]}' for i in installations]
+    if len(logins) == 1:
+        return logins[0]
+    return ", ".join(logins[:-1]) + f" and {logins[-1]}"
 
-    The list is the entitlement: GitHub answers per-user, so an installation
-    appearing here means this user may connect it, and one missing means they
-    may not. It is parked in the session for the same reason a direct install
+
+def _partition_by_authority(request, user_token: str, installations):
+    """Split candidates into the ones this user may connect and the ones not.
+
+    Returns ``(connectable, blocked)``, or ``None`` when GitHub could not be
+    asked — a candidate we cannot vouch for must not be offered, and an outage
+    is not something to report per row as though it were the user's access.
+
+    One ``AccountAuthority`` serves the whole list, so the cost is at most two
+    GitHub calls for the batch however many accounts the person belongs to.
+    """
+    authority = github_app.AccountAuthority(user_token)
+    connectable, blocked = [], []
+    try:
+        for installation in installations:
+            administers = authority.administers(
+                installation.get("account_type", ""),
+                installation.get("account_login", ""),
+                installation.get("account_id"),
+            )
+            (connectable if administers else blocked).append(installation)
+    except requests.RequestException:
+        logger.exception(
+            "Couldn't establish which GitHub accounts user %s administers while "
+            "building the install picker.",
+            request.user.id,
+        )
+        return None
+
+    if blocked:
+        logger.warning(
+            "Withholding %d GitHub installation(s) from user %s: they don't "
+            "administer the account.",
+            len(blocked),
+            request.user.id,
+        )
+    return connectable, blocked
+
+
+def _offer_connectable_installations(request, tenant):
+    """Ask GitHub what this person can connect, and offer it.
+
+    GitHub answers per-user, so an installation missing from this list is one
+    this user may not connect. Appearing in it is necessary but not sufficient:
+    the endpoint lists any installation the user reaches *one* repository of,
+    while a connection holds the whole installation — so each candidate is then
+    held to the same account-ownership test the callback applies before it is
+    offered. Held-back accounts are named, since the user already knows they
+    exist (that is why they showed up at all).
+
+    The survivors are parked in the session for the same reason a direct install
     is — the POST that follows then needs to trust nothing the client sends.
+    That POST reads the session, so filtering only the rendered list would not
+    be enough: a candidate stored but hidden is still connectable.
 
     Note the list says nothing about other workspaces. An account shows up
     because *this user* can reach it on GitHub, never because some other
@@ -351,6 +467,29 @@ def _offer_reachable_installations(request, tenant):
             "Choose one to install it on.",
         )
         return redirect(install_url(_sign_state(request)))
+
+    partitioned = _partition_by_authority(request, user_token, installations)
+    if partitioned is None:
+        messages.error(request, "Couldn't check your GitHub access. Please try again.")
+        return redirect("tenant_settings")
+    installations, blocked = partitioned
+
+    if not installations:
+        messages.error(
+            request,
+            f"GitGrit is installed on {_account_list(blocked)}, but you don't "
+            "own that account, so connecting it would give this workspace "
+            "access you don't have. Ask an owner to connect it, or install "
+            "GitGrit on an account you own.",
+        )
+        return redirect(install_url(_sign_state(request)))
+
+    if blocked:
+        messages.warning(
+            request,
+            f"Not offered: {_account_list(blocked)}. Only an owner of the "
+            "account can connect a GitHub App installation to a workspace.",
+        )
 
     already = set(
         PlatformConnection.objects.filter(
@@ -383,7 +522,7 @@ def github_app_choose(request):
     """Connect the installation picked from the list GitHub vouched for.
 
     Reads the candidates from the session rather than the request: the GET that
-    wrote them had already proven this user may reach each one, so the only
+    wrote them had already proven this user may connect each one, so the only
     thing taken from the client here is *which* of them was chosen.
     """
     _require_app_enabled()
@@ -487,7 +626,7 @@ def github_app_callback(request):
         # github_app_install, and the interesting answer is which installations
         # this person can already reach.
         if request.GET.get("code"):
-            return _offer_reachable_installations(request, tenant)
+            return _offer_connectable_installations(request, tenant)
         messages.error(request, "GitHub did not return an installation id.")
         return redirect("tenant_settings")
 

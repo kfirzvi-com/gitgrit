@@ -55,6 +55,15 @@ def _app_headers() -> dict:
     }
 
 
+def _user_headers(user_token: str) -> dict:
+    """Headers for a user-to-server request, i.e. one made *as the human*."""
+    return {
+        "Authorization": f"Bearer {user_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+
 def _repo_names(repositories: list[str] | None) -> list[str] | None:
     """Normalize repository identifiers to the names GitHub expects.
 
@@ -174,19 +183,17 @@ def exchange_user_code(code: str) -> str:
 def list_user_installations(user_token: str) -> list[dict]:
     """Every installation of this App that GitHub says the user can reach.
 
-    GitHub answers this per-user, which is what makes it usable both as an
-    entitlement check and as the set to offer someone connecting an existing
-    installation — if it is in this list they may connect it, and if it is not
-    they may not. Paginates, because a user can belong to many organizations.
+    GitHub answers this per-user, so an installation missing from the list is
+    one this user reaches nothing in and may certainly not connect. Appearing
+    in it means only that: GitHub includes an installation as soon as the user
+    has explicit read/write/admin on **one** of its repositories, so this is
+    the candidate set, never the entitlement (see ``AccountAuthority``).
+    Paginates, because a user can belong to many organizations.
 
-    Returns ``[{"id", "account_login", "account_type"}]``, flattened so callers
-    don't reach into GitHub's payload shape.
+    Returns ``[{"id", "account_id", "account_login", "account_type"}]``,
+    flattened so callers don't reach into GitHub's payload shape.
     """
-    headers = {
-        "Authorization": f"Bearer {user_token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
+    headers = _user_headers(user_token)
     per_page = 100
     page = 1
     seen = 0
@@ -206,6 +213,7 @@ def list_user_installations(user_token: str) -> list[dict]:
             found.append(
                 {
                     "id": int(item.get("id", 0)),
+                    "account_id": account.get("id"),
                     "account_login": account.get("login", ""),
                     "account_type": account.get("type", ""),
                 }
@@ -224,4 +232,155 @@ def user_can_access_installation(user_token: str, installation_id: int) -> bool:
     """
     return any(
         item["id"] == installation_id for item in list_user_installations(user_token)
+    )
+
+
+def get_authenticated_user(user_token: str) -> dict:
+    """The human behind a user-to-server token (``GET /user``).
+
+    Needs no App permission, which is the point: an entitlement check that
+    demanded one would have to be accepted afresh by every installation the
+    App already has before it could run at all.
+    """
+    resp = requests.get(
+        f"{GITHUB_API_BASE}/user",
+        headers=_user_headers(user_token),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def list_user_org_roles(user_token: str) -> dict[str, str]:
+    """This user's role in every organization they actively belong to.
+
+    ``{lowered login: "admin" | "member" | "billing_manager"}``. ``admin`` is
+    an organization owner — precisely who GitHub lets install and uninstall an
+    App on the organization, since the App-manager role explicitly does not
+    carry that right.
+
+    ``GET /user/memberships/orgs`` works with a GitHub App user access token
+    and requires no permission, unlike its per-organization sibling
+    ``/user/memberships/orgs/{org}``, which needs "Members" read. One call
+    answers for every organization at once, so the per-org form buys nothing.
+
+    Memberships that are not ``active`` are dropped: an unaccepted invitation
+    to own an organization is not ownership. The response is a plain array
+    rather than a counted envelope, so a short page ends the walk.
+    """
+    per_page = 100
+    page = 1
+    roles: dict[str, str] = {}
+    while True:
+        resp = requests.get(
+            f"{GITHUB_API_BASE}/user/memberships/orgs",
+            headers=_user_headers(user_token),
+            params={"per_page": per_page, "page": page},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        memberships = resp.json()
+        for membership in memberships:
+            if membership.get("state") != "active":
+                continue
+            organization = membership.get("organization") or {}
+            login = (organization.get("login") or "").lower()
+            if login:
+                roles[login] = membership.get("role", "")
+        if len(memberships) < per_page:
+            return roles
+        page += 1
+
+
+# The organization role GitHub calls an owner.
+ORG_ADMIN_ROLE = "admin"
+
+
+class AccountAuthority:
+    """The GitHub accounts one user administers, resolved once per flow.
+
+    This is the entitlement a connection actually needs. A connection is not
+    repository-shaped — it holds an installation, mints installation-wide
+    tokens, and lists the installation's own repository set in Add Project — so
+    the question is not "which repositories can you reach today" but "do you
+    administer the account this installation sits on". That is GitHub's own gate
+    on installing and uninstalling the App, and it does not decay: an owner is
+    entitled to whatever their installation covers next week, while a snapshot
+    of repository reach is undone the moment a repository is added to the
+    installation.
+
+    Two answers settle it and both are free of App permissions: ``GET /user``
+    names the user, whose own account is theirs by definition, and
+    ``GET /user/memberships/orgs`` gives their role in every organization.
+    Fetched lazily and kept, so a picker holding ten candidates asks GitHub at
+    most twice — and only the question the candidates actually raise.
+    """
+
+    def __init__(self, user_token: str):
+        self._user_token = user_token
+        self._user: dict | None = None
+        self._org_roles: dict[str, str] | None = None
+
+    @property
+    def user(self) -> dict:
+        if self._user is None:
+            self._user = get_authenticated_user(self._user_token)
+        return self._user
+
+    @property
+    def user_id(self):
+        return self.user.get("id")
+
+    @property
+    def admin_orgs(self) -> set[str]:
+        """Lowered logins of the organizations this user owns."""
+        if self._org_roles is None:
+            self._org_roles = list_user_org_roles(self._user_token)
+        return {
+            login
+            for login, role in self._org_roles.items()
+            if role == ORG_ADMIN_ROLE
+        }
+
+    def administers(
+        self, account_type: str, account_login: str, account_id=None
+    ) -> bool:
+        """Whether this user administers one installation's account.
+
+        Anything GitHub might invent later — an enterprise-level install, a new
+        account type — falls through to ``False``: an account shape we cannot
+        reason about is one we must not hand over.
+        """
+        if account_type == "User":
+            if account_id is not None and self.user_id is not None:
+                # Compared as text: both are integers from GitHub, and a
+                # comparison that cannot raise keeps a malformed id a refusal
+                # rather than a 500 in the middle of someone's install.
+                return str(account_id) == str(self.user_id)
+            # No id to compare: logins are unique, so they will do.
+            login = (account_login or "").lower()
+            return bool(login) and login == (self.user.get("login") or "").lower()
+        if account_type == "Organization":
+            login = (account_login or "").lower()
+            return bool(login) and login in self.admin_orgs
+        return False
+
+
+def user_administers_installation(
+    user_token: str, installation_id: int, authority: AccountAuthority | None = None
+) -> bool:
+    """Whether this user administers the account behind an installation id.
+
+    A callback hands us an id and nothing else, so the account comes from the
+    App's own view of the installation. Reading it discloses nothing: the
+    caller learns only the verdict, which is the same refusal whether the
+    installation is someone else's or absent entirely.
+
+    Raises on a GitHub error rather than guessing, so callers fail closed.
+    """
+    installation = get_installation(installation_id)
+    account = installation.get("account") or {}
+    authority = authority or AccountAuthority(user_token)
+    return authority.administers(
+        account.get("type", ""), account.get("login", ""), account.get("id")
     )
