@@ -6,9 +6,14 @@
          oninput="filterStandardPicker(this)" autocomplete="off"
          onkeydown="if (event.key === 'Enter') event.preventDefault()">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
-    <span class="opacity-70">
-      {{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
-      · <span class="standard-picker-selected">{{ attached_standard_ids|length }}</span> selected
+    <span class="flex flex-wrap items-center gap-2">
+      <span class="opacity-70">
+        {{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
+        · <span class="standard-picker-selected">{{ attached_standard_ids|length }}</span> selected
+      </span>
+      <button type="button" class="btn btn-xs btn-outline"
+              title="Check every standard currently listed (respects the search filter)"
+              onclick="selectAllStandardPicker(this)">Select all</button>
     </span>
     <span class="standard-picker-warning text-warning font-medium hidden"></span>
   </div>
@@ -126,6 +131,18 @@ if (!window.filterStandardPicker) {
     rows.forEach(function (row) { tbody.appendChild(row); });
     var noMatch = picker.querySelector('.standard-picker-no-match');
     if (noMatch) tbody.appendChild(noMatch);
+  };
+
+  // Checks every row the search filter currently leaves visible (all of them
+  // when the search box is empty). Already-checked rows stay checked.
+  window.selectAllStandardPicker = function (btn) {
+    var picker = btn.closest('.standard-picker');
+    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      if (row.classList.contains('hidden')) return;
+      var cb = row.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = true;
+    });
+    window.updateStandardPickerCounts(picker);
   };
 
   window.updateStandardPickerCounts = function (picker) {
