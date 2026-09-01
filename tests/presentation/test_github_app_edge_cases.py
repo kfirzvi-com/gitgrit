@@ -18,6 +18,7 @@ from model_bakery import baker
 
 from app.domain.models import AuthMethod, PlatformConnection
 from app.presentation.views.github_app_views import PENDING_INSTALL_SESSION_KEY
+from tests.support import administers_account
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -66,6 +67,7 @@ def _entitled():
             "app.infrastructure.github_app.user_can_access_installation",
             return_value=True,
         ),
+        administers_account(),
     )
 
 
@@ -84,8 +86,8 @@ class TestGitHubUnavailable(TestCase):
 
     def test_unreadable_installation_does_not_500(self):
         _login(self.client)
-        exchange, access = _entitled()
-        with exchange, access, mock.patch(
+        exchange, access, reach = _entitled()
+        with exchange, access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             side_effect=requests.HTTPError("404 Not Found"),
         ):
@@ -99,8 +101,8 @@ class TestGitHubUnavailable(TestCase):
 
     def test_network_failure_is_reported_not_raised(self):
         _login(self.client)
-        exchange, access = _entitled()
-        with exchange, access, mock.patch(
+        exchange, access, reach = _entitled()
+        with exchange, access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             side_effect=requests.ConnectionError("dns"),
         ):
@@ -145,8 +147,8 @@ class TestGitHubUnavailable(TestCase):
         turns the feature on and then fails at the first signature.
         """
         _login(self.client)
-        exchange, access = _entitled()
-        with exchange, access, mock.patch(
+        exchange, access, reach = _entitled()
+        with exchange, access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             side_effect=jwt.InvalidKeyError("Could not parse the provided key."),
         ):
@@ -160,8 +162,8 @@ class TestGitHubUnavailable(TestCase):
     def test_installation_without_an_account_still_connects(self):
         """GitHub omitting ``account`` shouldn't strand an otherwise valid install."""
         _, tenant = _login(self.client)
-        exchange, access = _entitled()
-        with exchange, access, mock.patch(
+        exchange, access, reach = _entitled()
+        with exchange, access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             return_value={"id": INSTALLATION_ID, "account": None},
         ):
@@ -181,8 +183,8 @@ class TestWorkspaceTargeting(TestCase):
     """An installation lands in the workspace the user was shown — or nowhere."""
 
     def _park_pending_install(self, expected_name):
-        exchange, access = _entitled()
-        with exchange, access, mock.patch(
+        exchange, access, reach = _entitled()
+        with exchange, access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             return_value=_INSTALLATION,
         ):
