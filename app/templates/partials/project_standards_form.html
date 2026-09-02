@@ -1,10 +1,17 @@
-{# Body of the "Attach standards" modal on the project page (fetched via HTMX). #}
-<form method="post" action="{% url 'project_standards' project.pk %}">
+{# Body of the "Manage standards" modal on the project page (fetched via HTMX). #}
+{# The <dialog> lives in the browser's top layer and would cover the full-page loader, #}
+{# so close it as the form submits and let the "RUNNING STANDARDS" overlay show. #}
+<form method="post" action="{% url 'project_standards' project.pk %}"
+      data-loading="RUNNING STANDARDS"
+      onsubmit="document.getElementById('standards_modal').close()">
   {% csrf_token %}
-  {% include "partials/standard_picker.html" %}
-  <div class="modal-action">
-    <button type="button" class="btn btn-ghost"
-            onclick="document.getElementById('standards_modal').close()">Cancel</button>
-    <button type="submit" class="btn btn-primary">Save</button>
+  {% include "partials/standard_picker.html" with hide_bulk_actions=True %}
+  <div class="modal-action justify-between">
+    {% include "partials/standard_picker_bulk_actions.html" with size="btn-sm" %}
+    <div class="flex gap-2">
+      <button type="button" class="btn btn-ghost"
+              onclick="document.getElementById('standards_modal').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
   </div>
 </form>

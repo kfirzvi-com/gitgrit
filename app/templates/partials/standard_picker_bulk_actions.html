@@ -1,0 +1,10 @@
+{# "Select all" / "Clear selection" for a standard_picker. Works inside the picker or #}
+{# anywhere in the same <form> (the JS falls back to the form's picker). size: btn-xs|btn-sm #}
+<div class="flex gap-2">
+  <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
+          title="Check every standard currently listed (respects the search filter)"
+          onclick="selectAllStandardPicker(this)">Select all</button>
+  <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
+          title="Uncheck every standard currently listed (respects the search filter)"
+          onclick="clearAllStandardPicker(this)">Clear selection</button>
+</div>

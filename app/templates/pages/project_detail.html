@@ -95,7 +95,8 @@
           </h2>
           <div class="flex gap-2">
             {% if has_runnable_standards %}
-              <form method="post" action="{% url 'run_project_standards' project.pk %}">
+              <form method="post" action="{% url 'run_project_standards' project.pk %}"
+                    data-loading="RUNNING STANDARDS">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary btn-sm">Run All</button>
               </form>
@@ -105,7 +106,7 @@
                     hx-target="#standards-modal-body"
                     hx-swap="innerHTML"
                     onclick="document.getElementById('standards-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading standards...&lt;/p&gt;'; document.getElementById('standards_modal').showModal()">
-              Attach standards
+              Manage standards
             </button>
           </div>
         </div>
@@ -142,7 +143,8 @@
                     </td>
                     <td class="text-right">
                       {% if standard.enabled and not standard.draft %}
-                        <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline">
+                        <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline"
+                              data-loading="RUNNING STANDARD">
                           {% csrf_token %}
                           <input type="hidden" name="standard_id" value="{{ standard.pk }}">
                           <button type="submit" class="btn btn-ghost btn-xs">Run</button>
@@ -162,7 +164,15 @@
 
     <dialog id="standards_modal" class="modal">
       <div class="modal-box max-w-5xl">
-        <h3 class="font-bold text-lg mb-2">Attach standards</h3>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h3 class="font-bold text-lg">Manage standards</h3>
+          <div class="flex gap-2">
+            <a href="{% url 'marketplace_browse' %}" target="_blank" rel="noopener"
+               class="btn btn-outline btn-sm">Marketplace</a>
+            <a href="{% url 'create_standard' %}" target="_blank" rel="noopener"
+               class="btn btn-primary btn-sm">New Standard</a>
+          </div>
+        </div>
         <div id="standards-modal-body">
           <p class="text-sm opacity-70">Loading standards...</p>
         </div>

@@ -1,14 +1,20 @@
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
-{# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check). #}
+{# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check), #}
+{# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
 <div class="standard-picker">
   <input type="text" placeholder="Search standards by name, description, or tag..."
          class="input input-bordered w-full mb-2"
          oninput="filterStandardPicker(this)" autocomplete="off"
          onkeydown="if (event.key === 'Enter') event.preventDefault()">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
-    <span class="opacity-70">
-      {{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
-      · <span class="standard-picker-selected">{{ attached_standard_ids|length }}</span> selected
+    <span class="flex flex-wrap items-center gap-2">
+      <span class="opacity-70">
+        {{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
+        · <span class="standard-picker-selected">{{ attached_standard_ids|length }}</span> selected
+      </span>
+      {% if not hide_bulk_actions %}
+        {% include "partials/standard_picker_bulk_actions.html" %}
+      {% endif %}
     </span>
     <span class="standard-picker-warning text-warning font-medium hidden"></span>
   </div>
@@ -127,6 +133,31 @@ if (!window.filterStandardPicker) {
     var noMatch = picker.querySelector('.standard-picker-no-match');
     if (noMatch) tbody.appendChild(noMatch);
   };
+
+  // The bulk-action buttons may sit outside .standard-picker (e.g. on the modal's
+  // Save row), so fall back to the picker inside the same form.
+  function pickerFor(btn) {
+    var picker = btn.closest('.standard-picker');
+    if (picker) return picker;
+    var form = btn.closest('form');
+    return form ? form.querySelector('.standard-picker') : null;
+  }
+
+  // Sets every row the search filter currently leaves visible (all of them
+  // when the search box is empty) to `checked`. Hidden rows are left alone.
+  function setVisibleStandardPickerRows(btn, checked) {
+    var picker = pickerFor(btn);
+    if (!picker) return;
+    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      if (row.classList.contains('hidden')) return;
+      var cb = row.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = checked;
+    });
+    window.updateStandardPickerCounts(picker);
+  }
+
+  window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, true); };
+  window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, false); };
 
   window.updateStandardPickerCounts = function (picker) {
     var selected = 0, draft = 0, disabled = 0;
