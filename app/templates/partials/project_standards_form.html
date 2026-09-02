@@ -1,4 +1,4 @@
-{# Body of the "Attach standards" modal on the project page (fetched via HTMX). #}
+{# Body of the "Manage standards" modal on the project page (fetched via HTMX). #}
 <form method="post" action="{% url 'project_standards' project.pk %}"
       data-loading="RUNNING STANDARDS">
   {% csrf_token %}

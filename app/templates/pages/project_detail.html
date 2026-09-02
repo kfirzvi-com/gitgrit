@@ -106,7 +106,7 @@
                     hx-target="#standards-modal-body"
                     hx-swap="innerHTML"
                     onclick="document.getElementById('standards-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading standards...&lt;/p&gt;'; document.getElementById('standards_modal').showModal()">
-              Attach standards
+              Manage standards
             </button>
           </div>
         </div>
@@ -165,7 +165,7 @@
     <dialog id="standards_modal" class="modal">
       <div class="modal-box max-w-5xl">
         <div class="flex items-center justify-between gap-2 mb-2">
-          <h3 class="font-bold text-lg">Attach standards</h3>
+          <h3 class="font-bold text-lg">Manage standards</h3>
           <a href="{% url 'create_standard' %}" target="_blank" rel="noopener"
              class="btn btn-primary btn-sm">New Standard</a>
         </div>
