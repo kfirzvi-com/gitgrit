@@ -1,4 +1,4 @@
-{% load static %}
+{% load static workspace_tags %}
 {% url 'dashboard' as url_dashboard %}
 {% url 'project_list' as url_projects %}
 {% url 'stack_list' as url_stacks %}
@@ -39,27 +39,36 @@
   <div class="navbar-end gap-2">
     {% if user.is_authenticated %}
       {% if current_tenant %}
-        <div class="dropdown dropdown-end">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-sm gap-1">
-            <span class="hidden sm:inline">{{ current_tenant.name }}</span>
-            <span class="sm:hidden">{{ current_tenant.name|truncatechars:10 }}</span>
+        <div id="workspace-switcher" class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-ghost btn-sm gap-2" title="{{ current_tenant.name }} — switch workspace">
+            <span class="w-6 h-6 rounded shrink-0 flex items-center justify-center text-xs font-bold {{ current_tenant|workspace_badge_class }}">{{ current_tenant.name|first|upper }}</span>
+            <span class="hidden sm:inline max-w-[12rem] truncate">{{ current_tenant.name }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
           </div>
-          <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56 z-[1]">
-            {% for tenant in user_tenants %}
-              <li>
-                <button hx-post="{% url 'switch_tenant' %}"
-                        hx-vals='{"tenant_id": "{{ tenant.id }}"}'
-                        hx-swap="none"
-                        class="{% if tenant.id == current_tenant.id %}active{% endif %}">
-                  {{ tenant.name }}
-                </button>
-              </li>
-            {% endfor %}
-            <div class="divider my-0"></div>
-            <li><a href="{% url 'create_tenant' %}">+ New Workspace</a></li>
-            <li><a href="{% url 'tenant_settings' %}">Settings</a></li>
-          </ul>
+          <div tabindex="0" class="dropdown-content bg-base-100 rounded-box shadow z-[1] w-72 p-2">
+            {% if show_workspace_search %}
+              <label class="input input-sm input-bordered flex items-center gap-2 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+                <input type="search" name="q" id="workspace-search"
+                       class="grow" placeholder="Find workspace…" autocomplete="off"
+                       aria-label="Find workspace"
+                       hx-get="{% url 'workspace_switcher_list' %}"
+                       hx-trigger="input changed delay:200ms, search"
+                       hx-target="#workspace-list">
+              </label>
+            {% endif %}
+            <ul id="workspace-list" class="menu p-0 max-h-80 overflow-y-auto flex-nowrap"
+                hx-get="{% url 'workspace_switcher_list' %}"
+                hx-trigger="intersect once"
+                hx-swap="innerHTML">
+              <li class="disabled"><span class="text-sm opacity-60">Loading…</span></li>
+            </ul>
+            <div class="divider my-1"></div>
+            <ul class="menu p-0">
+              <li><a href="{% url 'create_tenant' %}">+ New Workspace</a></li>
+              <li><a href="{% url 'tenant_settings' %}">Settings</a></li>
+            </ul>
+          </div>
         </div>
       {% endif %}
 
@@ -86,3 +95,38 @@
     {% endif %}
   </div>
 </div>
+
+{% if user.is_authenticated and current_tenant %}
+<script>
+  // Workspace switcher keyboard support:
+  //  - Opening the switcher by mouse lands in the search box.
+  //  - Enter in the search box picks the first result; ↑/↓ walk the rows.
+  (function () {
+    var root = document.getElementById('workspace-switcher');
+    if (!root) return;
+    var trigger = root.querySelector('[role="button"]');
+    function search() { return root.querySelector('#workspace-search'); }
+    function rows() { return Array.prototype.slice.call(root.querySelectorAll('[data-workspace-row]')); }
+    trigger.addEventListener('mousedown', function () {
+      var s = search();
+      if (s) setTimeout(function () { s.focus(); }, 0);
+    });
+    root.addEventListener('keydown', function (e) {
+      var s = search();
+      var r = rows();
+      if (e.key === 'Enter' && s && e.target === s) {
+        e.preventDefault();
+        if (r.length) r[0].click();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        var i = r.indexOf(document.activeElement);
+        var next;
+        if (e.key === 'ArrowDown') next = i < 0 ? r[0] : r[Math.min(i + 1, r.length - 1)];
+        else next = i <= 0 ? (s || r[0]) : r[i - 1];
+        if (next) { e.preventDefault(); next.focus(); }
+      } else if (e.key === 'Escape') {
+        document.activeElement && document.activeElement.blur();
+      }
+    });
+  })();
+</script>
+{% endif %}

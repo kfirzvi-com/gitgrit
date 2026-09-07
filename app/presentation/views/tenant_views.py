@@ -41,6 +41,41 @@ def switch_tenant(request):
     return redirect("dashboard")
 
 
+@login_required
+@require_POST
+def leave_workspace(request):
+    """Drop the user's own membership in the current workspace.
+
+    The last remaining owner can't leave: the workspace would be orphaned.
+    Members and admins can always leave.
+    """
+    tenant = request.tenant
+    membership = (
+        Membership.objects.filter(user=request.user, tenant=tenant).first()
+        if tenant
+        else None
+    )
+    if not membership:
+        return redirect("dashboard")
+
+    if membership.role == Membership.Role.OWNER and not (
+        Membership.objects.filter(tenant=tenant, role=Membership.Role.OWNER)
+        .exclude(pk=membership.pk)
+        .exists()
+    ):
+        messages.error(
+            request,
+            "You're the only owner of this workspace, so you can't leave it. "
+            "Make another member an owner first.",
+        )
+        return redirect("tenant_settings")
+
+    membership.delete()
+    request.session.pop("active_tenant_id", None)
+    messages.success(request, f'You left "{tenant.name}".')
+    return redirect("dashboard")
+
+
 class CreateTenantView(LoginRequiredMixin, CreateView):
     model = Tenant
     fields = ["name"]
@@ -69,6 +104,18 @@ class CreateTenantView(LoginRequiredMixin, CreateView):
 class TenantSettingsView(LoginRequiredMixin, TemplateView):
     template_name = "pages/tenant_settings.html"
 
+    def _can_leave(self, tenant):
+        own = Membership.objects.filter(user=self.request.user, tenant=tenant).first()
+        if not own:
+            return False
+        if own.role != Membership.Role.OWNER:
+            return True
+        return (
+            Membership.objects.filter(tenant=tenant, role=Membership.Role.OWNER)
+            .exclude(pk=own.pk)
+            .exists()
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         tenant = self.request.tenant
@@ -78,6 +125,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 .select_related("user")
                 .order_by("created_at")
             )
+            context["can_leave"] = self._can_leave(tenant)
             context["connections"] = PlatformConnection.objects.filter(
                 tenant=tenant
             ).order_by("created_at")
