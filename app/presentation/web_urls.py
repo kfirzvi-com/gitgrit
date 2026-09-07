@@ -40,6 +40,7 @@ from app.presentation.views.tenant_views import (
     edit_llm_provider,
     fetch_llm_models,
     invite_member,
+    leave_workspace,
     remove_connection,
     remove_llm_provider,
     remove_member,
@@ -68,6 +69,7 @@ from app.presentation.views.marketplace_views import (
     update_marketplace_standard,
 )
 from app.presentation.views.web_views import DashboardView, HomeView
+from app.presentation.views.workspace_switcher_views import workspace_switcher_list
 from app.presentation.views.token_views import create_api_token, revoke_api_token
 
 urlpatterns = [
@@ -77,6 +79,8 @@ urlpatterns = [
     path("profile/disconnect/<str:provider>/", disconnect_social, name="disconnect_social"),
     # Tenant management
     path("tenants/switch/", switch_tenant, name="switch_tenant"),
+    path("tenants/switcher/", workspace_switcher_list, name="workspace_switcher_list"),
+    path("tenants/leave/", leave_workspace, name="leave_workspace"),
     path("tenants/new/", CreateTenantView.as_view(), name="create_tenant"),
     path("tenants/settings/", TenantSettingsView.as_view(), name="tenant_settings"),
     path("tenants/invite/", invite_member, name="invite_member"),

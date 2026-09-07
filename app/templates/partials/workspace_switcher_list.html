@@ -1,0 +1,39 @@
+{% load workspace_tags %}
+{% comment %}
+Rows of the navbar workspace switcher. Loaded by HTMX into #workspace-list when
+the dropdown first opens, and re-loaded on every keystroke in the search box.
+{% endcomment %}
+{% if current_membership %}
+  <li>
+    <button type="button" data-workspace-row
+            hx-post="{% url 'switch_tenant' %}"
+            hx-vals='{"tenant_id": "{{ current_membership.tenant.id }}"}'
+            hx-swap="none"
+            class="active flex items-center gap-3">
+      <span class="w-6 h-6 rounded shrink-0 flex items-center justify-center text-xs font-bold {{ current_membership.tenant|workspace_badge_class }}">{{ current_membership.tenant.name|first|upper }}</span>
+      <span class="flex flex-col items-start min-w-0">
+        <span class="truncate max-w-full">{{ current_membership.tenant.name }}</span>
+        <span class="text-xs opacity-60 truncate max-w-full">{{ current_membership.tenant.slug }}</span>
+      </span>
+    </button>
+  </li>
+{% endif %}
+
+{% if others %}
+  {% if current_membership %}
+    <li class="menu-title pt-2"><span>{% if q %}Matches{% else %}All workspaces{% endif %}</span></li>
+  {% endif %}
+  {% for m in others %}
+    {% include "partials/workspace_switcher_row.html" with tenant=m.tenant %}
+  {% endfor %}
+{% endif %}
+
+{% if remaining %}
+  <li class="disabled"><span class="text-xs opacity-60">{{ remaining }} more — keep typing to narrow down</span></li>
+{% endif %}
+
+{% if not total %}
+  <li class="disabled">
+    <span class="text-sm opacity-70">{% if q %}No workspace matches "{{ q }}"{% else %}You're not in any workspace yet{% endif %}</span>
+  </li>
+{% endif %}

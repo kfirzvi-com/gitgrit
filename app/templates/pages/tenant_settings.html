@@ -77,6 +77,19 @@
               </tbody>
             </table>
           </div>
+          <div class="card-actions justify-end items-center gap-3 mt-2">
+            {% if can_leave %}
+              <form method="post" action="{% url 'leave_workspace' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm text-error"
+                        onclick="return confirm('Leave {{ current_tenant.name|escapejs }}? You will lose access to its projects and standards.')">
+                  Leave workspace
+                </button>
+              </form>
+            {% else %}
+              <span class="text-xs opacity-60">You're the only owner, so you can't leave this workspace.</span>
+            {% endif %}
+          </div>
         </div>
       </div>
 
