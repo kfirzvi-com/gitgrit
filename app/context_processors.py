@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from app.domain.models import Membership
+from app.domain.models import Membership, Tenant
 
 # Users with this many workspaces or fewer get a plain list; above it the
 # switcher shows a search box.
@@ -31,11 +31,16 @@ def tenant_context(request):
         return ctx
 
     # The switcher's rows are lazy-loaded by workspace_switcher_list when the
-    # dropdown opens, so pages only pay for a count here.
-    workspace_count = Membership.objects.filter(user=request.user).count()
+    # dropdown opens, so pages only pay for a count here. A superuser can
+    # switch into every workspace, so for them the count is every workspace.
+    if request.user.is_superuser:
+        workspace_count = Tenant.objects.count()
+    else:
+        workspace_count = Membership.objects.filter(user=request.user).count()
     ctx.update({
         "current_tenant": getattr(request, "tenant", None),
         "workspace_count": workspace_count,
         "show_workspace_search": workspace_count > WORKSPACE_SEARCH_THRESHOLD,
+        "support_view": getattr(request, "tenant_is_support_view", False),
     })
     return ctx

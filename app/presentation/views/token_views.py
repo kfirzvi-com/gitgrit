@@ -4,7 +4,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-from app.domain.models import APIToken, Membership
+from app.domain.models import APIToken
+from app.workspace_access import is_workspace_admin
 
 
 @login_required
@@ -49,9 +50,7 @@ def revoke_api_token(request, token_id):
     token = get_object_or_404(APIToken, id=token_id, tenant=tenant)
 
     # Only the token owner or a workspace admin can revoke
-    membership = Membership.objects.filter(user=request.user, tenant=tenant).first()
-    is_admin = membership and membership.role in (Membership.Role.OWNER, Membership.Role.ADMIN)
-    if token.user != request.user and not is_admin:
+    if token.user != request.user and not is_workspace_admin(request):
         messages.error(request, "Permission denied.")
         return redirect("profile")
 

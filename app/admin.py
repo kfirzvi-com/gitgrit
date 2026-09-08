@@ -25,7 +25,10 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = BaseUserAdmin.fieldsets + (
         ("Profile", {"fields": ("avatar_url",)}),
     )
-    list_display = ("username", "email", "is_staff", "date_joined")
+    # is_superuser is visible here on purpose: a superuser can switch into
+    # every customer workspace (the support view), so who holds the flag
+    # must be answerable at a glance. BaseUserAdmin already filters on it.
+    list_display = ("username", "email", "is_staff", "is_superuser", "date_joined")
 
 
 class MembershipInline(admin.TabularInline):

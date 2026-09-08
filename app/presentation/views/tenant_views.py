@@ -23,6 +23,13 @@ from app.domain.models import (
 )
 from app.infrastructure.llm_models import discover_models, test_provider
 from app.infrastructure.platform_client import get_platform_client
+from app.workspace_access import (
+    enter_support_view,
+    has_admin_membership,
+    is_workspace_admin,
+    leave_support_view,
+    parse_tenant_id,
+)
 
 User = get_user_model()
 
@@ -30,12 +37,36 @@ User = get_user_model()
 @login_required
 @require_POST
 def switch_tenant(request):
-    tenant_id = request.POST.get("tenant_id")
-    membership = Membership.objects.filter(
-        user=request.user, tenant_id=tenant_id
-    ).first()
+    """Make ``tenant_id`` the active workspace.
+
+    Members switch into their own workspaces. A superuser may also switch into
+    any other workspace: that is the support view, timestamped in the session
+    so the middleware trusts the id, and logged.
+    """
+    tenant_id = parse_tenant_id(request.POST.get("tenant_id"))
+    membership = (
+        Membership.objects.filter(user=request.user, tenant_id=tenant_id).first()
+        if tenant_id
+        else None
+    )
     if membership:
+        leave_support_view(request)
         request.session["active_tenant_id"] = str(membership.tenant_id)
+    elif tenant_id and request.user.is_superuser:
+        tenant = Tenant.objects.filter(id=tenant_id).first()
+        if tenant:
+            enter_support_view(request, tenant)
+    if request.htmx:
+        return HttpResponseClientRedirect(reverse("dashboard"))
+    return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def leave_support_view_view(request):
+    """The banner's "back to my workspace" button. Drops the support view; the
+    middleware then lands the user in their own first workspace."""
+    leave_support_view(request)
     if request.htmx:
         return HttpResponseClientRedirect(reverse("dashboard"))
     return redirect("dashboard")
@@ -163,13 +194,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 str(p.id): list(p.available_models or []) for p in llm_providers
             }
 
-            user_membership = Membership.objects.filter(
-                user=self.request.user, tenant=tenant
-            ).first()
-            context["is_admin"] = user_membership and user_membership.role in (
-                Membership.Role.OWNER,
-                Membership.Role.ADMIN,
-            )
+            context["is_admin"] = is_workspace_admin(self.request)
             # Drives the minimal "Install GitHub App" entry point (Phase 2).
             context["github_app_enabled"] = settings.GITHUB_APP_ENABLED
         return context
@@ -183,13 +208,7 @@ def invite_member(request):
         messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
-    user_membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not user_membership or user_membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to invite members.")
         return redirect("tenant_settings")
 
@@ -220,13 +239,7 @@ def remove_member(request, membership_id):
         messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
-    user_membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not user_membership or user_membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to remove members.")
         return redirect("tenant_settings")
 
@@ -249,13 +262,7 @@ def add_connection(request):
         messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
-    user_membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not user_membership or user_membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
         return redirect("tenant_settings")
 
@@ -308,13 +315,7 @@ def edit_connection_token(request, connection_id):
         messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
-    user_membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not user_membership or user_membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
         return redirect("tenant_settings")
 
@@ -334,7 +335,7 @@ def edit_connection_token(request, connection_id):
 @login_required
 @require_POST
 def reveal_connection_token(request, connection_id):
-    """Return the decrypted access token for an authorised admin/owner.
+    """Return the decrypted access token for a real admin/owner member.
 
     The token is a secret and is deliberately never rendered into the settings
     page. The edit-token modal's "Show" control calls this endpoint so the
@@ -347,11 +348,13 @@ def reveal_connection_token(request, connection_id):
     if not tenant:
         return JsonResponse({"error": "No active workspace."}, status=400)
 
-    membership = Membership.objects.filter(user=request.user, tenant=tenant).first()
-    if not membership or membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    # Deliberately not is_workspace_admin(): a superuser in the support view
+    # never needs the partner's raw token, so the gate is a real membership.
+    if not has_admin_membership(request):
+        if getattr(request, "tenant_is_support_view", False):
+            return JsonResponse(
+                {"error": "Not available in support view."}, status=403
+            )
         return JsonResponse(
             {"error": "You don't have permission to manage connections."},
             status=403,
@@ -369,13 +372,7 @@ def remove_connection(request, connection_id):
         messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
-    user_membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not user_membership or user_membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
         return redirect("tenant_settings")
 
@@ -420,13 +417,7 @@ def _require_workspace_admin(request):
     if not tenant:
         messages.error(request, "No active workspace.")
         return None, redirect("tenant_settings")
-    membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not membership or membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         messages.error(
             request, "You don't have permission to manage workspace settings."
         )
@@ -561,13 +552,7 @@ def fetch_llm_models(request, provider_id):
     tenant = request.tenant
     if not tenant:
         return HttpResponse('<span class="badge badge-error">No workspace</span>')
-    membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not membership or membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
+    if not is_workspace_admin(request):
         return HttpResponse('<span class="badge badge-error">Forbidden</span>')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)

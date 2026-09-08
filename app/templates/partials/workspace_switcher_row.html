@@ -4,11 +4,14 @@
           hx-post="{% url 'switch_tenant' %}"
           hx-vals='{"tenant_id": "{{ tenant.id }}"}'
           hx-swap="none"
-          class="flex items-center gap-3">
+          class="{% if is_current %}active {% endif %}flex items-center gap-3">
     <span class="w-6 h-6 rounded shrink-0 flex items-center justify-center text-xs font-bold {{ tenant|workspace_badge_class }}">{{ tenant.name|first|upper }}</span>
     <span class="flex flex-col items-start min-w-0">
       <span class="truncate max-w-full">{{ tenant.name }}</span>
       <span class="text-xs opacity-60 truncate max-w-full">{{ tenant.slug }}</span>
     </span>
+    {% if support %}
+      <span class="badge badge-warning badge-xs ml-auto shrink-0" title="You're not a member — opens in support view">support</span>
+    {% endif %}
   </button>
 </li>

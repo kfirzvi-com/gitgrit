@@ -224,6 +224,9 @@
       data-git-sha="{{ git_sha|default:'' }}"
       data-tenant-slug="{{ current_tenant.slug|default:'' }}"
       class="min-h-screen flex flex-col bg-base-200">
+  {% if support_view and current_tenant %}
+    {% include "components/support_view_banner.html" %}
+  {% endif %}
   {% include "components/navbar.html" %}
 
   <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
