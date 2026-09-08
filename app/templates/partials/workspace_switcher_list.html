@@ -2,29 +2,22 @@
 {% comment %}
 Rows of the navbar workspace switcher. Loaded by HTMX into #workspace-list when
 the dropdown first opens, and re-loaded on every keystroke in the search box.
+A row marked "support" is a workspace the (super)user is not a member of.
 {% endcomment %}
-{% if current_membership %}
-  <li>
-    <button type="button" data-workspace-row
-            hx-post="{% url 'switch_tenant' %}"
-            hx-vals='{"tenant_id": "{{ current_membership.tenant.id }}"}'
-            hx-swap="none"
-            class="active flex items-center gap-3">
-      <span class="w-6 h-6 rounded shrink-0 flex items-center justify-center text-xs font-bold {{ current_membership.tenant|workspace_badge_class }}">{{ current_membership.tenant.name|first|upper }}</span>
-      <span class="flex flex-col items-start min-w-0">
-        <span class="truncate max-w-full">{{ current_membership.tenant.name }}</span>
-        <span class="text-xs opacity-60 truncate max-w-full">{{ current_membership.tenant.slug }}</span>
-      </span>
-    </button>
-  </li>
+{% if current_tenant %}
+  {% include "partials/workspace_switcher_row.html" with tenant=current_tenant is_current=True support=current_is_support %}
 {% endif %}
 
 {% if others %}
-  {% if current_membership %}
+  {% if current_tenant %}
     <li class="menu-title pt-2"><span>{% if q %}Matches{% else %}All workspaces{% endif %}</span></li>
   {% endif %}
-  {% for m in others %}
-    {% include "partials/workspace_switcher_row.html" with tenant=m.tenant %}
+  {% for tenant in others %}
+    {% if tenant.id in member_tenant_ids %}
+      {% include "partials/workspace_switcher_row.html" with tenant=tenant support=False %}
+    {% else %}
+      {% include "partials/workspace_switcher_row.html" with tenant=tenant support=True %}
+    {% endif %}
   {% endfor %}
 {% endif %}
 

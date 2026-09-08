@@ -21,8 +21,9 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from app.domain.models import AuthMethod, Membership, Platform, PlatformConnection
+from app.domain.models import AuthMethod, Platform, PlatformConnection
 from app.infrastructure import github_app
+from app.workspace_access import is_workspace_admin
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +50,10 @@ def _require_app_enabled():
         raise Http404("GitHub App integration is not enabled.")
 
 
-def _admin_membership(request):
-    """Return the request user's OWNER/ADMIN membership for the active tenant,
-    or None."""
-    tenant = request.tenant
-    if not tenant:
-        return None
-    membership = Membership.objects.filter(
-        user=request.user, tenant=tenant
-    ).first()
-    if not membership or membership.role not in (
-        Membership.Role.OWNER,
-        Membership.Role.ADMIN,
-    ):
-        return None
-    return membership
+def _admin_membership(request) -> bool:
+    """True when the request user may manage the active workspace: a real
+    OWNER/ADMIN member, or a superuser in the support view."""
+    return is_workspace_admin(request)
 
 
 def _sign_state(request) -> str:
@@ -104,8 +94,7 @@ def github_app_install(request):
     """
     _require_app_enabled()
 
-    membership = _admin_membership(request)
-    if not membership:
+    if not _admin_membership(request):
         messages.error(
             request, "You don't have permission to install the GitHub App."
         )

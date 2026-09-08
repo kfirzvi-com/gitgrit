@@ -343,3 +343,34 @@ SANDBOX = {
 }
 
 TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
+
+# Logging. Django configures only its own "django" loggers; anything else
+# falls through to Python's last-resort handler, which prints the bare message
+# with no timestamp. The support-view audit trail (a superuser acting inside a
+# customer's workspace, see app/workspace_access.py) has to say *when*, so
+# route it through a timestamped console handler. Kept to that one logger so
+# the rest of the app's logging behaviour is unchanged.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "timestamped": {
+            "format": "{asctime} {levelname} {name}: {message}",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console_timestamped": {
+            "class": "logging.StreamHandler",
+            "formatter": "timestamped",
+        },
+    },
+    "loggers": {
+        "app.support_view": {
+            "handlers": ["console_timestamped"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

@@ -4,7 +4,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
-from app.domain.models import Membership, PlatformConnection, Standard, Project, Stack
+from app.domain.models import PlatformConnection, Standard, Project, Stack
+from app.workspace_access import is_workspace_admin
 from app.presentation.architecture import (
     attention_items,
     latest_scores_by_project,
@@ -29,13 +30,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         tenant = self.request.tenant
 
         if tenant:
-            membership = Membership.objects.filter(
-                user=self.request.user, tenant=tenant
-            ).first()
-            context["is_admin"] = membership and membership.role in (
-                Membership.Role.OWNER,
-                Membership.Role.ADMIN,
-            )
+            context["is_admin"] = is_workspace_admin(self.request)
             context["has_connections"] = PlatformConnection.objects.filter(
                 tenant=tenant
             ).exists()
