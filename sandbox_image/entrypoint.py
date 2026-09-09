@@ -23,6 +23,7 @@ captured log is attached to the result as ``logs`` (even on error).
 import inspect
 import json
 import sys
+import time
 import traceback
 
 from standard_log import StandardLogger
@@ -30,9 +31,35 @@ from project_context import ProjectContext
 from providers.factory import create_provider
 
 
+def _first_line(message):
+    return str(message).splitlines()[0] if str(message).strip() else ""
+
+
+def _describe_result(result):
+    if not isinstance(result, dict):
+        return f"evaluate returned {type(result).__name__}, expected a dict"
+    return (
+        f"evaluate returned passed={result.get('passed')} "
+        f"score={result.get('score')} message={_first_line(result.get('message', ''))!r}"
+    )
+
+
+def _status_word(result):
+    if not isinstance(result, dict):
+        return "error"
+    details = result.get("details")
+    if isinstance(details, dict) and details.get("error"):
+        return "error"
+    return "passed" if result.get("passed") else "failed"
+
+
 def _run(config, logger):
+    platform = config.get("platform", "mock")
+    target = config.get("full_path") or config.get("project_id") or ""
+    logger.info(f"run started: platform={platform} project={target}")
+
     provider = create_provider(
-        platform=config.get("platform", "mock"),
+        platform=platform,
         project_id=config.get("project_id", ""),
         access_token=config.get("access_token"),
         base_url=config.get("base_url", ""),
@@ -40,6 +67,7 @@ def _run(config, logger):
         mock_data=config.get("mock_data"),
     )
     project = ProjectContext(provider)
+    logger.info("project context ready")
 
     # Only pull in the LLM stack (litellm) when the workspace has roles
     # configured — deterministic standards stay fast and dependency-free.
@@ -73,7 +101,16 @@ def _run(config, logger):
         elif name == "log":
             kwargs["log"] = logger
 
+    signature = ", ".join(["project", *kwargs])
+    logger.info(f"calling evaluate({signature})")
+    started = time.monotonic()
     result = evaluate(project, **kwargs)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+
+    if isinstance(result, dict):
+        logger.info(f"{_describe_result(result)} in {elapsed_ms} ms")
+    else:
+        logger.error(f"{_describe_result(result)} in {elapsed_ms} ms")
 
     # Surface token usage for visibility (foundation for future budgets).
     if llm is not None and isinstance(result, dict):
@@ -93,16 +130,18 @@ def main():
             config = json.load(f)
         result = _run(config, logger)
     except Exception:
-        logger.error("standard execution raised an exception")
+        tb = traceback.format_exc()
+        logger.error(f"standard execution raised an exception\n{tb}")
         result = {
             "passed": False,
             "score": 0,
-            "message": f"Standard execution error: {traceback.format_exc()}",
+            "message": f"Standard execution error: {tb}",
             "details": {"error": True},
         }
     finally:
         sys.stdout = real_stdout
 
+    logger.info(f"run finished: {_status_word(result)}")
     if isinstance(result, dict):
         result.setdefault("logs", logger.entries)
     print(json.dumps(result))
