@@ -1,0 +1,11 @@
+{# Body of the "Manage projects" modal on the stack page (fetched via HTMX). #}
+<form method="post" action="{% url 'stack_projects' stack.pk %}"
+      onsubmit="document.getElementById('projects_modal').close()">
+  {% csrf_token %}
+  {% include "partials/project_picker.html" %}
+  <div class="modal-action">
+    <button type="button" class="btn btn-ghost"
+            onclick="document.getElementById('projects_modal').close()">Cancel</button>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </div>
+</form>

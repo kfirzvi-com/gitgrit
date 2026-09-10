@@ -17,14 +17,45 @@
     </a>
     <h1 class="text-3xl font-bold">{{ stack.name }}</h1>
   </div>
-  <form method="post" action="{% url 'delete_stack' stack.pk %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-ghost btn-sm text-error"
-            onclick="return confirm('Delete stack &quot;{{ stack.name }}&quot;?')">
-      Delete
+  <div class="flex gap-2">
+    <button type="button" class="btn btn-outline btn-sm"
+            onclick="document.getElementById('edit_stack_modal').showModal()">
+      Edit
     </button>
-  </form>
+    <form method="post" action="{% url 'delete_stack' stack.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm text-error"
+              onclick="return confirm('Delete stack &quot;{{ stack.name }}&quot;?')">
+        Delete
+      </button>
+    </form>
+  </div>
 </div>
+
+<dialog id="edit_stack_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Edit stack</h3>
+    <form method="post" action="{% url 'edit_stack' stack.pk %}">
+      {% csrf_token %}
+      <div class="form-control mb-4">
+        <label class="label" for="edit-stack-name"><span class="label-text">Name</span></label>
+        <input type="text" id="edit-stack-name" name="name" value="{{ stack.name }}"
+               class="input input-bordered w-full" required maxlength="255">
+      </div>
+      <div class="form-control mb-4">
+        <label class="label" for="edit-stack-description"><span class="label-text">Description</span></label>
+        <textarea id="edit-stack-description" name="description" rows="3"
+                  class="textarea textarea-bordered w-full">{{ stack.description }}</textarea>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost"
+                onclick="document.getElementById('edit_stack_modal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 
 {% if stack.description %}
   <p class="mb-6 opacity-70">{{ stack.description }}</p>
@@ -42,21 +73,20 @@
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
       <div class="flex justify-between items-center">
-        <h2 class="card-title">Projects</h2>
+        <h2 class="card-title">
+          Projects
+          {% if stack_projects %}
+            <span class="text-sm font-normal opacity-70">{{ stack_projects|length }} in stack</span>
+          {% endif %}
+        </h2>
+        <button type="button" class="btn btn-outline btn-sm"
+                hx-get="{% url 'stack_projects' stack.pk %}"
+                hx-target="#projects-modal-body"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('projects-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading projects...&lt;/p&gt;'; document.getElementById('projects_modal').showModal()">
+          Manage projects
+        </button>
       </div>
-
-      {% if available_projects %}
-        <form method="post" action="{% url 'add_project_to_stack' stack.pk %}" class="flex gap-2 mt-2">
-          {% csrf_token %}
-          <select name="project_id" class="select select-bordered select-sm flex-1">
-            <option value="" disabled selected>Add a project...</option>
-            {% for project in available_projects %}
-              <option value="{{ project.pk }}">{{ project.name }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit" class="btn btn-primary btn-sm">Add</button>
-        </form>
-      {% endif %}
 
       {% if stack_projects %}
         <div class="overflow-x-auto mt-4">
@@ -95,11 +125,21 @@
           </table>
         </div>
       {% else %}
-        <p class="text-sm opacity-70 mt-4">No projects in this stack yet.</p>
+        <p class="text-sm opacity-70 mt-4">No projects in this stack yet. Use "Manage projects" to add projects from your workspace.</p>
       {% endif %}
     </div>
   </div>
 </div>
+
+<dialog id="projects_modal" class="modal">
+  <div class="modal-box max-w-4xl">
+    <h3 class="font-bold text-lg mb-2">Manage projects</h3>
+    <div id="projects-modal-body">
+      <p class="text-sm opacity-70">Loading projects...</p>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 
 {% if stack_projects %}
   <script id="stack-architecture-data" type="application/json">{{ architecture_data|safe }}</script>

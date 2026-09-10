@@ -14,13 +14,20 @@ from app.domain.events import (
     ProjectRemovedFromStack,
     StackCreated,
 )
-from app.domain.models import ProjectStack, Stack
+from app.domain.models import Project, ProjectStack, Stack
 
 
 def create_stack(*, tenant, name: str, description: str = "") -> Stack:
     with transaction.atomic():
         stack = Stack.objects.create(tenant=tenant, name=name, description=description)
         publish(StackCreated(stack_id=str(stack.id), tenant_id=str(tenant.id)))
+    return stack
+
+
+def update_stack(*, stack: Stack, name: str, description: str = "") -> Stack:
+    stack.name = name
+    stack.description = description
+    stack.save(update_fields=["name", "description", "updated_at"])
     return stack
 
 
@@ -52,3 +59,26 @@ def remove_project_from_stack(*, tenant, stack, project) -> bool:
                 )
             )
     return bool(deleted)
+
+
+def set_stack_projects(*, tenant, stack, projects) -> tuple[int, int]:
+    """Replace the stack's membership with ``projects``.
+
+    Adds and removes go through the single-project use cases so the graph
+    events fire for each change. Returns ``(added, removed)`` counts.
+    """
+    wanted = {p.pk: p for p in projects}
+    current = {
+        p.pk: p for p in Project.objects.filter(tenant=tenant, stacks=stack)
+    }
+    added = removed = 0
+    with transaction.atomic():
+        for pk, project in wanted.items():
+            if pk not in current:
+                added += add_project_to_stack(tenant=tenant, stack=stack, project=project)
+        for pk, project in current.items():
+            if pk not in wanted:
+                removed += remove_project_from_stack(
+                    tenant=tenant, stack=stack, project=project
+                )
+    return added, removed
