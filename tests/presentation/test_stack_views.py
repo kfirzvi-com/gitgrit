@@ -13,6 +13,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import Project
+from app.tasks import infer_project_dependencies
 
 
 def _login_member(client):
@@ -139,6 +140,26 @@ class TestStackProjectsPicker(TestCase):
         resp = self.client.post(url, data={})
         assert resp.status_code == 302
         assert Project.objects.filter(stacks=stack).count() == 0
+
+    def test_post_adds_several_projects_when_a_deps_job_is_already_queued(self):
+        """Regression: the add-to-stack subscriber queues a dependency refresh
+        per project. When one is already queued, Procrastinate's unique
+        queueing_lock rejects the insert; without a savepoint that aborts the
+        whole membership transaction and the next project's write fails with
+        "current transaction is aborted" (InternalError 500)."""
+        _, tenant = _login_member(self.client)
+        stack = baker.make("app.Stack", tenant=tenant)
+        p1, p2 = (_project(tenant) for _ in range(2))
+        # What ProjectCreated leaves behind until a graph worker picks it up.
+        infer_project_dependencies.configure(
+            lock=f"project:{p1.pk}", queueing_lock=f"deps:{p1.pk}"
+        ).defer(project_id=str(p1.pk))
+
+        url = reverse("stack_projects", args=[stack.pk])
+        resp = self.client.post(url, data={"projects": [str(p1.pk), str(p2.pk)]})
+
+        assert resp.status_code == 302
+        assert set(Project.objects.filter(stacks=stack)) == {p1, p2}
 
     def test_post_ignores_projects_of_other_tenants(self):
         _, tenant = _login_member(self.client)
