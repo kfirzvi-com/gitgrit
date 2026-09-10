@@ -60,7 +60,10 @@
           <div class="col-span-2">
             <span class="opacity-70">Webhook</span>
             <p class="flex items-center gap-2">
-              {% if project.webhook_id %}
+              {% if project.platform_connection.auth_method == "github_app" %}
+                <span class="badge badge-success badge-sm">Active</span>
+                <span class="text-xs opacity-50">via GitHub App</span>
+              {% elif project.webhook_id %}
                 <span class="badge badge-success badge-sm">Active</span>
                 <span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
               {% else %}
