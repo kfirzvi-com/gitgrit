@@ -54,13 +54,15 @@
                        aria-label="Find workspace"
                        hx-get="{% url 'workspace_switcher_list' %}"
                        hx-trigger="input changed delay:200ms, search"
-                       hx-target="#workspace-list">
+                       hx-target="#workspace-list"
+                       data-no-loader>
               </label>
             {% endif %}
             <ul id="workspace-list" class="menu p-0 max-h-80 overflow-y-auto flex-nowrap"
                 hx-get="{% url 'workspace_switcher_list' %}"
                 hx-trigger="intersect once"
-                hx-swap="innerHTML">
+                hx-swap="innerHTML"
+                data-no-loader>
               <li class="disabled"><span class="text-sm opacity-60">Loading…</span></li>
             </ul>
             <div class="divider my-1"></div>

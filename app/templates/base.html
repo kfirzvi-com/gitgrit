@@ -116,6 +116,9 @@
     document.addEventListener('htmx:beforeRequest', function (e) {
       var trigger = e.detail.elt.getAttribute('hx-trigger') || '';
       if (trigger.indexOf('load') !== -1) return; // skip auto-triggers
+      // Small in-place fetches (e.g. the navbar workspace list) opt out with
+      // data-no-loader so a slow response doesn't take over the whole page.
+      if (e.detail.elt.hasAttribute('data-no-loader')) return;
       clearTimeout(htmxTimer);
       htmxShown = false;
       htmxTimer = setTimeout(function () {
