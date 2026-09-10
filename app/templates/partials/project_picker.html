@@ -1,0 +1,93 @@
+{# Searchable project picker table for the stack-page "Manage projects" modal. #}
+{# Context: workspace_projects (queryset), member_project_ids (set of pks to pre-check). #}
+<div class="project-picker">
+  <input type="text" placeholder="Search projects by name, path, platform, or lifecycle..."
+         class="input input-bordered w-full mb-2"
+         oninput="filterProjectPicker(this)" autocomplete="off"
+         onkeydown="if (event.key === 'Enter') event.preventDefault()">
+  <p class="mb-2 text-sm opacity-70">
+    {{ workspace_projects|length }} project{{ workspace_projects|length|pluralize }}
+    · <span class="project-picker-selected">{{ member_project_ids|length }}</span> selected
+  </p>
+  <div class="max-h-96 overflow-y-auto rounded-box border border-base-300">
+    <table class="table table-pin-rows">
+      <thead>
+        <tr>
+          <th class="w-8"></th>
+          <th>Name</th>
+          <th>Platform</th>
+          <th>Lifecycle</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for project in workspace_projects %}
+          <tr class="project-picker-row"
+              data-project-search="{{ project.name|lower }} {{ project.full_path|lower }} {{ project.get_platform_display|lower }} {{ project.get_lifecycle_display|lower }}">
+            <td>
+              <input type="checkbox" name="projects" value="{{ project.pk }}"
+                     class="checkbox checkbox-sm"
+                     onchange="updateProjectPickerCount(this.closest('.project-picker'))"
+                     {% if project.pk in member_project_ids %}checked{% endif %}>
+            </td>
+            <td>
+              <a href="{% url 'project_detail' project.pk %}" target="_blank" rel="noopener"
+                 class="link link-hover font-medium">{{ project.name }}</a>
+              <p class="text-xs opacity-50 truncate max-w-xs">{{ project.full_path }}</p>
+            </td>
+            <td>
+              <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
+                {{ project.get_platform_display }}
+              </span>
+            </td>
+            <td>
+              <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4"><p class="text-sm opacity-70">No projects in this workspace yet.</p></td></tr>
+        {% endfor %}
+        <tr class="project-picker-no-match hidden">
+          <td colspan="4"><p class="text-sm opacity-70">No projects match your search.</p></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+// Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
+if (!window.filterProjectPicker) {
+  window.filterProjectPicker = function (input) {
+    var picker = input.closest('.project-picker');
+    var q = input.value.trim().toLowerCase();
+    var anyVisible = false;
+    picker.querySelectorAll('.project-picker-row').forEach(function (row) {
+      var match = !q || row.dataset.projectSearch.indexOf(q) !== -1;
+      row.classList.toggle('hidden', !match);
+      if (match) anyVisible = true;
+    });
+    var noMatch = picker.querySelector('.project-picker-no-match');
+    if (noMatch) noMatch.classList.toggle('hidden', anyVisible);
+  };
+
+  // Sets every row the search filter currently leaves visible to `checked`.
+  // The buttons live in the modal footer, outside the picker, so locate the
+  // picker through the enclosing form.
+  window.setVisibleProjectPickerRows = function (btn, checked) {
+    var picker = btn.closest('.project-picker') || btn.closest('form').querySelector('.project-picker');
+    picker.querySelectorAll('.project-picker-row').forEach(function (row) {
+      if (row.classList.contains('hidden')) return;
+      var cb = row.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = checked;
+    });
+    window.updateProjectPickerCount(picker);
+  };
+
+  window.updateProjectPickerCount = function (picker) {
+    var selected = picker.querySelectorAll('.project-picker-row input[type="checkbox"]:checked').length;
+    picker.querySelector('.project-picker-selected').textContent = selected;
+  };
+}
+document.querySelectorAll('.project-picker').forEach(function (picker) {
+  window.updateProjectPickerCount(picker);
+});
+</script>

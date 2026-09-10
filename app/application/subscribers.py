@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 
+from django.db import transaction
 from procrastinate.exceptions import AlreadyEnqueued
 
 from app.application.event_bus import subscribe
@@ -45,10 +46,14 @@ def _enqueue_dependency_refresh(project_id: str) -> None:
         deps_status=Project.DepsStatus.PENDING
     )
     try:
-        infer_project_dependencies.configure(
-            lock=f"project:{project_id}",
-            queueing_lock=f"deps:{project_id}",
-        ).defer(project_id=str(project_id))
+        # Savepoint: a duplicate-job unique violation must not abort the
+        # publisher's outer transaction (it would poison every later write in
+        # that transaction with "current transaction is aborted").
+        with transaction.atomic():
+            infer_project_dependencies.configure(
+                lock=f"project:{project_id}",
+                queueing_lock=f"deps:{project_id}",
+            ).defer(project_id=str(project_id))
     except AlreadyEnqueued:
         # A refresh for this project is already queued — coalesced.
         logger.debug("dependency refresh already queued for project %s", project_id)
