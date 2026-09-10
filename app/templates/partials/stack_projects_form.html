@@ -3,9 +3,19 @@
       onsubmit="document.getElementById('projects_modal').close()">
   {% csrf_token %}
   {% include "partials/project_picker.html" %}
-  <div class="modal-action">
-    <button type="button" class="btn btn-ghost"
-            onclick="document.getElementById('projects_modal').close()">Cancel</button>
-    <button type="submit" class="btn btn-primary">Save</button>
+  <div class="modal-action justify-between">
+    <div class="flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline"
+              title="Check every project currently listed (respects the search filter)"
+              onclick="setVisibleProjectPickerRows(this, true)">Select all</button>
+      <button type="button" class="btn btn-sm btn-outline"
+              title="Uncheck every project currently listed (respects the search filter)"
+              onclick="setVisibleProjectPickerRows(this, false)">Clear selection</button>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" class="btn btn-ghost"
+              onclick="document.getElementById('projects_modal').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
   </div>
 </form>

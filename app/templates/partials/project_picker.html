@@ -1,24 +1,14 @@
 {# Searchable project picker table for the stack-page "Manage projects" modal. #}
 {# Context: workspace_projects (queryset), member_project_ids (set of pks to pre-check). #}
 <div class="project-picker">
-  <input type="text" placeholder="Search projects by name, path, platform, or tag..."
+  <input type="text" placeholder="Search projects by name, path, platform, or lifecycle..."
          class="input input-bordered w-full mb-2"
          oninput="filterProjectPicker(this)" autocomplete="off"
          onkeydown="if (event.key === 'Enter') event.preventDefault()">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
-    <span class="opacity-70">
-      {{ workspace_projects|length }} project{{ workspace_projects|length|pluralize }}
-      · <span class="project-picker-selected">{{ member_project_ids|length }}</span> selected
-    </span>
-    <div class="flex gap-2">
-      <button type="button" class="btn btn-xs btn-outline"
-              title="Check every project currently listed (respects the search filter)"
-              onclick="setVisibleProjectPickerRows(this, true)">Select all</button>
-      <button type="button" class="btn btn-xs btn-outline"
-              title="Uncheck every project currently listed (respects the search filter)"
-              onclick="setVisibleProjectPickerRows(this, false)">Clear selection</button>
-    </div>
-  </div>
+  <p class="mb-2 text-sm opacity-70">
+    {{ workspace_projects|length }} project{{ workspace_projects|length|pluralize }}
+    · <span class="project-picker-selected">{{ member_project_ids|length }}</span> selected
+  </p>
   <div class="max-h-96 overflow-y-auto rounded-box border border-base-300">
     <table class="table table-pin-rows">
       <thead>
@@ -27,13 +17,12 @@
           <th>Name</th>
           <th>Platform</th>
           <th>Lifecycle</th>
-          <th>Tags</th>
         </tr>
       </thead>
       <tbody>
         {% for project in workspace_projects %}
           <tr class="project-picker-row"
-              data-project-search="{{ project.name|lower }} {{ project.full_path|lower }} {{ project.get_platform_display|lower }}{% for tag in project.tags %} {{ tag|lower }}{% endfor %}">
+              data-project-search="{{ project.name|lower }} {{ project.full_path|lower }} {{ project.get_platform_display|lower }} {{ project.get_lifecycle_display|lower }}">
             <td>
               <input type="checkbox" name="projects" value="{{ project.pk }}"
                      class="checkbox checkbox-sm"
@@ -53,21 +42,12 @@
             <td>
               <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
             </td>
-            <td>
-              <div class="flex flex-wrap gap-1">
-                {% for tag in project.tags %}
-                  <span class="badge badge-outline badge-sm">{{ tag }}</span>
-                {% empty %}
-                  <span class="text-sm opacity-40">—</span>
-                {% endfor %}
-              </div>
-            </td>
           </tr>
         {% empty %}
-          <tr><td colspan="5"><p class="text-sm opacity-70">No projects in this workspace yet.</p></td></tr>
+          <tr><td colspan="4"><p class="text-sm opacity-70">No projects in this workspace yet.</p></td></tr>
         {% endfor %}
         <tr class="project-picker-no-match hidden">
-          <td colspan="5"><p class="text-sm opacity-70">No projects match your search.</p></td>
+          <td colspan="4"><p class="text-sm opacity-70">No projects match your search.</p></td>
         </tr>
       </tbody>
     </table>
@@ -90,8 +70,10 @@ if (!window.filterProjectPicker) {
   };
 
   // Sets every row the search filter currently leaves visible to `checked`.
+  // The buttons live in the modal footer, outside the picker, so locate the
+  // picker through the enclosing form.
   window.setVisibleProjectPickerRows = function (btn, checked) {
-    var picker = btn.closest('.project-picker');
+    var picker = btn.closest('.project-picker') || btn.closest('form').querySelector('.project-picker');
     picker.querySelectorAll('.project-picker-row').forEach(function (row) {
       if (row.classList.contains('hidden')) return;
       var cb = row.querySelector('input[type="checkbox"]');
