@@ -94,10 +94,15 @@ class StandardEngine:
         return projects
 
     def get_standards_for_project(
-        self, project: Project, event_type: str, ref: str | None = None
+        self,
+        project: Project,
+        event_type: str,
+        ref: str | None = None,
+        target_ref: str | None = None,
     ) -> list[Standard]:
         """Return the project's attached, enabled, non-draft standards whose
-        criteria match the event."""
+        criteria match the event. ``target_ref`` is a pull request's target
+        branch; when given, the Branch/Tag Filter matches it instead of ``ref``."""
         standards = project.standards.filter(
             enabled=True,
             draft=False,
@@ -105,7 +110,9 @@ class StandardEngine:
         return [
             p
             for p in standards
-            if self._matches_criteria(p, event_type, ref, project)
+            if self._matches_criteria(
+                p, event_type, ref, project, target_ref=target_ref
+            )
         ]
 
     def runnable_standards(
@@ -131,6 +138,7 @@ class StandardEngine:
         ref: str | None,
         project: Project,
         skip_event_check: bool = False,
+        target_ref: str | None = None,
     ) -> bool:
         criteria = standard.criteria or {}
 
@@ -138,19 +146,27 @@ class StandardEngine:
         if not skip_event_check and event_type not in criteria.get("events", []):
             return False
 
-        # Ref regex filter (if set, ref must match)
-        ref_pattern = criteria.get("ref", "").strip()
-        if ref_pattern and ref:
-            try:
-                if not re.search(ref_pattern, bare_ref(ref)):
+        # Branch/Tag Filter. Matched against the branch the event is *for*: a
+        # pull request's target branch, else the pushed branch or tag. Empty
+        # means the project's default branch. Events that carry no ref (and
+        # manual runs) skip the check.
+        filter_ref = bare_ref(target_ref or ref)
+        if filter_ref:
+            ref_pattern = criteria.get("ref", "").strip()
+            if not ref_pattern:
+                if filter_ref != project.default_branch:
                     return False
-            except re.error:
-                logger.warning(
-                    "Invalid ref regex '%s' in standard '%s'",
-                    ref_pattern,
-                    standard.name,
-                )
-                return False
+            else:
+                try:
+                    if not re.search(ref_pattern, filter_ref):
+                        return False
+                except re.error:
+                    logger.warning(
+                        "Invalid ref regex '%s' in standard '%s'",
+                        ref_pattern,
+                        standard.name,
+                    )
+                    return False
 
         if not language_matches(criteria.get("languages", []), project.languages or []):
             return False
@@ -210,13 +226,19 @@ class StandardEngine:
                 )
 
             standards = self.get_standards_for_project(
-                project, event.event_type, ref=event.ref
+                project,
+                event.event_type,
+                ref=event.ref,
+                target_ref=event.target_ref,
             )
 
             if not standards:
                 logger.info(
-                    "No standards matched event_type=%s for project=%s (tenant=%s)",
+                    "No standards matched event_type=%s ref=%s target_ref=%s "
+                    "for project=%s (tenant=%s)",
                     event.event_type,
+                    event.ref,
+                    event.target_ref,
                     project.name,
                     project.tenant.name,
                 )
