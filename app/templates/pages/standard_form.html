@@ -81,7 +81,7 @@
                value="{{ ref_pattern }}"
                class="input input-bordered input-sm w-full font-mono"
                placeholder="e.g. ^main$, ^release/.* or ^v\d+\.">
-        <p class="text-xs opacity-60 mt-1">Regex to match branch or tag names (the <code>refs/heads/</code> / <code>refs/tags/</code> prefix is stripped before matching). Leave empty to match all branches and tags.</p>
+        <p class="text-xs opacity-60 mt-1">Regex to match branch or tag names (the <code>refs/heads/</code> / <code>refs/tags/</code> prefix is stripped before matching). Leave empty to match all branches and tags. The standard reads the repository at the pushed or PR branch; manual runs read at the branch named here (a plain name like <code>develop</code>), or the default branch.</p>
       </div>
 
       <div class="form-control">

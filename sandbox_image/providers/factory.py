@@ -12,12 +12,17 @@ def create_provider(
     access_token: str | None,
     base_url: str = "",
     full_path: str = "",
+    ref: str = "",
     mock_data: dict | None = None,
 ) -> BaseProvider:
     if access_token is None or platform == "mock":
         return MockProvider(project_id, data=mock_data)
     if platform == "github":
-        return GitHubProvider(project_id, access_token, base_url=base_url, full_path=full_path)
+        return GitHubProvider(
+            project_id, access_token, base_url=base_url, full_path=full_path, ref=ref
+        )
     if platform == "gitlab":
-        return GitLabProvider(project_id, access_token, base_url=base_url, full_path=full_path)
+        return GitLabProvider(
+            project_id, access_token, base_url=base_url, full_path=full_path, ref=ref
+        )
     raise ValueError(f"Unknown platform: {platform}")

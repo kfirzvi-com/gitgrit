@@ -20,6 +20,25 @@ from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
 
+_REF_PREFIX = re.compile(r"^refs/(heads|tags)/")
+_REGEX_CHARS = re.compile(r"[*+?()\[\]{}|\\]")
+
+
+def bare_ref(ref: str | None) -> str:
+    """Strip the refs/heads/ or refs/tags/ prefix a webhook ref carries."""
+    return _REF_PREFIX.sub("", ref or "")
+
+
+def literal_ref(pattern: str | None) -> str:
+    """Return the branch or tag a Branch/Tag Filter names literally, or ""
+    when the filter is empty or a regex. ``main`` and ``^main$`` both name
+    ``main``; ``^release/.*`` names nothing, so runs fall back to the default
+    branch."""
+    name = (pattern or "").strip().removeprefix("^").removesuffix("$")
+    if not name or _REGEX_CHARS.search(name):
+        return ""
+    return name
+
 
 def resolve_llm_roles(tenant) -> dict:
     """Resolve a tenant's configured LLM roles into a flat map the sandbox can
@@ -122,10 +141,8 @@ class StandardEngine:
         # Ref regex filter (if set, ref must match)
         ref_pattern = criteria.get("ref", "").strip()
         if ref_pattern and ref:
-            # Strip refs/heads/ prefix for cleaner matching
-            bare_ref = re.sub(r"^refs/(heads|tags)/", "", ref)
             try:
-                if not re.search(ref_pattern, bare_ref):
+                if not re.search(ref_pattern, bare_ref(ref)):
                     return False
             except re.error:
                 logger.warning(
@@ -140,10 +157,11 @@ class StandardEngine:
 
         return True
 
-    def _build_input_config(self, project: Project) -> dict:
+    def _build_input_config(self, project: Project, ref: str | None = None) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
         only when the workspace has configured them, so deterministic standards
-        are unaffected."""
+        are unaffected. ``ref`` is the branch or tag the sandbox reads the
+        repository at; empty means the default branch."""
         input_config = {
             "platform": project.platform,
             "project_id": project.external_id,
@@ -155,6 +173,7 @@ class StandardEngine:
             ),
             "base_url": project.platform_connection.base_url,
             "full_path": project.full_path,
+            "ref": bare_ref(ref),
         }
         llm_roles = resolve_llm_roles(project.tenant)
         if llm_roles:
@@ -203,7 +222,7 @@ class StandardEngine:
                 )
                 continue
 
-            input_config = self._build_input_config(project)
+            input_config = self._build_input_config(project, ref=event.ref)
 
             for standard in standards:
                 logger.info(
@@ -282,7 +301,10 @@ class StandardEngine:
                 triggered_by="manual",
             )
 
-            result = self.runner.run(standard.code, input_config)
+            # No event to take the branch from: read at the branch the
+            # standard's Branch/Tag Filter names, else the default branch.
+            ref = literal_ref((standard.criteria or {}).get("ref"))
+            result = self.runner.run(standard.code, {**input_config, "ref": ref})
 
             if result.get("details", {}).get("error"):
                 execution.status = StandardExecution.Status.ERROR
@@ -291,6 +313,7 @@ class StandardEngine:
             else:
                 execution.status = StandardExecution.Status.FAILED
 
+            execution.ref = ref
             execution.score = result.get("score", 0)
             execution.message = result.get("message", "")
             execution.details = result.get("details", {})

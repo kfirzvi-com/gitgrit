@@ -27,7 +27,10 @@ class GitHubParser(BaseWebhookParser):
             event_type=event_type,
             platform="github",
             external_project_id=str(repository.get("id", "")),
-            ref=payload.get("ref"),
+            # push/create/delete carry a top-level ref; pull_request carries
+            # the source branch under head.
+            ref=payload.get("ref")
+            or payload.get("pull_request", {}).get("head", {}).get("ref"),
             actor=sender.get("login"),
             raw_payload=payload,
         )
