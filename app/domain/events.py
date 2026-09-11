@@ -5,10 +5,15 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class DomainEvent:
-    event_type: str  # "push", "merge_request", etc.
+    event_type: str  # "push", "pull_request", etc.
     platform: str  # "github" | "gitlab"
     external_project_id: str  # platform's project/repo ID as string
+    # The branch or tag the run reads the repository at: the pushed ref, or a
+    # pull request's source branch.
     ref: str | None = None
+    # A pull request's target branch; None for other events. The Branch/Tag
+    # Filter matches this when present, else ``ref``.
+    target_ref: str | None = None
     actor: str | None = None
     raw_payload: dict = field(default_factory=dict)
 
