@@ -50,7 +50,7 @@ async def create_standard(
         ref_pattern: Regex matched against the branch or tag an event is
             for: the pushed branch, or a pull request's target branch (e.g.
             "^main$"; the refs/heads/ / refs/tags/ prefix is stripped before
-            matching). Empty means the project's default branch only.
+            matching). Empty matches all branches and tags.
         languages: Limit to projects using these languages (e.g. ["python"]).
         labels: Label names to assign (created if they don't exist).
         draft: If True, standard is saved but not executed on events.

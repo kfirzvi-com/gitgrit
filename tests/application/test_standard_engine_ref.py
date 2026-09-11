@@ -1,7 +1,7 @@
 """The branch a standard runs for, and the branch it reads the repository at.
 
 The Branch/Tag Filter matches the branch an event is *for*: the pushed branch,
-or a pull request's target branch. Empty means the default branch only.
+or a pull request's target branch. Empty matches all branches and tags.
 Webhook runs read at the pushed branch / the PR's source branch; manual runs
 (project page, connect-to-project) read at the branch the filter names
 literally, else the default branch. The sandbox is mocked; we assert on
@@ -219,13 +219,16 @@ class TestRunRef:
         _, input_config = engine._runner.run.call_args.args
         assert input_config["ref"] == "main"
 
-    def test_empty_filter_skips_push_to_other_branch(self):
+    def test_empty_filter_runs_on_push_to_other_branch(self):
         project = self._project()
         self._standard(project, "")
         engine = self._engine()
 
-        assert engine.run_for_event(self._push("refs/heads/feature/x")) == []
-        engine._runner.run.assert_not_called()
+        results = engine.run_for_event(self._push("refs/heads/feature/x"))
+
+        assert len(results) == 1
+        _, input_config = engine._runner.run.call_args.args
+        assert input_config["ref"] == "feature/x"
 
     def test_empty_filter_runs_on_pull_request_into_default_branch(self):
         project = self._project()
@@ -238,13 +241,16 @@ class TestRunRef:
         _, input_config = engine._runner.run.call_args.args
         assert input_config["ref"] == "feature/x"
 
-    def test_empty_filter_skips_pull_request_into_other_branch(self):
+    def test_empty_filter_runs_on_pull_request_into_other_branch(self):
         project = self._project()
         self._standard(project, "")
         engine = self._engine()
 
-        assert engine.run_for_event(self._pull_request("feature/x", "gritest")) == []
-        engine._runner.run.assert_not_called()
+        results = engine.run_for_event(self._pull_request("feature/x", "gritest"))
+
+        assert len(results) == 1
+        _, input_config = engine._runner.run.call_args.args
+        assert input_config["ref"] == "feature/x"
 
     def test_event_without_ref_skips_filter(self):
         project = self._project()

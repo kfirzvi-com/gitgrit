@@ -49,7 +49,7 @@ Standards can be filtered to run only on specific events, branches, or languages
 - **Branch filter** — regex matched against the branch or tag the event is for: the pushed branch, or a pull request's target branch (e.g., `^main$`; the `refs/heads/` / `refs/tags/` prefix is stripped first)
 - **Languages** — only run if the project uses specific languages
 
-An empty branch filter runs the standard on the project's default branch only. An empty language filter matches all languages.
+Leaving a filter empty means "match all."
 
 ## Test cases
 
