@@ -21,7 +21,10 @@ class GitLabParser(BaseWebhookParser):
             event_type=event_type,
             platform="gitlab",
             external_project_id=external_project_id,
-            ref=payload.get("ref"),
+            # push/tag_push carry a top-level ref; merge_request carries the
+            # source branch under object_attributes.
+            ref=payload.get("ref")
+            or payload.get("object_attributes", {}).get("source_branch"),
             actor=actor,
             raw_payload=payload,
         )
