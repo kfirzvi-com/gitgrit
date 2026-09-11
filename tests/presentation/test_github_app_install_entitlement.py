@@ -14,8 +14,9 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import PlatformConnection
+from tests.support import administers_account
 
-VICTIM_INSTALLATION_ID = 149078557
+VICTIM_INSTALLATION_ID = 5201
 
 _VICTIM_INSTALLATION = {
     "id": VICTIM_INSTALLATION_ID,
@@ -119,7 +120,7 @@ class TestInstallationEntitlement(TestCase):
         ), mock.patch(
             "app.infrastructure.github_app.user_can_access_installation",
             return_value=True,
-        ), mock.patch(
+        ), administers_account(), mock.patch(
             "app.infrastructure.github_app.get_installation",
             return_value=_VICTIM_INSTALLATION,
         ):

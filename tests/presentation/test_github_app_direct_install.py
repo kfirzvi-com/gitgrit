@@ -16,6 +16,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import AuthMethod, PlatformConnection
+from tests.support import administers_account
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -63,6 +64,7 @@ def _entitled(allowed=True):
             "app.infrastructure.github_app.get_installation",
             return_value=_INSTALLATION,
         ),
+        administers_account(),
     )
 
 
@@ -71,8 +73,8 @@ def _entitled(allowed=True):
 class TestDirectInstall(TestCase):
     def test_stateless_callback_asks_before_connecting(self):
         _login(self.client, tenant_name="Acme HQ")
-        exchange, access, get_inst = _entitled()
-        with exchange, access, get_inst:
+        exchange, access, get_inst, reach = _entitled()
+        with exchange, access, get_inst, reach:
             resp = self.client.get(
                 reverse("github_app_callback"),
                 {
@@ -90,8 +92,8 @@ class TestDirectInstall(TestCase):
 
     def test_confirming_creates_the_connection(self):
         _, tenant = _login(self.client)
-        exchange, access, get_inst = _entitled()
-        with exchange, access, get_inst:
+        exchange, access, get_inst, reach = _entitled()
+        with exchange, access, get_inst, reach:
             self.client.get(
                 reverse("github_app_callback"),
                 {
@@ -117,8 +119,8 @@ class TestDirectInstall(TestCase):
 
     def test_two_workspaces_may_connect_the_same_installation(self):
         _, tenant_a = _login(self.client, tenant_name="Alpha")
-        exchange, access, get_inst = _entitled()
-        with exchange, access, get_inst:
+        exchange, access, get_inst, reach = _entitled()
+        with exchange, access, get_inst, reach:
             self.client.get(
                 reverse("github_app_callback"),
                 {
@@ -132,8 +134,8 @@ class TestDirectInstall(TestCase):
         # A different user, in a different workspace, equally entitled.
         other_client = self.client_class()
         _, tenant_b = _login(other_client, tenant_name="Beta")
-        exchange, access, get_inst = _entitled()
-        with exchange, access, get_inst:
+        exchange, access, get_inst, reach = _entitled()
+        with exchange, access, get_inst, reach:
             resp = other_client.get(
                 reverse("github_app_callback"),
                 {

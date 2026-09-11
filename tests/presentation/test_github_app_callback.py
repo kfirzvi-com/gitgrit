@@ -16,6 +16,7 @@ from model_bakery import baker
 
 from app.domain.models import AuthMethod, PlatformConnection
 from app.presentation.views.github_app_views import INSTALL_STATE_SALT
+from tests.support import administers_account
 
 _INSTALLATION = {
     "id": 9001,
@@ -59,6 +60,7 @@ def _entitled(allowed=True):
             "app.infrastructure.github_app.user_can_access_installation",
             return_value=allowed,
         ),
+        administers_account(),
     )
 
 
@@ -67,8 +69,8 @@ def _entitled(allowed=True):
 class TestGitHubAppCallback(TestCase):
     def test_valid_callback_creates_app_connection(self):
         user, tenant = _login(self.client)
-        exchange, can_access = _entitled()
-        with exchange as mock_exchange, can_access as mock_access, mock.patch(
+        exchange, can_access, reach = _entitled()
+        with exchange as mock_exchange, can_access as mock_access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             return_value=_INSTALLATION,
         ) as mock_get:
@@ -93,8 +95,8 @@ class TestGitHubAppCallback(TestCase):
 
     def test_tampered_state_is_rejected(self):
         user, tenant = _login(self.client)
-        exchange, can_access = _entitled()
-        with exchange, can_access, mock.patch(
+        exchange, can_access, reach = _entitled()
+        with exchange, can_access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             return_value=_INSTALLATION,
         ) as mock_get:
@@ -113,8 +115,8 @@ class TestGitHubAppCallback(TestCase):
     def test_foreign_state_for_other_tenant_is_rejected(self):
         user, _tenant = _login(self.client)
         other_tenant = baker.make("app.Tenant")
-        exchange, can_access = _entitled()
-        with exchange, can_access, mock.patch(
+        exchange, can_access, reach = _entitled()
+        with exchange, can_access, reach, mock.patch(
             "app.infrastructure.github_app.get_installation",
             return_value=_INSTALLATION,
         ) as mock_get:
@@ -133,8 +135,8 @@ class TestGitHubAppCallback(TestCase):
     def test_stale_state_is_rejected(self):
         """A state is a short-lived targeting token, not a durable credential."""
         user, tenant = _login(self.client)
-        exchange, can_access = _entitled()
-        with exchange, can_access, mock.patch(
+        exchange, can_access, reach = _entitled()
+        with exchange, can_access, reach, mock.patch(
             "django.core.signing.loads", side_effect=signing.SignatureExpired("old")
         ), mock.patch(
             "app.infrastructure.github_app.get_installation",
