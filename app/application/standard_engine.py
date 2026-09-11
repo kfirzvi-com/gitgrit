@@ -148,25 +148,21 @@ class StandardEngine:
 
         # Branch/Tag Filter. Matched against the branch the event is *for*: a
         # pull request's target branch, else the pushed branch or tag. Empty
-        # means the project's default branch. Events that carry no ref (and
-        # manual runs) skip the check.
+        # matches all branches and tags. Events that carry no ref (and manual
+        # runs) skip the check.
+        ref_pattern = criteria.get("ref", "").strip()
         filter_ref = bare_ref(target_ref or ref)
-        if filter_ref:
-            ref_pattern = criteria.get("ref", "").strip()
-            if not ref_pattern:
-                if filter_ref != project.default_branch:
+        if ref_pattern and filter_ref:
+            try:
+                if not re.search(ref_pattern, filter_ref):
                     return False
-            else:
-                try:
-                    if not re.search(ref_pattern, filter_ref):
-                        return False
-                except re.error:
-                    logger.warning(
-                        "Invalid ref regex '%s' in standard '%s'",
-                        ref_pattern,
-                        standard.name,
-                    )
-                    return False
+            except re.error:
+                logger.warning(
+                    "Invalid ref regex '%s' in standard '%s'",
+                    ref_pattern,
+                    standard.name,
+                )
+                return False
 
         if not language_matches(criteria.get("languages", []), project.languages or []):
             return False

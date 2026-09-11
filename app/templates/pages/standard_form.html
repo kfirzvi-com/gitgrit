@@ -81,7 +81,7 @@
                value="{{ ref_pattern }}"
                class="input input-bordered input-sm w-full font-mono"
                placeholder="e.g. ^main$, ^release/.* or ^v\d+\.">
-        <p class="text-xs opacity-60 mt-1">Regex matched against the branch or tag an event is for: the pushed branch, or a pull request's target branch (the <code>refs/heads/</code> / <code>refs/tags/</code> prefix is stripped before matching). Leave empty to run on the default branch only. The standard reads the repository at the pushed branch or the PR's source branch; manual runs read at the branch named here (a plain name like <code>develop</code>), or the default branch.</p>
+        <p class="text-xs opacity-60 mt-1">Regex to match branch or tag names (the <code>refs/heads/</code> / <code>refs/tags/</code> prefix is stripped before matching). Leave empty to match all branches and tags.</p>
       </div>
 
       <div class="form-control">
