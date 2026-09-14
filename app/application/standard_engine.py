@@ -20,6 +20,25 @@ from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
 
+_REF_PREFIX = re.compile(r"^refs/(heads|tags)/")
+_REGEX_CHARS = re.compile(r"[*+?()\[\]{}|\\]")
+
+
+def bare_ref(ref: str | None) -> str:
+    """Strip the refs/heads/ or refs/tags/ prefix a webhook ref carries."""
+    return _REF_PREFIX.sub("", ref or "")
+
+
+def literal_ref(pattern: str | None) -> str:
+    """Return the branch or tag a Branch/Tag Filter names literally, or ""
+    when the filter is empty or a regex. ``main`` and ``^main$`` both name
+    ``main``; ``^release/.*`` names nothing, so runs fall back to the default
+    branch."""
+    name = (pattern or "").strip().removeprefix("^").removesuffix("$")
+    if not name or _REGEX_CHARS.search(name):
+        return ""
+    return name
+
 
 def resolve_llm_roles(tenant) -> dict:
     """Resolve a tenant's configured LLM roles into a flat map the sandbox can
@@ -75,10 +94,15 @@ class StandardEngine:
         return projects
 
     def get_standards_for_project(
-        self, project: Project, event_type: str, ref: str | None = None
+        self,
+        project: Project,
+        event_type: str,
+        ref: str | None = None,
+        target_ref: str | None = None,
     ) -> list[Standard]:
         """Return the project's attached, enabled, non-draft standards whose
-        criteria match the event."""
+        criteria match the event. ``target_ref`` is a pull request's target
+        branch; when given, the Branch/Tag Filter matches it instead of ``ref``."""
         standards = project.standards.filter(
             enabled=True,
             draft=False,
@@ -86,7 +110,9 @@ class StandardEngine:
         return [
             p
             for p in standards
-            if self._matches_criteria(p, event_type, ref, project)
+            if self._matches_criteria(
+                p, event_type, ref, project, target_ref=target_ref
+            )
         ]
 
     def runnable_standards(
@@ -112,6 +138,7 @@ class StandardEngine:
         ref: str | None,
         project: Project,
         skip_event_check: bool = False,
+        target_ref: str | None = None,
     ) -> bool:
         criteria = standard.criteria or {}
 
@@ -119,13 +146,15 @@ class StandardEngine:
         if not skip_event_check and event_type not in criteria.get("events", []):
             return False
 
-        # Ref regex filter (if set, ref must match)
+        # Branch/Tag Filter. Matched against the branch the event is *for*: a
+        # pull request's target branch, else the pushed branch or tag. Empty
+        # matches all branches and tags. Events that carry no ref (and manual
+        # runs) skip the check.
         ref_pattern = criteria.get("ref", "").strip()
-        if ref_pattern and ref:
-            # Strip refs/heads/ prefix for cleaner matching
-            bare_ref = re.sub(r"^refs/(heads|tags)/", "", ref)
+        filter_ref = bare_ref(target_ref or ref)
+        if ref_pattern and filter_ref:
             try:
-                if not re.search(ref_pattern, bare_ref):
+                if not re.search(ref_pattern, filter_ref):
                     return False
             except re.error:
                 logger.warning(
@@ -140,10 +169,11 @@ class StandardEngine:
 
         return True
 
-    def _build_input_config(self, project: Project) -> dict:
+    def _build_input_config(self, project: Project, ref: str | None = None) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
         only when the workspace has configured them, so deterministic standards
-        are unaffected."""
+        are unaffected. ``ref`` is the branch or tag the sandbox reads the
+        repository at; empty means the default branch."""
         input_config = {
             "platform": project.platform,
             "project_id": project.external_id,
@@ -155,6 +185,7 @@ class StandardEngine:
             ),
             "base_url": project.platform_connection.base_url,
             "full_path": project.full_path,
+            "ref": bare_ref(ref),
         }
         llm_roles = resolve_llm_roles(project.tenant)
         if llm_roles:
@@ -191,19 +222,25 @@ class StandardEngine:
                 )
 
             standards = self.get_standards_for_project(
-                project, event.event_type, ref=event.ref
+                project,
+                event.event_type,
+                ref=event.ref,
+                target_ref=event.target_ref,
             )
 
             if not standards:
                 logger.info(
-                    "No standards matched event_type=%s for project=%s (tenant=%s)",
+                    "No standards matched event_type=%s ref=%s target_ref=%s "
+                    "for project=%s (tenant=%s)",
                     event.event_type,
+                    event.ref,
+                    event.target_ref,
                     project.name,
                     project.tenant.name,
                 )
                 continue
 
-            input_config = self._build_input_config(project)
+            input_config = self._build_input_config(project, ref=event.ref)
 
             for standard in standards:
                 logger.info(
@@ -282,7 +319,10 @@ class StandardEngine:
                 triggered_by="manual",
             )
 
-            result = self.runner.run(standard.code, input_config)
+            # No event to take the branch from: read at the branch the
+            # standard's Branch/Tag Filter names, else the default branch.
+            ref = literal_ref((standard.criteria or {}).get("ref"))
+            result = self.runner.run(standard.code, {**input_config, "ref": ref})
 
             if result.get("details", {}).get("error"):
                 execution.status = StandardExecution.Status.ERROR
@@ -291,6 +331,7 @@ class StandardEngine:
             else:
                 execution.status = StandardExecution.Status.FAILED
 
+            execution.ref = ref
             execution.score = result.get("score", 0)
             execution.message = result.get("message", "")
             execution.details = result.get("details", {})

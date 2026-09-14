@@ -17,12 +17,18 @@ class GitHubProvider(BaseProvider):
         access_token: str,
         base_url: str = "",
         full_path: str = "",
+        ref: str = "",
     ) -> None:
         self.project_id = project_id
         self.access_token = access_token
         self.base_url = (base_url or _DEFAULT_BASE_URL).rstrip("/")
         self.full_path = full_path
+        # Branch or tag the repository is read at; empty means default branch.
+        self.ref = ref
         self._repo_cache: dict | None = None
+
+    def _read_ref(self) -> str:
+        return self.ref or self.get_default_branch()
 
     # ------------------------------------------------------------------
     # HTTP helper
@@ -74,10 +80,11 @@ class GitHubProvider(BaseProvider):
             ) from exc
 
     def get_file_content(self, path: str) -> str | None:
-        return self._get_raw(f"/repos/{self.full_path}/contents/{path}")
+        ref = urllib.parse.quote(self._read_ref(), safe="")
+        return self._get_raw(f"/repos/{self.full_path}/contents/{path}?ref={ref}")
 
     def list_files(self) -> list[str]:
-        branch = self.get_default_branch()
+        branch = urllib.parse.quote(self._read_ref(), safe="")
         tree = self._get(
             f"/repos/{self.full_path}/git/trees/{branch}?recursive=1"
         )
@@ -130,9 +137,11 @@ class GitHubProvider(BaseProvider):
 
     def get_file_last_commit_date(self, path: str) -> str | None:
         encoded_path = urllib.parse.quote(path, safe="/")
+        sha = urllib.parse.quote(self._read_ref(), safe="")
         try:
             commits = self._get(
-                f"/repos/{self.full_path}/commits?path={encoded_path}&per_page=1"
+                f"/repos/{self.full_path}/commits"
+                f"?path={encoded_path}&sha={sha}&per_page=1"
             )
         except RuntimeError:
             return None

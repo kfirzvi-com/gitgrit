@@ -143,10 +143,10 @@ class TestGitHubWebhookView(APITestCase):
         assert response.data["standards_run"] == 0
         assert not StandardExecution.objects.filter(project=project).exists()
 
-    def test_pull_request_event_maps_to_merge_request(self):
+    def test_pull_request_event_keeps_canonical_name(self):
         response = self._post({"repository": {"id": 77777}, "sender": {"login": "octocat"}}, event="pull_request")
         assert response.status_code == 200
-        assert response.data["event_type"] == "merge_request"
+        assert response.data["event_type"] == "pull_request"
 
     def test_unknown_event_passes_through_unchanged(self):
         response = self._post({"repository": {"id": 88888}, "sender": {"login": "octocat"}}, event="deployment")
