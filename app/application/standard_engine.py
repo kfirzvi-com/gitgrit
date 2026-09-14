@@ -5,9 +5,7 @@ import re
 
 from django.db.models import QuerySet
 
-from app.application.event_bus import publish
-from app.domain.events import DomainEvent, RepositoryPushed
-from app.domain.identity import resolve_user
+from app.domain.events import DomainEvent
 from app.domain.models import (
     AuthMethod,
     LLMRole,
@@ -169,11 +167,13 @@ class StandardEngine:
 
         return True
 
-    def _build_input_config(self, project: Project, ref: str | None = None) -> dict:
+    def build_input_config(self, project: Project, ref: str | None = None) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
         only when the workspace has configured them, so deterministic standards
         are unaffected. ``ref`` is the branch or tag the sandbox reads the
-        repository at; empty means the default branch."""
+        repository at; empty means the default branch. The background job
+        builds this once per project (it fetches the access token) and
+        ``run_execution`` overlays each execution's own ref."""
         input_config = {
             "platform": project.platform,
             "project_id": project.external_id,
@@ -192,157 +192,46 @@ class StandardEngine:
             input_config["llm_roles"] = llm_roles
         return input_config
 
-    def run_for_event(
-        self, event: DomainEvent, installation_id: int | None = None
-    ) -> list[dict]:
-        projects = self.resolve_projects(event, installation_id=installation_id)
+    def run_execution(self, execution: StandardExecution, input_config: dict) -> dict:
+        """Run one already-created ``StandardExecution`` and record its result.
 
-        if not projects.exists():
-            logger.info(
-                "No projects matched platform=%s external_id=%s",
-                event.platform,
-                event.external_project_id,
-            )
-            return []
-
-        # Resolve the platform actor to a GitGrit user (once per event)
-        actor_user = resolve_user(event.platform, event.actor)
-
-        results = []
-        for project in projects:
-            # A code push may change dependencies — trigger a graph refresh
-            # (async, additive; does not affect the synchronous standard run below).
-            if event.event_type == "push":
-                publish(
-                    RepositoryPushed(
-                        project_id=str(project.id),
-                        tenant_id=str(project.tenant_id),
-                        ref=event.ref,
-                    )
-                )
-
-            standards = self.get_standards_for_project(
-                project,
-                event.event_type,
-                ref=event.ref,
-                target_ref=event.target_ref,
-            )
-
-            if not standards:
-                logger.info(
-                    "No standards matched event_type=%s ref=%s target_ref=%s "
-                    "for project=%s (tenant=%s)",
-                    event.event_type,
-                    event.ref,
-                    event.target_ref,
-                    project.name,
-                    project.tenant.name,
-                )
-                continue
-
-            input_config = self._build_input_config(project, ref=event.ref)
-
-            for standard in standards:
-                logger.info(
-                    "Running standard '%s' for project '%s' (event=%s)",
-                    standard.name,
-                    project.name,
-                    event.event_type,
-                )
-
-                execution = StandardExecution.objects.create(
-                    project=project,
-                    standard=standard,
-                    standard_name=standard.name,
-                    event_type=event.event_type,
-                    status=StandardExecution.Status.RUNNING,
-                    triggered_by=event.actor or "",
-                    triggered_by_user=actor_user,
-                    ref=event.ref or "",
-                )
-
-                result = self.runner.run(standard.code, input_config)
-
-                if result.get("details", {}).get("error"):
-                    execution.status = StandardExecution.Status.ERROR
-                elif result.get("passed"):
-                    execution.status = StandardExecution.Status.PASSED
-                else:
-                    execution.status = StandardExecution.Status.FAILED
-
-                execution.score = result.get("score", 0)
-                execution.message = result.get("message", "")
-                execution.details = result.get("details", {})
-                execution.logs = result.get("logs", [])
-                execution.save()
-
-                result["standard_id"] = str(standard.id)
-                result["standard_name"] = standard.name
-                result["execution_id"] = str(execution.id)
-                result["project_id"] = str(project.id)
-                result["project_name"] = project.name
-                results.append(result)
-
-        return results
-
-    def run_for_project(
-        self, project: Project, standards: list[Standard] | None = None
-    ) -> list[dict]:
-        """Run standards manually for a project (no webhook event needed).
-
-        With no explicit list, runs all of the project's attached standards.
+        The single place a standard's code meets the sandbox. The repository
+        is read at ``execution.ref``, fixed when the row was created: the
+        event's branch for webhook runs, the branch the Branch/Tag Filter
+        names for manual runs, or "" for the default branch. Fills in status
+        (error beats passed, so each result lands in exactly one bucket),
+        score, message, details and logs, then returns the runner's result
+        enriched with the standard/execution/project identity.
         """
-        if standards is None:
-            standards = self.runnable_standards(
-                project, list(project.standards.all())
-            )
+        standard = execution.standard
+        project = execution.project
 
-        if not standards:
-            return []
+        logger.info(
+            "Running standard '%s' for project '%s' (event=%s)",
+            standard.name,
+            project.name,
+            execution.event_type,
+        )
+        result = self.runner.run(
+            standard.code, {**input_config, "ref": bare_ref(execution.ref)}
+        )
 
-        input_config = self._build_input_config(project)
+        if result.get("details", {}).get("error"):
+            execution.status = StandardExecution.Status.ERROR
+        elif result.get("passed"):
+            execution.status = StandardExecution.Status.PASSED
+        else:
+            execution.status = StandardExecution.Status.FAILED
 
-        results = []
-        for standard in standards:
-            logger.info(
-                "Running standard '%s' for project '%s' (manual)",
-                standard.name,
-                project.name,
-            )
+        execution.score = result.get("score", 0)
+        execution.message = result.get("message", "")
+        execution.details = result.get("details", {})
+        execution.logs = result.get("logs", [])
+        execution.save()
 
-            execution = StandardExecution.objects.create(
-                project=project,
-                standard=standard,
-                standard_name=standard.name,
-                event_type="manual",
-                status=StandardExecution.Status.RUNNING,
-                triggered_by="manual",
-            )
-
-            # No event to take the branch from: read at the branch the
-            # standard's Branch/Tag Filter names, else the default branch.
-            ref = literal_ref((standard.criteria or {}).get("ref"))
-            result = self.runner.run(standard.code, {**input_config, "ref": ref})
-
-            if result.get("details", {}).get("error"):
-                execution.status = StandardExecution.Status.ERROR
-            elif result.get("passed"):
-                execution.status = StandardExecution.Status.PASSED
-            else:
-                execution.status = StandardExecution.Status.FAILED
-
-            execution.ref = ref
-            execution.score = result.get("score", 0)
-            execution.message = result.get("message", "")
-            execution.details = result.get("details", {})
-            execution.logs = result.get("logs", [])
-            execution.save()
-
-            result["standard_id"] = str(standard.id)
-            result["standard_name"] = standard.name
-            result["execution_id"] = str(execution.id)
-            result["project_id"] = str(project.id)
-            result["project_name"] = project.name
-            results.append(result)
-
-        return results
+        result["standard_id"] = str(standard.id)
+        result["standard_name"] = standard.name
+        result["execution_id"] = str(execution.id)
+        result["project_id"] = str(project.id)
+        result["project_name"] = project.name
+        return result

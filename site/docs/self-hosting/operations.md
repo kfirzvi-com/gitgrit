@@ -74,6 +74,41 @@ to the default Docker runtime. Standards still run, but isolation is
 weaker. **Treat a missing `runsc` as an install blocker** if your
 security posture relies on the sandbox boundary.
 
+## Background worker (Procrastinate)
+
+Standard runs never happen inside a web request. When you press
+**Run** / **Run All** on a project, attach, save or activate a standard,
+or a webhook delivery arrives, GitGrit records the executions as
+*running* and hands them to the Procrastinate worker, which starts the
+sandboxed containers and writes the results back — the project page
+refreshes itself as they land. The worker is therefore **required for
+standard runs**, not only for the dependency graph it was originally
+added for.
+
+`docker-compose.full.yaml` runs it as the `worker` service, from the
+same image and environment as `app`, with the same Docker socket and
+sandbox mounts (it starts the sandbox). Outside compose, run:
+
+```bash
+python manage.py procrastinate worker --queues=graph,standards --concurrency 4
+```
+
+If nothing is consuming the `standards` queue, standards show as
+*running* on the project page and no results appear. Check the worker
+first — the compose service has a health check, so `ps` shows it as
+`unhealthy` when it cannot reach the database or the schema is behind:
+
+```bash
+docker compose -f docker-compose.full.yaml ps worker
+docker compose -f docker-compose.full.yaml logs worker --tail=50
+```
+
+Runs the worker never finishes do not stay *running* forever. A run
+still in that state after `STANDARD_RUN_STALE_MINUTES` (default 60) is
+marked as an error by a periodic job, with a message pointing at the
+worker, and the standard can be run again. Raise the value if your LLM
+standards legitimately take longer end to end.
+
 ## Time / NTP
 
 Air-gap hosts with drifted clocks break TLS verification in non-obvious

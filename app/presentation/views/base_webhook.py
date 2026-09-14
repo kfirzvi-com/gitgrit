@@ -8,7 +8,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.application.standard_engine import StandardEngine
+from app.application.standard_runs import enqueue_for_event
 from app.domain.models import AuthMethod, PlatformConnection, Project
 from app.infrastructure.parsers.registry import get_parser
 from app.infrastructure.webhook_signatures import (
@@ -83,18 +83,7 @@ class BaseWebhookView(APIView):
             signature_status,
         )
 
-        engine = StandardEngine()
-        results = engine.run_for_event(event)
-
-        return Response(
-            {
-                "event_type": event.event_type,
-                "platform": event.platform,
-                "external_project_id": event.external_project_id,
-                "standards_run": len(results),
-                "results": results,
-            }
-        )
+        return self._queue_standards(event)
 
     def _handle_github_app_event(
         self, headers: dict[str, str], body: bytes, payload: dict, event
@@ -135,16 +124,26 @@ class BaseWebhookView(APIView):
                 {"detail": "No installation id on an App delivery."}, status=400
             )
 
-        engine = StandardEngine()
-        results = engine.run_for_event(event, installation_id=installation_id)
+        return self._queue_standards(event, installation_id=installation_id)
+
+    def _queue_standards(self, event, installation_id: int | None = None) -> Response:
+        """Queue the event's standard runs and acknowledge the delivery.
+
+        Nothing runs here: GitHub gives up on a delivery after 10s and the
+        sandbox takes longer than that per standard, so the request only
+        records the RUNNING executions and the background worker fills them
+        in. 202 says exactly that — accepted, not finished.
+        """
+        queued = enqueue_for_event(event, installation_id=installation_id)
         return Response(
             {
                 "event_type": event.event_type,
                 "platform": event.platform,
                 "external_project_id": event.external_project_id,
-                "standards_run": len(results),
-                "results": results,
-            }
+                "standards_queued": len(queued),
+                "executions": queued,
+            },
+            status=202,
         )
 
     def _handle_installation_event(

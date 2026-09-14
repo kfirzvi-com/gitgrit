@@ -55,6 +55,10 @@ async def create_standard(
         labels: Label names to assign (created if they don't exist).
         draft: If True, standard is saved but not executed on events.
             Draft standards are always disabled.
+
+    An active standard attached to projects is queued to run in the
+    background on save; results appear on the project page (or through
+    get_project_status()) as they finish.
     """
     auth = get_auth()
     user, tenant = auth.user, auth.tenant
@@ -90,6 +94,11 @@ async def update_standard(
     Draft standards are always disabled: setting draft=True also disables
     the standard, and enabled=True is ignored while it is a draft. To
     publish a draft, pass draft=False together with enabled=True.
+
+    Saving an active standard queues it to run in the background on every
+    project it is attached to (the "runs" key reports how many were queued);
+    results appear on the project page, or through get_project_status(), as
+    they finish — not in this tool's response.
     """
     auth = get_auth()
     user, tenant = auth.user, auth.tenant
@@ -145,6 +154,10 @@ async def set_standard_code(
         standard_id: The standard to update.
         file_path: Absolute path to a local file containing the standard code.
         change_summary: Version history note.
+
+    Like update_standard(), saving an active standard queues it to run in the
+    background on its projects; results appear on the project page (or through
+    get_project_status()) as they finish.
     """
     auth = get_auth()
     user, tenant = auth.user, auth.tenant

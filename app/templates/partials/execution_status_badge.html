@@ -1,0 +1,6 @@
+{# One badge for a StandardExecution's status, everywhere one is shown. #}
+{# Usage: {% include "partials/execution_status_badge.html" with execution=ex size="badge-sm" %} #}
+<span class="badge {{ size|default:'' }} {% if execution.status == 'passed' %}badge-success{% elif execution.status == 'failed' %}badge-error{% elif execution.status == 'error' %}badge-warning{% elif execution.status == 'running' %}badge-info{% else %}badge-ghost{% endif %}">
+  {% if execution.status == 'running' %}<span class="loading loading-spinner loading-xs"></span>{% endif %}
+  {{ execution.get_status_display }}
+</span>

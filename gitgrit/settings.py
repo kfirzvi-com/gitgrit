@@ -342,6 +342,12 @@ SANDBOX = {
     "CA_BUNDLE_HOST_PATH": _custom_ca_path,
 }
 
+# A standard run still RUNNING after this long is presumed lost (worker down or
+# restarted mid-run): it stops counting as "in flight" and the periodic sweep
+# marks it ERROR. Must exceed the worst realistic wait — a project's runs are
+# serialized, and an LLM standard alone may take SANDBOX["LLM_TIMEOUT"].
+STANDARD_RUN_STALE_MINUTES = int(os.environ.get("STANDARD_RUN_STALE_MINUTES", "60"))
+
 TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
 
 # Logging. Django configures only its own "django" loggers; anything else

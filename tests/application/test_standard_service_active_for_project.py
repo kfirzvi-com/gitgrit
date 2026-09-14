@@ -104,3 +104,30 @@ def evaluate(project):
         # Project exists but tenant has no enabled, non-draft standards.
         result = self.service.list_active_for_project(self.tenant, str(self.project.id))
         assert result == []
+
+    def test_last_execution_is_the_latest_finished_run_not_the_queued_one(self):
+        # The plugin compares last_execution between calls; a queued/in-flight
+        # row (score 0, status running) would read as a regression.
+        standard = self._attached_standard()
+        baker.make(
+            "app.StandardExecution",
+            project=self.project,
+            standard=standard,
+            standard_name=standard.name,
+            score=100,
+            status=StandardExecution.Status.PASSED,
+        )
+        baker.make(
+            "app.StandardExecution",
+            project=self.project,
+            standard=standard,
+            standard_name=standard.name,
+            score=0,
+            status=StandardExecution.Status.RUNNING,
+        )
+
+        result = StandardService().list_active_for_project(self.tenant, str(self.project.id))
+
+        last = result[0]["last_execution"]
+        assert last["status"] == StandardExecution.Status.PASSED
+        assert last["score"] == 100

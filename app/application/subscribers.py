@@ -12,10 +12,11 @@ derivation and FK cascade handle them.
 
 Coverage-change runs: when the set of runnable standards effectively applying
 to a project grows or changes — standards attached, a standard saved, a
-standard activated — the delta runs immediately, synchronously in the
-publisher's request (same execution model as the Run button). Handlers return
-a summary dict so publish sites can flash feedback; the bus swallows handler
-exceptions, so a failed run never fails the mutation it reacted to.
+standard activated — the delta is *queued* to run in the background (same
+execution model as the Run button): RUNNING executions are created in the
+publisher's request and the ``run_standards`` job fills them in. Handlers
+return a summary dict so publish sites can flash feedback; the bus swallows
+handler exceptions, so a failed enqueue never fails the mutation it reacted to.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from django.db import transaction
 from procrastinate.exceptions import AlreadyEnqueued
 
 from app.application.event_bus import subscribe
-from app.application.standard_engine import StandardEngine
+from app.application.standard_runs import enqueue_manual_run, queue_summary_message
 from app.domain.events import (
     ProjectAddedToStack,
     ProjectCreated,
@@ -63,49 +64,29 @@ def _on_project_event(event) -> None:
     _enqueue_dependency_refresh(event.project_id)
 
 
-def _run_on_project(project, standards) -> dict | None:
-    """Run the runnable subset of ``standards`` on ``project``; per-project
-    counts, or None when nothing is eligible."""
-    engine = StandardEngine()
-    runnable = engine.runnable_standards(project, standards)
-    if not runnable:
-        return None
-    results = engine.run_for_project(project, runnable)
-    # Error takes precedence over passed, mirroring the engine's execution
-    # statuses, so each result lands in exactly one bucket.
-    passed = errors = 0
-    for r in results:
-        if r.get("details", {}).get("error"):
-            errors += 1
-        elif r.get("passed"):
-            passed += 1
-    return {"ran": len(results), "passed": passed, "errors": errors}
+def _queue_on_project(project, standards, triggered_by) -> dict | None:
+    """Queue the runnable subset of ``standards`` on ``project``; the enqueue
+    summary, or None when nothing is eligible."""
+    return enqueue_manual_run(project, standards, triggered_by=triggered_by)
 
 
 def _summarize(per_project: list[dict]) -> dict | None:
-    """Fold per-project counts into the feedback summary publish sites flash
-    to the user and MCP tools return."""
+    """Fold per-project enqueue counts into the feedback summary publish sites
+    flash to the user and MCP tools return."""
+    per_project = [c for c in per_project if c]
     if not per_project:
         return None
-    ran = sum(c["ran"] for c in per_project)
-    passed = sum(c["passed"] for c in per_project)
-    errors = sum(c["errors"] for c in per_project)
-    failed = ran - passed - errors
+    queued = sum(c["queued"] for c in per_project)
+    already_running = sum(c["already_running"] for c in per_project)
     projects = len(per_project)
-    message = (
-        f"Ran {ran} standard{'' if ran == 1 else 's'} on "
-        f"{projects} project{'' if projects == 1 else 's'}: "
-        f"{passed} passed, {failed} failed"
-        + (f", {errors} errored" if errors else "")
-        + "."
-    )
+    target = f"{projects} project{'' if projects == 1 else 's'}"
     return {
         "projects": projects,
-        "ran": ran,
-        "passed": passed,
-        "failed": failed,
-        "errors": errors,
-        "message": message,
+        "queued": queued,
+        "already_running": already_running,
+        "message": queue_summary_message(
+            queued, already_running, target, projects=projects
+        ),
     }
 
 
@@ -120,13 +101,13 @@ def _on_standards_attached(event: StandardsAttached) -> dict | None:
     standards = list(
         Standard.objects.filter(pk__in=event.standard_ids, tenant_id=event.tenant_id)
     )
-    counts = _run_on_project(project, standards)
+    counts = _queue_on_project(project, standards, triggered_by="attached")
     return _summarize([counts] if counts else [])
 
 
 def _on_standard_changed(event: StandardSaved | StandardActivated) -> dict | None:
-    """Saved and activated get the identical reaction: re-run the standard on
-    every project it's attached to."""
+    """Saved and activated get the identical reaction: queue the standard to
+    re-run on every project it's attached to."""
     from app.domain.models import Standard
 
     standard = (
@@ -136,10 +117,11 @@ def _on_standard_changed(event: StandardSaved | StandardActivated) -> dict | Non
     )
     if standard is None:
         return None
+    triggered_by = "activated" if isinstance(event, StandardActivated) else "saved"
     per_project = [
         counts
         for project in standard.projects.all()
-        if (counts := _run_on_project(project, [standard]))
+        if (counts := _queue_on_project(project, [standard], triggered_by=triggered_by))
     ]
     return _summarize(per_project)
 

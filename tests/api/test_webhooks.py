@@ -23,29 +23,29 @@ class TestGitHubWebhookView(APITestCase):
             HTTP_X_GITHUB_EVENT=event,
         )
 
-    def test_no_matching_project_returns_empty_results(self):
+    def test_no_matching_project_queues_nothing(self):
         payload = {
             "repository": {"id": 99999},
             "ref": "refs/heads/main",
             "sender": {"login": "octocat"},
         }
         response = self._post(payload)
-        assert response.status_code == 200
+        assert response.status_code == 202
         assert response.data["platform"] == "github"
         assert response.data["event_type"] == "push"
         assert response.data["external_project_id"] == "99999"
-        assert response.data["standards_run"] == 0
-        assert response.data["results"] == []
+        assert response.data["standards_queued"] == 0
+        assert response.data["executions"] == []
 
-    def test_matching_project_no_standards_returns_zero_standards_run(self):
+    def test_matching_project_no_standards_queues_nothing(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         baker.make("app.Project", tenant=tenant, platform_connection=connection, platform="github", external_id="42")
 
         response = self._post({"repository": {"id": 42}, "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
-        assert response.data["results"] == []
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
+        assert response.data["executions"] == []
 
     def test_matching_project_with_standard_creates_execution_record(self):
         tenant = baker.make("app.Tenant")
@@ -70,10 +70,10 @@ class TestGitHubWebhookView(APITestCase):
             {"repository": {"id": 100}, "ref": "refs/heads/main", "sender": {"login": "octocat"}}
         )
 
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 1
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 1
 
-        result = response.data["results"][0]
+        result = response.data["executions"][0]
         assert result["standard_name"] == standard.name
         assert result["project_name"] == project.name
 
@@ -99,8 +99,8 @@ class TestGitHubWebhookView(APITestCase):
         project.standards.add(standard)
 
         response = self._post({"repository": {"id": 111}, "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
         assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_disabled_standard_is_not_run(self):
@@ -119,8 +119,8 @@ class TestGitHubWebhookView(APITestCase):
         project.standards.add(standard)
 
         response = self._post({"repository": {"id": 222}, "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
         assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_draft_standard_is_not_run(self):
@@ -139,21 +139,21 @@ class TestGitHubWebhookView(APITestCase):
         project.standards.add(standard)
 
         response = self._post({"repository": {"id": 333}, "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
         assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_pull_request_event_keeps_canonical_name(self):
         response = self._post({"repository": {"id": 77777}, "sender": {"login": "octocat"}}, event="pull_request")
-        assert response.status_code == 200
+        assert response.status_code == 202
         assert response.data["event_type"] == "pull_request"
 
     def test_unknown_event_passes_through_unchanged(self):
         response = self._post({"repository": {"id": 88888}, "sender": {"login": "octocat"}}, event="deployment")
-        assert response.status_code == 200
+        assert response.status_code == 202
         assert response.data["event_type"] == "deployment"
 
-    def test_multiple_standards_all_executed(self):
+    def test_multiple_standards_all_queued(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         project = baker.make(
@@ -163,8 +163,8 @@ class TestGitHubWebhookView(APITestCase):
         project.standards.set(standards)
 
         response = self._post({"repository": {"id": 444}, "ref": "refs/heads/main", "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 3
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 3
         assert StandardExecution.objects.filter(project=project).count() == 3
 
     def test_unattached_standard_is_not_run(self):
@@ -183,8 +183,8 @@ class TestGitHubWebhookView(APITestCase):
         )
 
         response = self._post({"repository": {"id": 666}, "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
         assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_standard_from_different_tenant_is_not_run(self):
@@ -203,8 +203,8 @@ class TestGitHubWebhookView(APITestCase):
         )
 
         response = self._post({"repository": {"id": 555}, "sender": {"login": "octocat"}})
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
         assert not StandardExecution.objects.filter(project=project).exists()
 
 
@@ -236,7 +236,7 @@ class TestGitHubWebhookSignatureVerification(APITestCase):
         response = self._post_signed(
             {"repository": {"id": 700}, "sender": {"login": "octocat"}}, secret="s3cret"
         )
-        assert response.status_code == 200
+        assert response.status_code == 202
 
     def test_missing_signature_when_secret_configured_is_rejected(self):
         tenant = baker.make("app.Tenant")
@@ -296,7 +296,7 @@ class TestGitHubWebhookSignatureVerification(APITestCase):
         response = self._post_signed(
             {"repository": {"id": 703}, "sender": {"login": "octocat"}}, secret="secret-b"
         )
-        assert response.status_code == 200
+        assert response.status_code == 202
 
     def test_unsecured_legacy_project_is_accepted_unsigned(self):
         # Backward compat for v0.1: a project with empty webhook_secret accepts
@@ -315,7 +315,7 @@ class TestGitHubWebhookSignatureVerification(APITestCase):
         response = self._post_signed(
             {"repository": {"id": 704}, "sender": {"login": "octocat"}}, secret=None
         )
-        assert response.status_code == 200
+        assert response.status_code == 202
 
     def test_unsecured_legacy_project_ignores_invalid_signature(self):
         # If the project's webhook_secret is empty there is nothing to validate
@@ -336,7 +336,7 @@ class TestGitHubWebhookSignatureVerification(APITestCase):
             {"repository": {"id": 705}, "sender": {"login": "octocat"}},
             secret="bogus-attacker-secret",
         )
-        assert response.status_code == 200
+        assert response.status_code == 202
 
 
 class TestGitLabWebhookSignatureVerification(APITestCase):
@@ -368,7 +368,7 @@ class TestGitLabWebhookSignatureVerification(APITestCase):
             webhook_secret="gitlab-secret",
         )
         response = self._post(self._payload(800), token="gitlab-secret")
-        assert response.status_code == 200
+        assert response.status_code == 202
 
     def test_missing_token_when_secret_configured_is_rejected(self):
         tenant = baker.make("app.Tenant")
@@ -412,7 +412,7 @@ class TestGitLabWebhookSignatureVerification(APITestCase):
             webhook_secret="",
         )
         response = self._post(self._payload(803), token=None)
-        assert response.status_code == 200
+        assert response.status_code == 202
 
 
 class TestGitLabWebhookView(APITestCase):
@@ -421,7 +421,7 @@ class TestGitLabWebhookView(APITestCase):
     def _post(self, payload):
         return self.client.post(self.url, data=payload, format="json")
 
-    def test_no_matching_project_returns_empty_results(self):
+    def test_no_matching_project_queues_nothing(self):
         payload = {
             "object_kind": "push",
             "project_id": 55555,
@@ -430,13 +430,13 @@ class TestGitLabWebhookView(APITestCase):
             "ref": "refs/heads/main",
         }
         response = self._post(payload)
-        assert response.status_code == 200
+        assert response.status_code == 202
         assert response.data["platform"] == "gitlab"
         assert response.data["event_type"] == "push"
         assert response.data["external_project_id"] == "55555"
-        assert response.data["standards_run"] == 0
+        assert response.data["standards_queued"] == 0
 
-    def test_matching_project_no_standards_returns_zero_standards_run(self):
+    def test_matching_project_no_standards_queues_nothing(self):
         tenant = baker.make("app.Tenant")
         connection = baker.make("app.PlatformConnection", tenant=tenant, platform="gitlab")
         baker.make(
@@ -446,14 +446,14 @@ class TestGitLabWebhookView(APITestCase):
         response = self._post(
             {"object_kind": "push", "project_id": 200, "project": {"id": 200}, "user_username": "gitlabuser"}
         )
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 0
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 0
 
     def test_event_name_takes_precedence_over_object_kind(self):
         response = self._post(
             {"event_name": "tag_push", "object_kind": "push", "project_id": 66666, "project": {"id": 66666}}
         )
-        assert response.status_code == 200
+        assert response.status_code == 202
         assert response.data["event_type"] == "tag_push"
 
     def test_matching_project_with_standard_creates_execution_record(self):
@@ -481,10 +481,10 @@ class TestGitLabWebhookView(APITestCase):
             }
         )
 
-        assert response.status_code == 200
-        assert response.data["standards_run"] == 1
+        assert response.status_code == 202
+        assert response.data["standards_queued"] == 1
 
-        result = response.data["results"][0]
+        result = response.data["executions"][0]
         assert result["standard_name"] == standard.name
         assert result["project_name"] == project.name
 

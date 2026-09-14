@@ -8,11 +8,16 @@
   <a href="{% url 'project_detail' execution.project.pk %}" class="link link-hover text-sm opacity-70">← {{ execution.project.name }}</a>
   <div class="flex items-center gap-3 mt-2">
     <h1 class="text-3xl font-bold">{{ execution.standard_name }}</h1>
-    <span class="badge {% if execution.status == 'passed' %}badge-success{% elif execution.status == 'failed' %}badge-error{% elif execution.status == 'error' %}badge-warning{% else %}badge-ghost{% endif %}">
-      {{ execution.get_status_display }}
-    </span>
-    <span class="text-sm opacity-70">Score: {{ execution.score }}</span>
+    {% include "partials/execution_status_badge.html" with execution=execution %}
+    {% if execution.status != 'running' %}
+      <span class="text-sm opacity-70">Score: {{ execution.score }}</span>
+    {% endif %}
   </div>
+  {% if execution.status == 'running' %}
+    {# Still in the background worker's hands: reload until it lands. #}
+    <meta http-equiv="refresh" content="3">
+    <p class="text-sm opacity-70 mt-2">Running in the background — this page refreshes itself until the result is in.</p>
+  {% endif %}
 </div>
 
 <div class="card bg-base-100 shadow-xl mb-6">

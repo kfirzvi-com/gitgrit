@@ -2,7 +2,15 @@ from django.core.exceptions import ValidationError
 
 from app.application.event_bus import publish
 from app.domain.events import StandardSaved
-from app.domain.models import Standard, StandardLabel, StandardVersion, Project, Tenant, User
+from app.domain.models import (
+    Project,
+    Standard,
+    StandardExecution,
+    StandardLabel,
+    StandardVersion,
+    Tenant,
+    User,
+)
 from app.domain.standard_criteria import language_matches
 from app.domain.standard_extractor import extract_rules, to_dict
 from app.domain.standard_validator import validate_standard_code
@@ -14,9 +22,11 @@ def create_standard_version(standard: Standard, user: User, summary: str) -> dic
     """Snapshot the standard's current state as an immutable version.
 
     Every definition mutation (web forms, MCP tools, revert) funnels through
-    here, which makes it the coverage-change choke point: after the snapshot,
-    a runnable standard is re-run on its linked projects via ``StandardSaved``.
-    Returns the run summary for user feedback, or None when nothing ran.
+    here, which makes it the coverage-change choke point: after the snapshot, a
+    runnable standard is *queued* to run again on its linked projects via
+    ``StandardSaved`` — the background worker executes it and the results
+    appear on each project page. Returns the enqueue summary for user
+    feedback, or None when nothing was queued.
     """
     latest = (
         StandardVersion.objects.filter(standard=standard)
@@ -229,8 +239,11 @@ class StandardService:
             ):
                 continue
 
+            # Latest *finished* run: a queued/in-flight row scores 0 and would
+            # read as a regression to the plugin comparing calls.
             last_exec = (
                 standard.executions.filter(project=project)
+                .exclude(status=StandardExecution.Status.RUNNING)
                 .order_by("-created_at")
                 .first()
             )
