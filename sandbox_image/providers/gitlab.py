@@ -17,12 +17,18 @@ class GitLabProvider(BaseProvider):
         access_token: str,
         base_url: str = "",
         full_path: str = "",
+        ref: str = "",
     ) -> None:
         self.project_id = project_id
         self.access_token = access_token
         self.base_url = (base_url or _DEFAULT_BASE_URL).rstrip("/")
         self.full_path = full_path
+        # Branch or tag the repository is read at; empty means default branch.
+        self.ref = ref
         self._project_cache: dict | None = None
+
+    def _read_ref(self) -> str:
+        return urllib.parse.quote(self.ref or self.get_default_branch(), safe="")
 
     # ------------------------------------------------------------------
     # HTTP helper
@@ -74,14 +80,14 @@ class GitLabProvider(BaseProvider):
     def get_file_content(self, path: str) -> str | None:
         encoded_id = urllib.parse.quote(self.full_path or self.project_id, safe="")
         encoded_path = urllib.parse.quote(path, safe="")
-        branch = self.get_default_branch()
+        branch = self._read_ref()
         return self._get_raw(
             f"/projects/{encoded_id}/repository/files/{encoded_path}/raw?ref={branch}"
         )
 
     def list_files(self) -> list[str]:
         encoded_id = urllib.parse.quote(self.full_path or self.project_id, safe="")
-        branch = self.get_default_branch()
+        branch = self._read_ref()
         files = []
         page = 1
         while True:
@@ -141,7 +147,7 @@ class GitLabProvider(BaseProvider):
     def get_file_last_commit_date(self, path: str) -> str | None:
         encoded_id = urllib.parse.quote(self.full_path or self.project_id, safe="")
         encoded_path = urllib.parse.quote(path, safe="/")
-        branch = self.get_default_branch()
+        branch = self._read_ref()
         try:
             commits = self._get(
                 f"/projects/{encoded_id}/repository/commits"
