@@ -43,6 +43,18 @@ class TmpPathMixin:
         self.tmp_path = Path(tmp.name)
 
 
+def commit_status_patch():
+    """Stub the platform client the ``run_standards`` job posts the grade
+    through (``app.application.grade_alerts``), so a job run in a test never
+    reaches GitHub. The stub reports no branch head, so nothing is posted;
+    tests of the status itself configure their own client mock."""
+    client = mock.Mock()
+    client.get_branch_head.return_value = None
+    return mock.patch(
+        "app.application.grade_alerts.get_platform_client", return_value=client
+    )
+
+
 @contextmanager
 def queued_standards_run_inline():
     """Execute background standard runs synchronously, inside the test.
@@ -75,7 +87,7 @@ def queued_standards_run_inline():
     with mock.patch(
         "app.application.standard_runs.run_standards.configure",
         side_effect=_configure,
-    ) as configure:
+    ) as configure, commit_status_patch():
         yield configure
 
 

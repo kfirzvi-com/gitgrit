@@ -17,7 +17,7 @@ from model_bakery import baker
 from app import tasks
 from app.application.standard_runs import enqueue_run, expire_stale_runs
 from app.domain.models import StandardExecution
-from tests.support import defer_patch
+from tests.support import commit_status_patch, defer_patch
 
 PASSED = {"passed": True, "score": 100, "message": "OK", "details": {}}
 FAILED = {"passed": False, "score": 10, "message": "nope", "details": {}}
@@ -33,7 +33,7 @@ def _mocked_runner(run_side_effect):
     ), mock.patch(
         "app.application.standard_engine.StandardEngine.build_input_config",
         return_value={},
-    ):
+    ), commit_status_patch():
         yield runner
 
 

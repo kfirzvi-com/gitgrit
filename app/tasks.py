@@ -49,13 +49,22 @@ def infer_project_dependencies(project_id: str) -> None:
 
 
 @app.task(queue="standards", name="run_standards")
-def run_standards(project_id: str, execution_ids: list[str]) -> None:
+def run_standards(
+    project_id: str, execution_ids: list[str], commit_sha: str | None = None
+) -> None:
     """Run the given standard executions of one project in the sandbox.
 
     The rows are created RUNNING at enqueue time (see
     ``app.application.standard_runs.enqueue_run``) so the project page can show
     them immediately; this job fills them in. The access token is fetched once
     per job; each execution reads the repository at its own ``ref``.
+
+    After a normal completion the project's grade is posted as a commit
+    status (``app.application.grade_alerts``): to ``commit_sha`` when the
+    webhook event named one, else to the head of the default branch. The
+    per-project job lock serializes runs and the status reads the latest
+    execution per attached standard, so the posted grade is the project's
+    state right after this run.
 
     Only executions of ``project_id`` are touched: the token and LLM keys in
     the input config belong to that project's workspace, so an id from
@@ -68,6 +77,7 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     """
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
+    from app.application import grade_alerts
     from app.application.standard_engine import StandardEngine
     from app.domain.models import Project, StandardExecution
 
@@ -114,6 +124,8 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
         logger.exception("run_standards failed for project %s", project_id)
         _fail(executions, str(exc)[:2000])
         raise
+
+    grade_alerts.report_commit_status(project, commit_sha)
 
 
 @app.periodic(cron="*/5 * * * *")

@@ -48,7 +48,7 @@ class StandardsAttachedTests(TestCase):
         assert rows[0].triggered_by == "attached"
         configure.assert_called_once_with(lock=f"standards:{self.project.pk}")
         configure.return_value.defer.assert_called_once_with(
-            project_id=str(self.project.pk), execution_ids=[str(rows[0].pk)]
+            project_id=str(self.project.pk), execution_ids=[str(rows[0].pk)], commit_sha=None
         )
         assert summary["queued"] == 1
         assert summary["projects"] == 1
