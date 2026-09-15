@@ -51,6 +51,30 @@ class PlatformClient(ABC):
         """Return a file's decoded text, or None if missing/binary. Override per platform."""
         return None
 
+    def get_branch_head(self, full_path: str, branch: str) -> str | None:
+        """The SHA at the tip of ``branch``, or None if unknown. Override per
+        platform."""
+        return None
+
+    def set_commit_status(
+        self,
+        full_path: str,
+        sha: str,
+        state: str,
+        description: str,
+        target_url: str,
+    ) -> None:
+        """Post a status on a commit (shown on the PR checks list and next to
+        the commit). No-op by default; override per platform."""
+        return None
+
+
+# The status context GitGrit posts under; one status per commit, replaced on
+# each run.
+COMMIT_STATUS_CONTEXT = "gitgrit/grade"
+# GitHub rejects longer descriptions.
+COMMIT_STATUS_DESCRIPTION_LIMIT = 140
+
 
 class GitHubClient(PlatformClient):
     @property
@@ -234,6 +258,40 @@ class GitHubClient(PlatformClient):
             headers=self._headers,
             timeout=10,
         )
+
+    def get_branch_head(self, full_path: str, branch: str) -> str | None:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/branches/{branch}",
+            headers=self._headers,
+            timeout=10,
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json().get("commit", {}).get("sha") or None
+
+    def set_commit_status(
+        self,
+        full_path: str,
+        sha: str,
+        state: str,
+        description: str,
+        target_url: str,
+    ) -> None:
+        # Needs "Commit statuses: write" (fine-grained PAT / GitHub App); a
+        # classic PAT with `repo` already has it.
+        resp = requests.post(
+            f"{self.base_url}/repos/{full_path}/statuses/{sha}",
+            headers=self._headers,
+            json={
+                "state": state,
+                "description": description[:COMMIT_STATUS_DESCRIPTION_LIMIT],
+                "context": COMMIT_STATUS_CONTEXT,
+                "target_url": target_url,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
 
 
 class GitLabClient(PlatformClient):

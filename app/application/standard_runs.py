@@ -103,6 +103,7 @@ def enqueue_run(
     triggered_by: str = "manual",
     user=None,
     ref: str | None = None,
+    commit_sha: str | None = None,
     skip_running: bool = True,
 ) -> dict | None:
     """Queue ``standards`` to run on ``project`` in the background.
@@ -111,6 +112,12 @@ def enqueue_run(
     on each execution. Webhook runs pass the event's ref; ``None`` (manual and
     coverage-change runs, which have no event) reads at the branch each
     standard's Branch/Tag Filter names literally, else the default branch.
+
+    ``commit_sha`` is the commit a webhook event is about; the job posts the
+    project's grade back to it as a commit status once the run is done (see
+    ``app.application.grade_alerts``). Manual and coverage-change runs have
+    no commit and pass nothing: the status then goes to the head of the
+    default branch.
 
     With ``skip_running`` (manual and coverage-change runs), standards that
     already have an in-flight execution on this project are left alone and
@@ -169,6 +176,7 @@ def enqueue_run(
             run_standards.configure(lock=f"standards:{project.pk}").defer(
                 project_id=str(project.pk),
                 execution_ids=[str(e.pk) for e in executions],
+                commit_sha=commit_sha,
             )
 
     queued = len(executions)
@@ -281,6 +289,7 @@ def enqueue_for_event(
             triggered_by=event.actor or "",
             user=actor_user,
             ref=event.ref or "",
+            commit_sha=event.commit_sha,
             skip_running=False,
         )
         if summary:

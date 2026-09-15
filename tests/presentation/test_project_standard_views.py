@@ -167,7 +167,7 @@ class TestSingleRunRequiresAttachment(TestCase):
         assert row.standard_id == standard.pk
         configure.assert_called_once_with(lock=f"standards:{project.pk}")
         configure.return_value.defer.assert_called_once_with(
-            project_id=str(project.pk), execution_ids=[str(row.pk)]
+            project_id=str(project.pk), execution_ids=[str(row.pk)], commit_sha=None
         )
         assert any("Queued" in m for m in _flashes(resp))
 

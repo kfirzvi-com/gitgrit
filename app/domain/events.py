@@ -14,6 +14,10 @@ class DomainEvent:
     # A pull request's target branch; None for other events. The Branch/Tag
     # Filter matches this when present, else ``ref``.
     target_ref: str | None = None
+    # The commit the event is about: the pushed head, or a pull request's head.
+    # None when the platform does not say (GitLab, branch deletes, other
+    # events). Used to post the grade back as a commit status after the run.
+    commit_sha: str | None = None
     actor: str | None = None
     raw_payload: dict = field(default_factory=dict)
 
