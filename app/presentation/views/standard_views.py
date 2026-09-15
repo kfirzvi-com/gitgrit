@@ -311,7 +311,8 @@ def toggle_standard(request, pk):
     standard.enabled = not standard.enabled
     standard.save(update_fields=["enabled", "updated_at"])
 
-    # Flipping to runnable is a coverage change — run it on its projects now.
+    # Flipping to runnable is a coverage change — queue it to run on its
+    # projects; the background worker executes it.
     run_summary = None
     if standard.enabled and not standard.draft:
         results = publish(

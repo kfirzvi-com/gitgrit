@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 
 from app.application.event_bus import publish
-from app.application.standard_engine import StandardEngine
+from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
     AuthMethod,
@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 def _run_newly_attached(request, project, standards, previously_attached_ids):
-    """Publish the attach delta — newly attached, runnable standards run on
-    the project immediately — and flash the run summary."""
+    """Publish the attach delta — newly attached, runnable standards are queued
+    to run on the project — and flash the enqueue summary."""
     newly_runnable = [
         s
         for s in standards
@@ -65,6 +65,64 @@ class ProjectListView(LoginRequiredMixin, ListView):
         return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
 
+def results_context(project) -> dict:
+    """Everything the results cards render (``partials/project_results.html``).
+
+    Shared by the project page and the ``project_results`` poll endpoint, so
+    the cards look identical however they are reached. ``running_count`` /
+    ``running_standard_ids`` drive the poll and the per-standard spinners.
+    """
+    context = {}
+    attached_standards = list(project.standards.order_by("ordinal", "name"))
+    context["attached_standards"] = attached_standards
+    context["has_runnable_standards"] = any(
+        s.enabled and not s.draft for s in attached_standards
+    )
+    context["active_standards_count"] = sum(
+        1 for s in attached_standards if s.enabled and not s.draft
+    )
+
+    # Executions of detached standards must not drag the score
+    recent_executions = StandardExecution.objects.filter(
+        project=project,
+        standard__in=attached_standards,
+    ).select_related("standard")[:50]
+    context["recent_executions"] = recent_executions
+
+    # In-flight runs: keep polling while any exists, and mark those standards.
+    # A RUNNING row past the stale cutoff is not in flight — the worker lost
+    # it — so it neither polls nor disables Run (the sweep will ERROR it).
+    context["running_standard_ids"] = set(
+        in_flight(
+            StandardExecution.objects.filter(
+                project=project, standard__in=attached_standards
+            )
+        ).values_list("standard_id", flat=True)
+    )
+
+    # Deduplicate: latest finished execution per standard. RUNNING rows
+    # still show under "Recent Activity", but they score 0 until the
+    # worker finishes them, so they must not move the score.
+    seen_standards = {}
+    for ex in recent_executions:
+        if ex.status == StandardExecution.Status.RUNNING:
+            continue
+        if ex.standard_id not in seen_standards:
+            seen_standards[ex.standard_id] = ex
+    latest_executions = list(seen_standards.values())
+    context["latest_executions"] = latest_executions
+
+    # Compliance score: average of latest-per-standard scores
+    if latest_executions:
+        context["compliance_score"] = round(
+            sum(ex.score for ex in latest_executions) / len(latest_executions)
+        )
+    else:
+        context["compliance_score"] = None
+
+    return context
+
+
 class ProjectDetailView(LoginRequiredMixin, DetailView):
     template_name = "pages/project_detail.html"
     context_object_name = "project"
@@ -77,41 +135,20 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        project = self.object
-
-        attached_standards = list(project.standards.order_by("ordinal", "name"))
-        context["attached_standards"] = attached_standards
-        context["has_runnable_standards"] = any(
-            s.enabled and not s.draft for s in attached_standards
-        )
-        context["active_standards_count"] = sum(
-            1 for s in attached_standards if s.enabled and not s.draft
-        )
-
-        # Executions of detached standards must not drag the score
-        recent_executions = StandardExecution.objects.filter(
-            project=project,
-            standard__in=attached_standards,
-        ).select_related("standard")[:50]
-        context["recent_executions"] = recent_executions
-
-        # Deduplicate: latest execution per standard
-        seen_standards = {}
-        for ex in recent_executions:
-            if ex.standard_id not in seen_standards:
-                seen_standards[ex.standard_id] = ex
-        latest_executions = list(seen_standards.values())
-        context["latest_executions"] = latest_executions
-
-        # Compliance score: average of latest-per-standard scores
-        if latest_executions:
-            context["compliance_score"] = round(
-                sum(ex.score for ex in latest_executions) / len(latest_executions)
-            )
-        else:
-            context["compliance_score"] = None
-
+        context.update(results_context(self.object))
         return context
+
+
+@login_required
+def project_results(request, pk):
+    """The results cards on their own, for the HTMX poll that refreshes them
+    while a background standard run is in flight."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    return render(
+        request,
+        "partials/project_results.html",
+        {"project": project, **results_context(project)},
+    )
 
 
 class EditProjectView(LoginRequiredMixin, UpdateView):
@@ -362,6 +399,7 @@ def run_project_standards(request, pk):
     )
 
     standard_id = request.POST.get("standard_id")
+    run_all = not standard_id
     if standard_id:
         standards = list(
             Standard.objects.filter(
@@ -375,29 +413,31 @@ def run_project_standards(request, pk):
         if not standards:
             messages.error(request, "Standard not found or not active.")
             return redirect("project_detail", pk=pk)
+        # Run one: the user picked it, so the language/criteria filter that
+        # Run All applies is skipped — only attached + active is required.
+        summary = enqueue_run(project, standards, user=request.user)
     else:
-        standards = None  # run_for_project will pick all eligible
+        standards = list(project.standards.all())
+        summary = enqueue_manual_run(project, standards, user=request.user)
 
-    engine = StandardEngine()
-    results = engine.run_for_project(project, standards)
-
-    if results:
-        passed = sum(1 for r in results if r.get("passed"))
-        messages.success(
-            request,
-            f"Ran {len(results)} standard{'' if len(results) == 1 else 's'}: "
-            f"{passed} passed, {len(results) - passed} failed.",
-        )
+    if summary:
+        messages.success(request, summary["message"])
     else:
         messages.warning(request, "No eligible standards to run.")
 
     # On a run-all, report anything attached that was skipped, and why —
     # silent skips read as "everything ran" (single-standard runs already
     # error out above when the standard isn't eligible).
-    if standards is None:
-        ran_ids = {r["standard_id"] for r in results}
+    if run_all:
+        queued_ids = {e["standard_id"] for e in (summary or {}).get("executions", [])}
+        running_ids = {
+            str(sid)
+            for sid in in_flight(
+                StandardExecution.objects.filter(project=project, standard__in=standards)
+            ).values_list("standard_id", flat=True)
+        }
         skipped = [
-            s for s in project.standards.all() if str(s.id) not in ran_ids
+            s for s in standards if str(s.id) not in queued_ids | running_ids
         ]
         if skipped:
             draft_count = sum(1 for s in skipped if s.draft)

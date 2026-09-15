@@ -10,7 +10,6 @@ per-project webhook tests are unaffected (App branch requires the flag +
 import hashlib
 import hmac
 import json
-from unittest import mock
 
 from django.test import override_settings
 from model_bakery import baker
@@ -72,9 +71,9 @@ class TestGitHubAppWebhooks(APITestCase):
             "installation": {"id": 555},
         }
         resp = self._post(payload, secret=APP_SECRET, event="push")
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         assert resp.data["external_project_id"] == "42"
-        assert "standards_run" in resp.data
+        assert "standards_queued" in resp.data
 
     def test_invalid_app_signature_is_rejected(self):
         tenant = baker.make("app.Tenant")
@@ -239,27 +238,9 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
     external_id = "4242"
 
     def setUp(self):
-        # Keep the sandbox out of it; we assert on which executions were created.
-        patcher = mock.patch("app.application.standard_engine.SandboxRunner")
-        runner_cls = patcher.start()
-        self.addCleanup(patcher.stop)
-
-        # An App connection mints its token on demand; don't call GitHub.
-        token_patcher = mock.patch(
-            "app.infrastructure.github_app.get_installation_token",
-            return_value="ghs_minted",
-        )
-        token_patcher.start()
-        self.addCleanup(token_patcher.stop)
-
-        runner_cls.return_value.run.return_value = {
-            "passed": True,
-            "score": 100,
-            "message": "ok",
-            "details": {},
-            "logs": [],
-        }
-
+        # Nothing runs in the request any more — the delivery only queues
+        # RUNNING executions — so no sandbox or token mocking is needed here;
+        # we assert on which executions were created.
         # Workspace A holds the installation this delivery belongs to.
         self.tenant_a = baker.make("app.Tenant")
         conn_a = baker.make(
@@ -330,7 +311,7 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
     def test_only_the_granting_workspace_runs(self):
         resp = self._push(606)
 
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 202)
         self.assertEqual(
             list(
                 StandardExecution.objects.filter(
@@ -347,8 +328,8 @@ class TestAppDeliveryIsScopedToItsInstallation(APITestCase):
     def test_an_unknown_installation_runs_nothing(self):
         resp = self._push(999999)
 
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["standards_run"], 0)
+        self.assertEqual(resp.status_code, 202)
+        self.assertEqual(resp.data["standards_queued"], 0)
         self.assertFalse(StandardExecution.objects.exists())
 
     def test_delivery_without_an_installation_id_is_refused(self):
@@ -402,4 +383,4 @@ class TestPatWebhookUnaffectedWhenAppEnabled(APITestCase):
             HTTP_X_GITHUB_EVENT="push",
             HTTP_X_HUB_SIGNATURE_256=_sig("proj-secret", body),
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 202

@@ -12,6 +12,53 @@
 # Cloud / non-air-gap deployments use Kamal (see config/deploy.yml) and do
 # NOT use this file. This file is exclusively for air-gapped installs.
 
+# Shared definition for the `app` (web) and `worker` services: same image,
+# environment and mounts. Both are merged from this anchor below.
+x-gitgrit-service: &gitgrit-service
+  image: gitgrit-app:${TAG:-latest}
+  pull_policy: never
+  depends_on:
+    - db
+  networks:
+    - gitgrit_internal
+  volumes:
+    # Both containers spawn sandbox containers via the host Docker
+    # socket. The host-side /tmp/gitgrit-sandbox path must match the
+    # in-container path so bind mounts resolve correctly.
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
+    # Operator CA bundle for self-hosted GitLab over the operator's TLS chain.
+    - ${GITGRIT_CUSTOM_CA_FILE_PATH}:/etc/ssl/certs/custom-ca.pem:ro
+  environment:
+    AIRGAPPED: "True"
+    DEBUG: "False"
+    SECRET_KEY: ${SECRET_KEY}
+    GITGRIT_ENCRYPTION_KEY: ${GITGRIT_ENCRYPTION_KEY}
+    SITE_URL: ${SITE_URL}
+    # DB — settings.py reads these individually, not as a URL.
+    DB_HOST: db
+    DB_PORT: "5432"
+    DB_NAME: ${POSTGRES_DB:-gitgrit}
+    DB_USER: ${POSTGRES_USER:-gitgrit}
+    DB_PASSWORD: ${POSTGRES_PASSWORD}
+    # Auth providers — flip Google/GitHub off when no internet egress.
+    AUTH_PROVIDER_GITHUB_ENABLED: ${AUTH_PROVIDER_GITHUB_ENABLED:-False}
+    AUTH_PROVIDER_GITLAB_ENABLED: ${AUTH_PROVIDER_GITLAB_ENABLED:-True}
+    AUTH_PROVIDER_GOOGLE_ENABLED: ${AUTH_PROVIDER_GOOGLE_ENABLED:-False}
+    GITLAB_URL: ${GITLAB_URL}
+    GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID}
+    GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET}
+    # Sandbox runtime — point at the same bridge so spawned sandbox
+    # containers can reach `db` and the operator's internal GitLab.
+    SANDBOX_NETWORK: gitgrit_internal
+    SANDBOX_DNS: ${SANDBOX_DNS}
+    # Operator CA — both the app's `requests` and the sandbox's `urllib`
+    # honor these automatically once the bundle is mounted.
+    GITGRIT_CUSTOM_CA_FILE_PATH: ${GITGRIT_CUSTOM_CA_FILE_PATH}
+    REQUESTS_CA_BUNDLE: /etc/ssl/certs/custom-ca.pem
+    SSL_CERT_FILE: /etc/ssl/certs/custom-ca.pem
+  restart: unless-stopped
+
 services:
   db:
     image: postgres:15
@@ -28,52 +75,29 @@ services:
       - gitgrit_internal
     restart: unless-stopped
 
+  # `app` (web) and `worker` run the same image with the same environment
+  # and mounts; the shared block below is merged into both.
   app:
-    image: gitgrit-app:${TAG:-latest}
-    pull_policy: never
-    depends_on:
-      - db
-    networks:
-      - gitgrit_internal
+    <<: *gitgrit-service
     ports:
       - "${APP_PORT:-3000}:3000"
-    volumes:
-      # The web container spawns sandbox containers via the host Docker
-      # socket. The host-side /tmp/gitgrit-sandbox path must match the
-      # in-container path so bind mounts resolve correctly.
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
-      # Operator CA bundle for self-hosted GitLab over the operator's TLS chain.
-      - ${GITGRIT_CUSTOM_CA_FILE_PATH}:/etc/ssl/certs/custom-ca.pem:ro
-    environment:
-      AIRGAPPED: "True"
-      DEBUG: "False"
-      SECRET_KEY: ${SECRET_KEY}
-      GITGRIT_ENCRYPTION_KEY: ${GITGRIT_ENCRYPTION_KEY}
-      SITE_URL: ${SITE_URL}
-      # DB — settings.py reads these individually, not as a URL.
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_NAME: ${POSTGRES_DB:-gitgrit}
-      DB_USER: ${POSTGRES_USER:-gitgrit}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      # Auth providers — flip Google/GitHub off when no internet egress.
-      AUTH_PROVIDER_GITHUB_ENABLED: ${AUTH_PROVIDER_GITHUB_ENABLED:-False}
-      AUTH_PROVIDER_GITLAB_ENABLED: ${AUTH_PROVIDER_GITLAB_ENABLED:-True}
-      AUTH_PROVIDER_GOOGLE_ENABLED: ${AUTH_PROVIDER_GOOGLE_ENABLED:-False}
-      GITLAB_URL: ${GITLAB_URL}
-      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID}
-      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET}
-      # Sandbox runtime — point at the same bridge so spawned sandbox
-      # containers can reach `db` and the operator's internal GitLab.
-      SANDBOX_NETWORK: gitgrit_internal
-      SANDBOX_DNS: ${SANDBOX_DNS}
-      # Operator CA — both the app's `requests` and the sandbox's `urllib`
-      # honor these automatically once the bundle is mounted.
-      GITGRIT_CUSTOM_CA_FILE_PATH: ${GITGRIT_CUSTOM_CA_FILE_PATH}
-      REQUESTS_CA_BUNDLE: /etc/ssl/certs/custom-ca.pem
-      SSL_CERT_FILE: /etc/ssl/certs/custom-ca.pem
-    restart: unless-stopped
+
+  # Background worker (Procrastinate). Executes the standard runs — Run /
+  # Run All, attach/save/activate, and webhook deliveries all only *queue*
+  # them — and the dependency-graph analysis. Standards stay stuck in
+  # "running" on the project page if this container is not up.
+  worker:
+    <<: *gitgrit-service
+    command: python manage.py procrastinate worker --queues=graph,standards --concurrency 4
+    # Procrastinate's own check: DB reachable, schema migrated, app wired.
+    # A worker that cannot pass this cannot consume the queues either, and
+    # `docker compose ps` then shows it unhealthy instead of silently idle.
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "procrastinate", "healthchecks"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
 
 networks:
   gitgrit_internal:
