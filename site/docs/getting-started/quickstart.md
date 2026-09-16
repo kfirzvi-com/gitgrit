@@ -27,7 +27,7 @@ You can write your own standard or install one from the **Marketplace**:
 
 ## 5. Run standards
 
-Standards run automatically on webhook events (push, pull request, etc.). You can also trigger them manually from the project page by clicking **Run All**.
+Standards run automatically on webhook events (push, pull request, etc.). You can also trigger them manually from the project page by clicking **Run All**. Runs execute in the background: each standard shows as *Running* on the project page and the results fill in as they finish.
 
 ## What's next?
 

@@ -136,8 +136,9 @@
     // --- Full-page form POSTs that do slow server work ---
     // A plain form submit leaves the old page on screen for the whole
     // round-trip, so the page-load timer above only starts once the response
-    // is already back. Running standards happens inside such a POST, so opt
-    // those forms in with data-loading="LABEL" to show the loader on submit.
+    // is already back. Opt such forms in with data-loading="LABEL" to show
+    // the loader on submit. (Standard runs used to be one; they are queued to
+    // the background worker now and no longer need it.)
     document.addEventListener('submit', function (e) {
       if (e.defaultPrevented) return;
       var form = e.target;

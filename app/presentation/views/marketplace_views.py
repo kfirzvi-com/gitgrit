@@ -154,11 +154,17 @@ def update_marketplace_standard(request, slug):
         )
         standard.labels.add(label)
 
-    create_standard_version(standard, request.user, f"Updated from marketplace: {mp.name} v{mp.version}")
+    runs = create_standard_version(
+        standard, request.user, f"Updated from marketplace: {mp.name} v{mp.version}"
+    )
 
     messages.success(
         request, f'Updated "{standard.name}" to v{mp.version}.'
     )
+    # The new version is queued to run on every project the standard is
+    # attached to — say so, like every other save path does.
+    if runs:
+        messages.info(request, runs["message"])
     return redirect("standard_detail", pk=standard.pk)
 
 

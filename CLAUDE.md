@@ -16,6 +16,11 @@ uv run python manage.py migrate
 
 # Run dev server
 uv run python manage.py runserver
+
+# Background worker (second terminal) — required for the dependency graph and
+# for every standard run (Run / Run All, attach/save/activate, webhooks);
+# the web process only queues them
+uv run python manage.py procrastinate worker --queues=graph,standards
 ```
 
 ## Architecture

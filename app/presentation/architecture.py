@@ -63,10 +63,12 @@ def latest_scores_by_project(tenant):
 
     Returns ``{project_id: {standard_id: {"name", "score"}}}``. The standard
     name is kept so health tooltips can name the specific standards dragging a
-    project down.
+    project down. In-flight (RUNNING) executions are excluded — they score 0
+    until the worker finishes them, which would read as a regression.
     """
     executions = (
         _attached_executions(tenant)
+        .exclude(status=StandardExecution.Status.RUNNING)
         .order_by("-created_at")
         .values("project_id", "standard_id", "standard_name", "score")
     )
@@ -95,8 +97,11 @@ def attention_items(tenant):
     score or failed/errored. Returns the full ranked list; the dashboard shows
     the top few and counts the rest. Each item links to its execution detail.
     """
+    # In-flight rows score 0 until the worker finishes them; they would show
+    # as critical and hide the real latest result for that pair.
     executions = (
         _attached_executions(tenant)
+        .exclude(status=StandardExecution.Status.RUNNING)
         .select_related("project", "standard")
         .order_by("-created_at")[:500]
     )

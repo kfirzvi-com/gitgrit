@@ -211,11 +211,14 @@ The full environment variable reference lives in
 
 ```bash
 docker compose -f docker-compose.full.yaml up -d
-docker compose -f docker-compose.full.yaml ps           # both containers Up
-docker compose -f docker-compose.full.yaml logs app --tail=20
+docker compose -f docker-compose.full.yaml ps           # db, app and worker Up
+docker compose -f docker-compose.full.yaml logs app worker --tail=20
 ```
 
-The compose file uses `pull_policy: never` on both images, so the
+`worker` is the background worker that executes standard runs (the web
+container only queues them) and the dependency-graph analysis — see
+[Operations](operations.md#background-worker-procrastinate). The compose
+file uses `pull_policy: never` on both images, so the
 air-gap host doesn't reach for any registry — it uses the images you
 loaded in step 1.
 

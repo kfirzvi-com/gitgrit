@@ -1,0 +1,188 @@
+{# The project page's results: Standards, Compliance, Recent Activity. #}
+{# Served standalone to the HTMX poll below, so the cards refresh themselves #}
+{# while a background run is in flight (data-no-loader keeps the full-page #}
+{# "loading" overlay out of a poll that happens every few seconds). #}
+<div id="project-results" class="space-y-6"
+     {% if running_standard_ids %}hx-get="{% url 'project_results' project.pk %}" hx-trigger="every 3s" hx-swap="outerHTML" data-no-loader{% endif %}>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="flex justify-between items-center">
+          <h2 class="card-title">
+            Standards
+            {% if attached_standards %}
+              <span class="text-sm font-normal opacity-70">
+                {{ attached_standards|length }} attached · {{ active_standards_count }} active
+              </span>
+            {% endif %}
+          </h2>
+          <div class="flex gap-2">
+            {% if has_runnable_standards %}
+              <form method="post" action="{% url 'run_project_standards' project.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm">Run All</button>
+              </form>
+            {% endif %}
+            <button type="button" class="btn btn-outline btn-sm"
+                    hx-get="{% url 'project_standards' project.pk %}"
+                    hx-target="#standards-modal-body"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('standards-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading standards...&lt;/p&gt;'; document.getElementById('standards_modal').showModal()">
+              Manage standards
+            </button>
+          </div>
+        </div>
+        {% if attached_standards %}
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Standard</th>
+                  <th>Events</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for standard in attached_standards %}
+                  <tr>
+                    <td>
+                      <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover">{{ standard.name }}</a>
+                      {% if standard.draft %}
+                        <span class="badge badge-warning badge-xs align-middle">Draft</span>
+                      {% elif not standard.enabled %}
+                        <span class="badge badge-error badge-xs align-middle">Disabled</span>
+                      {% endif %}
+                      {% if standard.description %}
+                        <p class="text-xs opacity-50 truncate max-w-xs">{{ standard.description }}</p>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% for event in standard.criteria.events %}
+                        <span class="badge badge-outline badge-xs">{{ event }}</span>
+                      {% empty %}
+                        <span class="text-xs opacity-50">none</span>
+                      {% endfor %}
+                    </td>
+                    <td class="text-right">
+                      {% if standard.enabled and not standard.draft %}
+                        <form method="post" action="{% url 'run_project_standards' project.pk %}" class="inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="standard_id" value="{{ standard.pk }}">
+                          {% if standard.pk in running_standard_ids %}
+                            <span class="loading loading-spinner loading-xs align-middle mr-1"></span>
+                            <button type="submit" class="btn btn-ghost btn-xs btn-disabled" disabled>Run</button>
+                          {% else %}
+                            <button type="submit" class="btn btn-ghost btn-xs">Run</button>
+                          {% endif %}
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-sm opacity-70">No standards attached. Attach standards from your workspace to start enforcing them on this project.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Compliance</h2>
+        {% if compliance_score is not None %}
+          <div class="flex items-center gap-6">
+            <div class="radial-progress {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}"
+                 style="--value:{{ compliance_score }}; --size:5rem;" role="progressbar">
+              {{ compliance_score }}%
+            </div>
+            <div>
+              <p class="text-sm opacity-70">Overall score based on {{ latest_executions|length }} standard{{ latest_executions|length|pluralize }}</p>
+            </div>
+          </div>
+          {% if latest_executions %}
+            <div class="overflow-x-auto mt-4">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Standard</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                    <th>Message</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for ex in latest_executions %}
+                    <tr>
+                      <td>
+                        {% if ex.standard %}
+                          <a href="{% url 'edit_standard' ex.standard.pk %}" class="link link-hover">{{ ex.standard_name }}</a>
+                        {% else %}
+                          {{ ex.standard_name }} <span class="text-xs opacity-50">(deleted)</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">
+                          {% include "partials/execution_status_badge.html" with execution=ex size="badge-sm" %}
+                        </a>
+                      </td>
+                      <td>{{ ex.score }}</td>
+                      <td class="text-sm max-w-xs truncate" title="{{ ex.message }}">
+                        <a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">{{ ex.message }}</a>
+                      </td>
+                      <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        {% else %}
+          <p class="text-sm opacity-70">No standard results yet. Results will appear after webhooks trigger standard evaluations.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Recent Activity</h2>
+        {% if recent_executions %}
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Standard</th>
+                  <th>Event</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Triggered by</th>
+                  <th>When</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ex in recent_executions|slice:":20" %}
+                  <tr>
+                    <td>{{ ex.standard_name }}</td>
+                    <td><span class="badge badge-outline badge-sm">{{ ex.event_type }}</span></td>
+                    <td>
+                      <a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">
+                        {% include "partials/execution_status_badge.html" with execution=ex size="badge-sm" %}
+                      </a>
+                    </td>
+                    <td>{{ ex.score }}</td>
+                    <td class="text-sm">{{ ex.triggered_by|default:"—" }}</td>
+                    <td class="text-sm opacity-70">{{ ex.created_at|timesince }} ago</td>
+                    <td class="text-sm"><a href="{% url 'standard_execution_detail' ex.id %}" class="link link-primary">View →</a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-sm opacity-70">No activity yet.</p>
+        {% endif %}
+      </div>
+    </div>
+</div>

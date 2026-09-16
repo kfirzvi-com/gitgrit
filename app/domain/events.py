@@ -65,10 +65,11 @@ class RepositoryPushed:
 
 # --- Coverage-change events ----------------------------------------------------
 # A standard's *coverage* changes when its association or definition does:
-# attached to a project, saved, or activated. Subscribers run the affected
-# (project, standard) delta immediately — see app.application.subscribers.
+# attached to a project, saved, or activated. Subscribers *queue* the affected
+# (project, standard) delta to run in the background — see
+# app.application.subscribers.
 # Contract: each event has exactly one result-returning subscriber (the
-# coverage runner), so publish sites read the run summary as ``results[0]``.
+# coverage runner), so publish sites read the enqueue summary as ``results[0]``.
 
 
 @dataclass(frozen=True)

@@ -4,16 +4,27 @@ Covers the web surface of the attachment feature: the project-page picker
 endpoint (GET partial / POST set), the add-project flow persisting selected
 standards, the single-run endpoint rejecting unattached standards, and the
 project detail page listing/scoring only attached standards.
+
+Runs are queued, never executed here: the background job's ``defer`` is
+mocked, so a passing test also proves no sandbox was started.
 """
 import re
 from unittest import mock
 
 import pytest
+from django.contrib.messages import get_messages
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from model_bakery import baker
 
-from app.domain.models import Project
+from app.domain.models import Project, StandardExecution
+from tests.support import defer_patch, running_executions
+
+
+
+def _flashes(resp):
+    return [m.message for m in get_messages(resp.wsgi_request)]
+
 
 # Render full pages without the manifest static storage (no collectstatic in tests).
 NON_MANIFEST_STORAGES = {
@@ -90,10 +101,7 @@ class TestProjectStandardsPicker(TestCase):
         project.standards.add(s1)
 
         url = reverse("project_standards", args=[project.pk])
-        with mock.patch(
-            "app.application.standard_engine.StandardEngine.run_for_project",
-            return_value=[],
-        ):
+        with defer_patch():
             resp = self.client.post(url, data={"standards": [str(s2.pk), str(s3.pk)]})
         assert resp.status_code == 302
         assert set(project.standards.all()) == {s2, s3}
@@ -135,12 +143,14 @@ class TestSingleRunRequiresAttachment(TestCase):
         project = _project(tenant)
         standard = _standard(tenant)  # active but not attached
 
-        with mock.patch(
-            "app.presentation.views.project_views.StandardEngine"
-        ) as engine_cls:
+        with defer_patch() as configure:
             resp = self._run(project, standard)
+
         assert resp.status_code == 302
-        engine_cls.return_value.run_for_project.assert_not_called()
+        assert resp.url == reverse("project_detail", args=[project.pk])
+        configure.assert_not_called()
+        assert not running_executions(project).exists()
+        assert "Standard not found or not active." in _flashes(resp)
 
     def test_attached_standard_runs(self):
         _, tenant = _login_member(self.client)
@@ -148,17 +158,18 @@ class TestSingleRunRequiresAttachment(TestCase):
         standard = _standard(tenant)
         project.standards.add(standard)
 
-        with mock.patch(
-            "app.presentation.views.project_views.StandardEngine"
-        ) as engine_cls:
-            engine_cls.return_value.run_for_project.return_value = [
-                {"passed": True}
-            ]
+        with defer_patch() as configure:
             resp = self._run(project, standard)
+
         assert resp.status_code == 302
-        engine_cls.return_value.run_for_project.assert_called_once_with(
-            project, [standard]
+        assert resp.url == reverse("project_detail", args=[project.pk])
+        row = running_executions(project).get()
+        assert row.standard_id == standard.pk
+        configure.assert_called_once_with(lock=f"standards:{project.pk}")
+        configure.return_value.defer.assert_called_once_with(
+            project_id=str(project.pk), execution_ids=[str(row.pk)]
         )
+        assert any("Queued" in m for m in _flashes(resp))
 
 
 @pytest.mark.django_db
@@ -181,10 +192,7 @@ class TestAddProjectPersistsStandards(TestCase):
         with mock.patch(
             "app.presentation.views.project_views.get_platform_client",
             return_value=client,
-        ), mock.patch(
-            "app.application.standard_engine.StandardEngine.run_for_project",
-            return_value=[],
-        ) as run:
+        ), defer_patch() as configure:
             resp = self.client.post(
                 reverse("add_project_search", args=[connection.id]),
                 data={
@@ -200,8 +208,9 @@ class TestAddProjectPersistsStandards(TestCase):
         assert resp.status_code == 302
         project = Project.objects.get(tenant=tenant, external_id="42")
         assert set(project.standards.all()) == {s1}
-        # Attaching at creation is a coverage change — the standard ran.
-        run.assert_called_once_with(project, [s1])
+        # Attaching at creation is a coverage change — the standard is queued.
+        assert [r.standard_id for r in running_executions(project)] == [s1.pk]
+        configure.assert_called_once_with(lock=f"standards:{project.pk}")
 
     def test_no_selection_attaches_nothing(self):
         _, tenant = _login_member(self.client)
@@ -239,20 +248,18 @@ class TestAddProjectPersistsStandards(TestCase):
 
 @pytest.mark.django_db
 class TestAttachTriggersRuns(TestCase):
-    """Attachment is a coverage change: the newly attached, runnable delta
-    runs immediately (engine mocked — trigger wiring under test)."""
+    """Attachment is a coverage change: the newly attached, runnable delta is
+    queued (job defer mocked — trigger wiring under test)."""
 
     def _post(self, project, standards):
-        with mock.patch(
-            "app.application.standard_engine.StandardEngine.run_for_project",
-            return_value=[{"passed": True, "details": {}}],
-        ) as run:
+        with defer_patch() as configure:
             resp = self.client.post(
                 reverse("project_standards", args=[project.pk]),
                 data={"standards": [str(s.pk) for s in standards]},
             )
         assert resp.status_code == 302
-        return run
+        self.resp = resp
+        return configure
 
     def test_only_newly_attached_runnable_standards_run(self):
         _, tenant = _login_member(self.client)
@@ -262,9 +269,11 @@ class TestAttachTriggersRuns(TestCase):
         new_draft = _standard(tenant, draft=True)
         project.standards.add(already)
 
-        run = self._post(project, [already, new_runnable, new_draft])
+        configure = self._post(project, [already, new_runnable, new_draft])
 
-        run.assert_called_once_with(project, [new_runnable])
+        assert [r.standard_id for r in running_executions(project)] == [new_runnable.pk]
+        configure.assert_called_once_with(lock=f"standards:{project.pk}")
+        assert any("Queued" in m for m in _flashes(self.resp))
 
     def test_reposting_the_same_set_runs_nothing(self):
         _, tenant = _login_member(self.client)
@@ -272,9 +281,10 @@ class TestAttachTriggersRuns(TestCase):
         standard = _standard(tenant)
         project.standards.add(standard)
 
-        run = self._post(project, [standard])
+        configure = self._post(project, [standard])
 
-        run.assert_not_called()
+        configure.assert_not_called()
+        assert not running_executions(project).exists()
 
 
 @pytest.mark.django_db
@@ -286,17 +296,21 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
         attached = _standard(tenant, name="Attached standard")
         detached = _standard(tenant, name="Detached standard")
         project.standards.add(attached)
+        # Explicit statuses: the model defaults to RUNNING, and in-flight rows
+        # are deliberately kept out of the score.
         baker.make(
             "app.StandardExecution",
             project=project,
             standard=attached,
             score=100,
+            status=StandardExecution.Status.PASSED,
         )
         baker.make(
             "app.StandardExecution",
             project=project,
             standard=detached,
             score=0,
+            status=StandardExecution.Status.FAILED,
         )
 
         resp = self.client.get(reverse("project_detail", args=[project.pk]))

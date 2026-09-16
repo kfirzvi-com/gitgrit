@@ -1,8 +1,7 @@
 {# Body of the "Manage standards" modal on the project page (fetched via HTMX). #}
-{# The <dialog> lives in the browser's top layer and would cover the full-page loader, #}
-{# so close it as the form submits and let the "RUNNING STANDARDS" overlay show. #}
+{# Newly attached standards are queued to run in the background, so there is #}
+{# nothing to wait for here — just close the dialog as the form submits. #}
 <form method="post" action="{% url 'project_standards' project.pk %}"
-      data-loading="RUNNING STANDARDS"
       onsubmit="document.getElementById('standards_modal').close()">
   {% csrf_token %}
   {% include "partials/standard_picker.html" with hide_bulk_actions=True %}
