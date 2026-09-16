@@ -419,7 +419,8 @@ def _llm_role_row(name: str, label: str, role) -> dict:
 
     ``model_missing``: the provider's discovered model list no longer contains
     the assigned model (retired or renamed upstream). ``error``: why the last
-    call through this role failed, as recorded by the code that made it.
+    dependency-mapping call through this role failed, as recorded by the
+    mapper (``LLMRole.last_error``).
     """
     if role is None:
         return {

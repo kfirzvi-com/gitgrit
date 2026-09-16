@@ -48,7 +48,7 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.SUCCESS(
                             f"✓ {p.name}: {len(result.internal)} internal, "
-                            f"{len(result.external)} external"
+                            f"{len(result.external_providers) + len(result.external_consumers)} external"
                         )
                     )
                 except Exception as exc:

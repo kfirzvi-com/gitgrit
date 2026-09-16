@@ -17,13 +17,49 @@ logger = logging.getLogger(__name__)
 STALE_WORKER_SECONDS = 90
 
 
-@app.task(queue="graph", name="infer_project_dependencies", retry=2)
-def infer_project_dependencies(project_id: str) -> None:
+def _newer_job_queued(queueing_lock: str | None) -> bool:
+    """True when a ``todo`` job already waits on ``queueing_lock``, i.e. a
+    fresher run of the same work is coming anyway.
+
+    Queried over the task's own Django connection rather than
+    ``app.job_manager.list_jobs``: under the production worker the app's
+    connector is Procrastinate's async psycopg pool, whose sync facade opens a
+    separate connection per call. The predicate mirrors the library's partial
+    unique index (``queueing_lock`` WHERE status = 'todo'').
+    """
+    if not queueing_lock:
+        return False
+    from django.db import connection
+    from procrastinate.jobs import Status
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT 1 FROM procrastinate_jobs WHERE queueing_lock = %s AND status = %s LIMIT 1",
+            [queueing_lock, Status.TODO.value],
+        )
+        return cursor.fetchone() is not None
+
+
+@app.task(queue="graph", name="infer_project_dependencies", retry=2, pass_context=True)
+def infer_project_dependencies(context, project_id: str) -> None:
     """Analyze one project's repo and (re)write its dependency edges.
 
     Idempotent: re-running replaces the project's edges. Deferred with a
     per-project ``queueing_lock`` (coalesce) + ``lock`` (serialize) — see
     ``app.application.subscribers``.
+
+    On failure the job is retried — unless a newer job for the same project
+    is already queued. Procrastinate allows one ``todo`` job per
+    queueing_lock, so asking for a retry then would collide with that job's
+    row: the UPDATE fails (silently — the worker only logs an unretrieved
+    asyncio exception), this job is left in ``doing`` on a live worker
+    (which the stalled-job sweep therefore never touches), and the queued
+    job can never start because this one still holds the ``lock``. Ending
+    the attempt instead lets the queued job run. Procrastinate then records
+    this job as ``succeeded``; the failure itself lives on the project
+    (``deps_status`` / ``deps_error``) and the LLM role. A twin deferred in
+    the few milliseconds between the check and the retry UPDATE can still
+    collide; that window is not closable from here.
     """
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
@@ -45,6 +81,12 @@ def infer_project_dependencies(project_id: str) -> None:
         Project.objects.filter(pk=project_id).update(
             deps_status=Project.DepsStatus.FAILED, deps_error=str(exc)[:2000]
         )
+        if _newer_job_queued(context.job.queueing_lock):
+            logger.warning(
+                "not retrying dependency inference for project %s: a newer job is queued",
+                project_id,
+            )
+            return
         raise  # surface to Procrastinate so it can retry
 
 
@@ -134,19 +176,21 @@ def expire_stale_standard_runs(timestamp: int) -> int:
 @app.periodic(cron="*/2 * * * *")
 @app.task(queue="graph", name="recover_stalled_jobs", pass_context=False)
 async def recover_stalled_jobs(timestamp: int) -> int:
-    """Requeue jobs orphaned by a crashed worker.
+    """Clean up jobs orphaned by a crashed worker; returns how many were handled.
 
     Procrastinate's worker loop won't rescue another (dead) worker's in-flight
     job — it stays stuck in ``doing`` forever. Workers heartbeat; here we find
-    jobs whose worker has gone silent, put them back to ``todo`` so a live
-    worker re-runs them (our tasks are idempotent), then prune the dead workers.
-    Async so it runs natively in the worker's event loop.
+    jobs whose worker has gone silent and either put them back to ``todo`` so
+    a live worker re-runs them (our tasks are idempotent) or, when a newer job
+    with the same queueing_lock is already queued, fail them so that job can
+    run. Then prune the dead workers. Async so it runs natively in the
+    worker's event loop.
     """
     from procrastinate.jobs import Status
 
     jm = app.job_manager
     stalled = list(await jm.get_stalled_jobs(seconds_since_heartbeat=STALE_WORKER_SECONDS))
-    recovered = 0
+    handled = 0
     for job in stalled:
         try:
             # A newer job for the same work may already be waiting (deferred
@@ -174,9 +218,9 @@ async def recover_stalled_jobs(timestamp: int) -> int:
             else:
                 logger.warning("recovering stalled job %s (task=%s)", job.id, job.task_name)
                 await jm.retry_job_by_id_async(job.id, retry_at=timezone.now())
-            recovered += 1
+            handled += 1
         except Exception:
             # One unrecoverable job must not abort the sweep for the others.
             logger.exception("could not recover stalled job %s", job.id)
     await jm.prune_stalled_workers(seconds_since_heartbeat=STALE_WORKER_SECONDS)
-    return recovered
+    return handled

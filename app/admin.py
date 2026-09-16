@@ -82,9 +82,10 @@ class LLMProviderAdmin(admin.ModelAdmin):
 
 @admin.register(LLMRole)
 class LLMRoleAdmin(admin.ModelAdmin):
-    list_display = ("name", "tenant", "provider", "model", "updated_at")
+    list_display = ("name", "tenant", "provider", "model", "last_error_at", "updated_at")
     list_filter = ("name", "tenant")
     search_fields = ("tenant__name", "model")
+    readonly_fields = ("last_error", "last_error_at")
 
 
 @admin.register(Project)
