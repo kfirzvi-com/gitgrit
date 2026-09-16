@@ -223,6 +223,12 @@ class LLMRole(models.Model):
         related_name="roles",
     )
     model = models.CharField(max_length=255)
+    # Why the most recent LLM call through this role failed (model retired,
+    # bad credentials, no credits, ...). Cleared on the next success or when
+    # the role is re-assigned. Surfaced in Workspace Settings → LLM so a broken
+    # model is visible where it is fixed, not buried in a background job.
+    last_error = models.TextField(blank=True, default="")
+    last_error_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

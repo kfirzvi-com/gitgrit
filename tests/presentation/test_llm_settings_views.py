@@ -105,6 +105,43 @@ class TestLLMProviderViews(TestCase):
         assert b"LLM Providers" in resp.content
         assert b"LLM Roles" in resp.content
 
+    def test_role_row_shows_last_error(self):
+        _, tenant = self._admin()
+        provider = self._provider(tenant)
+        baker.make(
+            "app.LLMRole", tenant=tenant, name="reasoning", provider=provider,
+            model="claude-opus-4",
+            last_error="NotFoundError: This model is no longer available to new users.",
+        )
+        resp = self.client.get("/tenants/settings/")
+        assert resp.status_code == 200
+        assert b'data-role-error="reasoning"' in resp.content
+        assert b"no longer available to new users" in resp.content
+        # Same model still in the provider's list: only the runtime error shows.
+        assert b'data-role-warning="reasoning"' not in resp.content
+
+    def test_role_row_warns_when_model_left_the_provider_list(self):
+        _, tenant = self._admin()
+        provider = self._provider(tenant, available_models=["claude-opus-5"])
+        baker.make(
+            "app.LLMRole", tenant=tenant, name="reasoning", provider=provider,
+            model="claude-opus-4",
+        )
+        resp = self.client.get("/tenants/settings/")
+        assert b'data-role-warning="reasoning"' in resp.content
+        assert b'data-role-error="reasoning"' not in resp.content
+
+    def test_healthy_role_row_shows_no_alerts(self):
+        _, tenant = self._admin()
+        provider = self._provider(tenant)
+        baker.make(
+            "app.LLMRole", tenant=tenant, name="reasoning", provider=provider,
+            model="claude-opus-4",
+        )
+        resp = self.client.get("/tenants/settings/")
+        assert b"data-role-warning=" not in resp.content
+        assert b"data-role-error=" not in resp.content
+
 
 @pytest.mark.django_db
 class TestSetLLMRole(TestCase):
@@ -136,6 +173,22 @@ class TestSetLLMRole(TestCase):
         role = LLMRole.objects.get(tenant=tenant, name="reasoning")
         assert role.provider_id == provider.id
         assert role.model == "m1"
+
+    def test_set_role_clears_recorded_error(self):
+        _, tenant = self._admin()
+        provider = self._provider(tenant)
+        baker.make(
+            "app.LLMRole", tenant=tenant, name="reasoning", provider=provider,
+            model="m1", last_error="model retired",
+        )
+        self.client.post(
+            "/tenants/llm/roles/reasoning/set/",
+            {"provider_id": str(provider.id), "model": "m2"},
+        )
+        role = LLMRole.objects.get(tenant=tenant, name="reasoning")
+        assert role.model == "m2"
+        assert role.last_error == ""
+        assert role.last_error_at is None
 
     def test_set_role_is_idempotent_per_tenant_and_name(self):
         _, tenant = self._admin()

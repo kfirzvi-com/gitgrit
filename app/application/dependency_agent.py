@@ -24,6 +24,7 @@ from app.application.standard_engine import resolve_llm_roles
 from app.domain.models import (
     ExternalDependency,
     InfrastructureComponent,
+    LLMRole,
     Project,
     ProjectDependency,
 )
@@ -207,6 +208,18 @@ def _resolve_internal_target(target: str, roster: list[dict]) -> str | None:
     return by_full_path.get(t) or by_name.get(t) or by_name.get(last) or by_last.get(last)
 
 
+def _record_role_error(tenant, exc: Exception) -> None:
+    LLMRole.objects.filter(tenant=tenant, name=ROLE).update(
+        last_error=str(exc)[:2000], last_error_at=timezone.now()
+    )
+
+
+def _clear_role_error(tenant) -> None:
+    LLMRole.objects.filter(tenant=tenant, name=ROLE).exclude(last_error="").update(
+        last_error="", last_error_at=None
+    )
+
+
 def infer_and_store(project: Project) -> DependencyResult:
     """Analyze one project's repo and replace its dependency edges. Returns the
     raw model result. Sets the project's deps_status to OK on success; raises on
@@ -241,12 +254,20 @@ def infer_and_store(project: Project) -> DependencyResult:
         log=lambda m: logger.info("deps[%s]: %s", project.name, m),
     )
 
-    result: DependencyResult = agent.run(
-        toolbox=toolbox,
-        system_prompt=_SYSTEM_PROMPT,
-        instructions=_build_instructions(project, roster),
-        response_model=DependencyResult,
-    )
+    try:
+        result: DependencyResult = agent.run(
+            toolbox=toolbox,
+            system_prompt=_SYSTEM_PROMPT,
+            instructions=_build_instructions(project, roster),
+            response_model=DependencyResult,
+        )
+    except Exception as exc:
+        # Pin the failure on the role, not just the project: a retired model
+        # or a dead key is fixed in Workspace Settings → LLM, so that is where
+        # it must show up.
+        _record_role_error(tenant, exc)
+        raise
+    _clear_role_error(tenant)
     logger.info(
         "deps[%s]: %d internal, %d infra, %d providers, %d consumers (%d tokens, %d calls)",
         project.name,

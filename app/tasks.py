@@ -142,10 +142,41 @@ async def recover_stalled_jobs(timestamp: int) -> int:
     worker re-runs them (our tasks are idempotent), then prune the dead workers.
     Async so it runs natively in the worker's event loop.
     """
+    from procrastinate.jobs import Status
+
     jm = app.job_manager
     stalled = list(await jm.get_stalled_jobs(seconds_since_heartbeat=STALE_WORKER_SECONDS))
+    recovered = 0
     for job in stalled:
-        logger.warning("recovering stalled job %s (task=%s)", job.id, job.task_name)
-        await jm.retry_job_by_id_async(job.id, retry_at=timezone.now())
+        try:
+            # A newer job for the same work may already be waiting (deferred
+            # while this one sat orphaned in ``doing``). Procrastinate allows
+            # at most one ``todo`` job per queueing_lock, so requeuing this one
+            # would violate that index — and the waiting job can never start
+            # while this one holds the ``lock`` in ``doing``. Fail the orphan
+            # and let the queued job run instead.
+            queued_twins = (
+                list(
+                    await jm.list_jobs_async(
+                        queueing_lock=job.queueing_lock, status=Status.TODO.value
+                    )
+                )
+                if job.queueing_lock
+                else []
+            )
+            if queued_twins:
+                logger.warning(
+                    "failing stalled job %s (task=%s): a newer job is already queued",
+                    job.id,
+                    job.task_name,
+                )
+                await jm.finish_job_by_id_async(job.id, Status.FAILED, delete_job=False)
+            else:
+                logger.warning("recovering stalled job %s (task=%s)", job.id, job.task_name)
+                await jm.retry_job_by_id_async(job.id, retry_at=timezone.now())
+            recovered += 1
+        except Exception:
+            # One unrecoverable job must not abort the sweep for the others.
+            logger.exception("could not recover stalled job %s", job.id)
     await jm.prune_stalled_workers(seconds_since_heartbeat=STALE_WORKER_SECONDS)
-    return len(stalled)
+    return recovered

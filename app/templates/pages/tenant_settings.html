@@ -368,6 +368,24 @@
                           class="select select-bordered flex-1"></select>
                   <button type="submit" class="btn btn-primary">Save</button>
                 </form>
+                {% if role.model_missing %}
+                  <div class="alert alert-warning text-sm py-2" role="alert"
+                       data-role-warning="{{ role.name }}">
+                    <span>Model <code>{{ role.model }}</code> is not in this provider's
+                      model list any more. It may have been retired — pick another model.</span>
+                  </div>
+                {% endif %}
+                {% if role.error %}
+                  <div class="alert alert-error text-sm py-2" role="alert"
+                       data-role-error="{{ role.name }}">
+                    <div>
+                      <div class="font-medium">Last call with <code>{{ role.model }}</code> failed
+                        {% if role.error_at %}({{ role.error_at|timesince }} ago){% endif %}.
+                        Standards and the architecture map that use this role are not running.</div>
+                      <div class="opacity-80 break-all">{{ role.error|truncatechars:400 }}</div>
+                    </div>
+                  </div>
+                {% endif %}
               {% endfor %}
             </div>
           </div>
