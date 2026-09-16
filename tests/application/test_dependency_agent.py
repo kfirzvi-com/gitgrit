@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from model_bakery import baker
 
 from app.application import dependency_agent as da
@@ -203,7 +203,10 @@ class DependencyAgentRoleErrorTests(MonkeyPatchMixin, TestCase):
             da.infer_and_store(project)
 
         role.refresh_from_db()
-        self.assertIn("no longer available", role.last_error)
+        # Stored already summarized: no "RuntimeError:" / LiteLLM prefixes.
+        self.assertEqual(
+            role.last_error, "model gemini-2.5-pro is no longer available"
+        )
         self.assertIsNotNone(role.last_error_at)
 
     def test_successful_call_clears_a_previous_error(self):
@@ -219,3 +222,92 @@ class DependencyAgentRoleErrorTests(MonkeyPatchMixin, TestCase):
         role.refresh_from_db()
         self.assertEqual(role.last_error, "")
         self.assertIsNone(role.last_error_at)
+
+
+class SummarizeLLMErrorTests(SimpleTestCase):
+    """The settings page shows the provider's sentence, not the LiteLLM dump."""
+
+    GEMINI_429 = (
+        "litellm.RateLimitError: litellm.RateLimitError: GeminiException - {\n"
+        '  "error": {\n    "code": 429,\n'
+        '    "message": "Your prepayment credits are depleted. Please go to AI Studio '
+        'at https://ai.studio/projects to manage your project and billing. ",\n'
+        '    "status": "RESOURCE_EXHAUSTED"\n  }\n}'
+    )
+    ANTHROPIC_400 = (
+        'litellm.BadRequestError: AnthropicException - {"type":"error","error":'
+        '{"type":"invalid_request_error","message":"Your credit balance is too low '
+        'to access the Anthropic API. Please go to Plans & Billing to upgrade or '
+        'purchase credits."},"request_id":"req_011Cf4iinLpczReoRULEjvNN"}'
+    )
+    GEMINI_404 = (
+        'litellm.NotFoundError: GeminiException - {   "error": {     "code": 404,     '
+        '"message": "This model models/gemini-2.5-pro is no longer available to new '
+        'users. Please update your code to use models/gemini-3.1-pro-preview.",     '
+        '"status": "NOT_FOUND"   } }'
+    )
+
+    def test_gemini_rate_limit(self):
+        self.assertEqual(
+            da.summarize_llm_error(RuntimeError(self.GEMINI_429)),
+            "Your prepayment credits are depleted.",
+        )
+
+    def test_anthropic_credit_balance(self):
+        self.assertEqual(
+            da.summarize_llm_error(RuntimeError(self.ANTHROPIC_400)),
+            "Your credit balance is too low to access the Anthropic API.",
+        )
+
+    def test_gemini_retired_model(self):
+        self.assertEqual(
+            da.summarize_llm_error(RuntimeError(self.GEMINI_404)),
+            "This model models/gemini-2.5-pro is no longer available to new users.",
+        )
+
+    def test_plain_exception_drops_class_prefixes_and_keeps_first_sentence(self):
+        exc = RuntimeError(
+            "litellm.APIConnectionError: APIConnectionError: Connection refused. "
+            "Retrying is pointless."
+        )
+        self.assertEqual(da.summarize_llm_error(exc), "Connection refused.")
+
+    def test_empty_exception(self):
+        self.assertEqual(da.summarize_llm_error(RuntimeError("")), "Unknown error")
+
+    def test_missing_role_message_is_kept_whole(self):
+        msg = "No 'reasoning' LLM role configured for this workspace — set it under Workspace Settings → LLM."
+        self.assertEqual(da.summarize_llm_error(RuntimeError(msg)), msg)
+
+    def test_error_string_body_from_openai_compatible_proxy(self):
+        exc = RuntimeError('litellm.AuthenticationError: OpenAIException - {"error": "invalid_api_key"}')
+        self.assertEqual(da.summarize_llm_error(exc), "invalid_api_key")
+
+    def test_detail_body(self):
+        exc = RuntimeError('APIError - {"detail": "Model is loading. Try again shortly."}')
+        self.assertEqual(da.summarize_llm_error(exc), "Model is loading.")
+
+    def test_message_with_stray_brace_falls_back_to_first_sentence(self):
+        exc = RuntimeError("BadRequestError: unexpected token { in prompt. Fix the template.")
+        self.assertEqual(da.summarize_llm_error(exc), "unexpected token { in prompt.")
+
+    def test_credentials_echoed_by_the_provider_are_redacted(self):
+        exc = RuntimeError(
+            "AuthenticationError: Incorrect API key provided: sk-abcdef1234567890XYZ. "
+            "Check https://host/v1?key=AIzaSyA1234567890abcdefghijk&x=1"
+        )
+        summary = da.summarize_llm_error(exc)
+        self.assertNotIn("sk-abcdef", summary)
+        self.assertNotIn("AIzaSy", summary)
+        self.assertIn("[redacted]", summary)
+
+    def test_unparseable_model_output_gets_a_fixed_sentence(self):
+        try:
+            da.DependencyResult.model_validate_json("{not json")
+        except Exception as exc:  # pydantic.ValidationError
+            self.assertEqual(
+                da.summarize_llm_error(exc),
+                "The model's answer could not be parsed into a dependency map.",
+            )
+        else:
+            self.fail("expected a ValidationError")

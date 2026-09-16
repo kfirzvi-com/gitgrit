@@ -12,12 +12,14 @@ Stack-to-stack edges are NOT written here; they're derived at read time
 """
 from __future__ import annotations
 
+import json
 import logging
+import re
 from typing import Annotated
 
 from django.db import transaction
 from django.utils import timezone
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from app.application.naming import canonical_key
 from app.application.standard_engine import resolve_llm_roles
@@ -208,9 +210,68 @@ def _resolve_internal_target(target: str, roster: list[dict]) -> str | None:
     return by_full_path.get(t) or by_name.get(t) or by_name.get(last) or by_last.get(last)
 
 
+_MESSAGE_KEYS = ("message", "error", "detail")
+
+# Anything that looks like a credential in a provider's echo of our request.
+_SECRET_RE = re.compile(
+    r"(?:sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|(?i:key|token|secret)=[^\s&\"']+)"
+)
+
+
+def _find_message(payload) -> str | None:
+    """Depth-first search for the human sentence in a provider error body.
+
+    Looks for a string under ``message``, then ``error``, then ``detail``
+    (OpenAI-compatible proxies return ``{"error": "invalid_api_key"}``)."""
+    if isinstance(payload, dict):
+        for key in _MESSAGE_KEYS:
+            msg = payload.get(key)
+            if isinstance(msg, str) and msg.strip():
+                return msg.strip()
+        for value in payload.values():
+            found = _find_message(value)
+            if found:
+                return found
+    elif isinstance(payload, list):
+        for item in payload:
+            found = _find_message(item)
+            if found:
+                return found
+    return None
+
+
+def _first_sentence(text: str) -> str:
+    return re.split(r"(?<=[.!?])\s", text.strip(), maxsplit=1)[0]
+
+
+def summarize_llm_error(exc: Exception) -> str:
+    """The provider's own sentence, without the LiteLLM / JSON wrapping.
+
+    ``litellm.RateLimitError: GeminiException - {"error": {"code": 429,
+    "message": "Your prepayment credits are depleted. Please go to ..."}}``
+    becomes ``Your prepayment credits are depleted.`` — what an admin needs
+    to act, and nothing that needs a developer to read.
+    """
+    if isinstance(exc, ValidationError):
+        return "The model's answer could not be parsed into a dependency map."
+    raw = _SECRET_RE.sub("[redacted]", str(exc).strip())
+    start, end = raw.find("{"), raw.rfind("}")
+    if start != -1 and end > start:
+        try:
+            message = _find_message(json.loads(raw[start : end + 1]))
+        except ValueError:
+            message = None
+        if message:
+            return _first_sentence(message)[:300]
+    # No JSON body: first line, first sentence, sans "pkg.ErrorClass: " prefixes.
+    line = raw.splitlines()[0] if raw else "Unknown error"
+    line = re.sub(r"^(?:[\w.]+(?:Error|Exception):\s*)+", "", line)
+    return _first_sentence(line)[:300] or "Unknown error"
+
+
 def _record_role_error(tenant, exc: Exception) -> None:
     LLMRole.objects.filter(tenant=tenant, name=ROLE).update(
-        last_error=str(exc)[:2000], last_error_at=timezone.now()
+        last_error=summarize_llm_error(exc), last_error_at=timezone.now()
     )
 
 
