@@ -1,4 +1,5 @@
 """View tests for the LLM provider/role workspace settings screens."""
+import re
 from unittest.mock import patch
 
 import pytest
@@ -227,3 +228,67 @@ class TestSetLLMRole(TestCase):
         )
         assert resp.status_code == 302
         assert LLMRole.objects.count() == 0
+
+
+@pytest.mark.django_db
+class TestProviderFailureReachesSettingsPage(TestCase):
+    """End to end: a provider rejecting the mapping run must show up, as a
+    plain sentence, where an admin fixes it. Before this existed the only
+    trace was Project.deps_error, which nothing rendered."""
+
+    GEMINI_429 = (
+        "litellm.RateLimitError: litellm.RateLimitError: GeminiException - {"
+        '"error": {"code": 429, "message": "Your prepayment credits are depleted. '
+        'Please go to AI Studio at https://ai.studio/projects to manage your project.", '
+        '"status": "RESOURCE_EXHAUSTED"}}'
+    )
+
+    def test_failed_mapping_run_is_explained_under_the_role(self):
+        from types import SimpleNamespace
+
+        from app.application import dependency_agent as da
+
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role="admin")
+        provider = baker.make(
+            "app.LLMProvider", tenant=tenant, provider_type="gemini",
+            available_models=["gemini-3.1-pro-preview"],
+        )
+        baker.make(
+            "app.LLMRole", tenant=tenant, name="reasoning", provider=provider,
+            model="gemini-3.1-pro-preview",
+        )
+        conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
+        project = baker.make("app.Project", tenant=tenant, platform_connection=conn)
+
+        def rejected(self, **kw):
+            raise RuntimeError(TestProviderFailureReachesSettingsPage.GEMINI_429)
+
+        with (
+            patch.object(da.LLMAgent, "run", rejected),
+            patch.object(da, "get_platform_client", lambda c: SimpleNamespace()),
+            patch.object(
+                da, "resolve_llm_roles",
+                lambda t: {"reasoning": {"model": "gemini/x", "base_url": "", "api_key": "k"}},
+            ),
+        ):
+            with self.assertRaises(RuntimeError):
+                da.infer_and_store(project)
+
+        self.client.force_login(user)
+        resp = self.client.get("/tenants/settings/")
+        html = resp.content.decode()
+
+        assert resp.status_code == 200
+        alert = re.search(
+            r'<div class="alert alert-error[^"]*"[^>]*data-role-error="reasoning">(.*?)</div>',
+            html, re.S,
+        )
+        assert alert, "no error alert rendered under the reasoning role"
+        alert_text = alert.group(1)
+        assert "Your prepayment credits are depleted." in alert_text
+        # The provider's follow-up sentence and the LiteLLM/JSON wrapping stay out.
+        assert "AI Studio" not in alert_text
+        assert "litellm" not in alert_text
+        assert "RESOURCE_EXHAUSTED" not in alert_text
