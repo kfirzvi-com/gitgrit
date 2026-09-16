@@ -378,12 +378,8 @@
                 {% if role.error %}
                   <div class="alert alert-error text-sm py-2" role="alert"
                        data-role-error="{{ role.name }}">
-                    <div>
-                      <div class="font-medium">Last call with <code>{{ role.model }}</code> failed
-                        {% if role.error_at %}({{ role.error_at|timesince }} ago){% endif %}.
-                        Standards and the architecture map that use this role are not running.</div>
-                      <div class="opacity-80 break-all">{{ role.error|truncatechars:400 }}</div>
-                    </div>
+                    <span><span class="font-medium">{{ role.error }}</span>
+                      {% if role.error_at %}<span class="opacity-70">({{ role.error_at|timesince }} ago)</span>{% endif %}</span>
                   </div>
                 {% endif %}
               {% endfor %}
