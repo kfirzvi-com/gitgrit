@@ -166,3 +166,56 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
 
         with self.assertRaises(RuntimeError):
             da.infer_and_store(src)
+
+
+class DependencyAgentRoleErrorTests(MonkeyPatchMixin, TestCase):
+    """The reasoning role remembers why its last call failed, so the LLM
+    settings page can show it (the project-level error is never rendered)."""
+
+    def _setup(self):
+        tenant = baker.make("app.Tenant")
+        provider = baker.make("app.LLMProvider", tenant=tenant, provider_type="gemini")
+        role = baker.make(
+            "app.LLMRole", tenant=tenant, name="reasoning", provider=provider,
+            model="gemini-2.5-pro",
+        )
+        conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
+        project = baker.make(
+            "app.Project", tenant=tenant, platform_connection=conn,
+            name="web", full_path="org/web",
+        )
+        self.monkeypatch.setattr(
+            da, "resolve_llm_roles",
+            lambda t: {"reasoning": {"model": "gemini/gemini-2.5-pro", "base_url": "", "api_key": "k"}},
+        )
+        self.monkeypatch.setattr(da, "get_platform_client", lambda c: SimpleNamespace())
+        return role, project
+
+    def test_failed_call_is_recorded_on_the_role(self):
+        role, project = self._setup()
+
+        def boom(self, **kw):
+            raise RuntimeError("NotFoundError: model gemini-2.5-pro is no longer available")
+
+        self.monkeypatch.setattr(da.LLMAgent, "run", boom)
+
+        with self.assertRaises(RuntimeError):
+            da.infer_and_store(project)
+
+        role.refresh_from_db()
+        self.assertIn("no longer available", role.last_error)
+        self.assertIsNotNone(role.last_error_at)
+
+    def test_successful_call_clears_a_previous_error(self):
+        role, project = self._setup()
+        role.last_error = "old failure"
+        role.save()
+        self.monkeypatch.setattr(
+            da.LLMAgent, "run", lambda self, **kw: da.DependencyResult()
+        )
+
+        da.infer_and_store(project)
+
+        role.refresh_from_db()
+        self.assertEqual(role.last_error, "")
+        self.assertIsNone(role.last_error_at)

@@ -175,18 +175,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 )
             }
             context["llm_role_rows"] = [
-                {
-                    "name": value,
-                    "label": label,
-                    "provider_id": (
-                        str(existing_roles[value].provider_id)
-                        if value in existing_roles
-                        else ""
-                    ),
-                    "model": (
-                        existing_roles[value].model if value in existing_roles else ""
-                    ),
-                }
+                _llm_role_row(value, label, existing_roles.get(value))
                 for value, label in LLMRole.Name.choices
             ]
             # provider id -> available models, consumed by the role dropdown JS
@@ -425,6 +414,35 @@ def _require_workspace_admin(request):
     return tenant, None
 
 
+def _llm_role_row(name: str, label: str, role) -> dict:
+    """One row of the LLM Roles card, with whatever is wrong with it.
+
+    ``model_missing``: the provider's discovered model list no longer contains
+    the assigned model (retired or renamed upstream). ``error``: why the last
+    call through this role failed, as recorded by the code that made it.
+    """
+    if role is None:
+        return {
+            "name": name,
+            "label": label,
+            "provider_id": "",
+            "model": "",
+            "model_missing": False,
+            "error": "",
+            "error_at": None,
+        }
+    available = role.provider.available_models or []
+    return {
+        "name": name,
+        "label": label,
+        "provider_id": str(role.provider_id),
+        "model": role.model,
+        "model_missing": bool(available) and role.model not in available,
+        "error": role.last_error,
+        "error_at": role.last_error_at,
+    }
+
+
 def _auto_provider_name(tenant, provider_type) -> str:
     label = dict(LLMProviderType.choices).get(provider_type, provider_type)
     existing = set(
@@ -591,10 +609,16 @@ def set_llm_role(request, role_name):
         messages.error(request, "Select a model for the role.")
         return redirect("tenant_settings")
 
+    # Re-assigning the role is the fix for a recorded failure; start clean.
     LLMRole.objects.update_or_create(
         tenant=tenant,
         name=role_name,
-        defaults={"provider": provider, "model": model},
+        defaults={
+            "provider": provider,
+            "model": model,
+            "last_error": "",
+            "last_error_at": None,
+        },
     )
     messages.success(
         request, f'Role "{role_name}" set to {provider.display_name}/{model}.'
