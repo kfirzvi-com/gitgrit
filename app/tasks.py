@@ -9,6 +9,7 @@ import logging
 import time
 
 from django.utils import timezone
+from procrastinate import exceptions
 from procrastinate.contrib.django import app
 
 logger = logging.getLogger(__name__)
@@ -207,6 +208,23 @@ async def recover_stalled_jobs(timestamp: int) -> int:
                 logger.warning("recovering stalled job %s (task=%s)", job.id, job.task_name)
                 await jm.retry_job_by_id_async(job.id, retry_at=timezone.now())
             handled += 1
+        except exceptions.UniqueViolation:
+            # The twin check above raced a twin deferred in between: the
+            # requeue hit the one-todo-per-queueing_lock index. Expected and
+            # self-healing (the next sweep sees the twin and fails this
+            # orphan), so log it without a traceback. Note ``exc_info`` is
+            # deliberately off: Procrastinate's Django connector re-raises the
+            # driver error with ``raise exc.__cause__``, which makes the
+            # exception chain cyclic (psycopg error -> Django IntegrityError
+            # -> psycopg error). Stdlib logging copes; rich's traceback
+            # renderer, installed on the root logger by FastMCP, loops forever
+            # on it and hung the CI test job (PR #113).
+            logger.warning(
+                "stalled job %s (task=%s) collided with a newly queued twin; "
+                "will fail it on the next sweep",
+                job.id,
+                job.task_name,
+            )
         except Exception:
             # One unrecoverable job must not abort the sweep for the others.
             logger.exception("could not recover stalled job %s", job.id)
