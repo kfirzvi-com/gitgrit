@@ -149,35 +149,161 @@ class DependencyResult(BaseModel):
     )
 
 
+# Directories that are never dependency evidence and routinely dwarf the rest
+# of the tree (committed node_modules, build output). Hidden from listings so
+# the real manifests fit inside the tool-result cap; read_file can still open
+# anything inside them.
+_NOISE_DIRS = frozenset({
+    "node_modules", "vendor", "dist", "build", "target", "__pycache__",
+    ".git", ".terraform", ".venv", "venv", ".idea", ".vscode",
+})
+# Basenames worth pointing the model at when a tree is too big to list whole.
+_MANIFEST_NAMES = frozenset({
+    "package.json", "pyproject.toml", "requirements.txt", "pipfile", "go.mod",
+    "cargo.toml", "gemfile", "pom.xml", "build.gradle", "build.gradle.kts",
+    "composer.json", "mix.exs", "package.swift", "pubspec.yaml", "dockerfile",
+    "docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml",
+    "readme.md", ".env.example", ".env.sample", ".env.template", "serverless.yml",
+    "main.tf", "variables.tf", "chart.yaml", "values.yaml", "procfile", "makefile",
+})
+_MANIFEST_SUFFIXES = (".csproj", ".fsproj", ".tf", ".sln")
+MAX_LISTING_ENTRIES = 400
+
+
+def _is_noise(path: str) -> bool:
+    return any(part in _NOISE_DIRS for part in path.split("/")[:-1])
+
+
+def _looks_like_manifest(path: str) -> bool:
+    base = path.rsplit("/", 1)[-1].lower()
+    return base in _MANIFEST_NAMES or base.endswith(_MANIFEST_SUFFIXES)
+
+
+def _clean_path(path) -> str:
+    """Normalize a model-supplied path: strip whitespace, backslashes, leading
+    './' and surrounding slashes. '', '.', './' and '/' all become ''."""
+    p = (path or "").strip().replace("\\", "/")
+    while p.startswith("./"):
+        p = p[2:]
+    return p.strip("/")
+
+
 class _RepoToolbox:
-    """Read-only repository tools handed to the model."""
+    """Read-only repository tools handed to the model.
+
+    Records what the model actually inspected (``tree_size``, ``files_read``)
+    so the caller can refuse to save an answer that was never grounded in the
+    repo — a model that reads nothing and guesses must not produce an ``ok`` map.
+
+    Every tool returns a string the model can act on. An empty list or empty
+    string is never returned for a miss: models that get silence retry the same
+    wrong argument until the round-trip cap and then invent a result.
+    """
 
     def __init__(self, client, full_path: str, ref: str):
         self._client = client
         self._full_path = full_path
         self._ref = ref
         self._tree: list[str] | None = None
+        self.tree_size: int | None = None  # None until list_repo_files ran
+        self.files_read: list[str] = []
+
+    def _root_aliases(self) -> set[str]:
+        # Models name the root as '', '.', '/', the repo's full path or its name.
+        return {"", ".", self._full_path.lower(), self._full_path.rsplit("/", 1)[-1].lower()}
+
+    def _load_tree(self) -> list[str]:
+        if self._tree is None:
+            raw = self._client.get_tree(self._full_path, self._ref) or []
+            self.tree_size = len(raw)
+            self._tree = [p for p in raw if not _is_noise(p)]
+        return self._tree
 
     @tool
     def list_repo_files(
         self,
-        path: Annotated[str, "Directory prefix to list; empty lists the whole repo"] = "",
-    ) -> list:
-        """List file paths in the repository (optionally under a directory)."""
-        if self._tree is None:
-            self._tree = self._client.get_tree(self._full_path, self._ref)
-        if not path:
-            return self._tree
-        prefix = path.strip("/") + "/"
-        return [p for p in self._tree if p.startswith(prefix)]
+        path: Annotated[
+            str,
+            "Directory path relative to the repository root, e.g. 'src' or "
+            "'infra/terraform'. Pass '' (or '.' or '/') to list the whole repository.",
+        ] = "",
+    ) -> str:
+        """List the repository's files, one path per line.
+
+        With no path (or '.', '/') lists the whole repository; a large repository
+        gets a directory summary plus every manifest/config file found anywhere.
+        With a directory path lists only the files under it. Generated and
+        dependency folders (node_modules, vendor, dist, …) are hidden.
+        """
+        tree = self._load_tree()
+        if not tree:
+            return "The repository listing is empty (no readable files on this branch)."
+
+        p = _clean_path(path)
+        if p.lower() in self._root_aliases():
+            return self._list_root(tree)
+
+        prefix = p + "/"
+        matches = [f for f in tree if f.startswith(prefix)]
+        if not matches:
+            top = sorted({f.split("/", 1)[0] for f in tree})
+            return (
+                f"No files under '{path}'. Top-level entries: {', '.join(top[:60])}. "
+                "Pass '' to list the whole repository."
+            )
+        return self._render(matches, f"under '{p}'")
+
+    def _list_root(self, tree: list[str]) -> str:
+        if len(tree) <= MAX_LISTING_ENTRIES:
+            return "\n".join(tree)
+        counts: dict[str, int] = {}
+        root_files = []
+        for f in tree:
+            if "/" in f:
+                d = f.split("/", 1)[0]
+                counts[d] = counts.get(d, 0) + 1
+            else:
+                root_files.append(f)
+        lines = [f"{len(tree)} files. Root files:", *root_files, "", "Directories (file count):"]
+        lines += [f"{d}/ ({n})" for d, n in sorted(counts.items())]
+        manifests = [f for f in tree if "/" in f and _looks_like_manifest(f)]
+        if manifests:
+            lines += ["", "Manifest/config files in subdirectories:", *manifests[:150]]
+        lines += ["", "Call list_repo_files(path='<directory>') to see the files in one directory."]
+        return "\n".join(lines)
+
+    @staticmethod
+    def _render(paths: list[str], where: str) -> str:
+        shown = paths[:MAX_LISTING_ENTRIES]
+        out = "\n".join(shown)
+        if len(paths) > len(shown):
+            out += (
+                f"\n… {len(paths) - len(shown)} more files {where}; "
+                "pass a deeper directory path to see them."
+            )
+        return out
 
     @tool
     def read_file(
         self,
-        path: Annotated[str, "File path relative to the repo root"],
+        path: Annotated[
+            str, "File path relative to the repository root, exactly as list_repo_files shows it"
+        ],
     ) -> str:
-        """Read a text file. Returns an empty string if missing or binary."""
-        return self._client.get_file_content(self._full_path, path, self._ref) or ""
+        """Read a text file and return its contents.
+
+        Returns a '[no readable file at …]' message when the path does not exist
+        or is not a text file — check list_repo_files for the exact path.
+        """
+        p = _clean_path(path)
+        content = self._client.get_file_content(self._full_path, p, self._ref)
+        if content is None:
+            return (
+                f"[no readable file at '{path}' — it is missing or binary. "
+                "Use list_repo_files to find the exact path.]"
+            )
+        self.files_read.append(p)
+        return content if content else f"[file '{p}' exists but is empty]"
 
 
 def _build_instructions(project: Project, roster: list[dict]) -> str:
@@ -248,7 +374,8 @@ def infer_and_store(project: Project) -> DependencyResult:
         response_model=DependencyResult,
     )
     logger.info(
-        "deps[%s]: %d internal, %d infra, %d providers, %d consumers (%d tokens, %d calls)",
+        "deps[%s]: %d internal, %d infra, %d providers, %d consumers "
+        "(%d tokens, %d calls, %d files read)",
         project.name,
         len(result.internal),
         len(result.infrastructure),
@@ -256,7 +383,25 @@ def infer_and_store(project: Project) -> DependencyResult:
         len(result.external_consumers),
         agent.usage["total_tokens"],
         agent.usage["calls"],
+        len(toolbox.files_read),
     )
+
+    # Evidence gate: an answer the model never grounded in the repository is a
+    # guess, and a guess saved as ``ok`` silently replaces a correct map. Raise
+    # before touching the edge tables so the previous map survives and the task
+    # records a readable reason in deps_error.
+    if toolbox.tree_size == 0:
+        raise RuntimeError(
+            "Repository listing came back empty — the connection cannot read this "
+            "repository's files. Check the platform connection's access to the repo "
+            "and the project's default branch. The previous map was kept."
+        )
+    if not toolbox.files_read:
+        raise RuntimeError(
+            "The model answered without reading any repository file, so the result "
+            "was not saved and the previous map was kept. Check the LLM role's model "
+            "and provider, then re-run the analysis."
+        )
 
     # Resolve + persist atomically (replace this project's outgoing edges).
     project_deps = []
@@ -353,12 +498,14 @@ def infer_and_store(project: Project) -> DependencyResult:
         ExternalDependency.objects.bulk_create(external_deps, ignore_conflicts=True)
         InfrastructureComponent.objects.bulk_create(infra_components, ignore_conflicts=True)
         project.inferred_technologies = technologies[:20]
+        project.deps_evidence = toolbox.files_read[:50]
         project.deps_status = Project.DepsStatus.OK
         project.deps_analyzed_at = timezone.now()
         project.deps_error = ""
         project.save(
             update_fields=[
                 "inferred_technologies",
+                "deps_evidence",
                 "deps_status",
                 "deps_analyzed_at",
                 "deps_error",
