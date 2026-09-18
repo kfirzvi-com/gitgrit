@@ -296,6 +296,10 @@ class Project(models.Model):
     )
     deps_analyzed_at = models.DateTimeField(null=True, blank=True)
     deps_error = models.TextField(blank=True, default="")
+    # Repository files the model actually read to build this map (capped at
+    # 50). Empty until an analysis completes; lets anyone see what a map is
+    # grounded in.
+    deps_evidence = models.JSONField(default=list, blank=True)
     stacks = models.ManyToManyField(
         "Stack",
         through="ProjectStack",

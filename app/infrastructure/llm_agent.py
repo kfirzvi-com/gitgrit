@@ -129,6 +129,9 @@ def _summarize(value):
 
 
 def _truncate_for_model(value, limit=MAX_TOOL_RESULT_CHARS):
+    if isinstance(value, (list, tuple)):
+        # A list is re-sent on every later turn; cap it like any other result.
+        value = "\n".join(str(v) for v in value)
     if isinstance(value, str) and len(value) > limit:
         return value[:limit] + f"\n…[truncated {len(value) - limit} chars]"
     return value
@@ -225,11 +228,14 @@ class LLMAgent:
                     result = f"Tool error: {exc}"
                 arg_str = ", ".join(f"{k}={v!r}" for k, v in args.items())
                 self._emit(f"tool: {name}({arg_str}) → {_summarize(result)}")
+                payload = _truncate_for_model(result)
                 messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": call.id,
-                        "content": json.dumps(_truncate_for_model(result)),
+                        # Text goes back verbatim: JSON-encoding a YAML/TOML file
+                        # turns every newline into "\\n", which weak models misread.
+                        "content": payload if isinstance(payload, str) else json.dumps(payload),
                     }
                 )
 

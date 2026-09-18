@@ -13,8 +13,30 @@ from app.domain.models import (
 from tests.support import MonkeyPatchMixin
 
 
+def _fake_client(tree=("README.md", "package.json"), files=None):
+    files = {"package.json": '{"name": "web"}'} if files is None else files
+    return SimpleNamespace(
+        get_tree=lambda full_path, ref: list(tree),
+        get_file_content=lambda full_path, path, ref: files.get(path),
+    )
+
+
+def _reading_run(result, paths=("package.json",)):
+    """Stand in for LLMAgent.run: inspect the repo like a real model would
+    (list, then read the given files), then return ``result``."""
+
+    def run(self, **kw):
+        toolbox = kw["toolbox"]
+        toolbox.list_repo_files("")
+        for path in paths:
+            toolbox.read_file(path)
+        return result
+
+    return run
+
+
 class DependencyAgentTests(MonkeyPatchMixin, TestCase):
-    def _setup(self, result):
+    def _setup(self, result, client=None):
         tenant = baker.make("app.Tenant")
         conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         src = baker.make(
@@ -43,10 +65,9 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
                 }
             },
         )
-        self.monkeypatch.setattr(
-            da, "get_platform_client", lambda c: SimpleNamespace()
-        )
-        self.monkeypatch.setattr(da.LLMAgent, "run", lambda self, **kw: result)
+        client = client or _fake_client()
+        self.monkeypatch.setattr(da, "get_platform_client", lambda c: client)
+        self.monkeypatch.setattr(da.LLMAgent, "run", _reading_run(result))
         return tenant, src, api
 
     def test_writes_internal_and_external_edges(self):
@@ -66,6 +87,7 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(src.deps_status, Project.DepsStatus.OK)
         self.assertIsNotNone(src.deps_analyzed_at)
         self.assertEqual(src.inferred_technologies, ["Express", "Next.js"])
+        self.assertEqual(src.deps_evidence, ["package.json"])
 
         pd = ProjectDependency.objects.get(source=src)
         self.assertEqual(pd.target_id, api.id)
@@ -110,8 +132,8 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.monkeypatch.setattr(
             da.LLMAgent,
             "run",
-            lambda self, **kw: da.DependencyResult(
-                internal=[], external_providers=[{"name": "Auth0"}]
+            _reading_run(
+                da.DependencyResult(internal=[], external_providers=[{"name": "Auth0"}])
             ),
         )
         da.infer_and_store(src)
@@ -166,3 +188,46 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
 
         with self.assertRaises(RuntimeError):
             da.infer_and_store(src)
+
+    # --- evidence gate -------------------------------------------------------
+
+    def test_answer_without_reading_any_file_is_rejected_and_old_map_kept(self):
+        _tenant, src, _api = self._setup(
+            da.DependencyResult(internal=[{"target": "org/api"}])
+        )
+        da.infer_and_store(src)
+        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 1)
+
+        # A model that guesses without inspecting the repo (what a weak model
+        # does when list_repo_files keeps coming back empty) must not be saved.
+        self.monkeypatch.setattr(
+            da.LLMAgent, "run", lambda self, **kw: da.DependencyResult()
+        )
+        with self.assertRaises(RuntimeError) as ctx:
+            da.infer_and_store(src)
+        self.assertIn("without reading any repository file", str(ctx.exception))
+
+        # Previous edges survive; the task layer records the failure.
+        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 1)
+        src.refresh_from_db()
+        self.assertEqual(src.deps_status, Project.DepsStatus.OK)
+
+    def test_listing_only_without_reading_is_still_rejected(self):
+        _tenant, src, _api = self._setup(da.DependencyResult())
+        self.monkeypatch.setattr(
+            da.LLMAgent, "run", _reading_run(da.DependencyResult(), paths=())
+        )
+        with self.assertRaises(RuntimeError):
+            da.infer_and_store(src)
+
+    def test_empty_repository_listing_is_rejected_with_a_connection_hint(self):
+        _tenant, src, _api = self._setup(
+            da.DependencyResult(), client=_fake_client(tree=(), files={})
+        )
+        self.monkeypatch.setattr(
+            da.LLMAgent, "run", _reading_run(da.DependencyResult(), paths=())
+        )
+        with self.assertRaises(RuntimeError) as ctx:
+            da.infer_and_store(src)
+        self.assertIn("listing came back empty", str(ctx.exception))
+        self.assertIn("connection", str(ctx.exception))
