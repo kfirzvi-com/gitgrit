@@ -32,6 +32,7 @@ from procrastinate.job_context import JobContext
 
 from app.application import subscribers
 from app.application.event_bus import publish
+from app.application.architecture.refresh import InferenceSummary
 from app.domain.events import ComponentAddedToStack, ProjectCreated, RepositoryPushed
 from app.domain.models import Project
 from tests.application.test_job_zombie_invariants import (
@@ -295,12 +296,11 @@ class TriggerScenarios(_Scenario):
         self.assertEqual(self.project.deps_status, Project.DepsStatus.FAILED)
         self.assertIn("provider said no", self.project.deps_error)
 
-        class _Result:
-            internal = external_providers = external_consumers = ()
-
         def ok_result(project):
             _ok(project)
-            return _Result()
+            return InferenceSummary(
+                components=1, internal=0, infrastructure=0, providers=0, consumers=0, files_read=1
+            )
 
         with patch(INFER, side_effect=ok_result), patch(SLEEP):
             call_command("refresh_project_deps", str(self.project.id), "--sync", verbosity=0)
