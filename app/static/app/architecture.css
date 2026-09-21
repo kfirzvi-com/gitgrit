@@ -122,6 +122,36 @@
   font-weight: 600;
   line-height: 1.2;
 }
+.gg-boundary-node__repo {
+  font-size: 0.66rem;
+  opacity: 0.55;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Monorepo components: which repository the component comes from, and where. */
+.gg-stack-node__repo {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.6;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gg-stack-node__path {
+  font-family: var(--gg-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.66rem;
+  opacity: 0.6;
+  margin-top: -2px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gg-boundary-node.is-consumer {
   border-color: rgba(94, 234, 212, 0.5);
 }

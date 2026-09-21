@@ -1,8 +1,13 @@
 """Stack membership use cases.
 
 Thin application services that own the writes for stack creation and
-project↔stack membership, and raise domain events within the transaction so
+component↔stack membership, and raise domain events within the transaction so
 the graph subscriber's enqueue is atomic with the change.
+
+A stack groups *components* (the deployable units inside repositories), not
+projects: a monorepo's services can belong to different stacks. For a plain
+single-application repository the only component is the root one, so adding
+"the project" to a stack means adding its root component.
 """
 from __future__ import annotations
 
@@ -10,11 +15,11 @@ from django.db import transaction
 
 from app.application.event_bus import publish
 from app.domain.events import (
-    ProjectAddedToStack,
-    ProjectRemovedFromStack,
+    ComponentAddedToStack,
+    ComponentRemovedFromStack,
     StackCreated,
 )
-from app.domain.models import Project, ProjectStack, Stack
+from app.domain.models import Component, ComponentStack, Stack
 
 
 def create_stack(*, tenant, name: str, description: str = "") -> Stack:
@@ -31,14 +36,15 @@ def update_stack(*, stack: Stack, name: str, description: str = "") -> Stack:
     return stack
 
 
-def add_project_to_stack(*, tenant, stack, project) -> bool:
-    """Add project to stack. Returns True if newly added (else already present)."""
+def add_component_to_stack(*, tenant, stack, component) -> bool:
+    """Add component to stack. Returns True if newly added (else already present)."""
     with transaction.atomic():
-        _, created = ProjectStack.objects.get_or_create(project=project, stack=stack)
+        _, created = ComponentStack.objects.get_or_create(component=component, stack=stack)
         if created:
             publish(
-                ProjectAddedToStack(
-                    project_id=str(project.id),
+                ComponentAddedToStack(
+                    component_id=str(component.id),
+                    project_id=str(component.project_id),
                     stack_id=str(stack.id),
                     tenant_id=str(tenant.id),
                 )
@@ -46,14 +52,15 @@ def add_project_to_stack(*, tenant, stack, project) -> bool:
     return created
 
 
-def remove_project_from_stack(*, tenant, stack, project) -> bool:
-    """Remove project from stack. Returns True if a membership was removed."""
+def remove_component_from_stack(*, tenant, stack, component) -> bool:
+    """Remove component from stack. Returns True if a membership was removed."""
     with transaction.atomic():
-        deleted, _ = ProjectStack.objects.filter(project=project, stack=stack).delete()
+        deleted, _ = ComponentStack.objects.filter(component=component, stack=stack).delete()
         if deleted:
             publish(
-                ProjectRemovedFromStack(
-                    project_id=str(project.id),
+                ComponentRemovedFromStack(
+                    component_id=str(component.id),
+                    project_id=str(component.project_id),
                     stack_id=str(stack.id),
                     tenant_id=str(tenant.id),
                 )
@@ -61,24 +68,39 @@ def remove_project_from_stack(*, tenant, stack, project) -> bool:
     return bool(deleted)
 
 
-def set_stack_projects(*, tenant, stack, projects) -> tuple[int, int]:
-    """Replace the stack's membership with ``projects``.
+def set_stack_components(*, tenant, stack, components) -> tuple[int, int]:
+    """Replace the stack's membership with ``components``.
 
-    Adds and removes go through the single-project use cases so the graph
+    Adds and removes go through the single-component use cases so the graph
     events fire for each change. Returns ``(added, removed)`` counts.
     """
-    wanted = {p.pk: p for p in projects}
+    wanted = {c.pk: c for c in components}
     current = {
-        p.pk: p for p in Project.objects.filter(tenant=tenant, stacks=stack)
+        c.pk: c for c in Component.objects.filter(tenant=tenant, stacks=stack)
     }
     added = removed = 0
     with transaction.atomic():
-        for pk, project in wanted.items():
+        for pk, component in wanted.items():
             if pk not in current:
-                added += add_project_to_stack(tenant=tenant, stack=stack, project=project)
-        for pk, project in current.items():
+                added += add_component_to_stack(tenant=tenant, stack=stack, component=component)
+        for pk, component in current.items():
             if pk not in wanted:
-                removed += remove_project_from_stack(
-                    tenant=tenant, stack=stack, project=project
+                removed += remove_component_from_stack(
+                    tenant=tenant, stack=stack, component=component
                 )
     return added, removed
+
+
+def add_project_to_stacks(*, tenant, project, stacks) -> int:
+    """Put a freshly added project's root component into ``stacks``.
+
+    The add-project form offers stacks before any analysis has run, when the
+    only component is the root one. Returns the number of memberships added.
+    """
+    root = project.root_component
+    if root is None:
+        return 0
+    return sum(
+        add_component_to_stack(tenant=tenant, stack=stack, component=root)
+        for stack in stacks
+    )

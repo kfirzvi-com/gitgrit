@@ -9,10 +9,12 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from app.application.dependency_agent import (
-    MAX_LISTING_ENTRIES,
-    _RepoToolbox,
-)
+from app.infrastructure.topology.snapshots import PlatformSnapshot
+from app.infrastructure.topology.toolbox import MAX_LISTING_ENTRIES, RepoToolbox
+
+
+def _RepoToolbox(client, full_path, ref, scope=""):
+    return RepoToolbox(PlatformSnapshot(client, full_path, ref), full_path, scope)
 
 
 def _client(tree, files=None):
@@ -110,3 +112,38 @@ class ReadFileTests(SimpleTestCase):
         out = tb.read_file("README.md")
         self.assertIn("exists but is empty", out)
         self.assertEqual(tb.files_read, ["README.md"])
+
+
+class ScopedToolboxTests(SimpleTestCase):
+    """A component's toolbox lists its own directory by default but can still
+    read repository-root files, and shares evidence with its parent."""
+
+    TREE = [
+        "README.md",
+        "docker-compose.yml",
+        "apps/api-gateway/package.json",
+        "apps/api-gateway/src/index.ts",
+        "services/auth-service/pyproject.toml",
+    ]
+
+    def test_root_spellings_list_the_scope_directory(self):
+        tb = _RepoToolbox(_client(self.TREE), "org/mono", "main").scoped("apps/api-gateway")
+        for spelling in ("", ".", "/", "apps/api-gateway"):
+            out = tb.list_repo_files(spelling)
+            self.assertIn("apps/api-gateway/package.json", out)
+            self.assertNotIn("services/auth-service", out)
+
+    def test_explicit_other_directory_still_works(self):
+        tb = _RepoToolbox(_client(self.TREE), "org/mono", "main").scoped("apps/api-gateway")
+        self.assertIn("pyproject.toml", tb.list_repo_files("services/auth-service"))
+
+    def test_reads_root_files_and_scope_relative_paths(self):
+        files = {"docker-compose.yml": "services:", "apps/api-gateway/package.json": "{}"}
+        parent = _RepoToolbox(_client(self.TREE, files), "org/mono", "main")
+        tb = parent.scoped("apps/api-gateway")
+        tb.list_repo_files("")
+        self.assertEqual(tb.read_file("docker-compose.yml"), "services:")
+        self.assertEqual(tb.read_file("package.json"), "{}")  # resolved inside the scope
+        # Evidence is shared with the parent, recorded with full paths.
+        self.assertEqual(parent.files_read, ["docker-compose.yml", "apps/api-gateway/package.json"])
+        self.assertEqual(parent.tree_size, len(self.TREE))

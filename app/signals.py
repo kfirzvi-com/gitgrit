@@ -2,8 +2,9 @@ from django.utils.text import slugify
 
 from allauth.account.signals import user_signed_up
 from django.contrib.auth.signals import user_logged_in
+from django.db.models.signals import post_save
 
-from app.domain.models import Membership, Tenant
+from app.domain.models import Component, Membership, Project, Tenant
 from app.workspace_access import leave_support_view
 
 
@@ -31,5 +32,24 @@ def reset_support_view(request, user, **kwargs):
         leave_support_view(request)
 
 
+def create_root_component(sender, instance, created, raw=False, **kwargs):
+    """Every project has at least one component: the repository root.
+
+    Created with the project so stack membership and the dependency graph
+    always have a component to attach to, before any analysis has run. The
+    inference agent later reconciles the component set by path, which keeps
+    this root row (and its id) for single-application repositories.
+    ``raw`` is True during fixture loading, where the fixture owns the rows.
+    """
+    if not created or raw:
+        return
+    Component.objects.get_or_create(
+        project=instance,
+        path="",
+        defaults={"tenant_id": instance.tenant_id, "name": instance.name},
+    )
+
+
 user_signed_up.connect(create_default_tenant)
 user_logged_in.connect(reset_support_view)
+post_save.connect(create_root_component, sender=Project, dispatch_uid="project_root_component")

@@ -163,18 +163,31 @@
       </div>
     {% endif %}
 
-    {% if project.stacks.all %}
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">Stacks</h2>
-          <div class="flex flex-wrap gap-2">
-            {% for stack in project.stacks.all %}
-              <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
-            {% endfor %}
-          </div>
-        </div>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          Components
+          {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
+        </h2>
+        <ul class="space-y-3">
+          {% for component in project.components.all %}
+            <li>
+              <div class="flex items-baseline gap-2">
+                <span class="font-medium">{{ component.name }}</span>
+                <span class="text-xs opacity-50 font-mono">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
+              </div>
+              <div class="flex flex-wrap gap-1 mt-1">
+                {% for stack in component.stacks.all %}
+                  <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
+                {% empty %}
+                  <span class="text-xs opacity-50">Not in any stack</span>
+                {% endfor %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
       </div>
-    {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}

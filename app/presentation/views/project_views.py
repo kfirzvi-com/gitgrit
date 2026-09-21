@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 
+from app.application import stack_service
 from app.application.event_bus import publish
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
@@ -249,7 +250,7 @@ def add_project_search(request, connection_id):
 
         if stack_ids:
             stacks = Stack.objects.filter(pk__in=stack_ids, tenant=tenant)
-            project.stacks.set(stacks)
+            stack_service.add_project_to_stacks(tenant=tenant, project=project, stacks=stacks)
 
         attached_standards = []
         if standard_ids:

@@ -32,7 +32,8 @@ from procrastinate.job_context import JobContext
 
 from app.application import subscribers
 from app.application.event_bus import publish
-from app.domain.events import ProjectAddedToStack, ProjectCreated, RepositoryPushed
+from app.application.architecture.refresh import InferenceSummary
+from app.domain.events import ComponentAddedToStack, ProjectCreated, RepositoryPushed
 from app.domain.models import Project
 from tests.application.test_job_zombie_invariants import (
     QUEUE,
@@ -108,6 +109,16 @@ class _Scenario(CleanProcrastinateTables, TransactionTestCase):
     def _event(self, cls=RepositoryPushed, project=None, **extra):
         project = project or self.project
         return cls(project_id=str(project.id), tenant_id=str(self.tenant.id), **extra)
+
+    def _stack_event(self, project, stack):
+        """What ``stack_service.add_component_to_stack`` publishes for the
+        project's root component."""
+        return ComponentAddedToStack(
+            component_id=str(project.root_component.id),
+            project_id=str(project.id),
+            stack_id=str(stack.id),
+            tenant_id=str(self.tenant.id),
+        )
 
     def _doing_job(self, project=None) -> tuple[int, int]:
         """A row that a live worker is executing right now, with the locks the
@@ -263,13 +274,13 @@ class TriggerScenarios(_Scenario):
 
         # Command first, then event: the subscriber swallows AlreadyEnqueued.
         call_command("refresh_project_deps", str(self.project.id), verbosity=0)
-        publish(self._event(ProjectAddedToStack, stack_id=str(stack.id)))
+        publish(self._stack_event(self.project, stack))
         self.assertEqual(_todo_count(self.lock), 1)
 
         # Event first, then command: same single row. The command does not
         # catch AlreadyEnqueued itself (see report) but the queue stays sane.
         other = self._project()
-        publish(self._event(ProjectAddedToStack, project=other, stack_id=str(stack.id)))
+        publish(self._stack_event(other, stack))
         with self.assertRaises(AlreadyEnqueued):
             call_command("refresh_project_deps", str(other.id), verbosity=0)
         self.assertEqual(_todo_count(f"deps:{other.id}"), 1)
@@ -285,12 +296,11 @@ class TriggerScenarios(_Scenario):
         self.assertEqual(self.project.deps_status, Project.DepsStatus.FAILED)
         self.assertIn("provider said no", self.project.deps_error)
 
-        class _Result:
-            internal = external_providers = external_consumers = ()
-
         def ok_result(project):
             _ok(project)
-            return _Result()
+            return InferenceSummary(
+                components=1, internal=0, infrastructure=0, providers=0, consumers=0, files_read=1
+            )
 
         with patch(INFER, side_effect=ok_result), patch(SLEEP):
             call_command("refresh_project_deps", str(self.project.id), "--sync", verbosity=0)
