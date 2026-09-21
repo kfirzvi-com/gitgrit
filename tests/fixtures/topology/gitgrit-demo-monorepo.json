@@ -1,43 +1,233 @@
 {
   "components": [
-    {"path": "", "name": "gitgrit-demo-monorepo", "kind": "other", "description": "Monorepo root: workspace manifests and docker-compose.", "technologies": ["Docker Compose"]},
-    {"path": "apps/web-storefront", "name": "web-storefront", "kind": "frontend", "description": "Customer-facing Next.js storefront.", "technologies": ["TypeScript", "Next.js", "React"]},
-    {"path": "apps/api-gateway", "name": "api-gateway", "kind": "service", "description": "Express edge API routing to backend services.", "technologies": ["TypeScript", "Express"]},
-    {"path": "services/auth-service", "name": "auth-service", "kind": "service", "description": "FastAPI authentication and authorization.", "technologies": ["Python", "FastAPI"]},
-    {"path": "services/orders-service", "name": "orders-service", "kind": "service", "description": "Go order processing.", "technologies": ["Go"]},
-    {"path": "services/payments-service", "name": "payments-service", "kind": "service", "description": "Go payments via Stripe.", "technologies": ["Go", "Stripe SDK"]},
-    {"path": "services/data-pipeline", "name": "data-pipeline", "kind": "job", "description": "Python ETL from order events to the warehouse.", "technologies": ["Python", "boto3", "pandas"]},
-    {"path": "packages/shared-lib", "name": "shared-lib", "kind": "library", "description": "Shared types and utilities in TypeScript, Python and Go.", "technologies": ["TypeScript", "Python", "Go", "zod", "pydantic"]},
-    {"path": "infra", "name": "infra", "kind": "infra", "description": "Terraform for RDS, SQS and S3.", "technologies": ["Terraform", "AWS"]}
+    {
+      "path": "apps/web-storefront",
+      "name": "web-storefront",
+      "kind": "frontend",
+      "description": "Customer-facing Next.js storefront.",
+      "technologies": [
+        "TypeScript",
+        "Next.js",
+        "React"
+      ]
+    },
+    {
+      "path": "apps/api-gateway",
+      "name": "api-gateway",
+      "kind": "service",
+      "description": "Express edge API routing to backend services.",
+      "technologies": [
+        "TypeScript",
+        "Express"
+      ]
+    },
+    {
+      "path": "services/auth-service",
+      "name": "auth-service",
+      "kind": "service",
+      "description": "FastAPI authentication and authorization.",
+      "technologies": [
+        "Python",
+        "FastAPI"
+      ]
+    },
+    {
+      "path": "services/orders-service",
+      "name": "orders-service",
+      "kind": "service",
+      "description": "Go order processing.",
+      "technologies": [
+        "Go"
+      ]
+    },
+    {
+      "path": "services/payments-service",
+      "name": "payments-service",
+      "kind": "service",
+      "description": "Go payments via Stripe.",
+      "technologies": [
+        "Go",
+        "Stripe SDK"
+      ]
+    },
+    {
+      "path": "services/data-pipeline",
+      "name": "data-pipeline",
+      "kind": "job",
+      "description": "Python ETL from order events to the warehouse.",
+      "technologies": [
+        "Python",
+        "boto3",
+        "pandas"
+      ]
+    },
+    {
+      "path": "packages/shared-lib",
+      "name": "shared-lib",
+      "kind": "library",
+      "description": "Shared types and utilities in TypeScript, Python and Go.",
+      "technologies": [
+        "TypeScript",
+        "Python",
+        "Go",
+        "zod",
+        "pydantic"
+      ]
+    },
+    {
+      "path": "infra",
+      "name": "infra",
+      "kind": "infra",
+      "description": "Terraform for RDS, SQS and S3.",
+      "technologies": [
+        "Terraform",
+        "AWS"
+      ]
+    }
   ],
   "internal": [
-    {"source_path": "apps/web-storefront", "target_ref": "{repo}#apps/api-gateway", "label": "REST"},
-    {"source_path": "apps/web-storefront", "target_ref": "{repo}#packages/shared-lib", "label": "shared types"},
-    {"source_path": "apps/api-gateway", "target_ref": "{repo}#services/auth-service", "label": "token validation"},
-    {"source_path": "apps/api-gateway", "target_ref": "{repo}#services/orders-service", "label": "orders routing"},
-    {"source_path": "apps/api-gateway", "target_ref": "{repo}#packages/shared-lib", "label": "shared types"},
-    {"source_path": "services/auth-service", "target_ref": "{repo}#packages/shared-lib", "label": "shared models"},
-    {"source_path": "services/orders-service", "target_ref": "{repo}#services/auth-service", "label": "token validation"},
-    {"source_path": "services/orders-service", "target_ref": "{repo}#services/payments-service", "label": "payments"},
-    {"source_path": "services/orders-service", "target_ref": "{repo}#packages/shared-lib", "label": "shared models"},
-    {"source_path": "services/payments-service", "target_ref": "{repo}#services/orders-service", "label": "payment callback"},
-    {"source_path": "services/payments-service", "target_ref": "{repo}#packages/shared-lib", "label": "shared models"},
-    {"source_path": "services/data-pipeline", "target_ref": "{repo}#services/orders-service", "label": "order events"},
-    {"source_path": "services/data-pipeline", "target_ref": "{repo}#packages/shared-lib", "label": "shared models"}
+    {
+      "source_path": "apps/web-storefront",
+      "target_ref": "{repo}#apps/api-gateway",
+      "label": "REST"
+    },
+    {
+      "source_path": "apps/web-storefront",
+      "target_ref": "{repo}#packages/shared-lib",
+      "label": "shared types"
+    },
+    {
+      "source_path": "apps/api-gateway",
+      "target_ref": "{repo}#services/auth-service",
+      "label": "token validation"
+    },
+    {
+      "source_path": "apps/api-gateway",
+      "target_ref": "{repo}#services/orders-service",
+      "label": "orders routing"
+    },
+    {
+      "source_path": "apps/api-gateway",
+      "target_ref": "{repo}#packages/shared-lib",
+      "label": "shared types"
+    },
+    {
+      "source_path": "services/auth-service",
+      "target_ref": "{repo}#packages/shared-lib",
+      "label": "shared models"
+    },
+    {
+      "source_path": "services/orders-service",
+      "target_ref": "{repo}#services/auth-service",
+      "label": "token validation"
+    },
+    {
+      "source_path": "services/orders-service",
+      "target_ref": "{repo}#services/payments-service",
+      "label": "payments"
+    },
+    {
+      "source_path": "services/orders-service",
+      "target_ref": "{repo}#packages/shared-lib",
+      "label": "shared models"
+    },
+    {
+      "source_path": "services/payments-service",
+      "target_ref": "{repo}#services/orders-service",
+      "label": "payment callback"
+    },
+    {
+      "source_path": "services/payments-service",
+      "target_ref": "{repo}#packages/shared-lib",
+      "label": "shared models"
+    },
+    {
+      "source_path": "services/data-pipeline",
+      "target_ref": "{repo}#services/orders-service",
+      "label": "order events"
+    },
+    {
+      "source_path": "services/data-pipeline",
+      "target_ref": "{repo}#packages/shared-lib",
+      "label": "shared models"
+    }
   ],
   "externals": [
-    {"source_path": "apps/web-storefront", "name": "Auth0", "direction": "outbound", "url": "https://auth0.com", "label": "login"},
-    {"source_path": "apps/web-storefront", "name": "Stripe", "direction": "outbound", "url": "https://stripe.com", "label": "checkout"},
-    {"source_path": "services/auth-service", "name": "Auth0", "direction": "outbound", "url": "https://auth0.com", "label": "identity provider"},
-    {"source_path": "services/payments-service", "name": "Stripe", "direction": "outbound", "url": "https://stripe.com", "label": "payments"},
-    {"source_path": "services/payments-service", "name": "Stripe", "direction": "inbound", "url": "https://stripe.com", "label": "webhooks"}
+    {
+      "source_path": "apps/web-storefront",
+      "name": "Auth0",
+      "direction": "outbound",
+      "url": "https://auth0.com",
+      "label": "login"
+    },
+    {
+      "source_path": "apps/web-storefront",
+      "name": "Stripe",
+      "direction": "outbound",
+      "url": "https://stripe.com",
+      "label": "checkout"
+    },
+    {
+      "source_path": "services/auth-service",
+      "name": "Auth0",
+      "direction": "outbound",
+      "url": "https://auth0.com",
+      "label": "identity provider"
+    },
+    {
+      "source_path": "services/payments-service",
+      "name": "Stripe",
+      "direction": "outbound",
+      "url": "https://stripe.com",
+      "label": "payments"
+    },
+    {
+      "source_path": "services/payments-service",
+      "name": "Stripe",
+      "direction": "inbound",
+      "url": "https://stripe.com",
+      "label": "webhooks"
+    }
   ],
   "infrastructure": [
-    {"source_path": "services/auth-service", "name": "PostgreSQL", "kind": "database", "label": "auth DB"},
-    {"source_path": "services/orders-service", "name": "PostgreSQL", "kind": "database", "label": "orders DB"},
-    {"source_path": "services/orders-service", "name": "AWS SQS", "kind": "queue", "label": "orders-events"},
-    {"source_path": "services/data-pipeline", "name": "AWS SQS", "kind": "queue", "label": "orders-events (consumer)"},
-    {"source_path": "services/data-pipeline", "name": "AWS S3", "kind": "storage", "label": "warehouse"}
+    {
+      "source_path": "services/auth-service",
+      "name": "PostgreSQL",
+      "kind": "database",
+      "label": "auth DB"
+    },
+    {
+      "source_path": "services/orders-service",
+      "name": "PostgreSQL",
+      "kind": "database",
+      "label": "orders DB"
+    },
+    {
+      "source_path": "services/orders-service",
+      "name": "AWS SQS",
+      "kind": "queue",
+      "label": "orders-events"
+    },
+    {
+      "source_path": "services/data-pipeline",
+      "name": "AWS SQS",
+      "kind": "queue",
+      "label": "orders-events (consumer)"
+    },
+    {
+      "source_path": "services/data-pipeline",
+      "name": "AWS S3",
+      "kind": "storage",
+      "label": "warehouse"
+    }
   ],
-  "evidence": {"files_read": ["README.md", "docker-compose.yml", "go.work", "package.json", "pyproject.toml"]}
+  "evidence": {
+    "files_read": [
+      "README.md",
+      "docker-compose.yml",
+      "go.work",
+      "package.json",
+      "pyproject.toml"
+    ]
+  }
 }

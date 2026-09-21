@@ -85,7 +85,12 @@ window.GitGritFlow = (function () {
         d.stack_name
           ? h("div", { className: "gg-boundary-node__stack" }, d.stack_name)
           : null,
-        h("div", { className: "gg-boundary-node__name" }, d.name)
+        h("div", { className: "gg-boundary-node__name" }, d.name),
+        // A component of another repository: say which one, unless the
+        // component is that repository's root (same name, nothing to add).
+        d.project_name && d.project_name !== d.name
+          ? h("div", { className: "gg-boundary-node__repo" }, d.project_name)
+          : null
       );
     };
   }

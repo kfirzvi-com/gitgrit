@@ -1,12 +1,17 @@
 /* Per-stack architecture diagram (read-only).
  *
- * Core: the projects inside this stack, with project-to-project edges. Around
- * the periphery, boundary nodes show the stack's relationships that cross its
- * edge:
- *   - consumers (top)    — workspace projects in other stacks that depend on
- *                          one of ours → our project is public-facing.
- *   - consuming (bottom) — workspace projects (other stacks) we depend on.
+ * Core: the components inside this stack (the deployable units of its
+ * repositories), with component-to-component edges. A component of a monorepo
+ * carries a repository chip and its directory path. Around the periphery,
+ * boundary nodes show the stack's relationships that cross its edge:
+ *   - consumers (top)    — workspace components in other stacks that depend
+ *                          on one of ours → our component is public-facing.
+ *   - consuming (bottom) — workspace components (other stacks) we depend on.
  *   - third-party (bottom) — external apps we depend on.
+ *
+ * Grouping a repository's components in a box (React Flow parentId + a
+ * compound dagre layout) is a possible later step; today a repository's
+ * components usually sit in different stacks, so a chip says enough.
  *
  * Edges are coloured by kind and explained by an on-canvas legend. Built on
  * window.GitGritFlow (flow-common.js).
@@ -40,7 +45,7 @@
   var EDGE_COLOR = GF.EDGE_COLOR;
 
   // --- Node components -------------------------------------------------------
-  function ProjectNode(props) {
+  function ComponentNode(props) {
     var d = props.data;
     var techs = d.technologies || [];
     var hp = GF.healthProps(d.health);
@@ -48,6 +53,13 @@
       "div",
       { className: "gg-stack-node gg-clickable " + hp.className, style: hp.style },
       GF.handles(),
+      d.monorepo
+        ? h(
+            "div",
+            { className: "gg-stack-node__repo", title: "Repository: " + d.project_name },
+            d.project_name
+          )
+        : null,
       h(
         "div",
         { className: "gg-stack-node__head" },
@@ -60,10 +72,14 @@
             )
           : null
       ),
+      d.path ? h("div", { className: "gg-stack-node__path" }, d.path) : null,
       h(
         "div",
         { className: "gg-stack-node__meta" },
-        h("span", { className: "badge badge-outline badge-xs" }, d.lifecycle)
+        h("span", { className: "badge badge-outline badge-xs" }, d.lifecycle),
+        d.kind && d.kind !== "other"
+          ? h("span", { className: "badge badge-ghost badge-xs" }, d.kind)
+          : null
       ),
       techs.length
         ? h(
@@ -104,7 +120,7 @@
   }
 
   var nodeTypes = {
-    project: ProjectNode,
+    component: ComponentNode,
     consumer: GF.boundaryNode("is-consumer"),
     consuming: GF.boundaryNode("is-consuming"),
     thirdparty: GF.boundaryNode("is-thirdparty"),
@@ -117,16 +133,16 @@
   // --- Layout ----------------------------------------------------------------
   // One hierarchical (top-down) pass over every node. Because all edges mean
   // "depends on" (consumer → project → dependency), dagre naturally banks
-  // consumers at the top, the stack's projects in the middle, and the things
+  // consumers at the top, the stack's components in the middle, and the things
   // we depend on (workspace + third-party) at the bottom — and orders nodes
   // within each rank to minimise crossings.
-  var PROJECT = { w: 240, h: 150 };
+  var COMPONENT = { w: 240, h: 150 };
   var BOUNDARY = { w: 190, h: 64 };
 
   var allNodes = []
     .concat(
-      data.components.map(function (p) {
-        return { id: p.id, type: "project", data: p, w: PROJECT.w, h: PROJECT.h };
+      data.components.map(function (c) {
+        return { id: c.id, type: "component", data: c, w: COMPONENT.w, h: COMPONENT.h };
       })
     )
     .concat(
@@ -219,7 +235,7 @@
     h(
       "div",
       { key: "health", className: "gg-legend__section" },
-      h("div", { className: "gg-legend__title" }, "Project health"),
+      h("div", { className: "gg-legend__title" }, "Health (per repository)"),
       healthRow("healthy"),
       healthRow("warning"),
       healthRow("critical"),
