@@ -197,10 +197,12 @@ class BaseWebhookView(APIView):
         removed_count = 0
         if removed_ids:
             for conn in connections:
-                deleted, _ = Project.objects.filter(
+                # ``delete()`` totals every cascaded row (components, edges,
+                # executions); report projects only.
+                _, per_model = Project.objects.filter(
                     platform_connection=conn, external_id__in=removed_ids
                 ).delete()
-                removed_count += deleted
+                removed_count += per_model.get(Project._meta.label, 0)
         return Response(
             {
                 "event": "installation_repositories",
