@@ -1,53 +1,60 @@
-{# Searchable project picker table for the stack-page "Manage projects" modal. #}
-{# Context: workspace_projects (queryset), member_project_ids (set of pks to pre-check). #}
+{# Searchable component picker table for the stack-page "Manage components" modal. #}
+{# Context: workspace_components (queryset, select_related project), member_component_ids (set of pks to pre-check). #}
 <div class="project-picker">
-  <input type="text" placeholder="Search projects by name, path, platform, or lifecycle..."
+  <input type="text" placeholder="Search components by name, repository, path, platform, or lifecycle..."
          class="input input-bordered w-full mb-2"
          oninput="filterProjectPicker(this)" autocomplete="off"
          onkeydown="if (event.key === 'Enter') event.preventDefault()">
   <p class="mb-2 text-sm opacity-70">
-    {{ workspace_projects|length }} project{{ workspace_projects|length|pluralize }}
-    · <span class="project-picker-selected">{{ member_project_ids|length }}</span> selected
+    {{ workspace_components|length }} component{{ workspace_components|length|pluralize }}
+    · <span class="project-picker-selected">{{ member_component_ids|length }}</span> selected
   </p>
   <div class="max-h-96 overflow-y-auto rounded-box border border-base-300">
     <table class="table table-pin-rows">
       <thead>
         <tr>
           <th class="w-8"></th>
-          <th>Name</th>
+          <th>Component</th>
+          <th>Repository</th>
           <th>Platform</th>
           <th>Lifecycle</th>
         </tr>
       </thead>
       <tbody>
-        {% for project in workspace_projects %}
+        {% for component in workspace_components %}
           <tr class="project-picker-row"
-              data-project-search="{{ project.name|lower }} {{ project.full_path|lower }} {{ project.get_platform_display|lower }} {{ project.get_lifecycle_display|lower }}">
+              data-project-search="{{ component.name|lower }} {{ component.path|lower }} {{ component.project.name|lower }} {{ component.project.full_path|lower }} {{ component.project.get_platform_display|lower }} {{ component.project.get_lifecycle_display|lower }}">
             <td>
-              <input type="checkbox" name="projects" value="{{ project.pk }}"
+              <input type="checkbox" name="components" value="{{ component.pk }}"
                      class="checkbox checkbox-sm"
                      onchange="updateProjectPickerCount(this.closest('.project-picker'))"
-                     {% if project.pk in member_project_ids %}checked{% endif %}>
+                     {% if component.pk in member_component_ids %}checked{% endif %}>
             </td>
             <td>
-              <a href="{% url 'project_detail' project.pk %}" target="_blank" rel="noopener"
-                 class="link link-hover font-medium">{{ project.name }}</a>
-              <p class="text-xs opacity-50 truncate max-w-xs">{{ project.full_path }}</p>
+              <span class="font-medium">{{ component.name }}</span>
+              {% if component.path %}
+                <p class="text-xs opacity-50 truncate max-w-xs font-mono">{{ component.path }}</p>
+              {% endif %}
             </td>
             <td>
-              <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-                {{ project.get_platform_display }}
+              <a href="{% url 'project_detail' component.project.pk %}" target="_blank" rel="noopener"
+                 class="link link-hover">{{ component.project.name }}</a>
+              <p class="text-xs opacity-50 truncate max-w-xs">{{ component.project.full_path }}</p>
+            </td>
+            <td>
+              <span class="badge {% if component.project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
+                {{ component.project.get_platform_display }}
               </span>
             </td>
             <td>
-              <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+              <span class="badge badge-outline badge-sm">{{ component.project.get_lifecycle_display }}</span>
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4"><p class="text-sm opacity-70">No projects in this workspace yet.</p></td></tr>
+          <tr><td colspan="5"><p class="text-sm opacity-70">No components in this workspace yet — add a project first.</p></td></tr>
         {% endfor %}
         <tr class="project-picker-no-match hidden">
-          <td colspan="4"><p class="text-sm opacity-70">No projects match your search.</p></td>
+          <td colspan="5"><p class="text-sm opacity-70">No components match your search.</p></td>
         </tr>
       </tbody>
     </table>

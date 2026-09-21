@@ -62,7 +62,7 @@
 {% endif %}
 
 <div class="space-y-6">
-  {% if stack_projects %}
+  {% if stack_components %}
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body p-2 sm:p-3">
         <div id="stack-flow"></div>
@@ -74,47 +74,54 @@
     <div class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="card-title">
-          Projects
-          {% if stack_projects %}
-            <span class="text-sm font-normal opacity-70">{{ stack_projects|length }} in stack</span>
+          Components
+          {% if stack_components %}
+            <span class="text-sm font-normal opacity-70">{{ stack_components|length }} in stack</span>
           {% endif %}
         </h2>
         <button type="button" class="btn btn-outline btn-sm"
-                hx-get="{% url 'stack_projects' stack.pk %}"
-                hx-target="#projects-modal-body"
+                hx-get="{% url 'stack_components' stack.pk %}"
+                hx-target="#components-modal-body"
                 hx-swap="innerHTML"
-                onclick="document.getElementById('projects-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading projects...&lt;/p&gt;'; document.getElementById('projects_modal').showModal()">
-          Manage projects
+                onclick="document.getElementById('components-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading components...&lt;/p&gt;'; document.getElementById('components_modal').showModal()">
+          Manage components
         </button>
       </div>
 
-      {% if stack_projects %}
+      {% if stack_components %}
         <div class="overflow-x-auto mt-4">
           <table class="table">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Component</th>
+                <th>Repository</th>
                 <th>Platform</th>
                 <th>Lifecycle</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {% for project in stack_projects %}
+              {% for component in stack_components %}
                 <tr>
                   <td>
-                    <a href="{% url 'project_detail' project.pk %}" class="link">{{ project.name }}</a>
+                    <span class="font-medium">{{ component.name }}</span>
+                    {% if component.path %}
+                      <p class="text-xs opacity-50 font-mono">{{ component.path }}</p>
+                    {% endif %}
                   </td>
                   <td>
-                    <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-                      {{ project.get_platform_display }}
+                    <a href="{% url 'project_detail' component.project.pk %}" class="link">{{ component.project.name }}</a>
+                  </td>
+                  <td>
+                    <span class="badge {% if component.project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
+                      {{ component.project.get_platform_display }}
                     </span>
                   </td>
                   <td>
-                    <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+                    <span class="badge badge-outline badge-sm">{{ component.project.get_lifecycle_display }}</span>
                   </td>
                   <td class="text-right">
-                    <form method="post" action="{% url 'remove_project_from_stack' stack.pk project.pk %}">
+                    <form method="post" action="{% url 'remove_component_from_stack' stack.pk component.pk %}">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-ghost btn-xs text-error">Remove</button>
                     </form>
@@ -125,23 +132,23 @@
           </table>
         </div>
       {% else %}
-        <p class="text-sm opacity-70 mt-4">No projects in this stack yet. Use "Manage projects" to add projects from your workspace.</p>
+        <p class="text-sm opacity-70 mt-4">No components in this stack yet. Use "Manage components" to add the services, apps and libraries this stack is made of.</p>
       {% endif %}
     </div>
   </div>
 </div>
 
-<dialog id="projects_modal" class="modal">
+<dialog id="components_modal" class="modal">
   <div class="modal-box max-w-4xl">
-    <h3 class="font-bold text-lg mb-2">Manage projects</h3>
-    <div id="projects-modal-body">
-      <p class="text-sm opacity-70">Loading projects...</p>
+    <h3 class="font-bold text-lg mb-2">Manage components</h3>
+    <div id="components-modal-body">
+      <p class="text-sm opacity-70">Loading components...</p>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-{% if stack_projects %}
+{% if stack_components %}
   <script id="stack-architecture-data" type="application/json">{{ architecture_data|safe }}</script>
 
   <script src="{% static 'app/vendor/react.production.min.js' %}"></script>

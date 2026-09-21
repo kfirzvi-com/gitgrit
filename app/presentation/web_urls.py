@@ -30,8 +30,8 @@ from app.presentation.views.stack_views import (
     StackListView,
     delete_stack,
     edit_stack,
-    remove_project_from_stack,
-    stack_projects,
+    remove_component_from_stack,
+    stack_components,
 )
 from app.presentation.views.tenant_views import (
     CreateTenantView,
@@ -205,11 +205,11 @@ urlpatterns = [
     path("stacks/<uuid:pk>/", StackDetailView.as_view(), name="stack_detail"),
     path("stacks/<uuid:pk>/delete/", delete_stack, name="delete_stack"),
     path("stacks/<uuid:pk>/edit/", edit_stack, name="edit_stack"),
-    path("stacks/<uuid:pk>/projects/", stack_projects, name="stack_projects"),
+    path("stacks/<uuid:pk>/components/", stack_components, name="stack_components"),
     path(
-        "stacks/<uuid:stack_pk>/projects/<uuid:project_pk>/remove/",
-        remove_project_from_stack,
-        name="remove_project_from_stack",
+        "stacks/<uuid:stack_pk>/components/<uuid:component_pk>/remove/",
+        remove_component_from_stack,
+        name="remove_component_from_stack",
     ),
     # Standards
     path("standards/", StandardListView.as_view(), name="standard_list"),

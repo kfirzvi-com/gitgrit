@@ -3,9 +3,14 @@
 Runs the in-process agent (``app.infrastructure.llm_agent``) against one
 project's repository: the model lists/reads whatever config, IaC, manifest or
 build files it judges relevant and returns the project's dependencies. We then
-resolve those against the workspace's project roster — known projects become
-``ProjectDependency`` edges, everything else becomes an ``ExternalDependency``
-(third-party) — replacing the project's existing edges atomically.
+resolve those against the workspace's component roster — known components
+become ``ComponentDependency`` edges, everything else becomes an
+``ExternalDependency`` (third-party) — replacing the project's existing edges
+atomically.
+
+Edges, infrastructure and tech labels are written to the project's *root
+component* (the repository as one deployable unit). Discovering several
+components inside one repository is the next step on top of this.
 
 Stack-to-stack edges are NOT written here; they're derived at read time
 (see ``app.presentation.architecture``).
@@ -22,10 +27,11 @@ from pydantic import BaseModel, Field
 from app.application.naming import canonical_key
 from app.application.standard_engine import resolve_llm_roles
 from app.domain.models import (
+    Component,
+    ComponentDependency,
     ExternalDependency,
     InfrastructureComponent,
     Project,
-    ProjectDependency,
 )
 from app.infrastructure.llm_agent import LLMAgent, tool
 from app.infrastructure.platform_client import get_platform_client
@@ -82,9 +88,10 @@ _SYSTEM_PROMPT = (
     "repo USES (e.g. Next.js, React, FastAPI, Express, Terraform, the AWS SDK, "
     "zod, pydantic). These are NOT graph nodes — they become the component's "
     "tech labels. Put every imported package/framework/tool here.\n"
-    "  • internal — a dependency on ANOTHER repository in this workspace; only "
-    "use the repositories listed in the roster, and return the repository's "
-    "exact full_path as the target.\n"
+    "  • internal — a dependency on ANOTHER component in this workspace; only "
+    "use the components listed in the roster, and return the component's "
+    "exact ref as the target (a repository's full_path, or full_path#path for "
+    "a component inside a monorepo).\n"
     "  • infrastructure — a datastore/queue/cache/object-store the service OWNS "
     "and operates as its own implementation detail (its Postgres/MySQL/Mongo "
     "database, Redis cache, Kafka/RabbitMQ/SQS queue, S3 bucket). These are "
@@ -116,7 +123,7 @@ _SYSTEM_PROMPT = (
 
 
 class _InternalDep(BaseModel):
-    target: str = Field(description="full_path of a roster repository this repo depends on")
+    target: str = Field(description="ref of a roster component this repo depends on")
     label: str = Field(default="", description="short edge caption, e.g. 'REST', 'events', 'OAuth'")
 
 
@@ -306,14 +313,21 @@ class _RepoToolbox:
         return content if content else f"[file '{p}' exists but is empty]"
 
 
+def _ref(r: dict) -> str:
+    """A roster entry's ref: ``full_path`` for a root component,
+    ``full_path#path`` for a component inside a monorepo."""
+    return r["full_path"] if not r["path"] else f"{r['full_path']}#{r['path']}"
+
+
 def _build_instructions(project: Project, roster: list[dict]) -> str:
     lines = [
         f"Repository to analyze: {project.full_path}",
         "",
-        "Workspace repositories (roster) you may reference as internal targets:",
+        "Workspace components (roster) you may reference as internal targets:",
     ]
     for r in roster:
-        lines.append(f"  - full_path: {r['full_path']}  (name: {r['name']})")
+        where = f"repo: {r['full_path']}" if r["path"] else f"name: {r['name']}"
+        lines.append(f"  - ref: {_ref(r)}  ({where})")
     lines += [
         "",
         "Inspect the repository and return its internal and external dependencies.",
@@ -321,16 +335,57 @@ def _build_instructions(project: Project, roster: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _component_roster(tenant, project: Project) -> list[dict]:
+    """Every other component in the workspace, flattened for prompt + resolution."""
+    rows = (
+        Component.objects.filter(tenant=tenant)
+        .exclude(project=project)
+        .values("pk", "name", "path", "project__full_path")
+    )
+    return [
+        {"pk": r["pk"], "name": r["name"], "path": r["path"], "full_path": r["project__full_path"]}
+        for r in rows
+    ]
+
+
 def _resolve_internal_target(target: str, roster: list[dict]) -> str | None:
-    """Map an LLM-returned target string to a roster project id (best effort)."""
+    """Map an LLM-returned target string to a roster component id (best effort).
+
+    Tried in order: exact ref (``repo`` or ``repo#path``); a bare repository
+    whose only component is the root; ``repo/path`` slash form; a unique
+    component name; a repository's last path segment (its root component).
+    """
     t = (target or "").strip().lower().rstrip("/")
     if not t:
         return None
-    by_full_path = {r["full_path"].lower(): r["pk"] for r in roster}
-    by_name = {r["name"].lower(): r["pk"] for r in roster}
-    by_last = {r["full_path"].lower().rsplit("/", 1)[-1]: r["pk"] for r in roster}
-    last = t.rsplit("/", 1)[-1]
-    return by_full_path.get(t) or by_name.get(t) or by_name.get(last) or by_last.get(last)
+    by_ref = {_ref(r).lower(): r["pk"] for r in roster}
+    if t in by_ref:
+        return by_ref[t]
+    # ``repo/path`` written with a slash instead of ``#``.
+    for r in roster:
+        if r["path"] and t == f"{r['full_path']}/{r['path']}".lower():
+            return r["pk"]
+    by_name = {}
+    for r in roster:
+        by_name.setdefault(r["name"].lower(), []).append(r["pk"])
+    roots_by_last = {
+        r["full_path"].lower().rsplit("/", 1)[-1]: r["pk"] for r in roster if not r["path"]
+    }
+    last = t.rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+    for key in (t, last):
+        pks = by_name.get(key)
+        if pks and len(pks) == 1:
+            return pks[0]
+    return roots_by_last.get(last)
+
+
+def _root_component(project: Project) -> Component:
+    root = project.root_component
+    if root is None:  # invariant: created with the project; heal if missing
+        root = Component.objects.create(
+            tenant_id=project.tenant_id, project=project, path="", name=project.name
+        )
+    return root
 
 
 def infer_and_store(project: Project) -> DependencyResult:
@@ -346,11 +401,8 @@ def infer_and_store(project: Project) -> DependencyResult:
             "Workspace Settings → LLM."
         )
 
-    roster = list(
-        Project.objects.filter(tenant=tenant)
-        .exclude(pk=project.pk)
-        .values("pk", "name", "full_path")
-    )
+    roster = _component_roster(tenant, project)
+    root = _root_component(project)
 
     client = get_platform_client(project.platform_connection)
     # Route through the auth-method seam, scoping a GitHub App installation
@@ -404,18 +456,18 @@ def infer_and_store(project: Project) -> DependencyResult:
         )
 
     # Resolve + persist atomically (replace this project's outgoing edges).
-    project_deps = []
+    component_deps = []
     seen_targets = set()
     for dep in result.internal:
         target_pk = _resolve_internal_target(dep.target, roster)
-        if not target_pk or target_pk == project.pk or target_pk in seen_targets:
+        if not target_pk or target_pk == root.pk or target_pk in seen_targets:
             if not target_pk:
                 logger.info("deps[%s]: unresolved internal target %r", project.name, dep.target)
             continue
         seen_targets.add(target_pk)
-        project_deps.append(
-            ProjectDependency(
-                tenant=tenant, source=project, target_id=target_pk, label=dep.label[:255]
+        component_deps.append(
+            ComponentDependency(
+                tenant=tenant, source=root, target_id=target_pk, label=dep.label[:255]
             )
         )
 
@@ -431,7 +483,7 @@ def infer_and_store(project: Project) -> DependencyResult:
         if kind not in _VALID_KINDS:
             kind = _infra_kind(name) or "other"
         infra[key] = InfrastructureComponent(
-            tenant=tenant, project=project, name=name[:255], kind=kind,
+            tenant=tenant, component=root, name=name[:255], kind=kind,
             description=(label or "")[:255],
         )
 
@@ -447,7 +499,7 @@ def infer_and_store(project: Project) -> DependencyResult:
             if not name:
                 continue
             # The LLM sometimes lists workspace repos as "external" — those
-            # belong to internal ProjectDependency, captured elsewhere.
+            # belong to internal ComponentDependency, captured elsewhere.
             if _resolve_internal_target(name, roster):
                 logger.info("deps[%s]: dropping workspace repo %r from external", project.name, name)
                 continue
@@ -467,7 +519,7 @@ def infer_and_store(project: Project) -> DependencyResult:
             external_deps.append(
                 ExternalDependency(
                     tenant=tenant,
-                    project=project,
+                    component=root,
                     name=name[:255],
                     direction=direction,
                     url=(dep.url or "")[:2048],
@@ -491,20 +543,20 @@ def infer_and_store(project: Project) -> DependencyResult:
             technologies.append(t[:60])
 
     with transaction.atomic():
-        ProjectDependency.objects.filter(tenant=tenant, source=project).delete()
-        ExternalDependency.objects.filter(tenant=tenant, project=project).delete()
-        InfrastructureComponent.objects.filter(tenant=tenant, project=project).delete()
-        ProjectDependency.objects.bulk_create(project_deps, ignore_conflicts=True)
+        ComponentDependency.objects.filter(tenant=tenant, source__project=project).delete()
+        ExternalDependency.objects.filter(tenant=tenant, component__project=project).delete()
+        InfrastructureComponent.objects.filter(tenant=tenant, component__project=project).delete()
+        ComponentDependency.objects.bulk_create(component_deps, ignore_conflicts=True)
         ExternalDependency.objects.bulk_create(external_deps, ignore_conflicts=True)
         InfrastructureComponent.objects.bulk_create(infra_components, ignore_conflicts=True)
-        project.inferred_technologies = technologies[:20]
+        root.technologies = technologies[:20]
+        root.save(update_fields=["technologies", "updated_at"])
         project.deps_evidence = toolbox.files_read[:50]
         project.deps_status = Project.DepsStatus.OK
         project.deps_analyzed_at = timezone.now()
         project.deps_error = ""
         project.save(
             update_fields=[
-                "inferred_technologies",
                 "deps_evidence",
                 "deps_status",
                 "deps_analyzed_at",

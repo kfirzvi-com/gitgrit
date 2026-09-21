@@ -18,7 +18,7 @@
             <p class="text-sm opacity-70 line-clamp-2">{{ stack.description }}</p>
           {% endif %}
           <div class="mt-2">
-            <span class="badge badge-outline badge-sm">{{ stack.project_count }} project{{ stack.project_count|pluralize }}</span>
+            <span class="badge badge-outline badge-sm">{{ stack.component_count }} component{{ stack.component_count|pluralize }}</span>
           </div>
         </div>
       </a>
@@ -28,7 +28,7 @@
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body items-center text-center py-12">
       <h2 class="card-title">No stacks yet</h2>
-      <p class="opacity-70 mb-4">Create stacks to organize your projects into groups.</p>
+      <p class="opacity-70 mb-4">Create stacks to group the components of one application — its services, apps, libraries and infrastructure.</p>
       <a href="{% url 'create_stack' %}" class="btn btn-primary">New Stack</a>
     </div>
   </div>

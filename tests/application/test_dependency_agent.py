@@ -5,10 +5,10 @@ from model_bakery import baker
 
 from app.application import dependency_agent as da
 from app.domain.models import (
+    ComponentDependency,
     ExternalDependency,
     InfrastructureComponent,
     Project,
-    ProjectDependency,
 )
 from tests.support import MonkeyPatchMixin
 
@@ -84,36 +84,35 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         da.infer_and_store(src)
 
         src.refresh_from_db()
+        root = src.root_component
         self.assertEqual(src.deps_status, Project.DepsStatus.OK)
         self.assertIsNotNone(src.deps_analyzed_at)
-        self.assertEqual(src.inferred_technologies, ["Express", "Next.js"])
+        self.assertEqual(root.technologies, ["Express", "Next.js"])
         self.assertEqual(src.deps_evidence, ["package.json"])
 
-        pd = ProjectDependency.objects.get(source=src)
-        self.assertEqual(pd.target_id, api.id)
+        # Edges hang off the root components of both repositories.
+        pd = ComponentDependency.objects.get(source=root)
+        self.assertEqual(pd.target, api.root_component)
         self.assertEqual(pd.label, "REST")
 
         provider = ExternalDependency.objects.get(
-            project=src, direction=ExternalDependency.Direction.OUTBOUND
+            component=root, direction=ExternalDependency.Direction.OUTBOUND
         )
         self.assertEqual(provider.name, "Stripe")
         self.assertEqual(provider.url, "https://stripe.com")
 
         consumer = ExternalDependency.objects.get(
-            project=src, direction=ExternalDependency.Direction.INBOUND
+            component=root, direction=ExternalDependency.Direction.INBOUND
         )
         self.assertEqual(consumer.name, "Partner API")
 
     def test_unresolved_internal_target_is_skipped(self):
-        result = da.DependencyResult(
-            internal=[{"target": "org/does-not-exist"}],
-            external=[],
-        )
+        result = da.DependencyResult(internal=[{"target": "org/does-not-exist"}])
         _tenant, src, _api = self._setup(result)
 
         da.infer_and_store(src)
 
-        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 0)
+        self.assertEqual(ComponentDependency.objects.filter(source__project=src).count(), 0)
         # Ran fine, just nothing resolved.
         self.assertEqual(src.deps_status, Project.DepsStatus.OK)
 
@@ -125,8 +124,8 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
             ),
         )
         da.infer_and_store(src)
-        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 1)
-        self.assertEqual(ExternalDependency.objects.filter(project=src).count(), 1)
+        self.assertEqual(ComponentDependency.objects.filter(source__project=src).count(), 1)
+        self.assertEqual(ExternalDependency.objects.filter(component__project=src).count(), 1)
 
         # Re-run with a different result — old edges must be gone.
         self.monkeypatch.setattr(
@@ -138,9 +137,9 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         )
         da.infer_and_store(src)
 
-        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 0)
+        self.assertEqual(ComponentDependency.objects.filter(source__project=src).count(), 0)
         names = list(
-            ExternalDependency.objects.filter(project=src).values_list(
+            ExternalDependency.objects.filter(component__project=src).values_list(
                 "name", flat=True
             )
         )
@@ -160,7 +159,7 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         da.infer_and_store(src)
 
         infra = set(
-            InfrastructureComponent.objects.filter(project=src).values_list(
+            InfrastructureComponent.objects.filter(component__project=src).values_list(
                 "name", "kind"
             )
         )
@@ -169,7 +168,7 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
 
         providers = list(
             ExternalDependency.objects.filter(
-                project=src, direction=ExternalDependency.Direction.OUTBOUND
+                component__project=src, direction=ExternalDependency.Direction.OUTBOUND
             ).values_list("name", flat=True)
         )
         # "Stripe API" deduped; PostgreSQL moved to infrastructure.
@@ -196,7 +195,7 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
             da.DependencyResult(internal=[{"target": "org/api"}])
         )
         da.infer_and_store(src)
-        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 1)
+        self.assertEqual(ComponentDependency.objects.filter(source__project=src).count(), 1)
 
         # A model that guesses without inspecting the repo (what a weak model
         # does when list_repo_files keeps coming back empty) must not be saved.
@@ -208,7 +207,7 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertIn("without reading any repository file", str(ctx.exception))
 
         # Previous edges survive; the task layer records the failure.
-        self.assertEqual(ProjectDependency.objects.filter(source=src).count(), 1)
+        self.assertEqual(ComponentDependency.objects.filter(source__project=src).count(), 1)
         src.refresh_from_db()
         self.assertEqual(src.deps_status, Project.DepsStatus.OK)
 
@@ -231,3 +230,42 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
             da.infer_and_store(src)
         self.assertIn("listing came back empty", str(ctx.exception))
         self.assertIn("connection", str(ctx.exception))
+
+
+class ComponentRefResolutionTests(TestCase):
+    """How an LLM-returned internal target maps onto the component roster."""
+
+    def _roster(self):
+        tenant = baker.make("app.Tenant")
+        conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
+        web = baker.make("app.Project", tenant=tenant, platform_connection=conn, name="web", full_path="org/web")
+        mono = baker.make("app.Project", tenant=tenant, platform_connection=conn, name="mono", full_path="org/mono")
+        gateway = baker.make(
+            "app.Component", tenant=tenant, project=mono, path="apps/api-gateway", name="api-gateway"
+        )
+        auth = baker.make(
+            "app.Component", tenant=tenant, project=mono, path="services/auth-service", name="auth-service"
+        )
+        # Roster as seen from a third project.
+        other = baker.make("app.Project", tenant=tenant, platform_connection=conn, name="other", full_path="org/other")
+        roster = da._component_roster(tenant, other)
+        return web, mono, gateway, auth, roster
+
+    def test_ref_forms_resolve_to_components(self):
+        web, mono, gateway, auth, roster = self._roster()
+        resolve = lambda t: da._resolve_internal_target(t, roster)
+
+        self.assertEqual(resolve("org/web"), web.root_component.pk)  # root by full_path
+        self.assertEqual(resolve("web"), web.root_component.pk)  # root by name
+        self.assertEqual(resolve("org/mono#apps/api-gateway"), gateway.pk)  # canonical ref
+        self.assertEqual(resolve("org/mono/apps/api-gateway"), gateway.pk)  # slash form
+        self.assertEqual(resolve("auth-service"), auth.pk)  # unique component name
+        self.assertEqual(resolve("org/mono"), mono.root_component.pk)  # bare monorepo → its root
+        self.assertIsNone(resolve("org/nope"))
+        self.assertIsNone(resolve(""))
+
+    def test_roster_lines_name_components_by_ref(self):
+        web, mono, gateway, auth, roster = self._roster()
+        text = da._build_instructions(mono, roster)
+        self.assertIn("ref: org/web  (name: web)", text)
+        self.assertIn("ref: org/mono#apps/api-gateway  (repo: org/mono)", text)

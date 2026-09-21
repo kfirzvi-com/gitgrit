@@ -284,10 +284,6 @@ class Project(models.Model):
     owner = models.CharField(max_length=255, blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
-    # Frameworks/libraries/tools inferred by the LLM (e.g. Next.js, FastAPI,
-    # Terraform). Merged + deduped with `languages` to form the node's tech
-    # labels, so libraries show here rather than as separate graph nodes.
-    inferred_technologies = models.JSONField(default=list, blank=True)
     # LLM dependency-inference status (drives the dashboard "regenerating…" hint).
     deps_status = models.CharField(
         max_length=10,
@@ -300,12 +296,6 @@ class Project(models.Model):
     # 50). Empty until an analysis completes; lets anyone see what a map is
     # grounded in.
     deps_evidence = models.JSONField(default=list, blank=True)
-    stacks = models.ManyToManyField(
-        "Stack",
-        through="ProjectStack",
-        blank=True,
-        related_name="projects",
-    )
     standards = models.ManyToManyField(
         "Standard",
         through="ProjectStandard",
@@ -328,6 +318,28 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+    # --- Components -----------------------------------------------------------
+    # A project is one git repository. Its *components* are the deployable
+    # units inside it (see ``Component``); a plain single-application repo has
+    # exactly one, the root component. Stack membership, dependencies and
+    # infrastructure hang off components, so these helpers give the
+    # repo-level view the rest of the app still mostly wants.
+
+    @property
+    def root_component(self):
+        """The component at the repository root (``path == ""``)."""
+        return self.components.filter(path="").first()
+
+    @property
+    def is_monorepo(self) -> bool:
+        """True when the repository holds more than one component."""
+        return self.components.count() > 1
+
+    @property
+    def stacks(self):
+        """Stacks any of this project's components belong to (read-only)."""
+        return Stack.objects.filter(components__project=self).distinct()
+
 
 class Stack(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -348,31 +360,115 @@ class Stack(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def projects(self):
+        """Distinct projects with at least one component in this stack (read-only)."""
+        return Project.objects.filter(components__stacks=self).distinct()
 
-class ProjectStack(models.Model):
+
+class Component(models.Model):
+    """A buildable/deployable unit inside a project's repository.
+
+    A *project* is one git repository; a *component* is what actually gets
+    built or deployed from it: a service, a frontend, a shared library, a
+    job, an infrastructure-as-code root. Every project has at least one
+    component. A plain single-application repository has exactly one, the
+    *root component* (``path == ""``); a monorepo has several, each rooted at
+    a sub-directory. Stack membership, dependency edges and owned
+    infrastructure attach to components, never to projects, so the
+    architecture diagram has one node type regardless of repository shape.
+
+    Components are discovered by the dependency-inference agent and
+    reconciled by ``path`` on every run, so an unchanged component keeps its
+    id (and therefore its stack memberships) across re-analysis.
+    """
+
+    class Kind(models.TextChoices):
+        SERVICE = "service", "Service / API"
+        FRONTEND = "frontend", "Frontend / app"
+        LIBRARY = "library", "Shared library"
+        JOB = "job", "Job / pipeline"
+        INFRA = "infra", "Infrastructure as code"
+        OTHER = "other", "Other"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="components",
+    )
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
-        related_name="project_stacks",
+        related_name="components",
+    )
+    # Repository-relative directory, normalised: no leading/trailing slash,
+    # "" for the repository root.
+    path = models.CharField(max_length=1024, blank=True, default="")
+    name = models.CharField(max_length=255)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.OTHER)
+    description = models.TextField(blank=True, default="")
+    # Frameworks/libraries/tools inferred by the LLM (e.g. Next.js, FastAPI,
+    # Terraform). Merged + deduped with the project's `languages` to form the
+    # node's tech labels, so libraries show as labels, not as graph nodes.
+    technologies = models.JSONField(default=list, blank=True)
+    stacks = models.ManyToManyField(
+        Stack,
+        through="ComponentStack",
+        blank=True,
+        related_name="components",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "components"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "path"], name="unique_component_path"
+            ),
+        ]
+        ordering = ["project__name", "path"]
+
+    def __str__(self):
+        return self.name if self.is_root else f"{self.project} / {self.path}"
+
+    @property
+    def is_root(self) -> bool:
+        return self.path == ""
+
+    @property
+    def ref(self) -> str:
+        """How the roster names this component to the model and to users:
+        the repository's ``full_path`` for a root component,
+        ``<full_path>#<path>`` for a component inside a monorepo."""
+        return self.project.full_path if self.is_root else f"{self.project.full_path}#{self.path}"
+
+
+class ComponentStack(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    component = models.ForeignKey(
+        Component,
+        on_delete=models.CASCADE,
+        related_name="component_stacks",
     )
     stack = models.ForeignKey(
         Stack,
         on_delete=models.CASCADE,
-        related_name="project_stacks",
+        related_name="component_stacks",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "project_stacks"
+        db_table = "component_stacks"
         constraints = [
             models.UniqueConstraint(
-                fields=["project", "stack"], name="unique_project_stack"
+                fields=["component", "stack"], name="unique_component_stack"
             ),
         ]
 
     def __str__(self):
-        return f"{self.project} — {self.stack}"
+        return f"{self.component} — {self.stack}"
 
 
 class ProjectStandard(models.Model):
@@ -453,14 +549,15 @@ class StackDependency(models.Model):
         return f"{self.source} → {self.target}"
 
 
-class ProjectDependency(models.Model):
-    """A directed dependency between two projects in a workspace.
+class ComponentDependency(models.Model):
+    """A directed dependency between two components in a workspace.
 
     Renders as an edge in the per-stack architecture diagram (source depends
-    on target). When the two projects live in different stacks the edge
+    on target). When the two components live in different stacks the edge
     crosses a stack boundary — that's how the stack view surfaces which of a
-    stack's projects are public-facing (consumed from outside) and which
-    reach out to projects in other stacks. Maintained by an LLM as projects
+    stack's components are public-facing (consumed from outside) and which
+    reach out to components in other stacks. Two components of the same
+    monorepo may depend on each other. Maintained by an LLM as repositories
     change; ``label`` is the optional edge caption.
     """
 
@@ -468,15 +565,15 @@ class ProjectDependency(models.Model):
     tenant = models.ForeignKey(
         Tenant,
         on_delete=models.CASCADE,
-        related_name="project_dependencies",
+        related_name="component_dependencies",
     )
     source = models.ForeignKey(
-        Project,
+        Component,
         on_delete=models.CASCADE,
         related_name="dependencies_out",
     )
     target = models.ForeignKey(
-        Project,
+        Component,
         on_delete=models.CASCADE,
         related_name="dependencies_in",
     )
@@ -486,14 +583,14 @@ class ProjectDependency(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "project_dependencies"
+        db_table = "component_dependencies"
         constraints = [
             models.UniqueConstraint(
-                fields=["source", "target"], name="unique_project_dependency"
+                fields=["source", "target"], name="unique_component_dependency"
             ),
             models.CheckConstraint(
                 condition=~models.Q(source=models.F("target")),
-                name="project_dependency_no_self_loop",
+                name="component_dependency_no_self_loop",
             ),
         ]
 
@@ -502,19 +599,19 @@ class ProjectDependency(models.Model):
 
 
 class ExternalDependency(models.Model):
-    """A relationship between a workspace project and a system outside the
+    """A relationship between a workspace component and a system outside the
     workspace.
 
     Direction distinguishes the two roles (both inferred by inspecting the
-    project's repo):
-      * ``OUTBOUND`` — the project depends on an external service/provider
+    component's repository):
+      * ``OUTBOUND`` — the component depends on an external service/provider
         (e.g. Stripe, Auth0). Rendered at the bottom of the stack diagram.
-      * ``INBOUND`` — an external consumer depends on the project (e.g. a
+      * ``INBOUND`` — an external consumer depends on the component (e.g. a
         public API client, a partner system, external webhook senders).
         Rendered at the top (we must preserve its API).
 
-    Unlike ProjectDependency (which links two workspace projects), the other
-    end here is outside the workspace. Maintained by an LLM as projects change.
+    Unlike ComponentDependency (which links two workspace components), the
+    other end here is outside the workspace. Maintained by an LLM.
     """
 
     class Direction(models.TextChoices):
@@ -527,8 +624,8 @@ class ExternalDependency(models.Model):
         on_delete=models.CASCADE,
         related_name="external_dependencies",
     )
-    project = models.ForeignKey(
-        Project,
+    component = models.ForeignKey(
+        Component,
         on_delete=models.CASCADE,
         related_name="external_dependencies",
     )
@@ -547,23 +644,23 @@ class ExternalDependency(models.Model):
         db_table = "external_dependencies"
         constraints = [
             models.UniqueConstraint(
-                fields=["project", "name", "direction"],
+                fields=["component", "name", "direction"],
                 name="unique_external_dependency",
             ),
         ]
 
     def __str__(self):
         arrow = "←" if self.direction == self.Direction.INBOUND else "→"
-        return f"{self.project} {arrow} {self.name}"
+        return f"{self.component} {arrow} {self.name}"
 
 
 class InfrastructureComponent(models.Model):
-    """A self-operated datastore/queue/cache/storage a project owns.
+    """A self-operated datastore/queue/cache/storage a component owns.
 
-    These are stack-INTERNAL components (a service abstracts its own
+    These are stack-INTERNAL resources (a service abstracts its own
     databases), not external services — rendered as internal nodes inside the
-    stack diagram, not on the workspace graph. Per-project: two services with
-    their own Postgres are two separate components. Maintained by an LLM.
+    stack diagram, not on the workspace graph. Per-component: two services
+    with their own Postgres are two separate nodes. Maintained by an LLM.
     """
 
     class Kind(models.TextChoices):
@@ -579,8 +676,8 @@ class InfrastructureComponent(models.Model):
         on_delete=models.CASCADE,
         related_name="infrastructure_components",
     )
-    project = models.ForeignKey(
-        Project,
+    component = models.ForeignKey(
+        Component,
         on_delete=models.CASCADE,
         related_name="infrastructure_components",
     )
@@ -594,12 +691,12 @@ class InfrastructureComponent(models.Model):
         db_table = "infrastructure_components"
         constraints = [
             models.UniqueConstraint(
-                fields=["project", "name"], name="unique_infrastructure_component"
+                fields=["component", "name"], name="unique_infrastructure_component"
             ),
         ]
 
     def __str__(self):
-        return f"{self.project} ⟐ {self.name}"
+        return f"{self.component} ⟐ {self.name}"
 
 
 class APIToken(models.Model):

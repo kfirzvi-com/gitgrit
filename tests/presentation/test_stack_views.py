@@ -1,7 +1,7 @@
-"""Stack page views: renaming a stack and managing its projects via the picker.
+"""Stack page views: renaming a stack and managing its components via the picker.
 
 Covers the edit endpoint (rename + description, empty-name rejection, tenant
-isolation) and the projects endpoint (GET partial with members pre-checked /
+isolation) and the components endpoint (GET partial with members pre-checked /
 POST replacing the membership set, firing add/remove events).
 """
 import re
@@ -12,7 +12,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from model_bakery import baker
 
-from app.domain.models import Project
+from app.domain.models import Component, Project
 from app.tasks import infer_project_dependencies
 
 
@@ -37,6 +37,14 @@ def _project(tenant, **kw):
     return baker.make(
         "app.Project", tenant=tenant, platform_connection=connection, **kw
     )
+
+
+def _root(project):
+    return project.root_component
+
+
+def _members(stack):
+    return set(Component.objects.filter(stacks=stack))
 
 
 # Render full pages without the manifest static storage (no collectstatic in tests).
@@ -90,17 +98,17 @@ class TestEditStack(TestCase):
 
 
 @pytest.mark.django_db
-class TestStackProjectsPicker(TestCase):
+class TestStackComponentsPicker(TestCase):
     def test_get_renders_picker_with_members_checked(self):
         _, tenant = _login_member(self.client)
         stack = baker.make("app.Stack", tenant=tenant)
         member = _project(tenant, name="Member project")
         other = _project(tenant, name="Other project")
         _project(baker.make("app.Tenant"), name="Foreign project")
-        stack.projects.add(member)
+        _root(member).stacks.add(stack)
 
         resp = self.client.get(
-            reverse("stack_projects", args=[stack.pk]),
+            reverse("stack_components", args=[stack.pk]),
             headers={"HX-Request": "true"},
         )
         assert resp.status_code == 200
@@ -108,13 +116,31 @@ class TestStackProjectsPicker(TestCase):
         assert "Member project" in body
         assert "Other project" in body
         assert "Foreign project" not in body
-        assert _checkbox_is_checked(body, member.pk)
-        assert not _checkbox_is_checked(body, other.pk)
+        assert _checkbox_is_checked(body, _root(member).pk)
+        assert not _checkbox_is_checked(body, _root(other).pk)
+
+    def test_get_lists_every_component_of_a_monorepo(self):
+        _, tenant = _login_member(self.client)
+        stack = baker.make("app.Stack", tenant=tenant)
+        mono = _project(tenant, name="mono", full_path="org/mono")
+        gateway = baker.make(
+            "app.Component", tenant=tenant, project=mono, path="apps/api-gateway", name="api-gateway"
+        )
+
+        resp = self.client.get(
+            reverse("stack_components", args=[stack.pk]),
+            headers={"HX-Request": "true"},
+        )
+        body = resp.content.decode()
+        assert "api-gateway" in body
+        assert "apps/api-gateway" in body
+        assert f'value="{gateway.pk}"' in body
+        assert f'value="{_root(mono).pk}"' in body
 
     def test_plain_get_redirects_to_stack_page(self):
         _, tenant = _login_member(self.client)
         stack = baker.make("app.Stack", tenant=tenant)
-        resp = self.client.get(reverse("stack_projects", args=[stack.pk]))
+        resp = self.client.get(reverse("stack_components", args=[stack.pk]))
         assert resp.status_code == 302
         assert resp.url == reverse("stack_detail", args=[stack.pk])
 
@@ -122,24 +148,29 @@ class TestStackProjectsPicker(TestCase):
         _, tenant = _login_member(self.client)
         stack = baker.make("app.Stack", tenant=tenant)
         p1, p2, p3 = (_project(tenant) for _ in range(3))
-        stack.projects.add(p1)
+        _root(p1).stacks.add(stack)
 
-        url = reverse("stack_projects", args=[stack.pk])
+        url = reverse("stack_components", args=[stack.pk])
         with mock.patch("app.application.stack_service.publish") as publish:
-            resp = self.client.post(url, data={"projects": [str(p2.pk), str(p3.pk)]})
+            resp = self.client.post(
+                url, data={"components": [str(_root(p2).pk), str(_root(p3).pk)]}
+            )
         assert resp.status_code == 302
-        assert set(Project.objects.filter(stacks=stack)) == {p2, p3}
-        event_names = sorted(type(c.args[0]).__name__ for c in publish.call_args_list)
-        assert event_names == [
-            "ProjectAddedToStack",
-            "ProjectAddedToStack",
-            "ProjectRemovedFromStack",
+        assert _members(stack) == {_root(p2), _root(p3)}
+        assert set(Project.objects.filter(components__stacks=stack)) == {p2, p3}
+        events = [c.args[0] for c in publish.call_args_list]
+        assert sorted(type(e).__name__ for e in events) == [
+            "ComponentAddedToStack",
+            "ComponentAddedToStack",
+            "ComponentRemovedFromStack",
         ]
+        # The graph subscriber refreshes per repository, so every event names its project.
+        assert {e.project_id for e in events} == {str(p1.pk), str(p2.pk), str(p3.pk)}
 
         # Posting nothing empties the stack.
         resp = self.client.post(url, data={})
         assert resp.status_code == 302
-        assert Project.objects.filter(stacks=stack).count() == 0
+        assert not _members(stack)
 
     def test_post_adds_several_projects_when_a_deps_job_is_already_queued(self):
         """Regression: the add-to-stack subscriber queues a dependency refresh
@@ -155,11 +186,13 @@ class TestStackProjectsPicker(TestCase):
             lock=f"project:{p1.pk}", queueing_lock=f"deps:{p1.pk}"
         ).defer(project_id=str(p1.pk))
 
-        url = reverse("stack_projects", args=[stack.pk])
-        resp = self.client.post(url, data={"projects": [str(p1.pk), str(p2.pk)]})
+        url = reverse("stack_components", args=[stack.pk])
+        resp = self.client.post(
+            url, data={"components": [str(_root(p1).pk), str(_root(p2).pk)]}
+        )
 
         assert resp.status_code == 302
-        assert set(Project.objects.filter(stacks=stack)) == {p1, p2}
+        assert _members(stack) == {_root(p1), _root(p2)}
 
     def test_post_ignores_projects_of_other_tenants(self):
         _, tenant = _login_member(self.client)
@@ -167,17 +200,17 @@ class TestStackProjectsPicker(TestCase):
         foreign = _project(baker.make("app.Tenant"))
 
         resp = self.client.post(
-            reverse("stack_projects", args=[stack.pk]),
-            data={"projects": [str(foreign.pk)]},
+            reverse("stack_components", args=[stack.pk]),
+            data={"components": [str(_root(foreign).pk)]},
         )
         assert resp.status_code == 302
-        assert Project.objects.filter(stacks=stack).count() == 0
+        assert not _members(stack)
 
     def test_stack_of_other_tenant_is_not_found(self):
         _login_member(self.client)
         foreign = baker.make("app.Stack", tenant=baker.make("app.Tenant"))
         resp = self.client.get(
-            reverse("stack_projects", args=[foreign.pk]),
+            reverse("stack_components", args=[foreign.pk]),
             headers={"HX-Request": "true"},
         )
         assert resp.status_code == 404
@@ -186,15 +219,27 @@ class TestStackProjectsPicker(TestCase):
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class TestStackDetailPage(TestCase):
-    def test_page_offers_edit_and_manage_projects(self):
+    def test_page_offers_edit_and_manage_components(self):
         _, tenant = _login_member(self.client)
         stack = baker.make("app.Stack", tenant=tenant, name="My stack")
-        stack.projects.add(_project(tenant, name="In stack"))
+        _root(_project(tenant, name="In stack")).stacks.add(stack)
 
         resp = self.client.get(reverse("stack_detail", args=[stack.pk]))
         assert resp.status_code == 200
         body = resp.content.decode()
         assert reverse("edit_stack", args=[stack.pk]) in body
-        assert reverse("stack_projects", args=[stack.pk]) in body
-        assert "Manage projects" in body
+        assert reverse("stack_components", args=[stack.pk]) in body
+        assert "Manage components" in body
         assert "In stack" in body
+
+    def test_remove_component_endpoint(self):
+        _, tenant = _login_member(self.client)
+        stack = baker.make("app.Stack", tenant=tenant)
+        root = _root(_project(tenant, name="Gone soon"))
+        root.stacks.add(stack)
+
+        resp = self.client.post(
+            reverse("remove_component_from_stack", args=[stack.pk, root.pk])
+        )
+        assert resp.status_code == 302
+        assert not _members(stack)

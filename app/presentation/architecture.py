@@ -4,32 +4,37 @@ Two graphs are produced here:
 
 * ``workspace_graph`` — stacks as nodes, stack-to-stack dependencies as edges
   (the dashboard).
-* ``stack_graph`` — the projects inside one stack as nodes, with project-level
-  edges. Edges that cross the stack boundary become peripheral nodes: other
-  workspace projects that *consume* one of this stack's projects (public-facing
-  surface), other workspace projects this stack *consumes*, and third-party
-  apps this stack depends on.
+* ``stack_graph`` — the components inside one stack as nodes, with
+  component-level edges. Edges that cross the stack boundary become peripheral
+  nodes: other workspace components that *consume* one of this stack's
+  components (public-facing surface), other workspace components this stack
+  *consumes*, and third-party apps this stack depends on.
 
-``ProjectDependency`` / ``ExternalDependency`` are populated by the LLM agent
+Nodes are *components* (the deployable units inside a repository), so a
+monorepo's services appear individually and a plain repository appears as its
+single root component. Health is still scored per project (standards run per
+repository), so every component of a repository shares its project's colour.
+
+``ComponentDependency`` / ``ExternalDependency`` are populated by the LLM agent
 per repo; **stack→stack edges are derived here at read time** by rolling up
-project edges across each stack's project membership (the ``StackDependency``
-model is reserved for future manual stack-level labels and is not read here).
+component edges across each stack's membership (the ``StackDependency`` model
+is reserved for future manual stack-level labels and is not read here).
 """
 
 from collections import Counter, defaultdict
 
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.urls import reverse
 
 from app.application.naming import canonical_key
 from app.domain.models import (
+    ComponentDependency,
     ExternalDependency,
     InfrastructureComponent,
-    StandardExecution,
     Project,
-    ProjectDependency,
     ProjectStandard,
     Stack,
+    StandardExecution,
 )
 from app.presentation.health import (
     CRITICAL,
@@ -170,29 +175,39 @@ def _merge_tech(*lists):
     return out
 
 
-def _project_technologies(project):
-    """A project's tech labels: GitHub languages + LLM-inferred tech, deduped."""
-    return _merge_tech(project.languages, project.inferred_technologies)
+def _component_technologies(component):
+    """A component's tech labels: LLM-inferred tech plus, for a root component,
+    the repository's GitHub languages (repo-wide languages would mislabel one
+    service of a monorepo). Deduped, first-seen order."""
+    languages = component.project.languages if component.is_root else []
+    return _merge_tech(languages, component.technologies)
 
 
-def _technologies(projects):
-    """Aggregate tech across a stack's projects, most-common first."""
+def _technologies(components):
+    """Aggregate tech across a stack's components, most-common first."""
     counts = Counter()
-    for project in projects:
-        for tech in _project_technologies(project):
+    for component in components:
+        for tech in _component_technologies(component):
             counts[tech] += 1
     return [tech for tech, _ in counts.most_common(MAX_TECHNOLOGIES)]
+
+
+def _analyzing(project):
+    return project.deps_status in (Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING)
 
 
 # --- Workspace (dashboard) graph -------------------------------------------
 
 
 def workspace_graph(tenant, latest):
-    stacks = Stack.objects.filter(tenant=tenant).prefetch_related("projects")
+    stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
 
     stack_nodes = []
     for stack in stacks:
-        projects = list(stack.projects.all())
+        components = list(stack.components.all())
+        # Health is per repository: score each distinct project once, however
+        # many of its components sit in this stack.
+        projects = list({c.project_id: c.project for c in components}.values())
         scores = [_project_score(p.id, latest) for p in projects]
         known = [s for s in scores if s is not None]
         score = round(sum(known) / len(known)) if known else None
@@ -217,8 +232,9 @@ def workspace_graph(tenant, latest):
                 "id": str(stack.id),
                 "name": stack.name,
                 "description": stack.description,
+                "component_count": len(components),
                 "project_count": len(projects),
-                "technologies": _technologies(projects),
+                "technologies": _technologies(components),
                 "score": score,
                 # Worst-of across projects, so a single failing project lights
                 # up the whole stack even when the average looks healthy.
@@ -226,28 +242,24 @@ def workspace_graph(tenant, latest):
                 "issues": issues,
                 # True while any member project's dependency analysis is queued
                 # or running — drives the "regenerating…" hint.
-                "analyzing": any(
-                    p.deps_status
-                    in (Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING)
-                    for p in projects
-                ),
+                "analyzing": any(_analyzing(p) for p in projects),
                 "url": reverse("stack_detail", args=[stack.id]),
             }
         )
 
-    # Derive stack→stack edges from project dependencies + stack membership:
-    # if project A (in stack X) depends on project B (in stack Y), then X→Y.
-    project_stacks = defaultdict(set)
+    # Derive stack→stack edges from component dependencies + stack membership:
+    # if component A (in stack X) depends on component B (in stack Y), then X→Y.
+    component_stacks = defaultdict(set)
     for stack in stacks:
-        for p in stack.projects.all():
-            project_stacks[p.id].add(str(stack.id))
+        for c in stack.components.all():
+            component_stacks[c.id].add(str(stack.id))
 
     edge_labels: dict[tuple[str, str], set] = defaultdict(set)
-    for dep in ProjectDependency.objects.filter(tenant=tenant).values(
+    for dep in ComponentDependency.objects.filter(tenant=tenant).values(
         "source_id", "target_id", "label"
     ):
-        for src in project_stacks.get(dep["source_id"], ()):
-            for tgt in project_stacks.get(dep["target_id"], ()):
+        for src in component_stacks.get(dep["source_id"], ()):
+            for tgt in component_stacks.get(dep["target_id"], ()):
                 if src != tgt:
                     if dep["label"]:
                         edge_labels[(src, tgt)].add(dep["label"])
@@ -267,12 +279,12 @@ def workspace_graph(tenant, latest):
 
     # Aggregate external services to the stack level: a stack depends on a
     # provider (bottom) / is consumed by an external system (top) if any of its
-    # projects is. External nodes are deduped by name across the workspace.
+    # components is. External nodes are deduped by name across the workspace.
     providers = {}
     consumers = {}
     seen_edges = set()
-    ext = ExternalDependency.objects.filter(project__tenant=tenant).values(
-        "project_id", "name", "url", "direction"
+    ext = ExternalDependency.objects.filter(tenant=tenant).values(
+        "component_id", "name", "url", "direction"
     )
     for e in ext:
         inbound = e["direction"] == ExternalDependency.Direction.INBOUND
@@ -290,7 +302,7 @@ def workspace_graph(tenant, latest):
                 existing["name"] = e["name"]
             if not existing.get("url") and e["url"]:
                 existing["url"] = e["url"]
-        for stack_id in project_stacks.get(e["project_id"], ()):
+        for stack_id in component_stacks.get(e["component_id"], ()):
             if inbound:
                 pair, kind = (node_id, stack_id), "public"
             else:
@@ -314,59 +326,90 @@ def workspace_graph(tenant, latest):
 # --- Per-stack graph --------------------------------------------------------
 
 
-def _project_node(project, latest):
+def _component_node(component, latest, monorepo_projects):
+    project = component.project
     score = _project_score(project.id, latest)
     return {
-        "id": str(project.id),
-        "name": project.name,
+        "id": str(component.id),
+        "name": component.name,
+        "path": component.path,
+        "kind": component.kind,
+        "project_id": str(project.id),
+        "project_name": project.name,
+        "project_url": reverse("project_detail", args=[project.id]),
+        # True when the repository holds other components too, so the UI can
+        # badge the node with its repository.
+        "monorepo": project.id in monorepo_projects,
         "lifecycle": project.get_lifecycle_display(),
-        "technologies": _project_technologies(project)[:MAX_TECHNOLOGIES],
+        "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
         "score": score,
         "health": project_level(score),
         "issues": _project_issues(project.id, latest),
-        "analyzing": project.deps_status
-        in (Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING),
+        "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),
     }
 
 
-def _first_stack(project):
-    """A representative stack label for an out-of-stack workspace project."""
-    stack = project.stacks.first()
-    return stack
+def _first_stack(component):
+    """A representative stack label for an out-of-stack workspace component."""
+    return component.stacks.first()
+
+
+def _boundary_node(node_id, component):
+    """A workspace component outside this stack, shown at the boundary."""
+    ext_stack = _first_stack(component)
+    return {
+        "id": node_id,
+        "name": component.name,
+        "project_name": component.project.name,
+        "stack_name": ext_stack.name if ext_stack else "",
+        "url": reverse("stack_detail", args=[ext_stack.id])
+        if ext_stack
+        else reverse("project_detail", args=[component.project_id]),
+    }
 
 
 def stack_graph(stack, latest):
     """Build the architecture graph for a single stack.
 
     Node kinds:
-      * ``project``    — a project inside this stack (the diagram's core).
-      * ``consumer``   — a workspace project (in another stack) that depends on
-                         one of our projects → our project is public-facing.
-      * ``consuming``  — a workspace project (in another stack) that one of our
-                         projects depends on.
-      * ``thirdparty``    — an external service one of our projects depends on.
+      * ``component``  — a component inside this stack (the diagram's core).
+      * ``consumer``   — a workspace component (in another stack) that depends
+                         on one of ours → our component is public-facing.
+      * ``consuming``  — a workspace component (in another stack) that one of
+                         our components depends on.
+      * ``thirdparty``    — an external service one of our components depends on.
       * ``extconsumer``   — an external system that depends on one of our
-                            projects (out-of-workspace consumer).
+                            components (out-of-workspace consumer).
 
     Edge kinds: ``internal`` | ``public`` | ``consuming`` | ``thirdparty``.
     """
     tenant = stack.tenant
-    internal = list(stack.projects.all())
-    internal_ids = {p.id for p in internal}
+    internal = list(stack.components.select_related("project"))
+    internal_ids = {c.id for c in internal}
+    monorepo_projects = {
+        p_id
+        for p_id, n in Counter(c.project_id for c in internal).items()
+        if n > 1
+    } | set(
+        Project.objects.filter(pk__in={c.project_id for c in internal})
+        .annotate(n=Count("components"))
+        .filter(n__gt=1)
+        .values_list("pk", flat=True)
+    )
 
-    projects = [_project_node(p, latest) for p in internal]
+    components = [_component_node(c, latest, monorepo_projects) for c in internal]
     consumers = {}
     consuming = {}
     thirdparties = {}
     ext_consumers = {}
     edges = []
 
-    # Project-to-project dependencies touching this stack.
+    # Component-to-component dependencies touching this stack.
     deps = (
-        ProjectDependency.objects.filter(tenant=tenant)
+        ComponentDependency.objects.filter(tenant=tenant)
         .filter(Q(source__in=internal_ids) | Q(target__in=internal_ids))
-        .select_related("source", "target")
+        .select_related("source__project", "target__project")
     )
     for dep in deps:
         s_in = dep.source_id in internal_ids
@@ -383,21 +426,9 @@ def stack_graph(stack, latest):
                 }
             )
         elif t_in and not s_in:
-            # Inbound: an external project consumes ours → public-facing.
-            ext = dep.source
-            node_id = f"consumer:{ext.id}"
-            ext_stack = _first_stack(ext)
-            consumers.setdefault(
-                node_id,
-                {
-                    "id": node_id,
-                    "name": ext.name,
-                    "stack_name": ext_stack.name if ext_stack else "",
-                    "url": reverse("stack_detail", args=[ext_stack.id])
-                    if ext_stack
-                    else reverse("project_detail", args=[ext.id]),
-                },
-            )
+            # Inbound: an outside component consumes ours → public-facing.
+            node_id = f"consumer:{dep.source_id}"
+            consumers.setdefault(node_id, _boundary_node(node_id, dep.source))
             edges.append(
                 {
                     "id": str(dep.id),
@@ -408,21 +439,9 @@ def stack_graph(stack, latest):
                 }
             )
         elif s_in and not t_in:
-            # Outbound: our project consumes another workspace project.
-            ext = dep.target
-            node_id = f"consuming:{ext.id}"
-            ext_stack = _first_stack(ext)
-            consuming.setdefault(
-                node_id,
-                {
-                    "id": node_id,
-                    "name": ext.name,
-                    "stack_name": ext_stack.name if ext_stack else "",
-                    "url": reverse("stack_detail", args=[ext_stack.id])
-                    if ext_stack
-                    else reverse("project_detail", args=[ext.id]),
-                },
-            )
+            # Outbound: our component consumes another workspace component.
+            node_id = f"consuming:{dep.target_id}"
+            consuming.setdefault(node_id, _boundary_node(node_id, dep.target))
             edges.append(
                 {
                     "id": str(dep.id),
@@ -436,7 +455,7 @@ def stack_graph(stack, latest):
     # External (out-of-workspace) relationships, deduped by app name. Outbound
     # = providers we depend on (bottom); inbound = consumers that depend on us
     # (top, edge kind "public" so it reads like our other public-facing edges).
-    ext_deps = ExternalDependency.objects.filter(project__in=internal_ids)
+    ext_deps = ExternalDependency.objects.filter(component__in=internal_ids)
     for ext in ext_deps:
         inbound = ext.direction == ExternalDependency.Direction.INBOUND
         if inbound:
@@ -454,7 +473,7 @@ def stack_graph(stack, latest):
                 {
                     "id": str(ext.id),
                     "source": node_id,
-                    "target": str(ext.project_id),
+                    "target": str(ext.component_id),
                     "label": ext.description[:40] if ext.description else "",
                     "kind": "public",
                 }
@@ -467,26 +486,26 @@ def stack_graph(stack, latest):
             edges.append(
                 {
                     "id": str(ext.id),
-                    "source": str(ext.project_id),
+                    "source": str(ext.component_id),
                     "target": node_id,
                     "label": ext.description[:40] if ext.description else "",
                     "kind": "thirdparty",
                 }
             )
 
-    # Internal infrastructure (datastores/queues each project owns) — rendered
-    # as internal component nodes connected from their project. Per-project, so
-    # two services with their own Postgres are distinct nodes.
+    # Internal infrastructure (datastores/queues each component owns) —
+    # rendered as internal nodes connected from their component. Per-component,
+    # so two services with their own Postgres are distinct nodes.
     infra = {}
-    for ic in InfrastructureComponent.objects.filter(project__in=internal_ids):
-        node_id = f"infra:{ic.project_id}:{ic.name.lower()}"
+    for ic in InfrastructureComponent.objects.filter(component__in=internal_ids):
+        node_id = f"infra:{ic.component_id}:{ic.name.lower()}"
         infra.setdefault(
             node_id, {"id": node_id, "name": ic.name, "kind": ic.kind}
         )
         edges.append(
             {
                 "id": str(ic.id),
-                "source": str(ic.project_id),
+                "source": str(ic.component_id),
                 "target": node_id,
                 "label": "",
                 "kind": "internal",
@@ -494,7 +513,7 @@ def stack_graph(stack, latest):
         )
 
     return {
-        "projects": projects,
+        "components": components,
         "consumers": list(consumers.values()),
         "consuming": list(consuming.values()),
         "thirdparties": list(thirdparties.values()),

@@ -28,7 +28,7 @@
   var RF = window.ReactFlow;
   var h = React.createElement;
   var data = GF.readData("stack-architecture-data") || {
-    projects: [],
+    components: [],
     consumers: [],
     consuming: [],
     thirdparties: [],
@@ -125,7 +125,7 @@
 
   var allNodes = []
     .concat(
-      data.projects.map(function (p) {
+      data.components.map(function (p) {
         return { id: p.id, type: "project", data: p, w: PROJECT.w, h: PROJECT.h };
       })
     )
