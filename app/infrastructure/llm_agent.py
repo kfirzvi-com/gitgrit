@@ -4,6 +4,15 @@ Generalised from the in-sandbox standard loop (``sandbox_image/llm.py``): the
 model is given tool schemas, decides for itself what to inspect, we execute the
 tools and feed results back until it returns a structured (Pydantic) result.
 
+The final answer is requested as plain JSON text (schema in the prompt), not
+through the provider's JSON mode (``response_format``). On Gemini, LiteLLM maps
+``response_format`` to Gemini's constrained decoding, and the Lite models
+degrade badly under it: in staging runs on 2026-09-23 it collapsed monorepo
+maps to one component, emitted hundreds of invented technologies, blanked
+every kind/description, or ran to the output cap. The same conversation asked
+for plain JSON answered cleanly every time. Plain text works on every provider,
+so there is one code path.
+
 Unlike the standard loop this runs in-process (e.g. in the background worker), so
 the caller passes a plain object whose ``@tool``-marked methods back the tools.
 Those methods may touch the network/DB directly — there's no sandbox boundary,
@@ -14,6 +23,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 import time
 
 import litellm
@@ -31,6 +41,53 @@ MAX_ITERATIONS = 12  # model round-trips per run()
 MAX_TOOL_CALLS = 25  # total tool executions per run()
 MAX_TOOL_RESULT_CHARS = 8000  # cap each tool result fed back to the model
 RATE_LIMIT_RETRIES = 3  # retry transient 429s with linear backoff
+RATE_LIMIT_MAX_WAIT = 65  # seconds; Gemini free tier asks for up to ~60s
+FINAL_MAX_TOKENS = 16000  # the final JSON answer; a runaway answer stops here
+FINAL_ANSWER_ATTEMPTS = 2  # one repair turn when the JSON is invalid or cut off
+
+
+class FinalAnswerError(RuntimeError):
+    """The model never produced a valid final answer."""
+
+
+_BODY_429 = re.compile(r'"code"\s*:\s*429\b')
+_RETRY_IN = re.compile(r"retry in (\d+(?:\.\d+)?)s", re.IGNORECASE)
+
+
+def _is_rate_limited(exc):
+    """A 429, however LiteLLM labels it. Gemini's per-minute quota 429 arrives
+    as ``BadRequestError`` (status 400); its body still says ``"code": 429``."""
+    return isinstance(exc, _RateLimitError) or bool(_BODY_429.search(str(exc)))
+
+
+def _retry_wait(exc, attempt):
+    """Seconds to wait: the provider's "retry in Ns" when given, else 20s per attempt."""
+    m = _RETRY_IN.search(str(exc))
+    wait = float(m.group(1)) + 1 if m else 20 * attempt
+    return min(wait, RATE_LIMIT_MAX_WAIT)
+
+
+_FENCE = re.compile(r"^```[a-zA-Z]*\s*|\s*```$")
+
+
+def _extract_json(text):
+    """Pull the JSON object out of a model reply: drop a code fence and any
+    prose around the outermost ``{ … }``."""
+    text = _FENCE.sub("", (text or "").strip())
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end < start:
+        raise ValueError("no JSON object in the reply")
+    return text[start : end + 1]
+
+
+def _final_answer_prompt(response_model):
+    schema = json.dumps(response_model.model_json_schema(), separators=(",", ":"))
+    return (
+        "Provide your final answer now. Reply with ONLY one JSON object that "
+        "matches this JSON Schema — no prose, no code fence, no tool calls. "
+        "Fill every field you have evidence for.\n"
+        f"JSON Schema: {schema}"
+    )
 
 
 def tool(method):
@@ -172,13 +229,15 @@ class LLMAgent:
                     **kwargs,
                 )
                 break
-            except _RateLimitError:
+            except Exception as exc:
+                if not _is_rate_limited(exc):
+                    raise
                 attempt += 1
                 if attempt > RATE_LIMIT_RETRIES:
                     raise
-                wait = 20 * attempt
+                wait = _retry_wait(exc, attempt)
                 self._emit(
-                    f"rate limited; retrying in {wait}s "
+                    f"rate limited; retrying in {wait:.0f}s "
                     f"(attempt {attempt}/{RATE_LIMIT_RETRIES})"
                 )
                 time.sleep(wait)
@@ -242,13 +301,39 @@ class LLMAgent:
             if tool_calls_made >= MAX_TOOL_CALLS:
                 break
 
-        # Force a structured final answer (no tools on this call).
-        messages.append(
-            {
-                "role": "user",
-                "content": "Provide your final answer now as the structured response.",
-            }
-        )
-        final = self._complete(messages, response_format=response_model)
-        content = final.choices[0].message.content
-        return response_model.model_validate_json(content)
+        return self._final_answer(messages, response_model)
+
+    def _final_answer(self, messages, response_model):
+        """Ask for the answer as plain JSON text and validate it.
+
+        No ``tools`` and no ``response_format`` on these calls. A reply that is
+        cut off (``finish_reason == "length"``), empty, or fails validation
+        gets one repair turn quoting the problem; after that it raises
+        ``FinalAnswerError`` so the caller's retry logic takes over quickly.
+        """
+        messages.append({"role": "user", "content": _final_answer_prompt(response_model)})
+        problem = ""
+        for attempt in range(1, FINAL_ANSWER_ATTEMPTS + 1):
+            final = self._complete(messages, max_tokens=FINAL_MAX_TOKENS)
+            choice = final.choices[0]
+            content = getattr(choice.message, "content", None) or ""
+            if getattr(choice, "finish_reason", None) == "length":
+                problem = f"the answer hit the {FINAL_MAX_TOKENS}-token limit and was cut off"
+            else:
+                try:
+                    return response_model.model_validate_json(_extract_json(content))
+                except Exception as exc:  # ValueError, pydantic.ValidationError
+                    problem = f"the answer was not valid: {str(exc)[:500]}"
+            self._emit(f"final answer attempt {attempt} rejected: {problem}")
+            if attempt < FINAL_ANSWER_ATTEMPTS:
+                messages.append({"role": "assistant", "content": content[:2000]})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"That reply was rejected: {problem}. Reply again with "
+                            "ONLY the JSON object, shorter if needed, matching the schema."
+                        ),
+                    }
+                )
+        raise FinalAnswerError(f"no valid final answer after {FINAL_ANSWER_ATTEMPTS} attempts: {problem}")
