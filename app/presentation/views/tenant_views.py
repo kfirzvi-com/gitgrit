@@ -476,13 +476,14 @@ def add_llm_provider(request):
     if models:
         messages.success(
             request,
-            f'Provider "{display_name}" added — discovered {len(models)} models.',
+            f'Provider "{display_name}" added — {len(models)} models '
+            f"this key can use.",
         )
     else:
         messages.warning(
             request,
-            f'Provider "{display_name}" added, but no models could be '
-            f"auto-detected. Add them manually via Edit.",
+            f'Provider "{display_name}" added, but no models this key can '
+            f"use were found. Add them manually via Edit.",
         )
     return redirect("tenant_settings")
 
@@ -561,7 +562,7 @@ def fetch_llm_models(request, provider_id):
         provider.available_models = models
         provider.save(update_fields=["available_models"])
         return HttpResponse(
-            f'<span class="badge badge-success">{len(models)} models — '
+            f'<span class="badge badge-success">{len(models)} usable models — '
             f"reload to use</span>"
         )
     return HttpResponse('<span class="badge badge-warning">none found</span>')
