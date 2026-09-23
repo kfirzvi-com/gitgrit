@@ -28,6 +28,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 
 from app.domain.models import LLMProviderType
 
@@ -46,9 +47,17 @@ _DEFAULT_BASE = {
 # network round-trip and go straight to manual entry.
 _NO_DISCOVERY = frozenset({LLMProviderType.BEDROCK, LLMProviderType.VERTEX_AI})
 
-# HTTP statuses that mean "this key can't use this model" (bad model, bad key,
-# no permission, or e.g. Anthropic's 400 "credit balance is too low").
-_REJECT_STATUSES = frozenset({400, 401, 403, 404})
+# HTTP statuses that mean "this key can't use this model": bad model, bad key,
+# no credit (Gemini 402 "prepayment credits are depleted", Anthropic 400
+# "credit balance is too low"), no permission, retired model (Gemini 404
+# "no longer available to new users").
+_REJECT_STATUSES = frozenset({400, 401, 402, 403, 404})
+
+# The provider's own status inside the error body, e.g. Gemini's
+# {"error": {"code": 402, ...}}. LiteLLM has no exception class for some codes
+# and files them as APIConnectionError with status_code 500, so the body's
+# code is the trustworthy one when present.
+_BODY_CODE = re.compile(r'"code"\s*:\s*([1-5]\d\d)\b')
 
 # Gemini reports a model outside the key's tier as a 429 whose quota limit is
 # literally 0 — distinct from a real rate limit, which has a non-zero limit.
@@ -106,9 +115,10 @@ def _parse_models(style: str, data: object) -> list[str]:
     return [m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")]
 
 
-def _fetch_models(
+def fetch_catalog(
     provider_type: str, base_url: str, api_key: str, timeout: float = 10.0
 ) -> list[str]:
+    """The provider's full model list, unfiltered. Raises on failure."""
     url, style = _models_endpoint(provider_type, base_url)
     if not url:
         return []
@@ -118,12 +128,28 @@ def _fetch_models(
     return _parse_models(style, data)
 
 
+@dataclass(frozen=True)
+class ProbeResult:
+    """Outcome of one access probe. ``verdict``: True usable, False rejected,
+    None unknown (kept). ``detail`` is the provider's error text, whitespace
+    collapsed and truncated, for logs and the ``probe_llm_models`` command."""
+
+    model: str
+    verdict: bool | None
+    status: int | None = None
+    detail: str = ""
+
+    @property
+    def label(self) -> str:
+        return {True: "usable", False: "rejected", None: "unknown"}[self.verdict]
+
+
 def _probe_model(
     provider_type: str, base_url: str, api_key: str, model: str, timeout: float
-) -> bool | None:
-    """True if the key can call ``model``, False if definitely not, None if unknown."""
+) -> ProbeResult:
     import litellm  # heavy import; already loaded by llm_agent in the app process
 
+    litellm.suppress_debug_info = True  # no "Give Feedback / Get Help" banner per failure
     try:
         litellm.completion(
             model=f"{provider_type}/{model}",
@@ -133,14 +159,69 @@ def _probe_model(
             api_base=base_url or None,
             timeout=timeout,
         )
-        return True
+        return ProbeResult(model, True, 200)
     except Exception as exc:  # noqa: BLE001 — classify by status, never raise
-        status = getattr(exc, "status_code", None)
+        text = str(exc)
+        body_code = _BODY_CODE.search(text)
+        status = int(body_code.group(1)) if body_code else getattr(exc, "status_code", None)
+        detail = f"{type(exc).__name__}: " + " ".join(text.split())[:400]
         if status == 429:
-            return not _ZERO_QUOTA.search(str(exc))
-        if status in _REJECT_STATUSES:
-            return False
-        return None
+            verdict: bool | None = not _ZERO_QUOTA.search(text)
+        elif status in _REJECT_STATUSES:
+            verdict = False
+        else:
+            verdict = None
+        return ProbeResult(model, verdict, status, detail)
+
+
+def probe_models(
+    provider_type: str,
+    base_url: str,
+    api_key: str,
+    models: list[str],
+    *,
+    timeout: float = PROBE_TIMEOUT,
+    budget: float = PROBE_BUDGET,
+) -> list[ProbeResult]:
+    """Probe every model in parallel; results in catalog order.
+
+    Runs under a wall-clock ``budget``. Anything still unanswered at the
+    deadline comes back as unknown (kept), never rejected.
+    """
+    if not models:
+        return []
+    results: dict[str, ProbeResult] = {}
+    pool = ThreadPoolExecutor(max_workers=PROBE_WORKERS)
+    futures = {
+        pool.submit(_probe_model, provider_type, base_url, api_key, m, timeout): m
+        for m in models
+    }
+    started = time.monotonic()
+    try:
+        for fut in as_completed(futures, timeout=budget):
+            results[futures[fut]] = fut.result()
+    except TimeoutError:
+        logger.warning(
+            "LLM model probe for %s hit the %.0fs budget; keeping %d unprobed",
+            provider_type, budget, len(models) - len(results),
+        )
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    ordered = [
+        results.get(m, ProbeResult(m, None, None, f"no answer within {budget:.0f}s budget"))
+        for m in models
+    ]
+    for r in ordered:
+        logger.info(
+            "LLM model probe %s/%s: %s (%s) %s",
+            provider_type, r.model, r.label, r.status, r.detail[:200],
+        )
+    logger.info(
+        "LLM model probe for %s: %d/%d usable in %.1fs",
+        provider_type, sum(1 for r in ordered if r.verdict is not False), len(models),
+        time.monotonic() - started,
+    )
+    return ordered
 
 
 def _usable_models(
@@ -152,50 +233,59 @@ def _usable_models(
     timeout: float = PROBE_TIMEOUT,
     budget: float = PROBE_BUDGET,
 ) -> list[str]:
-    """Filter ``models`` to those the key can call; keeps catalog order.
+    """Filter ``models`` to those the key can call; keeps catalog order."""
+    results = probe_models(provider_type, base_url, api_key, models, timeout=timeout, budget=budget)
+    return [r.model for r in results if r.verdict is not False]
 
-    Probes run in parallel under a wall-clock ``budget``. Anything still
-    unanswered at the deadline is kept (unknown ≠ rejected).
-    """
-    if not models:
-        return []
-    rejected: set[str] = set()
-    pool = ThreadPoolExecutor(max_workers=PROBE_WORKERS)
-    futures = {
-        pool.submit(_probe_model, provider_type, base_url, api_key, m, timeout): m
-        for m in models
-    }
-    started = time.monotonic()
+
+_BODY_MESSAGE = re.compile(r'"message"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
+@dataclass(frozen=True)
+class Discovery:
+    """What discovery found: the usable models plus, when nothing is usable,
+    the provider's own explanation (e.g. "Your prepayment credits are
+    depleted") so the UI can say *why* instead of just "none"."""
+
+    models: list[str]
+    results: list[ProbeResult]
+
+    @property
+    def reason(self) -> str:
+        if self.models or not self.results:
+            return ""
+        rejected = [r for r in self.results if r.verdict is False]
+        if not rejected:
+            return ""
+        # The most common rejection text is the story for this key.
+        counts: dict[str, int] = {}
+        for r in rejected:
+            m = _BODY_MESSAGE.search(r.detail)
+            key = m.group(1) if m else r.detail
+            counts[key] = counts.get(key, 0) + 1
+        text = max(counts, key=counts.get)
+        text = text.split(". ")[0].rstrip(".")  # first sentence is enough
+        return text[:140]
+
+
+def discover(
+    provider_type: str, base_url: str, api_key: str, timeout: float = 10.0
+) -> Discovery:
+    """Catalog → probe → the models this key can use. Empty on any failure."""
     try:
-        for fut in as_completed(futures, timeout=budget):
-            if fut.result() is False:
-                rejected.add(futures[fut])
-    except TimeoutError:
-        pending = sum(1 for f in futures if not f.done())
-        logger.warning(
-            "LLM model probe for %s hit the %.0fs budget; keeping %d unprobed",
-            provider_type, budget, pending,
-        )
-    finally:
-        pool.shutdown(wait=False, cancel_futures=True)
-    logger.info(
-        "LLM model probe for %s: %d/%d usable in %.1fs",
-        provider_type, len(models) - len(rejected), len(models),
-        time.monotonic() - started,
-    )
-    return [m for m in models if m not in rejected]
+        catalog = fetch_catalog(provider_type, base_url, api_key, timeout)
+    except Exception as exc:  # noqa: BLE001 — best-effort; caller falls back
+        logger.warning("LLM model discovery failed for %s: %s", provider_type, exc)
+        return Discovery([], [])
+    results = probe_models(provider_type, base_url, api_key, catalog)
+    return Discovery([r.model for r in results if r.verdict is not False], results)
 
 
 def discover_models(
     provider_type: str, base_url: str, api_key: str, timeout: float = 10.0
 ) -> list[str]:
     """Return the model IDs this key can use, or [] on failure (manual fallback)."""
-    try:
-        catalog = _fetch_models(provider_type, base_url, api_key, timeout)
-    except Exception as exc:  # noqa: BLE001 — best-effort; caller falls back
-        logger.warning("LLM model discovery failed for %s: %s", provider_type, exc)
-        return []
-    return _usable_models(provider_type, base_url, api_key, catalog)
+    return discover(provider_type, base_url, api_key, timeout).models
 
 
 def test_provider(
@@ -203,7 +293,7 @@ def test_provider(
 ) -> bool:
     """True when the provider's models endpoint accepts the credentials."""
     try:
-        _fetch_models(provider_type, base_url, api_key, timeout)
+        fetch_catalog(provider_type, base_url, api_key, timeout)
         return True
     except Exception as exc:  # noqa: BLE001
         logger.info("LLM provider test failed for %s: %s", provider_type, exc)
