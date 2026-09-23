@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
@@ -21,7 +22,7 @@ from app.domain.models import (
     PlatformConnection,
     Tenant,
 )
-from app.infrastructure.llm_models import discover_models, test_provider
+from app.infrastructure.llm_models import discover, test_provider
 from app.infrastructure.platform_client import get_platform_client
 from app.workspace_access import (
     enter_support_view,
@@ -462,7 +463,8 @@ def add_llm_provider(request):
     if not display_name:
         display_name = _auto_provider_name(tenant, provider_type)
 
-    models = discover_models(provider_type, base_url, api_key)
+    found = discover(provider_type, base_url, api_key)
+    models = found.models
     provider = LLMProvider(
         tenant=tenant,
         provider_type=provider_type,
@@ -480,10 +482,11 @@ def add_llm_provider(request):
             f"this key can use.",
         )
     else:
+        why = f" The provider said: {found.reason}." if found.reason else ""
         messages.warning(
             request,
             f'Provider "{display_name}" added, but no models this key can '
-            f"use were found. Add them manually via Edit.",
+            f"use were found.{why} Add them manually via Edit.",
         )
     return redirect("tenant_settings")
 
@@ -557,15 +560,16 @@ def fetch_llm_models(request, provider_id):
         return HttpResponse('<span class="badge badge-error">Forbidden</span>')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    models = discover_models(provider.provider_type, provider.base_url, provider.api_key)
-    if models:
-        provider.available_models = models
+    found = discover(provider.provider_type, provider.base_url, provider.api_key)
+    if found.models:
+        provider.available_models = found.models
         provider.save(update_fields=["available_models"])
         return HttpResponse(
-            f'<span class="badge badge-success">{len(models)} usable models — '
+            f'<span class="badge badge-success">{len(found.models)} usable models — '
             f"reload to use</span>"
         )
-    return HttpResponse('<span class="badge badge-warning">none found</span>')
+    title = f' title="{escape(found.reason)}"' if found.reason else ""
+    return HttpResponse(f'<span class="badge badge-warning"{title}>none found</span>')
 
 
 @login_required

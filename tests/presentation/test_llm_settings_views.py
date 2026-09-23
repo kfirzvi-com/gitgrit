@@ -13,9 +13,14 @@ NON_MANIFEST_STORAGES = {
 }
 
 from app.domain.models import LLMProvider, LLMRole
+from app.infrastructure.llm_models import Discovery, ProbeResult
+
+
+def _found(models, results=()):
+    return Discovery(list(models), list(results))
 
 ADD_URL = "/tenants/llm/providers/add/"
-DISCOVER = "app.presentation.views.tenant_views.discover_models"
+DISCOVER = "app.presentation.views.tenant_views.discover"
 
 
 @pytest.mark.django_db
@@ -58,7 +63,7 @@ class TestLLMProviderViews(TestCase):
 
     def test_admin_adds_provider_with_discovered_models(self):
         self._admin()
-        with patch(DISCOVER, return_value=["claude-opus-4", "claude-sonnet-4"]):
+        with patch(DISCOVER, return_value=_found(["claude-opus-4", "claude-sonnet-4"])):
             resp = self.client.post(
                 ADD_URL,
                 {"provider_type": "anthropic", "display_name": "A", "api_key": "sk-x"},
@@ -69,16 +74,30 @@ class TestLLMProviderViews(TestCase):
         assert provider.provider_type == "anthropic"
         assert provider.available_models == ["claude-opus-4", "claude-sonnet-4"]
 
+    def test_add_with_no_usable_models_explains_why(self):
+        self._admin()
+        body = (
+            'GeminiException - { "error": { "code": 402, "message": "Your prepayment '
+            'credits are depleted. Please go to AI Studio." } }'
+        )
+        found = _found([], [ProbeResult("gemini-3.5-flash", False, 402, body)])
+        with patch(DISCOVER, return_value=found):
+            resp = self.client.post(
+                ADD_URL, {"provider_type": "gemini", "api_key": "g"}, follow=True
+            )
+        assert LLMProvider.objects.get().available_models == []
+        assert "Your prepayment credits are depleted" in resp.content.decode()
+
     def test_add_requires_api_key(self):
         self._admin()
-        with patch(DISCOVER, return_value=[]):
+        with patch(DISCOVER, return_value=_found([])):
             resp = self.client.post(ADD_URL, {"provider_type": "anthropic", "api_key": ""})
         assert resp.status_code == 302
         assert LLMProvider.objects.count() == 0
 
     def test_add_rejects_invalid_type(self):
         self._admin()
-        with patch(DISCOVER, return_value=[]):
+        with patch(DISCOVER, return_value=_found([])):
             resp = self.client.post(ADD_URL, {"provider_type": "bogus", "api_key": "k"})
         assert resp.status_code == 302
         assert LLMProvider.objects.count() == 0
