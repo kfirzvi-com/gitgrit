@@ -1,0 +1,307 @@
+slug: map-file-dependencies-declared
+name: "Map file: every component declares its dependencies"
+description: >
+  A component in .gitgrit.yml that lists its dependencies (depends_on,
+  infrastructure, providers, consumers — an empty list counts) is mapped
+  with no LLM call at all; one that lists none still costs a full LLM run.
+  Passes when every component declares its dependencies, every depends_on
+  target is another declared component or a workspace repository
+  (owner/repo or owner/repo#path), and docker-compose `depends_on` links
+  between declared components are also in the file. The score is the share
+  of components with no problem.
+author: GitGrit
+suggested_labels:
+  - architecture-map
+criteria:
+  events:
+    - push
+    - pull_request
+    - manual
+code: |
+  """Every component in .gitgrit.yml declares its dependencies, targets name
+  real components, and docker-compose depends_on links are in the file."""
+  import re
+
+  # --- shared by the three "Map file" standards; keep identical (a test checks) ---
+  import yaml
+
+  MAP_FILES = (".gitgrit.yml", ".gitgrit.yaml")
+  KINDS = ("service", "frontend", "library", "job", "infra", "other")
+  DEP_KEYS = ("depends_on", "infrastructure", "providers", "consumers")
+  IGNORED = {
+      "docs", "doc", "examples", "example", "samples", "demo", "tests", "test", "e2e",
+      "fixtures", "testdata", "scripts", "tools", ".github", "node_modules", "vendor",
+      "dist", "build", "target",
+  }
+  CODE_MANIFESTS = {
+      "package.json", "pyproject.toml", "requirements.txt", "go.mod", "cargo.toml",
+      "gemfile", "pom.xml", "build.gradle", "build.gradle.kts", "composer.json", "setup.py",
+  }
+
+
+  def _dir(path):
+      return path.rsplit("/", 1)[0] if "/" in path else ""
+
+
+  def _clean(path):
+      """Repository-relative, no ./ or trailing slash, '..' resolved; '' is the root."""
+      parts = []
+      for seg in str(path or "").strip().replace("\\", "/").split("/"):
+          if seg == "..":
+              if parts:
+                  parts.pop()
+          elif seg and seg != ".":
+              parts.append(seg)
+      return "/".join(parts)
+
+
+  def _deploy_dirs(files):
+      """Every non-root folder holding a Dockerfile, Terraform or a code manifest."""
+      out = set()
+      for f in files:
+          d = _dir(f)
+          if not d or any(seg.lower() in IGNORED for seg in d.split("/")):
+              continue
+          base = f.rsplit("/", 1)[-1].lower()
+          if base == "dockerfile" or base in CODE_MANIFESTS or base.endswith(".tf"):
+              out.add(d)
+      return sorted(out)
+
+
+  def _outermost(dirs):
+      return [d for d in dirs if not any(d.startswith(o + "/") for o in dirs)]
+
+
+  def _load(project, files):
+      """(path, data, error): the root map file, its parsed YAML, or why not."""
+      path = next((n for n in MAP_FILES if n in files), None)
+      if path is None:
+          return None, None, "No .gitgrit.yml at the repository root"
+      try:
+          data = yaml.safe_load(project.get_file_content(path) or "")
+      except yaml.YAMLError as exc:
+          return path, None, "%s is not valid YAML: %s" % (path, str(exc).splitlines()[0])
+      comps = data.get("components") if isinstance(data, dict) else None
+      if not isinstance(comps, list) or not comps:
+          return path, None, "%s has no non-empty 'components' list" % path
+      return path, data, None
+  # --- end shared ---
+
+  COMPOSE = re.compile(r"^(docker-)?compose(\.[\w.-]+)?\.ya?ml$")
+
+
+  def _target(item):
+      if isinstance(item, dict):
+          item = item.get("target")
+      return str(item or "").strip()
+
+
+  def _compose_links(project, files, by_path):
+      """(source_path, target_path) pairs from compose depends_on between
+      services whose build context is a declared component."""
+      links = set()
+      for f in files:
+          if not COMPOSE.match(f.rsplit("/", 1)[-1].lower()):
+              continue
+          try:
+              doc = yaml.safe_load(project.get_file_content(f) or "") or {}
+          except yaml.YAMLError:
+              continue
+          services = doc.get("services") if isinstance(doc, dict) else None
+          if not isinstance(services, dict):
+              continue
+          base = _dir(f)
+          where = {}
+          for name, svc in services.items():
+              build = svc.get("build") if isinstance(svc, dict) else None
+              if isinstance(build, dict):
+                  build = build.get("context")
+              if isinstance(build, str):
+                  ctx = _clean(base + "/" + build if base else build)
+                  if ctx in by_path:
+                      where[name] = ctx
+          for name, svc in services.items():
+              if name not in where or not isinstance(svc, dict):
+                  continue
+              deps = svc.get("depends_on") or []
+              if isinstance(deps, dict):
+                  deps = list(deps)
+              for d in deps:
+                  if d in where and where[d] != where[name]:
+                      links.add((where[name], where[d]))
+      return links
+
+
+  def evaluate(project):
+      files = project.list_files()
+      path, data, error = _load(project, files)
+      if error:
+          return {"passed": False, "score": 0, "message": error + ".", "details": {}}
+      comps = [c for c in data["components"] if isinstance(c, dict) and "path" in c]
+      if not comps:
+          return {"passed": False, "score": 0, "message": "%s has no component with a 'path'." % path, "details": {}}
+
+      by_path = {_clean(c.get("path")): c for c in comps}
+      names = {}
+      for p, c in by_path.items():
+          names[p.lower()] = p
+          names[str(c.get("name") or p.rsplit("/", 1)[-1]).lower()] = p
+
+      problems = {}
+      for p, c in by_path.items():
+          label = p or "<root>"
+          if not any(k in c for k in DEP_KEYS):
+              problems.setdefault(label, []).append(
+                  "declares no dependencies (add depends_on / infrastructure / providers / consumers, [] if none)"
+              )
+              continue
+          for key in DEP_KEYS:
+              if c.get(key) is not None and not isinstance(c.get(key), list):
+                  problems.setdefault(label, []).append("%s must be a list" % key)
+          deps = c.get("depends_on")
+          for item in deps if isinstance(deps, list) else []:
+              t = _target(item)
+              if not t:
+                  problems.setdefault(label, []).append("a depends_on entry has no target")
+              elif "/" not in t and t.lower().lstrip("#") not in names:
+                  problems.setdefault(label, []).append("depends_on '%s' is not a declared component or owner/repo" % t)
+
+      for src, dst in sorted(_compose_links(project, files, by_path)):
+          deps = by_path[src].get("depends_on")
+          declared = {names.get(_target(i).lower().lstrip("#")) for i in deps} if isinstance(deps, list) else set()
+          if dst not in declared and any(k in by_path[src] for k in DEP_KEYS):
+              problems.setdefault(src or "<root>", []).append(
+                  "docker-compose says it depends on '%s' but depends_on does not list it"
+                  % (by_path[dst].get("name") or dst)
+              )
+
+      if not problems:
+          n = len(by_path)
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "All %d component%s declare their dependencies; the map needs no LLM call."
+                         % (n, "" if n == 1 else "s"),
+              "details": {},
+          }
+      lines = ["%s: %s" % (k, "; ".join(v)) for k, v in sorted(problems.items())]
+      return {
+          "passed": False,
+          "score": round(100 * (len(by_path) - len(problems)) / len(by_path)),
+          "message": "%d of %d components need fixing in %s — %s"
+                     % (len(problems), len(by_path), path, " | ".join(lines[:5])),
+          "details": {"problems": problems},
+      }
+test_cases:
+  - name: Fully declared components pass
+    input:
+      list_files:
+        - .gitgrit.yml
+        - services/orders/go.mod
+        - services/payments/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: services/orders
+              name: orders
+              depends_on: [payments, kfirzvi-com/auth]
+              infrastructure: [{name: PostgreSQL, kind: database}]
+            - path: services/payments
+              name: payments
+              providers: [Stripe]
+    expected:
+      passed: true
+      score: 100
+  - name: Empty lists count as declared
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: ''
+              depends_on: []
+    expected:
+      passed: true
+      score: 100
+  - name: A component with no dependency keys halves the score
+    input:
+      list_files:
+        - .gitgrit.yml
+        - a/go.mod
+        - b/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: a
+              depends_on: [b]
+            - path: b
+    expected:
+      passed: false
+      score: 50
+  - name: Unknown bare target fails
+    input:
+      list_files:
+        - .gitgrit.yml
+        - a/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: a
+              depends_on: [ghost]
+    expected:
+      passed: false
+      score: 0
+  - name: docker-compose link missing from depends_on fails
+    input:
+      list_files:
+        - .gitgrit.yml
+        - docker-compose.yml
+        - gateway/package.json
+        - auth/pyproject.toml
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: gateway
+              depends_on: []
+            - path: auth
+              depends_on: []
+        docker-compose.yml: |
+          services:
+            gateway:
+              build: ./gateway
+              depends_on: [auth]
+            auth:
+              build:
+                context: ./auth
+    expected:
+      passed: false
+      score: 50
+  - name: Compose file inside a component resolves ../ contexts
+    input:
+      list_files:
+        - .gitgrit.yml
+        - gateway/docker-compose.yml
+        - gateway/package.json
+        - auth/pyproject.toml
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: gateway
+              name: api-gateway
+              depends_on: [auth]
+            - path: auth
+              depends_on: []
+        gateway/docker-compose.yml: |
+          services:
+            api:
+              build: .
+              depends_on:
+                auth:
+                  condition: service_started
+            auth:
+              build: ../auth
+    expected:
+      passed: true
+      score: 100

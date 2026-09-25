@@ -47,6 +47,7 @@ nav:
     - Connect a Generic MCP Client: getting-started/setup-generic.md
   - Features:
     - Standard Marketplace: features/marketplace.md
+    - Architecture Map File: features/architecture-map-file.md
     - Compliance Badges: features/badges.md
     - Standard Versioning: features/versioning.md
     - Analytics Dashboard: features/analytics.md

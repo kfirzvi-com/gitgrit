@@ -71,10 +71,15 @@ class InfrastructureResource:
 @dataclass(frozen=True)
 class Evidence:
     """What the inference actually looked at. ``tree_size`` is None when the
-    repository was never listed; ``files_read`` is in read order."""
+    repository was never listed; ``files_read`` is what the model read, in
+    order. ``map_file`` is the repository's own map declaration when one was
+    used, and ``declared`` is True when it answered everything (no model run),
+    so the map rests on the file rather than on model reads."""
 
     tree_size: int | None = None
     files_read: tuple[str, ...] = ()
+    map_file: str = ""
+    declared: bool = False
 
 
 @dataclass(frozen=True)
@@ -109,6 +114,8 @@ class RepositoryTopology:
             evidence=Evidence(
                 tree_size=data.get("evidence", {}).get("tree_size"),
                 files_read=tuple(data.get("evidence", {}).get("files_read", ())),
+                map_file=data.get("evidence", {}).get("map_file", ""),
+                declared=bool(data.get("evidence", {}).get("declared", False)),
             ),
         )
 
@@ -124,6 +131,14 @@ def clean_path(path) -> str:
         p = p[2:]
     p = p.strip("/")
     return "" if p == "." else p
+
+
+def safe_url(url) -> str:
+    """``url`` when it is a plain http(s) link, else ''. The map opens a
+    node's url on click, so anything else (``javascript:``, ``data:``) that a
+    repository file or a model answer carries must never be stored."""
+    u = (url or "").strip()
+    return u[:2048] if u.lower().startswith(("http://", "https://")) else ""
 
 
 def clean_technologies(values: Iterable[str], limit: int = MAX_TECHNOLOGIES) -> tuple[str, ...]:
@@ -224,6 +239,8 @@ def check_evidence(evidence: Evidence) -> None:
             "repository's files. Check the platform connection's access to the repo "
             "and the project's default branch. The previous map was kept."
         )
+    if evidence.declared:
+        return  # the repository's own map file answered everything
     if not evidence.files_read:
         raise UngroundedTopology(
             "The model answered without reading any repository file, so the result "

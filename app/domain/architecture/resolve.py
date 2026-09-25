@@ -19,6 +19,7 @@ from app.domain.architecture.topology import (
     ExternalLink,
     InfrastructureResource,
     RepositoryTopology,
+    safe_url,
 )
 
 
@@ -45,7 +46,8 @@ def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = 
     """Best-effort mapping of a model-returned target onto one roster entry.
 
     Tried in order: exact ref (``repo`` or ``repo#path``); ``#path`` or a bare
-    path naming a sibling in ``this_repo``; a bare repository (its root, or
+    path naming a sibling in ``this_repo``; a bare (or ``#``) name unique among
+    those siblings; a bare repository (its root, or
     its only component); ``repo/path`` written with a slash; a unique
     component name; a repository's last path segment (its root component).
     """
@@ -62,6 +64,14 @@ def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = 
         for e in roster:
             if e.full_path.lower() == this_repo.lower() and e.path.lower() == sibling_path:
                 return e
+        # A bare name means this repository's own component before a
+        # same-named one elsewhere in the workspace.
+        siblings = [
+            e for e in roster
+            if e.full_path.lower() == this_repo.lower() and e.path and e.name.lower() == sibling_path
+        ]
+        if len(siblings) == 1:
+            return siblings[0]
     if t.startswith("#"):
         return None  # ``#path`` only ever names a sibling; never guess further
 
@@ -218,7 +228,7 @@ def resolve_topology(
                 source_path=ext.source_path,
                 name=name[:255],
                 direction=ext.direction,
-                url=(ext.url or "")[:2048],
+                url=safe_url(ext.url),
                 label=(ext.label or "")[:255],
             )
         )

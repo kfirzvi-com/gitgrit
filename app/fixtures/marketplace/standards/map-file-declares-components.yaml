@@ -1,0 +1,288 @@
+slug: map-file-declares-components
+name: "Map file: components are declared in .gitgrit.yml"
+description: >
+  GitGrit builds the architecture map with an LLM that explores the
+  repository one call at a time; on free or rate-limited models that is slow
+  and often fails. A root .gitgrit.yml that lists the repository's
+  components lets GitGrit skip the whole discovery step. Passes when the
+  file exists, is valid YAML and every component has a path that exists.
+  Scores 30 when the file is missing (the message prints a starting file to
+  commit) and 0 when it is present but unusable.
+author: GitGrit
+suggested_labels:
+  - architecture-map
+criteria:
+  events:
+    - push
+    - pull_request
+    - manual
+code: |
+  """Root .gitgrit.yml lists the repository's components, in the format the
+  map reads (app/domain/architecture/map_file.py). A file that passes is one
+  the map parses with no warnings."""
+  # --- shared by the three "Map file" standards; keep identical (a test checks) ---
+  import yaml
+
+  MAP_FILES = (".gitgrit.yml", ".gitgrit.yaml")
+  KINDS = ("service", "frontend", "library", "job", "infra", "other")
+  DEP_KEYS = ("depends_on", "infrastructure", "providers", "consumers")
+  IGNORED = {
+      "docs", "doc", "examples", "example", "samples", "demo", "tests", "test", "e2e",
+      "fixtures", "testdata", "scripts", "tools", ".github", "node_modules", "vendor",
+      "dist", "build", "target",
+  }
+  CODE_MANIFESTS = {
+      "package.json", "pyproject.toml", "requirements.txt", "go.mod", "cargo.toml",
+      "gemfile", "pom.xml", "build.gradle", "build.gradle.kts", "composer.json", "setup.py",
+  }
+
+
+  def _dir(path):
+      return path.rsplit("/", 1)[0] if "/" in path else ""
+
+
+  def _clean(path):
+      """Repository-relative, no ./ or trailing slash, '..' resolved; '' is the root."""
+      parts = []
+      for seg in str(path or "").strip().replace("\\", "/").split("/"):
+          if seg == "..":
+              if parts:
+                  parts.pop()
+          elif seg and seg != ".":
+              parts.append(seg)
+      return "/".join(parts)
+
+
+  def _deploy_dirs(files):
+      """Every non-root folder holding a Dockerfile, Terraform or a code manifest."""
+      out = set()
+      for f in files:
+          d = _dir(f)
+          if not d or any(seg.lower() in IGNORED for seg in d.split("/")):
+              continue
+          base = f.rsplit("/", 1)[-1].lower()
+          if base == "dockerfile" or base in CODE_MANIFESTS or base.endswith(".tf"):
+              out.add(d)
+      return sorted(out)
+
+
+  def _outermost(dirs):
+      return [d for d in dirs if not any(d.startswith(o + "/") for o in dirs)]
+
+
+  def _load(project, files):
+      """(path, data, error): the root map file, its parsed YAML, or why not."""
+      path = next((n for n in MAP_FILES if n in files), None)
+      if path is None:
+          return None, None, "No .gitgrit.yml at the repository root"
+      try:
+          data = yaml.safe_load(project.get_file_content(path) or "")
+      except yaml.YAMLError as exc:
+          return path, None, "%s is not valid YAML: %s" % (path, str(exc).splitlines()[0])
+      comps = data.get("components") if isinstance(data, dict) else None
+      if not isinstance(comps, list) or not comps:
+          return path, None, "%s has no non-empty 'components' list" % path
+      return path, data, None
+  # --- end shared ---
+
+
+  def _is_text(v):
+      return v is None or (isinstance(v, (str, int, float)) and not isinstance(v, bool))
+
+
+  def _link_errors(value, where, name_key):
+      if value is None:
+          return []
+      if not isinstance(value, list):
+          return ["%s must be a list" % where]
+      errors = []
+      for i, item in enumerate(value):
+          w = "%s[%d]" % (where, i)
+          if isinstance(item, str):
+              continue
+          if not isinstance(item, dict):
+              errors.append("%s must be a string or a mapping" % w)
+              continue
+          if not str(item.get(name_key) or "").strip():
+              errors.append("%s needs a '%s'" % (w, name_key))
+          errors += ["%s.%s must be a string" % (w, k) for k in (name_key, "label", "kind", "url") if not _is_text(item.get(k))]
+          url = str(item.get("url") or "").strip()
+          if url and not url.lower().startswith(("http://", "https://")):
+              errors.append("%s.url must start with http:// or https://" % w)
+      return errors
+
+
+  def _errors(comps, files):
+      dirs = set()
+      for f in files:
+          parts = f.split("/")
+          for i in range(1, len(parts)):
+              dirs.add("/".join(parts[:i]))
+      errors, seen = [], set()
+      for i, c in enumerate(comps):
+          w = "components[%d]" % i
+          if not isinstance(c, dict):
+              errors.append("%s must be a mapping" % w)
+              continue
+          if "path" not in c:
+              errors.append("%s needs a 'path' ('' for the repository root)" % w)
+              continue
+          errors += ["%s.%s must be a string" % (w, k) for k in ("path", "name", "kind", "description") if not _is_text(c.get(k))]
+          path = _clean(c.get("path"))
+          if path and path not in dirs:
+              errors.append("%s: folder '%s' does not exist" % (w, path))
+          if path in seen:
+              errors.append("%s: path '%s' is declared twice" % (w, path or "''"))
+          seen.add(path)
+          kind = c.get("kind")
+          if kind is not None and kind not in KINDS:
+              errors.append("%s: kind '%s' is not one of %s" % (w, kind, ", ".join(KINDS)))
+          techs = c.get("technologies")
+          if techs is not None and (not isinstance(techs, list) or not all(_is_text(t) for t in techs)):
+              errors.append("%s.technologies must be a list of strings" % w)
+          for key in DEP_KEYS:
+              errors += _link_errors(c.get(key), "%s.%s" % (w, key), "target" if key == "depends_on" else "name")
+      return errors
+
+
+  def _suggest(files):
+      lines = ["components:"]
+      for d in _outermost(_deploy_dirs(files)) or [""]:
+          lines.append("  - path: %s" % (d or "''"))
+          lines.append("    name: %s" % (d.rsplit("/", 1)[-1] if d else "app"))
+          lines.append("    kind: service")
+      return "\n".join(lines)
+
+
+  def evaluate(project):
+      files = project.list_files()
+      path, data, error = _load(project, files)
+      if path is None:
+          suggested = _suggest(files)
+          return {
+              "passed": False,
+              "score": 30,
+              "message": (
+                  "No .gitgrit.yml at the repository root, so the architecture map has to discover "
+                  "the components with many LLM calls. Commit this starting file (check names and kinds):\n\n"
+                  + suggested
+              ),
+              "details": {"suggested_gitgrit_yml": suggested},
+          }
+      errors = [error] if error else _errors(data["components"], files)
+      if errors:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": "%s cannot be fully used by the map: %s" % (path, "; ".join(errors[:3])),
+              "details": {"errors": errors},
+          }
+      n = len(data["components"])
+      return {
+          "passed": True,
+          "score": 100,
+          "message": "%s declares %d component%s; the map skips discovery." % (path, n, "" if n == 1 else "s"),
+          "details": {"components": [_clean(c.get("path")) for c in data["components"]]},
+      }
+test_cases:
+  - name: Missing file scores 30 and suggests one
+    input:
+      list_files:
+        - README.md
+        - services/orders/go.mod
+        - services/orders/Dockerfile
+        - apps/web/package.json
+    expected:
+      passed: false
+      score: 30
+  - name: Valid file passes
+    input:
+      list_files:
+        - .gitgrit.yml
+        - services/orders/go.mod
+        - apps/web/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: services/orders
+              name: orders
+              kind: service
+            - path: apps/web
+              kind: frontend
+    expected:
+      passed: true
+      score: 100
+  - name: Root-only repository passes with path ''
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: ''
+              name: web
+    expected:
+      passed: true
+      score: 100
+  - name: Folder that does not exist scores 0
+    input:
+      list_files:
+        - .gitgrit.yml
+        - apps/web/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: apps/gone
+    expected:
+      passed: false
+      score: 0
+  - name: Broken YAML scores 0
+    input:
+      list_files:
+        - .gitgrit.yml
+      get_file_content:
+        .gitgrit.yml: "components: [oops\n"
+    expected:
+      passed: false
+      score: 0
+  - name: Unknown kind scores 0
+    input:
+      list_files:
+        - .gitgrit.yml
+        - api/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: api
+              kind: microservice
+    expected:
+      passed: false
+      score: 0
+  - name: A dependency key that is not a list scores 0 (the map would ignore it)
+    input:
+      list_files:
+        - .gitgrit.yml
+        - api/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: api
+              providers: Stripe
+    expected:
+      passed: false
+      score: 0
+  - name: A non-http url scores 0
+    input:
+      list_files:
+        - .gitgrit.yml
+        - api/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: api
+              providers:
+                - {name: Stripe, url: "javascript:alert(1)"}
+    expected:
+      passed: false
+      score: 0

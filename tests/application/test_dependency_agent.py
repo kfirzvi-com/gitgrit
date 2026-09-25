@@ -234,6 +234,127 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertIn("connection", str(ctx.exception))
 
 
+class MapFileTests(MonkeyPatchMixin, TestCase):
+    """A root .gitgrit.yml replaces the model runs for what it declares."""
+
+    _setup = DependencyAgentTests._setup
+
+    TREE = (
+        ".gitgrit.yml",
+        "apps/api-gateway/package.json",
+        "services/auth-service/pyproject.toml",
+    )
+
+    def _runs(self):
+        calls = []
+        inner = li.LLMAgent.run
+
+        def counting(agent, **kw):
+            calls.append(kw["response_model"].__name__)
+            return inner(agent, **kw)
+
+        self.monkeypatch.setattr(li.LLMAgent, "run", counting)
+        return calls
+
+    def _with_map(self, text, **model):
+        files = {p: "{}" for p in self.TREE}
+        files[".gitgrit.yml"] = text
+        tenant, src, api = self._setup(client=_fake_client(self.TREE, files), **model)
+        return src, api, self._runs()
+
+    def test_fully_declared_repository_needs_no_model_call(self):
+        src, api, runs = self._with_map(
+            "components:\n"
+            "  - path: apps/api-gateway\n"
+            "    name: api-gateway\n"
+            "    kind: service\n"
+            "    technologies: [Express]\n"
+            "    depends_on: [auth-service, {target: org/api, label: REST}]\n"
+            "    providers: [Stripe]\n"
+            "  - path: services/auth-service\n"
+            "    name: auth-service\n"
+            "    infrastructure: [{name: PostgreSQL, kind: database}]\n"
+        )
+
+        summary = da.infer_and_store(src)
+
+        self.assertEqual(runs, [])
+        self.assertEqual(summary.components, 2)
+        gateway = src.components.get(path="apps/api-gateway")
+        auth = src.components.get(path="services/auth-service")
+        self.assertEqual((gateway.kind, gateway.technologies), ("service", ["Express"]))
+        targets = {(d.target.pk, d.label) for d in ComponentDependency.objects.filter(source=gateway)}
+        self.assertEqual(targets, {(auth.pk, ""), (api.root_component.pk, "REST")})
+        self.assertEqual(ExternalDependency.objects.get(component=gateway).name, "Stripe")
+        self.assertEqual(InfrastructureComponent.objects.get(component=auth).name, "PostgreSQL")
+
+    def test_declared_components_skip_discovery_but_not_undeclared_dependencies(self):
+        src, _api, runs = self._with_map(
+            "components:\n"
+            "  - {path: apps/api-gateway, name: api-gateway, depends_on: []}\n"
+            "  - {path: services/auth-service, name: auth-service}\n",
+            paths=("services/auth-service/pyproject.toml",),
+        )
+
+        da.infer_and_store(src)
+
+        self.assertEqual(runs, ["DependencyResult"])
+        self.assertEqual(set(src.components.values_list("path", flat=True)), {"apps/api-gateway", "services/auth-service"})
+
+    def test_unusable_map_file_falls_back_to_the_model(self):
+        src, _api, runs = self._with_map("components: [oops\n", paths=("apps/api-gateway/package.json",))
+
+        da.infer_and_store(src)
+
+        self.assertEqual(runs, ["ComponentDiscovery", "DependencyResult"])
+
+    def test_map_file_is_not_evidence_for_a_model_run_that_read_nothing(self):
+        """The model still runs for auth-service; if it reads nothing, its
+        guess must be refused even though .gitgrit.yml was read."""
+        src, _api, _runs = self._with_map(
+            "components:\n"
+            "  - {path: apps/api-gateway, depends_on: []}\n"
+            "  - {path: services/auth-service}\n",
+            paths=(),
+        )
+        with self.assertRaises(RuntimeError) as ctx:
+            da.infer_and_store(src)
+        self.assertIn("without reading any repository file", str(ctx.exception))
+
+    def test_fully_declared_map_records_the_map_file_as_evidence(self):
+        src, _api, _runs = self._with_map("components:\n  - {path: '', depends_on: []}\n")
+        da.infer_and_store(src)
+        src.refresh_from_db()
+        self.assertEqual(src.deps_evidence, [".gitgrit.yml"])
+        self.assertEqual(src.deps_status, Project.DepsStatus.OK)
+
+    def test_non_http_url_in_the_map_file_is_never_stored(self):
+        src, _api, _runs = self._with_map(
+            "components:\n"
+            "  - path: ''\n"
+            "    providers:\n"
+            "      - {name: Stripe, url: 'javascript:alert(1)'}\n"
+            "      - {name: Auth0, url: 'https://auth0.com'}\n",
+            paths=("apps/api-gateway/package.json",),
+        )
+        da.infer_and_store(src)
+        urls = set(ExternalDependency.objects.filter(component__project=src).values_list("url", flat=True))
+        self.assertNotIn("javascript:alert(1)", urls)
+
+    def test_declared_folder_that_is_gone_is_left_out_and_the_survivor_keeps_its_dependencies(self):
+        src, api, runs = self._with_map(
+            "components:\n"
+            "  - {path: apps/api-gateway, name: api-gateway, depends_on: [{target: org/api, label: REST}]}\n"
+            "  - {path: apps/removed, name: removed, depends_on: []}\n"
+        )
+        da.infer_and_store(src)
+        self.assertEqual(runs, [])
+        root = src.components.get()
+        self.assertEqual(root.path, "")
+        targets = {(d.target.pk, d.label) for d in ComponentDependency.objects.filter(source=root)}
+        self.assertEqual(targets, {(api.root_component.pk, "REST")})
+
+
 class RosterInstructionsTests(TestCase):
     def test_roster_lines_name_components_by_ref(self):
         from app.application.architecture.ports import InferenceContext

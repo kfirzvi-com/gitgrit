@@ -106,3 +106,18 @@ class TopologyCodecTests(SimpleTestCase):
         self.assertEqual(topo.components[0].name, "web")
         self.assertEqual(topo.internal, ())
         self.assertIsNone(topo.evidence.tree_size)
+
+
+def test_safe_url_keeps_only_http_links():
+    from app.domain.architecture.topology import safe_url
+
+    assert safe_url(" https://stripe.com ") == "https://stripe.com"
+    assert safe_url("http://x.io") == "http://x.io"
+    for bad in ("javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,x", "//evil.io", "", None):
+        assert safe_url(bad) == ""
+
+
+def test_declared_evidence_passes_without_model_reads():
+    from app.domain.architecture.topology import Evidence, check_evidence
+
+    check_evidence(Evidence(tree_size=3, map_file=".gitgrit.yml", declared=True))

@@ -14,6 +14,13 @@ Two phases rather than one nested answer because ``LLMAgent.run`` caps each
 run at ``MAX_ITERATIONS`` / ``MAX_TOOL_CALLS``: an eight-component monorepo
 needs a few reads per component, which no single run could afford. A
 root-only repository costs one discovery run plus one dependency run.
+
+The repository's own ``.gitgrit.yml`` arrives in ``context.map_file`` (the
+use case reads it first) and skips either phase for what it declares: its
+``components`` replace discovery, and a component that declares its
+dependencies gets no dependency run. A fully declared repository never
+reaches this adapter. ``files_read`` holds model reads only, so a model run
+that read nothing is still refused.
 """
 from __future__ import annotations
 
@@ -225,15 +232,23 @@ class LLMTopologyInference:
     def infer(self, snapshot: RepositorySnapshot, context: InferenceContext) -> RepositoryTopology:
         agent = self._agent_factory(context.log)
         toolbox = RepoToolbox(snapshot, context.full_path)
+        tree = toolbox.load_tree()
+        map_file = context.map_file
+        declared, dropped = map_file.matched(tree)
+        if dropped:
+            context.log(f"{map_file.path}: no files under {', '.join(dropped)}; left out")
 
-        discovery: ComponentDiscovery = agent.run(
-            toolbox=toolbox,
-            system_prompt=_DISCOVERY_PROMPT,
-            instructions=_discovery_instructions(context),
-            response_model=ComponentDiscovery,
-        )
-        components = normalise_components(
-            (
+        if map_file.components:
+            decls = [c.decl for c in map_file.components]
+            source = map_file.path
+        else:
+            discovery: ComponentDiscovery = agent.run(
+                toolbox=toolbox,
+                system_prompt=_DISCOVERY_PROMPT,
+                instructions=_discovery_instructions(context),
+                response_model=ComponentDiscovery,
+            )
+            decls = [
                 ComponentDecl(
                     path=c.path,
                     name=c.name,
@@ -242,12 +257,11 @@ class LLMTopologyInference:
                     technologies=tuple(c.technologies),
                 )
                 for c in discovery.components
-            ),
-            toolbox.load_tree(),
-            context.project_name,
-        )
+            ]
+            source = "model"
+        components = normalise_components(decls, tree, context.project_name)
         context.log(
-            "discovery: " + (
+            f"discovery ({source}): " + (
                 ", ".join(c.path or "<root>" for c in components)
             )
         )
@@ -265,6 +279,16 @@ class LLMTopologyInference:
         infra: list[InfrastructureResource] = []
         for component in components:
             own = tuple(e for e in roster if not (e.full_path == context.full_path and e.path == component.path))
+            declaration = declared.get(component.path)
+            if declaration is not None and declaration.has_dependencies:
+                i, r, e = declaration.edges(component.path)
+                final.append(component)
+                internal += i
+                infra += r
+                externals += e
+                context.log(f"deps[{component.path or '<root>'}]: from {map_file.path}")
+                continue
+
             result: DependencyResult = agent.run(
                 toolbox=toolbox.scoped(component.path),
                 system_prompt=_DEPENDENCY_PROMPT,
@@ -303,5 +327,9 @@ class LLMTopologyInference:
             internal=tuple(internal),
             externals=tuple(externals),
             infrastructure=tuple(infra),
-            evidence=Evidence(tree_size=toolbox.tree_size, files_read=tuple(toolbox.files_read)),
+            evidence=Evidence(
+                tree_size=toolbox.tree_size,
+                files_read=tuple(toolbox.files_read),
+                map_file=map_file.path if map_file.components else "",
+            ),
         )

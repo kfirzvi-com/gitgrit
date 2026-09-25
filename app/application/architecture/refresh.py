@@ -3,7 +3,10 @@
 The single write path for the architecture graph. Given an inference (LLM,
 fixture, …) and a way to snapshot the repository, it:
 
-1. infers a ``RepositoryTopology``;
+1. reads the repository's own map file (``.gitgrit.yml``) — when it declares
+   everything the map is built from it with no model call; otherwise it
+   infers a ``RepositoryTopology``, and the inference skips what the file
+   declares (no file: the model maps the whole repository);
 2. refuses one that was never grounded in the repository (evidence gate) so
    the previous map survives a bad run;
 3. resolves the topology's names against the workspace roster;
@@ -18,7 +21,7 @@ Stack-to-stack edges are NOT written here; they are derived at read time.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from django.db import transaction
@@ -28,6 +31,13 @@ from app.application.architecture.ports import (
     InferenceContext,
     RepositorySnapshot,
     TopologyInference,
+)
+from app.domain.architecture.map_file import (
+    MAP_FILE_NAMES,
+    MapFile,
+    MapFileError,
+    declared_topology,
+    parse_map_file,
 )
 from app.domain.architecture.reconcile import inherited_memberships, plan_components
 from app.domain.architecture.resolve import RosterEntry, resolve_topology
@@ -82,6 +92,22 @@ def workspace_roster(project: Project) -> tuple[RosterEntry, ...]:
     )
 
 
+def read_map_file(snapshot: RepositorySnapshot, tree: list[str], log) -> MapFile:
+    """The repository's root ``.gitgrit.yml``, or an empty ``MapFile`` when
+    there is none or it is unusable (logged; the model then maps everything)."""
+    path = next((n for n in MAP_FILE_NAMES if n in tree), None)
+    if path is None:
+        return MapFile()
+    try:
+        map_file = parse_map_file(snapshot.read_file(path) or "", path)
+    except MapFileError as exc:
+        log(f"{path} ignored: {exc}")
+        return MapFile()
+    for warning in map_file.warnings:
+        log(f"{path}: {warning}")
+    return map_file
+
+
 class RefreshProjectTopology:
     def __init__(
         self,
@@ -104,7 +130,14 @@ class RefreshProjectTopology:
             log=lambda m: logger.info("deps[%s]: %s", project.name, m),
         )
 
-        topology = self._inference.infer(self._snapshot_factory(project), context)
+        snapshot = self._snapshot_factory(project)
+        tree = snapshot.list_files() or []
+        map_file = read_map_file(snapshot, tree, context.log)
+        topology = declared_topology(map_file, tree, project.name)
+        if topology is not None:
+            context.log(f"mapped from {map_file.path}; no model call")
+        else:
+            topology = self._inference.infer(snapshot, replace(context, map_file=map_file))
         check_evidence(topology.evidence)  # raise before touching any table
 
         # Siblings discovered in this run join the roster without ids; they are
@@ -167,7 +200,9 @@ class RefreshProjectTopology:
             ExternalDependency.objects.bulk_create(externals, ignore_conflicts=True)
             InfrastructureComponent.objects.bulk_create(infra, ignore_conflicts=True)
 
-            project.deps_evidence = list(topology.evidence.files_read[:MAX_EVIDENCE_FILES])
+            evidence = topology.evidence
+            read = ([evidence.map_file] if evidence.map_file else []) + list(evidence.files_read)
+            project.deps_evidence = read[:MAX_EVIDENCE_FILES]
             project.deps_status = Project.DepsStatus.OK
             project.deps_analyzed_at = timezone.now()
             project.deps_error = ""
