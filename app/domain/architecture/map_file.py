@@ -6,14 +6,14 @@ leaving the model to find it out, one tool call at a time::
     components:
       - path: services/orders        # '' or '.' is the repository root
         name: orders
-        kind: service                # service | frontend | library | job | infra | other
+        kind: service                # one of topology.COMPONENT_KINDS
         description: Order API
         technologies: [Go, gRPC]
         depends_on:                  # other components: a sibling's name/path, org/repo, org/repo#path
           - payments
           - {target: org/auth, label: OAuth}
         infrastructure:
-          - {name: PostgreSQL, kind: database, label: orders DB}
+          - {name: PostgreSQL, kind: database, label: orders DB}  # kind: one of INFRA_KINDS
         providers: [Stripe]          # third-party services it calls
         consumers: []                # outside systems that call it
 
@@ -32,7 +32,7 @@ no warnings.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import yaml
 
@@ -184,8 +184,9 @@ def parse_map_file(text: str, path: str = MAP_FILE_NAMES[0]) -> MapFile:
     whole is unusable; a file without a ``components`` key declares nothing."""
     try:
         data = yaml.safe_load(text or "")
-    except yaml.YAMLError as exc:
-        raise MapFileError(f"not valid YAML: {str(exc).splitlines()[0]}") from exc
+    except (yaml.YAMLError, RecursionError) as exc:  # deep nesting raises RecursionError
+        reason = (str(exc).splitlines() or ["parse error"])[0]
+        raise MapFileError(f"not valid YAML: {reason}") from exc
     if data is None:
         return MapFile(path=path)
     if not isinstance(data, dict):
@@ -214,26 +215,48 @@ def parse_map_file(text: str, path: str = MAP_FILE_NAMES[0]) -> MapFile:
     return MapFile(path=path, components=tuple(out), warnings=tuple(warnings))
 
 
-def declared_topology(map_file: MapFile, tree: list[str], project_name: str) -> RepositoryTopology | None:
-    """The whole map from the file alone, or None when any stored component
-    still needs a model run (not declared, or its dependencies not declared)."""
+@dataclass(frozen=True)
+class DeclaredMap:
+    """What the map file answered, and what is left for the model.
+
+    ``topology`` holds the declared components (none when the file lists
+    none) and the edges of every component that declares its dependencies.
+    ``missing`` lists the component paths whose dependencies it does not."""
+
+    topology: RepositoryTopology
+    missing: tuple[str, ...] = ()
+    dropped: tuple[str, ...] = ()
+
+    @property
+    def complete(self) -> bool:
+        return bool(self.topology.components) and not self.missing
+
+
+def collect_declared(map_file: MapFile, tree: list[str], project_name: str) -> DeclaredMap:
+    """Collect the map from the file alone, as far as it goes."""
+    evidence = Evidence(tree_size=len(tree), map_file=map_file.path if map_file.components else "")
     if not map_file.components:
-        return None
-    found, _dropped = map_file.matched(tree)
+        return DeclaredMap(RepositoryTopology(components=(), evidence=evidence))
+    found, dropped = map_file.matched(tree)
     components = normalise_components((c.decl for c in map_file.components), tree, project_name)
-    internal, infra, externals = [], [], []
+    internal, infra, externals, missing = [], [], [], []
     for component in components:
         declared = found.get(component.path)
         if declared is None or not declared.has_dependencies:
-            return None
+            missing.append(component.path)
+            continue
         i, r, e = declared.edges(component.path)
         internal += i
         infra += r
         externals += e
-    return RepositoryTopology(
-        components=components,
-        internal=tuple(internal),
-        externals=tuple(externals),
-        infrastructure=tuple(infra),
-        evidence=Evidence(tree_size=len(tree), map_file=map_file.path, declared=True),
+    return DeclaredMap(
+        RepositoryTopology(
+            components=components,
+            internal=tuple(internal),
+            externals=tuple(externals),
+            infrastructure=tuple(infra),
+            evidence=evidence,
+        ),
+        missing=tuple(missing),
+        dropped=dropped,
     )

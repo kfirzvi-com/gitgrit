@@ -9,9 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
-from app.domain.architecture.map_file import MapFile
 from app.domain.architecture.resolve import RosterEntry
-from app.domain.architecture.topology import RepositoryTopology
+from app.domain.architecture.topology import ComponentDecl, RepositoryTopology
 
 
 class RepositorySnapshot(Protocol):
@@ -34,9 +33,11 @@ class InferenceContext:
     full_path: str
     roster: tuple[RosterEntry, ...] = ()
     log: Callable[[str], None] = field(default=lambda message: None)
-    # The repository's own .gitgrit.yml, read before inference; the inference
-    # skips whatever it declares.
-    map_file: MapFile = field(default_factory=MapFile)
+    # What is already known (from the repository's .gitgrit.yml): given
+    # components replace discovery, and a path in known_dependencies gets no
+    # dependency run. Both empty = infer everything.
+    components: tuple[ComponentDecl, ...] = ()
+    known_dependencies: frozenset[str] = frozenset()
 
 
 class TopologyInference(Protocol):

@@ -1,7 +1,7 @@
 """Parsing the repository's own map declaration (.gitgrit.yml)."""
 import pytest
 
-from app.domain.architecture.map_file import MapFileError, declared_topology, parse_map_file
+from app.domain.architecture.map_file import MapFileError, collect_declared, parse_map_file
 
 
 def test_full_component_declaration():
@@ -80,15 +80,44 @@ def test_matched_keys_a_lone_surviving_declaration_by_the_root():
     assert found == {"": m.components[0]} and dropped == ("gone",)
 
 
-def test_declared_topology_needs_every_component_declared():
+def test_collect_declared_is_complete_when_every_component_declares_dependencies():
     tree = ["a/go.mod", "b/go.mod"]
     full = parse_map_file(
         "components:\n  - {path: a, depends_on: [b], providers: [Stripe]}\n  - {path: b, infrastructure: [{name: Redis, kind: cache}]}\n"
     )
-    topo = declared_topology(full, tree, "mono")
+    declared = collect_declared(full, tree, "mono")
+    assert declared.complete and declared.missing == ()
+    topo = declared.topology
     assert [c.path for c in topo.components] == ["a", "b"]
     assert [(d.source_path, d.target_ref) for d in topo.internal] == [("a", "b")]
-    assert topo.evidence.declared and topo.evidence.map_file == ".gitgrit.yml"
+    assert topo.evidence.map_file == ".gitgrit.yml"
 
-    partial = parse_map_file("components:\n  - {path: a, depends_on: []}\n  - {path: b}\n")
-    assert declared_topology(partial, tree, "mono") is None
+
+def test_collect_declared_lists_components_left_to_the_model():
+    tree = ["a/go.mod", "b/go.mod"]
+    partial = parse_map_file("components:\n  - {path: a, depends_on: [b]}\n  - {path: b}\n")
+    declared = collect_declared(partial, tree, "mono")
+    assert not declared.complete and declared.missing == ("b",)
+    assert [c.path for c in declared.topology.components] == ["a", "b"]
+    assert [d.source_path for d in declared.topology.internal] == ["a"]
+
+
+def test_collect_declared_without_components_leaves_discovery_to_the_model():
+    declared = collect_declared(parse_map_file(""), ["go.mod"], "mono")
+    assert not declared.complete
+    assert declared.topology.components == () and declared.topology.evidence.map_file == ""
+
+
+def test_deeply_nested_yaml_is_an_unusable_file_not_a_crash():
+    with pytest.raises(MapFileError, match="not valid YAML"):
+        parse_map_file("components:\n  - " + "[" * 5000 + "\n")
+
+
+def test_docs_list_the_kinds_the_code_accepts():
+    from pathlib import Path
+
+    from app.domain.architecture.topology import COMPONENT_KINDS, INFRA_KINDS
+
+    docs = (Path(__file__).resolve().parents[2] / "site/docs/features/architecture-map-file.md").read_text()
+    assert f"# {' | '.join(COMPONENT_KINDS)}" in docs
+    assert f"# kind: {' | '.join(INFRA_KINDS)}" in docs

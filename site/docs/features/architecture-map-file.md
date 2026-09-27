@@ -28,7 +28,7 @@ components:
       - payments                 # a component in this repository, by name or path
       - {target: my-org/auth, label: OAuth}   # another repository (my-org/repo or my-org/repo#path)
     infrastructure:              # datastores, caches, queues, buckets it owns
-      - {name: PostgreSQL, kind: database, label: orders DB}   # kind: database | cache | queue | storage
+      - {name: PostgreSQL, kind: database, label: orders DB}   # kind: database | cache | queue | storage | other
     providers:                   # third-party services it calls
       - {name: Stripe, url: https://stripe.com}
     consumers: []                # outside systems that call it

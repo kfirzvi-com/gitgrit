@@ -5,7 +5,8 @@ description: >
   repository one call at a time; on free or rate-limited models that is slow
   and often fails. A root .gitgrit.yml that lists the repository's
   components lets GitGrit skip the whole discovery step. Passes when the
-  file exists, is valid YAML and every component has a path that exists.
+  file exists, is valid YAML, every component has a path that exists, and
+  every component and infrastructure kind is a known one.
   Scores 30 when the file is missing (the message prints a starting file to
   commit) and 0 when it is present but unusable.
 author: GitGrit
@@ -19,12 +20,14 @@ criteria:
 code: |
   """Root .gitgrit.yml lists the repository's components, in the format the
   map reads (app/domain/architecture/map_file.py). A file that passes is one
-  the map parses with no warnings."""
+  the map parses with no warnings. The kind checks are stricter than the map
+  on purpose: the map quietly replaces an unknown kind, so a typo is lost."""
   # --- shared by the three "Map file" standards; keep identical (a test checks) ---
   import yaml
 
   MAP_FILES = (".gitgrit.yml", ".gitgrit.yaml")
   KINDS = ("service", "frontend", "library", "job", "infra", "other")
+  INFRA_KINDS = ("database", "cache", "queue", "storage", "other")
   DEP_KEYS = ("depends_on", "infrastructure", "providers", "consumers")
   IGNORED = {
       "docs", "doc", "examples", "example", "samples", "demo", "tests", "test", "e2e",
@@ -77,8 +80,8 @@ code: |
           return None, None, "No .gitgrit.yml at the repository root"
       try:
           data = yaml.safe_load(project.get_file_content(path) or "")
-      except yaml.YAMLError as exc:
-          return path, None, "%s is not valid YAML: %s" % (path, str(exc).splitlines()[0])
+      except (yaml.YAMLError, RecursionError) as exc:  # deep nesting raises RecursionError
+          return path, None, "%s is not valid YAML: %s" % (path, (str(exc).splitlines() or ["parse error"])[0])
       comps = data.get("components") if isinstance(data, dict) else None
       if not isinstance(comps, list) or not comps:
           return path, None, "%s has no non-empty 'components' list" % path
@@ -90,7 +93,7 @@ code: |
       return v is None or (isinstance(v, (str, int, float)) and not isinstance(v, bool))
 
 
-  def _link_errors(value, where, name_key):
+  def _link_errors(value, where, name_key, kinds=()):
       if value is None:
           return []
       if not isinstance(value, list):
@@ -109,6 +112,9 @@ code: |
           url = str(item.get("url") or "").strip()
           if url and not url.lower().startswith(("http://", "https://")):
               errors.append("%s.url must start with http:// or https://" % w)
+          kind = item.get("kind")
+          if kinds and kind is not None and kind not in kinds:
+              errors.append("%s: kind '%s' is not one of %s" % (w, kind, ", ".join(kinds)))
       return errors
 
 
@@ -141,7 +147,12 @@ code: |
           if techs is not None and (not isinstance(techs, list) or not all(_is_text(t) for t in techs)):
               errors.append("%s.technologies must be a list of strings" % w)
           for key in DEP_KEYS:
-              errors += _link_errors(c.get(key), "%s.%s" % (w, key), "target" if key == "depends_on" else "name")
+              errors += _link_errors(
+                  c.get(key),
+                  "%s.%s" % (w, key),
+                  "target" if key == "depends_on" else "name",
+                  INFRA_KINDS if key == "infrastructure" else (),
+              )
       return errors
 
 
@@ -256,6 +267,20 @@ test_cases:
           components:
             - path: api
               kind: microservice
+    expected:
+      passed: false
+      score: 0
+  - name: Unknown infrastructure kind scores 0
+    input:
+      list_files:
+        - .gitgrit.yml
+        - api/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: api
+              infrastructure:
+                - {name: PostgreSQL, kind: databse}
     expected:
       passed: false
       score: 0

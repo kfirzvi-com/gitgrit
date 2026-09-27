@@ -36,7 +36,7 @@ from app.domain.architecture.map_file import (
     MAP_FILE_NAMES,
     MapFile,
     MapFileError,
-    declared_topology,
+    collect_declared,
     parse_map_file,
 )
 from app.domain.architecture.reconcile import inherited_memberships, plan_components
@@ -46,6 +46,7 @@ from app.domain.architecture.topology import (
     MAX_EVIDENCE_FILES,
     RepositoryTopology,
     check_evidence,
+    merge_topologies,
 )
 from app.domain.models import (
     Component,
@@ -130,15 +131,33 @@ class RefreshProjectTopology:
             log=lambda m: logger.info("deps[%s]: %s", project.name, m),
         )
 
+        # 1. Collect: the repository's .gitgrit.yml first, the model only for
+        # what the file leaves out.
         snapshot = self._snapshot_factory(project)
         tree = snapshot.list_files() or []
         map_file = read_map_file(snapshot, tree, context.log)
-        topology = declared_topology(map_file, tree, project.name)
-        if topology is not None:
+        declared = collect_declared(map_file, tree, project.name)
+        if declared.dropped:
+            context.log(f"{map_file.path}: no files under {', '.join(declared.dropped)}; left out")
+        found = None
+        if declared.complete:
             context.log(f"mapped from {map_file.path}; no model call")
         else:
-            topology = self._inference.infer(snapshot, replace(context, map_file=map_file))
+            components = declared.topology.components
+            found = self._inference.infer(
+                snapshot,
+                replace(
+                    context,
+                    components=components,
+                    known_dependencies=frozenset(c.path for c in components) - set(declared.missing),
+                ),
+            )
+
+        # 2. Organize: one topology, whichever way it was collected.
+        topology = merge_topologies(declared.topology, found)
         check_evidence(topology.evidence)  # raise before touching any table
+
+        # 3. Build the map.
 
         # Siblings discovered in this run join the roster without ids; they are
         # looked up by path once the components are persisted.

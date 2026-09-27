@@ -27,6 +27,7 @@ code: |
 
   MAP_FILES = (".gitgrit.yml", ".gitgrit.yaml")
   KINDS = ("service", "frontend", "library", "job", "infra", "other")
+  INFRA_KINDS = ("database", "cache", "queue", "storage", "other")
   DEP_KEYS = ("depends_on", "infrastructure", "providers", "consumers")
   IGNORED = {
       "docs", "doc", "examples", "example", "samples", "demo", "tests", "test", "e2e",
@@ -79,8 +80,8 @@ code: |
           return None, None, "No .gitgrit.yml at the repository root"
       try:
           data = yaml.safe_load(project.get_file_content(path) or "")
-      except yaml.YAMLError as exc:
-          return path, None, "%s is not valid YAML: %s" % (path, str(exc).splitlines()[0])
+      except (yaml.YAMLError, RecursionError) as exc:  # deep nesting raises RecursionError
+          return path, None, "%s is not valid YAML: %s" % (path, (str(exc).splitlines() or ["parse error"])[0])
       comps = data.get("components") if isinstance(data, dict) else None
       if not isinstance(comps, list) or not comps:
           return path, None, "%s has no non-empty 'components' list" % path
@@ -105,7 +106,7 @@ code: |
               continue
           try:
               doc = yaml.safe_load(project.get_file_content(f) or "") or {}
-          except yaml.YAMLError:
+          except (yaml.YAMLError, RecursionError):
               continue
           services = doc.get("services") if isinstance(doc, dict) else None
           if not isinstance(services, dict):

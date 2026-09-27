@@ -96,15 +96,53 @@ def test_the_shared_helpers_are_identical_in_all_three_standards():
 
 def test_the_shared_constants_match_the_app():
     from app.domain.architecture.map_file import DEPENDENCY_KEYS, MAP_FILE_NAMES
-    from app.domain.architecture.topology import COMPONENT_KINDS, clean_path
+    from app.domain.architecture.topology import COMPONENT_KINDS, INFRA_KINDS, clean_path
 
     ns: dict = {}
     exec(compile(_shared_block(PACK_STANDARDS[0]), "<shared>", "exec"), ns)  # noqa: S102
     assert ns["MAP_FILES"] == MAP_FILE_NAMES
     assert ns["KINDS"] == COMPONENT_KINDS
+    assert ns["INFRA_KINDS"] == INFRA_KINDS
     assert ns["DEP_KEYS"] == DEPENDENCY_KEYS
     for p in ("", ".", "./a/b/", "/a", "a/b"):  # ordinary paths; only _clean also resolves ".." for compose
         assert ns["_clean"](p) == clean_path(p), p
+
+
+@pytest.mark.parametrize("slug", PACK_STANDARDS)
+def test_deeply_nested_yaml_fails_the_standard_instead_of_crashing_it(slug):
+    deep = "components:\n  - " + "[" * 5000 + "\n"
+    files = [".gitgrit.yml", "api/go.mod", "docker-compose.yml"]
+    result = _evaluate(
+        _spec(slug)["code"],
+        {"list_files": files, "get_file_content": {".gitgrit.yml": deep, "docker-compose.yml": deep}},
+    )
+    assert result["passed"] is False
+    assert "not valid YAML" in result["message"]
+
+
+def test_dependencies_declared_skips_a_deeply_nested_compose_file():
+    files = [".gitgrit.yml", "api/go.mod", "docker-compose.yml"]
+    result = _evaluate(
+        _spec("map-file-dependencies-declared")["code"],
+        {
+            "list_files": files,
+            "get_file_content": {
+                ".gitgrit.yml": "components:\n  - {path: '', depends_on: []}\n",
+                "docker-compose.yml": "services:\n  a: " + "[" * 5000 + "\n",
+            },
+        },
+    )
+    assert result["passed"] is True, result["message"]
+
+
+def test_declares_components_rejects_an_unknown_infrastructure_kind():
+    text = "components:\n  - {path: '', infrastructure: [{name: PostgreSQL, kind: databse}]}\n"
+    result = _evaluate(
+        _spec("map-file-declares-components")["code"],
+        {"list_files": [".gitgrit.yml", "go.mod"], "get_file_content": {".gitgrit.yml": text}},
+    )
+    assert (result["passed"], result["score"]) == (False, 0)
+    assert "kind 'databse'" in result["message"]
 
 
 def test_missing_file_message_prints_a_file_the_map_can_read():

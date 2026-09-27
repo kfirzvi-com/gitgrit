@@ -120,6 +120,24 @@ class RepositoryTopology:
         )
 
 
+def merge_topologies(declared: RepositoryTopology, found: RepositoryTopology | None) -> RepositoryTopology:
+    """One topology from what the map file declared and what the model found.
+
+    The model was given the declared components (when there were any) and ran
+    only for what the file left out, so its components are the full list and
+    the two edge sets never overlap. ``files_read`` stays model reads only:
+    the map file is not evidence for a model answer."""
+    if found is None:
+        return replace(declared, evidence=replace(declared.evidence, declared=True))
+    return RepositoryTopology(
+        components=found.components or declared.components,
+        internal=declared.internal + found.internal,
+        externals=declared.externals + found.externals,
+        infrastructure=declared.infrastructure + found.infrastructure,
+        evidence=replace(found.evidence, map_file=declared.evidence.map_file),
+    )
+
+
 # --- Paths -------------------------------------------------------------------
 
 
