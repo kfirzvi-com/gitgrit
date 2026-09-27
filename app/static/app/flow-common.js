@@ -229,9 +229,12 @@ window.GitGritFlow = (function () {
           nodesFocusable: false,
           edgesFocusable: false,
           onNodeClick: function (evt, node) {
-            if (node.data && node.data.url) {
+            // Only same-site paths and http(s) links: a url can come from a
+            // repository's .gitgrit.yml or a model answer, never run it.
+            var url = node.data && node.data.url;
+            if (url && (/^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url))) {
               hideTooltip();
-              window.location = node.data.url;
+              window.location = url;
             }
           },
           onNodeMouseEnter: function (evt, node) {

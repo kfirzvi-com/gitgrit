@@ -29,3 +29,4 @@ When a marketplace standard is updated (new version), you'll see an "Update avai
 |------|-------------|----------|
 | Repository Hygiene | Documentation and quality standards | README, LICENSE, CODEOWNERS, CI Config, GitGrit Badge |
 | Security Essentials | Core security checks | No Secrets in Code |
+| Architecture Map Ready | Let the repository describe its own architecture map in `.gitgrit.yml` ([format](architecture-map-file.md)) | Map file: components declared, every deployable folder declared, every component declares its dependencies |

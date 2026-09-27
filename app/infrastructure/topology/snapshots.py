@@ -15,9 +15,14 @@ class PlatformSnapshot:
         self._client = client
         self._full_path = full_path
         self._ref = ref
+        self._tree: list[str] | None = None
 
     def list_files(self) -> list[str]:
-        return list(self._client.get_tree(self._full_path, self._ref) or [])
+        # Listed once per snapshot: the map-file step and the model's toolbox
+        # both need the tree, and each listing is a platform API call.
+        if self._tree is None:
+            self._tree = list(self._client.get_tree(self._full_path, self._ref) or [])
+        return list(self._tree)
 
     def read_file(self, path: str) -> str | None:
         return self._client.get_file_content(self._full_path, path, self._ref)

@@ -106,3 +106,56 @@ class TopologyCodecTests(SimpleTestCase):
         self.assertEqual(topo.components[0].name, "web")
         self.assertEqual(topo.internal, ())
         self.assertIsNone(topo.evidence.tree_size)
+
+
+def test_safe_url_keeps_only_http_links():
+    from app.domain.architecture.topology import safe_url
+
+    assert safe_url(" https://stripe.com ") == "https://stripe.com"
+    assert safe_url("http://x.io") == "http://x.io"
+    for bad in ("javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,x", "//evil.io", "", None):
+        assert safe_url(bad) == ""
+
+
+def test_declared_evidence_passes_without_model_reads():
+    from app.domain.architecture.topology import Evidence, check_evidence
+
+    check_evidence(Evidence(tree_size=3, map_file=".gitgrit.yml", declared=True))
+
+
+def test_merge_without_a_model_run_rests_on_the_map_file():
+    from app.domain.architecture.topology import (
+        ComponentDecl, Evidence, InternalDependency, RepositoryTopology, merge_topologies,
+    )
+
+    declared = RepositoryTopology(
+        components=(ComponentDecl(path="", name="web"),),
+        internal=(InternalDependency("", "org/api"),),
+        evidence=Evidence(tree_size=3, map_file=".gitgrit.yml"),
+    )
+    topo = merge_topologies(declared, None)
+    assert topo.internal == declared.internal
+    assert topo.evidence.declared and topo.evidence.map_file == ".gitgrit.yml"
+
+
+def test_merge_adds_the_model_findings_to_the_declared_ones():
+    from app.domain.architecture.topology import (
+        ComponentDecl, Evidence, InternalDependency, RepositoryTopology, merge_topologies,
+    )
+
+    a, b = ComponentDecl(path="a", name="a"), ComponentDecl(path="b", name="b", technologies=("Go",))
+    declared = RepositoryTopology(
+        components=(a, ComponentDecl(path="b", name="b")),
+        internal=(InternalDependency("a", "b"),),
+        evidence=Evidence(tree_size=4, map_file=".gitgrit.yml"),
+    )
+    found = RepositoryTopology(
+        components=(a, b),
+        internal=(InternalDependency("b", "org/api"),),
+        evidence=Evidence(tree_size=4, files_read=("b/go.mod",)),
+    )
+    topo = merge_topologies(declared, found)
+    assert topo.components == (a, b)
+    assert [d.source_path for d in topo.internal] == ["a", "b"]
+    assert topo.evidence.files_read == ("b/go.mod",)
+    assert topo.evidence.map_file == ".gitgrit.yml" and not topo.evidence.declared

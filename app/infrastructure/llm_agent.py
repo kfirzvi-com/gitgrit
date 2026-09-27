@@ -29,9 +29,13 @@ import time
 import litellm
 
 try:
+    from litellm.exceptions import APIConnectionError as _ConnectionError
     from litellm.exceptions import RateLimitError as _RateLimitError
 except Exception:  # pragma: no cover - litellm may be stubbed in tests
     class _RateLimitError(Exception):
+        pass
+
+    class _ConnectionError(Exception):
         pass
 
 # Hard guardrails — a confused model must not loop forever or run up a bill.
@@ -42,6 +46,8 @@ MAX_TOOL_CALLS = 25  # total tool executions per run()
 MAX_TOOL_RESULT_CHARS = 8000  # cap each tool result fed back to the model
 RATE_LIMIT_RETRIES = 3  # retry transient 429s with linear backoff
 RATE_LIMIT_MAX_WAIT = 65  # seconds; Gemini free tier asks for up to ~60s
+SERVER_ERROR_RETRIES = 3  # retry a provider 500/502/503/504 on the same call
+SERVER_ERROR_WAIT = 15  # seconds per attempt: 15, 30, 45
 FINAL_MAX_TOKENS = 16000  # the final JSON answer; a runaway answer stops here
 FINAL_ANSWER_ATTEMPTS = 2  # one repair turn when the JSON is invalid or cut off
 
@@ -58,6 +64,28 @@ def _is_rate_limited(exc):
     """A 429, however LiteLLM labels it. Gemini's per-minute quota 429 arrives
     as ``BadRequestError`` (status 400); its body still says ``"code": 429``."""
     return isinstance(exc, _RateLimitError) or bool(_BODY_429.search(str(exc)))
+
+
+_SERVER_STATUSES = (500, 502, 503, 504)
+_BODY_CODE = re.compile(r'"code"\s*:\s*(\d{3})\b')
+
+
+def _is_server_error(exc):
+    """A provider-side failure worth retrying (Gemini "high demand" 503,
+    "Internal error" 500). Retrying the one call keeps the calls already made;
+    failing it restarted the whole map (prod, 2026-09-25).
+
+    The provider's own code in the error body wins over LiteLLM's label:
+    Gemini errors can arrive as ``APIConnectionError`` with status 500 and the
+    real code only in the body (a 402 "credits depleted" was captured that
+    way). Without a body code, a connection error (wrong base_url, DNS,
+    refused, timeout) is not retried: waiting will not fix it."""
+    m = _BODY_CODE.search(str(exc))
+    if m:
+        return int(m.group(1)) in _SERVER_STATUSES
+    if isinstance(exc, _ConnectionError):
+        return False
+    return getattr(exc, "status_code", None) in _SERVER_STATUSES
 
 
 def _retry_wait(exc, attempt):
@@ -219,6 +247,7 @@ class LLMAgent:
 
     def _complete(self, messages, **kwargs):
         attempt = 0
+        server_attempt = 0
         while True:
             try:
                 resp = litellm.completion(
@@ -230,16 +259,19 @@ class LLMAgent:
                 )
                 break
             except Exception as exc:
-                if not _is_rate_limited(exc):
+                if _is_rate_limited(exc):
+                    attempt += 1
+                    n, limit, reason = attempt, RATE_LIMIT_RETRIES, "rate limited"
+                    wait = _retry_wait(exc, attempt)
+                elif _is_server_error(exc):
+                    server_attempt += 1
+                    n, limit, reason = server_attempt, SERVER_ERROR_RETRIES, "provider error"
+                    wait = SERVER_ERROR_WAIT * server_attempt
+                else:
                     raise
-                attempt += 1
-                if attempt > RATE_LIMIT_RETRIES:
+                if n > limit:
                     raise
-                wait = _retry_wait(exc, attempt)
-                self._emit(
-                    f"rate limited; retrying in {wait:.0f}s "
-                    f"(attempt {attempt}/{RATE_LIMIT_RETRIES})"
-                )
+                self._emit(f"{reason}; retrying in {wait:.0f}s (attempt {n}/{limit})")
                 time.sleep(wait)
         u = getattr(resp, "usage", None)
         if u:

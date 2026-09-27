@@ -141,3 +141,96 @@ def test_real_bad_request_is_not_retried():
 def test_retry_wait_falls_back_and_is_capped():
     assert llm_agent._retry_wait(Exception("no hint"), 2) == 40
     assert llm_agent._retry_wait(Exception("Please retry in 300s."), 1) == llm_agent.RATE_LIMIT_MAX_WAIT
+
+
+# --- provider errors -----------------------------------------------------------
+
+
+def _raising(replies):
+    def fake(**kwargs):
+        r = replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    return fake
+
+
+def test_gemini_high_demand_503_is_retried_on_the_same_call():
+    """Prod 2026-09-25: one 503 on flash-lite threw away the whole map attempt."""
+    import litellm.exceptions as ex
+
+    err = ex.ServiceUnavailableError(
+        message='GeminiException - {"error": {"code": 503, "message": "This model is currently experiencing high demand."}}',
+        llm_provider="gemini",
+        model="gemini/x",
+    )
+    replies = [_reply("done"), err, _reply('{"name": "ok"}')]
+    with patch.object(llm_agent.litellm, "completion", side_effect=_raising(replies)), patch.object(
+        llm_agent.time, "sleep"
+    ) as sleep:
+        result = LLMAgent(model="gemini/x").run(toolbox=Box(), system_prompt="s", instructions="i", response_model=Answer)
+    assert result.name == "ok"
+    sleep.assert_called_once_with(llm_agent.SERVER_ERROR_WAIT)
+
+
+def test_persistent_500_gives_up_after_the_retries():
+    import litellm.exceptions as ex
+
+    err = ex.InternalServerError(
+        message='GeminiException - {"error": {"code": 500, "message": "Internal error encountered."}}',
+        llm_provider="gemini",
+        model="gemini/x",
+    )
+    with patch.object(llm_agent.litellm, "completion", side_effect=err), patch.object(
+        llm_agent.time, "sleep"
+    ) as sleep, pytest.raises(ex.InternalServerError):
+        LLMAgent(model="gemini/x").run(toolbox=Box(), system_prompt="s", instructions="i", response_model=Answer)
+    assert sleep.call_count == llm_agent.SERVER_ERROR_RETRIES
+
+
+def test_connection_error_is_not_retried_as_a_server_error():
+    """LiteLLM labels a refused connection / bad base_url as status 500."""
+    import litellm.exceptions as ex
+
+    err = ex.APIConnectionError(message="Connection refused", llm_provider="openai", model="openai/x")
+    with patch.object(llm_agent.litellm, "completion", side_effect=err), patch.object(
+        llm_agent.time, "sleep"
+    ) as sleep, pytest.raises(ex.APIConnectionError):
+        LLMAgent(model="openai/x").run(toolbox=Box(), system_prompt="s", instructions="i", response_model=Answer)
+    sleep.assert_not_called()
+
+
+def test_gemini_503_labelled_as_connection_error_is_still_retried():
+    """Gemini can send its real code only in the body of an APIConnectionError."""
+    import litellm.exceptions as ex
+
+    err = ex.APIConnectionError(
+        message='GeminiException - {"error": {"code": 503, "message": "This model is currently experiencing high demand.", "status": "UNAVAILABLE"}}',
+        llm_provider="gemini",
+        model="gemini/x",
+    )
+    replies = [err, _reply("done"), _reply('{"name": "ok"}')]
+    with patch.object(llm_agent.litellm, "completion", side_effect=_raising(replies)), patch.object(
+        llm_agent.time, "sleep"
+    ) as sleep:
+        result = LLMAgent(model="gemini/x").run(toolbox=Box(), system_prompt="s", instructions="i", response_model=Answer)
+    assert result.name == "ok"
+    sleep.assert_called_once_with(llm_agent.SERVER_ERROR_WAIT)
+
+
+def test_gemini_402_labelled_as_connection_error_is_not_retried():
+    """Real capture 2026-09-23: credits depleted arrives as APIConnectionError
+    with status 500; the body's 402 means waiting will not help."""
+    import litellm.exceptions as ex
+
+    err = ex.APIConnectionError(
+        message='GeminiException - { "error": { "code": 402, "message": "Your prepayment credits are depleted.", "status": "PAYMENT_REQUIRED" } }',
+        llm_provider="gemini",
+        model="gemini/x",
+    )
+    with patch.object(llm_agent.litellm, "completion", side_effect=err), patch.object(
+        llm_agent.time, "sleep"
+    ) as sleep, pytest.raises(ex.APIConnectionError):
+        LLMAgent(model="gemini/x").run(toolbox=Box(), system_prompt="s", instructions="i", response_model=Answer)
+    sleep.assert_not_called()

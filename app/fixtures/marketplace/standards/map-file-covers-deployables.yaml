@@ -1,0 +1,193 @@
+slug: map-file-covers-deployables
+name: "Map file: every deployable folder is declared"
+description: >
+  When .gitgrit.yml lists the components, GitGrit trusts it and does not
+  look for more, so a new service that is not added to the file is missing
+  from the architecture map. Passes when every folder with a Dockerfile,
+  Terraform, or a code manifest (package.json, go.mod, pyproject.toml, …)
+  is a declared component, sits inside one, or is listed under `ignore`.
+  The score is the share of such folders that are covered; the message
+  prints the entries to add.
+author: GitGrit
+suggested_labels:
+  - architecture-map
+criteria:
+  events:
+    - push
+    - pull_request
+    - manual
+code: |
+  """Every deployable folder is covered by .gitgrit.yml: declared as a
+  component, inside a declared component, or under an ``ignore`` path.
+  Test/docs/example folders never count."""
+  # --- shared by the three "Map file" standards; keep identical (a test checks) ---
+  import yaml
+
+  MAP_FILES = (".gitgrit.yml", ".gitgrit.yaml")
+  KINDS = ("service", "frontend", "library", "job", "infra", "other")
+  INFRA_KINDS = ("database", "cache", "queue", "storage", "other")
+  DEP_KEYS = ("depends_on", "infrastructure", "providers", "consumers")
+  IGNORED = {
+      "docs", "doc", "examples", "example", "samples", "demo", "tests", "test", "e2e",
+      "fixtures", "testdata", "scripts", "tools", ".github", "node_modules", "vendor",
+      "dist", "build", "target",
+  }
+  CODE_MANIFESTS = {
+      "package.json", "pyproject.toml", "requirements.txt", "go.mod", "cargo.toml",
+      "gemfile", "pom.xml", "build.gradle", "build.gradle.kts", "composer.json", "setup.py",
+  }
+
+
+  def _dir(path):
+      return path.rsplit("/", 1)[0] if "/" in path else ""
+
+
+  def _clean(path):
+      """Repository-relative, no ./ or trailing slash, '..' resolved; '' is the root."""
+      parts = []
+      for seg in str(path or "").strip().replace("\\", "/").split("/"):
+          if seg == "..":
+              if parts:
+                  parts.pop()
+          elif seg and seg != ".":
+              parts.append(seg)
+      return "/".join(parts)
+
+
+  def _deploy_dirs(files):
+      """Every non-root folder holding a Dockerfile, Terraform or a code manifest."""
+      out = set()
+      for f in files:
+          d = _dir(f)
+          if not d or any(seg.lower() in IGNORED for seg in d.split("/")):
+              continue
+          base = f.rsplit("/", 1)[-1].lower()
+          if base == "dockerfile" or base in CODE_MANIFESTS or base.endswith(".tf"):
+              out.add(d)
+      return sorted(out)
+
+
+  def _outermost(dirs):
+      return [d for d in dirs if not any(d.startswith(o + "/") for o in dirs)]
+
+
+  def _load(project, files):
+      """(path, data, error): the root map file, its parsed YAML, or why not."""
+      path = next((n for n in MAP_FILES if n in files), None)
+      if path is None:
+          return None, None, "No .gitgrit.yml at the repository root"
+      try:
+          data = yaml.safe_load(project.get_file_content(path) or "")
+      except (yaml.YAMLError, RecursionError) as exc:  # deep nesting raises RecursionError
+          return path, None, "%s is not valid YAML: %s" % (path, (str(exc).splitlines() or ["parse error"])[0])
+      comps = data.get("components") if isinstance(data, dict) else None
+      if not isinstance(comps, list) or not comps:
+          return path, None, "%s has no non-empty 'components' list" % path
+      return path, data, None
+  # --- end shared ---
+
+
+  def _inside(d, roots):
+      return any(r == "" or d == r or d.startswith(r + "/") for r in roots)
+
+
+  def evaluate(project):
+      files = project.list_files()
+      path, data, error = _load(project, files)
+      if error:
+          return {"passed": False, "score": 0, "message": error + ".", "details": {}}
+
+      declared = [_clean(c.get("path")) for c in data["components"] if isinstance(c, dict) and "path" in c]
+      ignore = [_clean(p) for p in (data.get("ignore") or []) if isinstance(p, str) and _clean(p)]
+      folders = _deploy_dirs(files)
+      missing = _outermost([d for d in folders if not _inside(d, declared) and not _inside(d, ignore)])
+      if not missing:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": "Every deployable folder is covered by %s." % path,
+              "details": {"folders": folders},
+          }
+      total = len(_outermost(folders))
+      add = "\n".join("  - path: %s\n    name: %s" % (d, d.rsplit("/", 1)[-1]) for d in missing)
+      one = len(missing) == 1
+      return {
+          "passed": False,
+          "score": max(0, round(100 * (total - len(missing)) / total)),
+          "message": (
+              "%d folder%s with deploy files %s not in %s, so the map will leave %s out: %s. "
+              "Add under components (or list under ignore):\n\n%s"
+              % (len(missing), "" if one else "s", "is" if one else "are", path,
+                 "it" if one else "them", ", ".join(missing[:8]), add)
+          ),
+          "details": {"missing": missing},
+      }
+test_cases:
+  - name: All service folders declared passes
+    input:
+      list_files:
+        - .gitgrit.yml
+        - services/orders/go.mod
+        - services/orders/Dockerfile
+        - apps/web/package.json
+        - apps/web/tests/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: services/orders
+            - path: apps/web
+    expected:
+      passed: true
+      score: 100
+  - name: New undeclared service fails with a partial score
+    input:
+      list_files:
+        - .gitgrit.yml
+        - services/orders/go.mod
+        - services/payments/go.mod
+        - apps/web/package.json
+        - apps/admin/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: services/orders
+            - path: apps/web
+            - path: apps/admin
+    expected:
+      passed: false
+      score: 75
+  - name: Ignored folder counts as covered
+    input:
+      list_files:
+        - .gitgrit.yml
+        - services/orders/go.mod
+        - sandbox/playground/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: services/orders
+          ignore:
+            - sandbox
+    expected:
+      passed: true
+      score: 100
+  - name: Root component covers everything below it
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+        - src/lib/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          components:
+            - path: ''
+    expected:
+      passed: true
+      score: 100
+  - name: Missing file scores 0
+    input:
+      list_files:
+        - services/orders/go.mod
+    expected:
+      passed: false
+      score: 0

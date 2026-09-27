@@ -113,3 +113,17 @@ class ResolveTopologyTests(SimpleTestCase):
         topo = self._topology(internal=(InternalDependency("nope", "org/web"),))
         out = resolve_topology(topo, ROSTER, this_repo="org/svc")
         self.assertEqual(out.internal, ())
+
+
+def test_bare_name_prefers_this_repos_sibling_over_a_same_named_repo():
+    """The demo monorepo run: 'orders-service' meant the sibling folder, not the
+    separate gitgrit-demo-orders-service repo."""
+    from app.domain.architecture.resolve import RosterEntry, resolve_ref
+
+    roster = [
+        RosterEntry("org/orders-service", "", "orders-service", component_id=1),
+        RosterEntry("org/mono", "services/orders-service", "orders-service"),
+    ]
+    assert resolve_ref("orders-service", roster, this_repo="org/mono").path == "services/orders-service"
+    assert resolve_ref("#orders-service", roster, this_repo="org/mono").path == "services/orders-service"
+    assert resolve_ref("orders-service", roster, this_repo="org/other").full_path == "org/orders-service"

@@ -97,3 +97,15 @@
     - contributing-guide
     - changelog-exists
     - license-file
+
+- slug: architecture-map-ready
+  name: Architecture Map Ready
+  description: >
+    Let the repository describe its own architecture in a root .gitgrit.yml,
+    so GitGrit maps it with few or no LLM calls — fast and reliable even on
+    free or rate-limited models.
+  icon: "\U0001F5FA"
+  standards:
+    - map-file-declares-components
+    - map-file-covers-deployables
+    - map-file-dependencies-declared

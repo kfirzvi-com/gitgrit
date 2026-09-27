@@ -14,6 +14,11 @@ Two phases rather than one nested answer because ``LLMAgent.run`` caps each
 run at ``MAX_ITERATIONS`` / ``MAX_TOOL_CALLS``: an eight-component monorepo
 needs a few reads per component, which no single run could afford. A
 root-only repository costs one discovery run plus one dependency run.
+
+When the caller already knows part of the answer (the repository's
+``.gitgrit.yml``), ``context.components`` replaces discovery and a path in
+``context.known_dependencies`` gets no dependency run; this adapter returns
+only what it found and the use case merges the two.
 """
 from __future__ import annotations
 
@@ -24,7 +29,9 @@ from pydantic import BaseModel, Field
 from app.application.architecture.ports import InferenceContext, RepositorySnapshot
 from app.domain.architecture.resolve import RosterEntry
 from app.domain.architecture.topology import (
+    COMPONENT_KINDS,
     INBOUND,
+    INFRA_KINDS,
     OUTBOUND,
     ComponentDecl,
     Evidence,
@@ -62,7 +69,7 @@ _DISCOVERY_PROMPT = (
     "Do not list every folder: list units that are built, deployed or "
     "published on their own. Give each a repository-relative directory path, "
     "a short name (usually the directory name or the manifest's package name), "
-    "a kind (service | frontend | library | job | infra | other), a one-line "
+    f"a kind ({' | '.join(COMPONENT_KINDS)}), a one-line "
     "description, and the languages/frameworks you can see in its manifest. "
     "Return at most 25 components. When you have enough evidence, stop calling "
     "tools and return the structured result."
@@ -72,7 +79,7 @@ _DISCOVERY_PROMPT = (
 class _ComponentDecl(BaseModel):
     path: str = Field(description="repository-relative directory, '' for the repository root")
     name: str = Field(default="", description="short component name")
-    kind: str = Field(default="other", description="service | frontend | library | job | infra | other")
+    kind: str = Field(default="other", description=" | ".join(COMPONENT_KINDS))
     description: str = Field(default="", description="one line: what this component is")
     technologies: list[str] = Field(default=[], description="languages/frameworks seen in its manifest")
 
@@ -109,8 +116,8 @@ _DEPENDENCY_PROMPT = (
     "  • infrastructure — a datastore/queue/cache/object-store the component "
     "OWNS and operates as its own implementation detail (its Postgres/MySQL/"
     "Mongo database, Redis cache, Kafka/RabbitMQ/SQS queue, S3 bucket). These "
-    "are stack-INTERNAL resources, not external services. Give each a `kind` of "
-    "database, cache, queue, or storage.\n"
+    "are stack-INTERNAL resources, not external services. Give each a `kind` "
+    f"({' | '.join(INFRA_KINDS)}).\n"
     "  • external_provider — a TRUE third-party SERVICE operated by another "
     "company that THIS component integrates with over the network: SaaS/APIs "
     "like Stripe, Auth0, SendGrid, Twilio, an external partner API. Do NOT put "
@@ -150,7 +157,7 @@ class _ExternalDep(BaseModel):
 
 class _InfraDep(BaseModel):
     name: str = Field(description="datastore/queue/cache name, e.g. 'PostgreSQL'")
-    kind: str = Field(default="other", description="database | cache | queue | storage")
+    kind: str = Field(default="other", description=" | ".join(INFRA_KINDS))
     label: str = Field(default="", description="short caption, e.g. 'orders DB'")
 
 
@@ -226,31 +233,35 @@ class LLMTopologyInference:
         agent = self._agent_factory(context.log)
         toolbox = RepoToolbox(snapshot, context.full_path)
 
-        discovery: ComponentDiscovery = agent.run(
-            toolbox=toolbox,
-            system_prompt=_DISCOVERY_PROMPT,
-            instructions=_discovery_instructions(context),
-            response_model=ComponentDiscovery,
-        )
-        components = normalise_components(
-            (
-                ComponentDecl(
-                    path=c.path,
-                    name=c.name,
-                    kind=c.kind,
-                    description=c.description,
-                    technologies=tuple(c.technologies),
-                )
-                for c in discovery.components
-            ),
-            toolbox.load_tree(),
-            context.project_name,
-        )
-        context.log(
-            "discovery: " + (
-                ", ".join(c.path or "<root>" for c in components)
+        if context.components:
+            components = context.components
+            toolbox.load_tree()  # tree_size is evidence even without discovery
+        else:
+            discovery: ComponentDiscovery = agent.run(
+                toolbox=toolbox,
+                system_prompt=_DISCOVERY_PROMPT,
+                instructions=_discovery_instructions(context),
+                response_model=ComponentDiscovery,
             )
-        )
+            components = normalise_components(
+                (
+                    ComponentDecl(
+                        path=c.path,
+                        name=c.name,
+                        kind=c.kind,
+                        description=c.description,
+                        technologies=tuple(c.technologies),
+                    )
+                    for c in discovery.components
+                ),
+                toolbox.load_tree(),
+                context.project_name,
+            )
+            context.log(
+                "discovery: " + (
+                    ", ".join(c.path or "<root>" for c in components)
+                )
+            )
 
         # Siblings join the roster so a component can depend on another one of
         # the same repository; they have no ids yet, the use case fills them.
@@ -264,6 +275,9 @@ class LLMTopologyInference:
         externals: list[ExternalLink] = []
         infra: list[InfrastructureResource] = []
         for component in components:
+            if component.path in context.known_dependencies:
+                final.append(component)
+                continue
             own = tuple(e for e in roster if not (e.full_path == context.full_path and e.path == component.path))
             result: DependencyResult = agent.run(
                 toolbox=toolbox.scoped(component.path),

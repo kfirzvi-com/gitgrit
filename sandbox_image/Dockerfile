@@ -7,6 +7,10 @@ FROM python:3.13-slim
 # completion() with tools, which isn't installed here and would crash standard
 # execution. Keep in lockstep with the app's pyproject pin.
 RUN pip install --no-cache-dir litellm==1.88.1
+# PyYAML for standards that read YAML (the "Map file" standards parse
+# .gitgrit.yml and docker-compose). litellm only pulls it in by accident
+# (via huggingface-hub), so pin it here. Same version the app uses.
+RUN pip install --no-cache-dir pyyaml==6.0.3
 
 COPY providers/ /providers/
 COPY project_context.py /project_context.py

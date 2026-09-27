@@ -71,10 +71,15 @@ class InfrastructureResource:
 @dataclass(frozen=True)
 class Evidence:
     """What the inference actually looked at. ``tree_size`` is None when the
-    repository was never listed; ``files_read`` is in read order."""
+    repository was never listed; ``files_read`` is what the model read, in
+    order. ``map_file`` is the repository's own map declaration when one was
+    used, and ``declared`` is True when it answered everything (no model run),
+    so the map rests on the file rather than on model reads."""
 
     tree_size: int | None = None
     files_read: tuple[str, ...] = ()
+    map_file: str = ""
+    declared: bool = False
 
 
 @dataclass(frozen=True)
@@ -109,8 +114,28 @@ class RepositoryTopology:
             evidence=Evidence(
                 tree_size=data.get("evidence", {}).get("tree_size"),
                 files_read=tuple(data.get("evidence", {}).get("files_read", ())),
+                map_file=data.get("evidence", {}).get("map_file", ""),
+                declared=bool(data.get("evidence", {}).get("declared", False)),
             ),
         )
+
+
+def merge_topologies(declared: RepositoryTopology, found: RepositoryTopology | None) -> RepositoryTopology:
+    """One topology from what the map file declared and what the model found.
+
+    The model was given the declared components (when there were any) and ran
+    only for what the file left out, so its components are the full list and
+    the two edge sets never overlap. ``files_read`` stays model reads only:
+    the map file is not evidence for a model answer."""
+    if found is None:
+        return replace(declared, evidence=replace(declared.evidence, declared=True))
+    return RepositoryTopology(
+        components=found.components or declared.components,
+        internal=declared.internal + found.internal,
+        externals=declared.externals + found.externals,
+        infrastructure=declared.infrastructure + found.infrastructure,
+        evidence=replace(found.evidence, map_file=declared.evidence.map_file),
+    )
 
 
 # --- Paths -------------------------------------------------------------------
@@ -124,6 +149,14 @@ def clean_path(path) -> str:
         p = p[2:]
     p = p.strip("/")
     return "" if p == "." else p
+
+
+def safe_url(url) -> str:
+    """``url`` when it is a plain http(s) link, else ''. The map opens a
+    node's url on click, so anything else (``javascript:``, ``data:``) that a
+    repository file or a model answer carries must never be stored."""
+    u = (url or "").strip()
+    return u[:2048] if u.lower().startswith(("http://", "https://")) else ""
 
 
 def clean_technologies(values: Iterable[str], limit: int = MAX_TECHNOLOGIES) -> tuple[str, ...]:
@@ -224,6 +257,8 @@ def check_evidence(evidence: Evidence) -> None:
             "repository's files. Check the platform connection's access to the repo "
             "and the project's default branch. The previous map was kept."
         )
+    if evidence.declared:
+        return  # the repository's own map file answered everything
     if not evidence.files_read:
         raise UngroundedTopology(
             "The model answered without reading any repository file, so the result "
