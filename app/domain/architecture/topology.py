@@ -84,6 +84,10 @@ class RepositoryTopology:
     externals: tuple[ExternalLink, ...] = ()
     infrastructure: tuple[InfrastructureResource, ...] = ()
     evidence: Evidence = field(default_factory=Evidence)
+    # Where the map came from ("file" = ``.gitgrit.yml``, "llm") and the
+    # ``.gitgrit.yml`` text it was built from; blank for fixtures.
+    source: str = ""
+    map_text: str = ""
 
     @property
     def is_monorepo(self) -> bool:
@@ -110,6 +114,8 @@ class RepositoryTopology:
                 tree_size=data.get("evidence", {}).get("tree_size"),
                 files_read=tuple(data.get("evidence", {}).get("files_read", ())),
             ),
+            source=data.get("source", ""),
+            map_text=data.get("map_text", ""),
         )
 
 
@@ -124,6 +130,14 @@ def clean_path(path) -> str:
         p = p[2:]
     p = p.strip("/")
     return "" if p == "." else p
+
+
+def safe_url(url) -> str:
+    """``url`` when it is a plain http(s) link, else ''. The map opens a
+    node's url on click, so anything else (``javascript:``, ``data:``) that a
+    repository file or a model answer carries must never be stored."""
+    u = (url or "").strip()
+    return u[:2048] if u.lower().startswith(("http://", "https://")) else ""
 
 
 def clean_technologies(values: Iterable[str], limit: int = MAX_TECHNOLOGIES) -> tuple[str, ...]:

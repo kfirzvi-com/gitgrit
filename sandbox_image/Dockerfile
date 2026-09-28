@@ -6,7 +6,12 @@ FROM python:3.13-slim
 # Pinned to 1.88.1: 1.89+ lazily imports litellm.proxy -> fastapi during
 # completion() with tools, which isn't installed here and would crash standard
 # execution. Keep in lockstep with the app's pyproject pin.
-RUN pip install --no-cache-dir litellm==1.88.1
+#
+# PyYAML lets standards parse YAML (the .gitgrit.yml map-file standards). It is
+# already installed as a litellm dependency (via huggingface_hub), so pinning it
+# here adds nothing to the image or the air-gap bundle — it only stops a litellm
+# bump from silently removing it. 6.0.3 is the version litellm 1.88.1 pulls.
+RUN pip install --no-cache-dir litellm==1.88.1 pyyaml==6.0.3
 
 COPY providers/ /providers/
 COPY project_context.py /project_context.py

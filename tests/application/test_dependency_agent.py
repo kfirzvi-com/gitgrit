@@ -200,9 +200,14 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
         src = baker.make("app.Project", tenant=tenant, platform_connection=conn, full_path="org/web")
         self.monkeypatch.setattr(da, "resolve_llm_roles", lambda t: {})
+        # The role is looked up after the repository is checked for a map file.
+        self.monkeypatch.setattr(
+            "app.infrastructure.topology.snapshots.get_platform_client", lambda c: _fake_client()
+        )
 
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(RuntimeError) as ctx:
             da.infer_and_store(src)
+        self.assertIn("No 'reasoning' LLM role configured", str(ctx.exception))
 
     # --- evidence gate -------------------------------------------------------
 
