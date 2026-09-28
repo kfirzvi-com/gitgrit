@@ -5,9 +5,11 @@ repository is read through ``RepoToolbox`` so the evidence (``tree_size``,
 ``files_read``) is recorded exactly like an LLM run, and the components go
 through the same ``normalise_components`` rules.
 
-Raises ``MapFileMissing`` when the repository has no map file and
+Raises ``MapFileMissing`` when the repository has no map file,
+``MapFileUnreadable`` when reading it fails (e.g. a platform 502) and
 ``InvalidMapFile`` when it breaks the format; the caller decides whether to
-fall back to the LLM.
+fall back to the LLM. An error listing the repository is raised as is: the
+LLM could not read it either.
 """
 from __future__ import annotations
 
@@ -18,11 +20,15 @@ from app.domain.architecture.map_file import MAP_FILE, InvalidMapFile, parse_map
 from app.domain.architecture.topology import Evidence, RepositoryTopology, normalise_components
 from app.infrastructure.topology.toolbox import RepoToolbox
 
-__all__ = ["InvalidMapFile", "MapFileInference", "MapFileMissing"]
+__all__ = ["InvalidMapFile", "MapFileInference", "MapFileMissing", "MapFileUnreadable"]
 
 
 class MapFileMissing(LookupError):
     """The repository has no readable ``.gitgrit.yml`` at its root."""
+
+
+class MapFileUnreadable(RuntimeError):
+    """Reading ``.gitgrit.yml`` failed although the repository could be listed."""
 
 
 class MapFileInference:
@@ -32,7 +38,12 @@ class MapFileInference:
         if MAP_FILE not in tree:
             raise MapFileMissing(f"no {MAP_FILE} in the repository")
         read_before = len(toolbox.files_read)
-        text = toolbox.read_file(MAP_FILE)
+        try:
+            text = toolbox.read_file(MAP_FILE)
+        except Exception as exc:
+            raise MapFileUnreadable(
+                f"reading {MAP_FILE} failed ({exc.__class__.__name__}: {str(exc)[:300]})"
+            ) from exc
         if len(toolbox.files_read) == read_before:
             raise MapFileMissing(f"{MAP_FILE} is not a readable text file")
 

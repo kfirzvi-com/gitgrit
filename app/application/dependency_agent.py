@@ -24,7 +24,11 @@ from app.domain.architecture.map_file import MAP_FILE, InvalidMapFile
 from app.domain.architecture.topology import RepositoryTopology
 from app.domain.models import Project
 from app.infrastructure.topology.llm_inference import ROLE, LLMTopologyInference
-from app.infrastructure.topology.map_file import MapFileInference, MapFileMissing
+from app.infrastructure.topology.map_file import (
+    MapFileInference,
+    MapFileMissing,
+    MapFileUnreadable,
+)
 from app.infrastructure.topology.snapshots import snapshot_for_project
 
 
@@ -55,8 +59,8 @@ class FileFirstInference:
             reason, file_problem = str(exc), False
         except InvalidMapFile as exc:
             reason = f"{MAP_FILE} is invalid ({exc})"
-        except Exception as exc:  # a platform read error: the LLM still gets its turn
-            reason = f"reading {MAP_FILE} failed ({exc.__class__.__name__}: {str(exc)[:300]})"
+        except MapFileUnreadable as exc:  # the LLM still gets its turn
+            reason = str(exc)
         try:
             topology = llm_inference_for(self._tenant).infer(snapshot, context)
         except Exception as exc:

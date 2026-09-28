@@ -382,3 +382,20 @@ class MapFileFirstTests(MonkeyPatchMixin, TestCase):
 
         self.assertIn("path 'apps/ghost' is not a directory", str(ctx.exception))
         self.assertIn(str(self._role_error()), str(ctx.exception))
+
+    def test_error_listing_the_repository_fails_the_run_without_the_llm(self):
+        import requests
+
+        src = self._setup(map_file=MAP_FILE, **LLM_ANSWER)
+
+        def get_tree(full_path, ref):
+            raise requests.HTTPError("401 Client Error: Unauthorized")
+
+        client = _fake_client(self._tree, self._files)
+        client.get_tree = get_tree
+        self.monkeypatch.setattr("app.infrastructure.topology.snapshots.get_platform_client", lambda c: client)
+
+        with self.assertRaises(requests.HTTPError):
+            da.infer_and_store(src)
+
+        self.assertEqual(self.llm_calls, 0)

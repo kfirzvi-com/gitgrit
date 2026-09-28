@@ -97,3 +97,15 @@
     - contributing-guide
     - changelog-exists
     - license-file
+
+- slug: architecture-map-ready
+  name: Architecture Map Ready
+  description: >
+    Let the repository describe its own architecture in a root .gitgrit.yml,
+    so GitGrit builds its map from the file with no LLM calls. Checks that
+    the file exists, is valid, and is still up to date with the repository.
+  icon: "\U0001F5FA"
+  standards:
+    - gitgrit-map-file-exists
+    - gitgrit-map-file-valid
+    - gitgrit-map-file-up-to-date
