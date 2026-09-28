@@ -1,0 +1,325 @@
+slug: gitgrit-map-file-up-to-date
+name: GitGrit Map File Up To Date
+description: >
+  Checks that .gitgrit.yml still matches the repository, so GitGrit's map
+  does not miss a connection or a component added after the file was
+  written. Fails when (1) a file that reveals dependencies (manifests,
+  docker-compose, .env.example-style files, Terraform, Helm/k8s values,
+  CODEOWNERS, ...) was committed after .gitgrit.yml — only the first 30
+  such files are dated, root-level first, to bound API calls, and unknown
+  dates count as fresh; or (2) a directory with its own manifest
+  (package.json, pyproject.toml, go.mod, Cargo.toml, Dockerfile, ...) is not
+  covered by any component path. Coverage rule: a component covers its
+  directory and everything under it. A file with a single component
+  describes the whole repository (GitGrit treats a lone component as the
+  root), so it covers everything. With two or more components the root
+  component "" covers only the root directory itself, not sub-directories.
+  Root-level manifests never need covering, and manifests under
+  node_modules, vendor, dist, build, target, virtualenvs, fixtures and
+  testdata are ignored. If the map is still right after a flagged change,
+  commit any edit to .gitgrit.yml (such as a comment) to mark it reviewed.
+author: GitGrit
+suggested_labels:
+  - architecture
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  from datetime import datetime
+
+  MAP_FILE = ".gitgrit.yml"
+  MAX_DATE_QUERIES = 30  # get_file_last_commit_date is one API call per file
+
+  NOISE_DIRS = {
+      "node_modules", "vendor", "dist", "build", "target", "__pycache__",
+      ".git", ".terraform", ".venv", "venv", ".idea", ".vscode",
+      "fixtures", "testdata", "__fixtures__", "__mocks__",
+  }
+  # Files GitGrit's map run reads for dependency evidence (the map toolbox's
+  # manifest list, minus README.md, plus env templates, compose variants,
+  # Terraform and Helm/k8s YAML).
+  DEPENDENCY_FILES = {
+      "package.json", "pyproject.toml", "requirements.txt", "pipfile", "go.mod",
+      "go.work", "cargo.toml", "gemfile", "pom.xml", "build.gradle",
+      "build.gradle.kts", "composer.json", "mix.exs", "package.swift",
+      "pubspec.yaml", "dockerfile", "docker-compose.yml", "docker-compose.yaml",
+      "compose.yml", "compose.yaml", ".env.example", ".env.sample",
+      ".env.template", "serverless.yml", "main.tf", "variables.tf", "chart.yaml",
+      "values.yaml", "procfile", "makefile", "pnpm-workspace.yaml", "turbo.json",
+      "nx.json", "lerna.json", "codeowners", "kustomization.yaml",
+  }
+  DEPENDENCY_SUFFIXES = (".csproj", ".fsproj", ".tf", ".tfvars", ".sln")
+  ENV_TEMPLATE_ENDINGS = ("example", "sample", "template", "dist")
+  K8S_DIRS = {"k8s", "kubernetes", "helm", "charts", "kustomize"}
+  # Manifests that mark a directory as its own deployable/publishable unit.
+  UNIT_MANIFESTS = {
+      "package.json", "pyproject.toml", "setup.py", "go.mod", "cargo.toml",
+      "gemfile", "pom.xml", "build.gradle", "build.gradle.kts", "composer.json",
+      "mix.exs", "package.swift", "pubspec.yaml", "dockerfile", "chart.yaml",
+      "serverless.yml", "main.tf",
+  }
+  UNIT_SUFFIXES = (".csproj", ".fsproj")
+
+
+  def is_noise(path):
+      return any(part in NOISE_DIRS for part in path.split("/")[:-1])
+
+
+  def is_dependency_file(path):
+      parts = path.split("/")
+      base = parts[-1].lower()
+      if base in DEPENDENCY_FILES or base.endswith(DEPENDENCY_SUFFIXES):
+          return True
+      if base.startswith(("docker-compose", "compose.")) and base.endswith((".yml", ".yaml")):
+          return True
+      if base.startswith(("requirements", "values")) and base.endswith((".txt", ".yml", ".yaml")):
+          return True
+      if "env" in base and base != ".env" and base.endswith(ENV_TEMPLATE_ENDINGS):
+          return True
+      return base.endswith((".yml", ".yaml")) and any(p.lower() in K8S_DIRS for p in parts[:-1])
+
+
+  def is_unit_manifest(path):
+      base = path.rsplit("/", 1)[-1].lower()
+      return base in UNIT_MANIFESTS or base.endswith(UNIT_SUFFIXES)
+
+
+  def clean_path(path):
+      p = path.strip().replace("\\", "/")
+      while p[:2] == "./":
+          p = p[2:]
+      p = p.strip("/")
+      return "" if p == "." else p
+
+
+  def parse_date(value):
+      if not value:
+          return None
+      try:
+          return datetime.fromisoformat(value.replace("Z", "+00:00"))
+      except ValueError:
+          return None
+
+
+  def evaluate(project):
+      import yaml
+
+      files = project.list_files()
+      if MAP_FILE not in files:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"No {MAP_FILE} at the repository root to compare (see gitgrit-map-file-exists)",
+              "details": {"violations": [f"{MAP_FILE} is missing"]},
+          }
+
+      try:
+          data = yaml.safe_load(project.get_file_content(".gitgrit.yml") or "")
+      except yaml.YAMLError:
+          data = None
+      components = data.get("components") if isinstance(data, dict) else None
+      if not isinstance(components, list) or not components:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"{MAP_FILE} has no readable component list (see gitgrit-map-file-valid)",
+              "details": {"violations": [f"{MAP_FILE} could not be read"]},
+          }
+      paths = {
+          clean_path(c["path"]) for c in components
+          if isinstance(c, dict) and isinstance(c.get("path"), str)
+      }
+
+      violations = []
+      details = {}
+
+      # (1) Dependency files committed after the map file.
+      candidates = sorted(
+          (f for f in files if f != MAP_FILE and not is_noise(f) and is_dependency_file(f)),
+          key=lambda f: (f.count("/"), f),
+      )
+      checked = candidates[:MAX_DATE_QUERIES]
+      details["dependency_files"] = len(candidates)
+      details["dates_checked"] = len(checked)
+      if len(candidates) > len(checked):
+          details["dates_note"] = (
+              f"Only the first {MAX_DATE_QUERIES} dependency files (root-level first) "
+              f"were dated to limit API calls; {len(candidates) - len(checked)} were not checked."
+          )
+      map_date_str = project.get_file_last_commit_date(MAP_FILE)
+      map_date = parse_date(map_date_str)
+      details["map_file_last_commit"] = map_date_str
+      newer = []
+      if map_date is None:
+          details["dates_note"] = f"Last commit date of {MAP_FILE} is unknown; date check skipped."
+          details["dates_checked"] = 0
+      else:
+          for f in checked:
+              changed = parse_date(project.get_file_last_commit_date(f))
+              # Unknown dates count as fresh — better than false-failing.
+              if changed is not None and changed > map_date:
+                  newer.append(f)
+                  violations.append(f"{f} changed after {MAP_FILE} — check for new connections")
+      details["newer_than_map"] = newer
+
+      # (2) Directories with their own manifest that no component covers.
+      uncovered = {}
+      if len(components) > 1:
+          sub_paths = [p for p in paths if p]
+          for f in files:
+              if "/" not in f or is_noise(f) or not is_unit_manifest(f):
+                  continue
+              d = f.rsplit("/", 1)[0]
+              if not any(d == p or d.startswith(p + "/") for p in sub_paths):
+                  uncovered.setdefault(d, []).append(f)
+      for d in sorted(uncovered):
+          violations.append(
+              f"{d}/ has its own manifest ({', '.join(sorted(uncovered[d]))}) but no component covers it"
+          )
+      details["uncovered_directories"] = sorted(uncovered)
+
+      if not violations:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"{MAP_FILE} looks up to date",
+              "details": details,
+          }
+
+      details["violations"] = violations
+      return {
+          "passed": False,
+          "score": max(0, 100 - len(violations) * 25),
+          "message": (
+              f"{MAP_FILE} may be out of date ({len(violations)} finding(s)):\n"
+              + "\n".join(f"- {v}" for v in violations)
+              + f"\nUpdate {MAP_FILE} (the gitgrit-map-file-exists instructions show how). "
+              f"If the map is still right, commit any edit to {MAP_FILE}, such as a comment, "
+              "to mark it reviewed."
+          ),
+          "details": details,
+      }
+test_cases:
+  - name: Map newer than every dependency file
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+        - docker-compose.yml
+      get_file_content:
+        .gitgrit.yml: "version: 1\ncomponents:\n  - path: ''\n"
+      get_file_last_commit_date:
+        .gitgrit.yml: "2026-09-10T00:00:00Z"
+        package.json: "2026-09-01T00:00:00Z"
+        docker-compose.yml: "2026-09-10T00:00:00Z"
+    expected:
+      passed: true
+      score: 100
+  - name: docker-compose changed after the map
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+        - docker-compose.yml
+      get_file_content:
+        .gitgrit.yml: "version: 1\ncomponents:\n  - path: ''\n"
+      get_file_last_commit_date:
+        .gitgrit.yml: "2026-09-01T00:00:00Z"
+        package.json: "2026-08-01T00:00:00Z"
+        docker-compose.yml: "2026-09-15T00:00:00Z"
+    expected:
+      passed: false
+      score: 75
+  - name: Env template and Terraform changed after the map
+    input:
+      list_files:
+        - .gitgrit.yml
+        - .env.example
+        - infra/network.tf
+      get_file_content:
+        .gitgrit.yml: "version: 1\ncomponents:\n  - path: ''\n"
+      get_file_last_commit_date:
+        .gitgrit.yml: "2026-09-01T00:00:00Z"
+        .env.example: "2026-09-02T00:00:00Z"
+        infra/network.tf: "2026-09-03T00:00:00Z"
+    expected:
+      passed: false
+      score: 50
+  - name: Unknown dates count as fresh
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+        - k8s/deployment.yaml
+      get_file_content:
+        .gitgrit.yml: "version: 1\ncomponents:\n  - path: ''\n"
+    expected:
+      passed: true
+      score: 100
+  - name: New service directory not in a monorepo map
+    input:
+      list_files:
+        - .gitgrit.yml
+        - package.json
+        - apps/api/pyproject.toml
+        - apps/web/package.json
+        - apps/web/e2e/package.json
+        - apps/worker/Dockerfile
+        - apps/web/node_modules/left-pad/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: ""
+            - path: apps/api
+            - path: apps/web
+    expected:
+      passed: false
+      score: 75
+  - name: Single component covers the whole repository
+    input:
+      list_files:
+        - .gitgrit.yml
+        - pyproject.toml
+        - sandbox_image/Dockerfile
+        - docs/package.json
+      get_file_content:
+        .gitgrit.yml: "version: 1\ncomponents:\n  - path: ''\n"
+    expected:
+      passed: true
+      score: 100
+  - name: Fixture and vendored manifests are ignored
+    input:
+      list_files:
+        - .gitgrit.yml
+        - apps/api/go.mod
+        - apps/web/package.json
+        - tests/fixtures/demo/package.json
+        - vendor/github.com/x/y/go.mod
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: apps/api
+            - path: apps/web
+    expected:
+      passed: true
+      score: 100
+  - name: Map file missing
+    input:
+      list_files:
+        - package.json
+    expected:
+      passed: false
+      score: 0
+  - name: Unreadable map file
+    input:
+      list_files:
+        - .gitgrit.yml
+      get_file_content:
+        .gitgrit.yml: "just text"
+    expected:
+      passed: false
+      score: 0

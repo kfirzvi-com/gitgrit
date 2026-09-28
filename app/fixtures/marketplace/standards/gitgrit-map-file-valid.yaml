@@ -1,0 +1,301 @@
+slug: gitgrit-map-file-valid
+name: GitGrit Map File Valid
+description: >
+  Checks that the repository's .gitgrit.yml map file follows every rule
+  GitGrit applies when it reads the file: version 1, 1 to 25 components,
+  each with a path that is the repository root ("") or an existing
+  directory, no duplicate paths, allowed component and infrastructure
+  kinds, and internal targets written as owner/repo, owner/repo#sub/dir or
+  #sub/dir. GitGrit ignores an invalid file and falls back to an LLM run,
+  so this standard lists every problem to fix.
+author: GitGrit
+suggested_labels:
+  - architecture
+  - quality
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  import re
+
+  MAP_FILE = ".gitgrit.yml"
+  MAX_COMPONENTS = 25
+  COMPONENT_KINDS = ("service", "frontend", "library", "job", "infra", "other")
+  INFRA_KINDS = ("database", "cache", "queue", "storage")
+  DEPENDENCY_KEYS = ("internal", "infrastructure", "external_providers", "external_consumers")
+  # owner/repo (GitLab may nest groups), optionally #sub/dir; or #sub/dir for a
+  # sibling component of this repository.
+  TARGET = re.compile(r"^(?:[^\s#/]+(?:/[^\s#/]+)+(?:#[^\s#]+)?|#[^\s#]+)$")
+
+
+  def clean_path(path):
+      # Same cleaning GitGrit applies: "./apps/api/" -> "apps/api", "." -> "".
+      p = path.strip().replace("\\", "/")
+      while p[:2] == "./":
+          p = p[2:]
+      p = p.strip("/")
+      return "" if p == "." else p
+
+
+  def check_text(entry, key, where, problems, required=False):
+      value = entry.get(key)
+      if value is None:
+          if required:
+              problems.append(f"{where}: '{key}' is required")
+          return None
+      if not isinstance(value, str):
+          problems.append(f"{where}: '{key}' must be a string")
+          return None
+      return value
+
+
+  def check_entries(deps, key, where, problems):
+      value = deps.get(key)
+      if value is None:
+          return []
+      if not isinstance(value, list):
+          problems.append(f"{where}.{key} must be a list")
+          return []
+      entries = []
+      for i, entry in enumerate(value):
+          if isinstance(entry, dict):
+              entries.append((i, entry))
+          else:
+              problems.append(f"{where}.{key}[{i}] must be a mapping")
+      return entries
+
+
+  def check_component(c, where, dirs, seen, problems):
+      if not isinstance(c, dict):
+          problems.append(f"{where} must be a mapping")
+          return
+      raw_path = check_text(c, "path", where, problems, required=True)
+      if raw_path is not None:
+          path = clean_path(raw_path)
+          if path and path not in dirs:
+              problems.append(f"{where}: path '{path}' is not a directory in the repository")
+          if path in seen:
+              problems.append(f"{where}: duplicate path '{path}'")
+          seen.add(path)
+
+      if c.get("kind", "other") not in COMPONENT_KINDS:
+          problems.append(f"{where}: kind must be one of {', '.join(COMPONENT_KINDS)}")
+      technologies = c.get("technologies") or []
+      if not isinstance(technologies, list) or not all(isinstance(t, str) for t in technologies):
+          problems.append(f"{where}: 'technologies' must be a list of strings")
+      check_text(c, "name", where, problems)
+      check_text(c, "description", where, problems)
+
+      deps = c.get("dependencies") or {}
+      where = f"{where}.dependencies"
+      if not isinstance(deps, dict):
+          problems.append(f"{where} must be a mapping")
+          return
+      unknown = sorted(str(k) for k in deps if k not in DEPENDENCY_KEYS)
+      if unknown:
+          problems.append(f"{where}: unknown key(s) {', '.join(unknown)}")
+
+      for j, d in check_entries(deps, "internal", where, problems):
+          at = f"{where}.internal[{j}]"
+          target = check_text(d, "target", at, problems, required=True)
+          if target is not None and not TARGET.match(target.strip()):
+              problems.append(
+                  f"{at}: target '{target.strip()}' must be owner/repo, owner/repo#sub/dir or #sub/dir"
+              )
+          check_text(d, "label", at, problems)
+      for j, d in check_entries(deps, "infrastructure", where, problems):
+          at = f"{where}.infrastructure[{j}]"
+          kind = d.get("kind")
+          if kind is not None and kind not in INFRA_KINDS:
+              problems.append(f"{at}: kind must be one of {', '.join(INFRA_KINDS)}")
+          check_text(d, "name", at, problems, required=True)
+          check_text(d, "label", at, problems)
+      for key in ("external_providers", "external_consumers"):
+          for j, d in check_entries(deps, key, where, problems):
+              at = f"{where}.{key}[{j}]"
+              check_text(d, "name", at, problems, required=True)
+              check_text(d, "url", at, problems)
+              check_text(d, "label", at, problems)
+
+
+  def evaluate(project):
+      import yaml
+
+      files = project.list_files()
+      if MAP_FILE not in files:
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"No {MAP_FILE} at the repository root to validate (see gitgrit-map-file-exists)",
+              "details": {"violations": [f"{MAP_FILE} is missing"]},
+          }
+
+      text = project.get_file_content(".gitgrit.yml") or ""
+      try:
+          data = yaml.safe_load(text)
+      except yaml.YAMLError as exc:
+          problem = f"not valid YAML: {exc}"
+          return {
+              "passed": False,
+              "score": 0,
+              "message": f"{MAP_FILE} is invalid, so GitGrit ignores it and maps with an LLM:\n- {problem}",
+              "details": {"violations": [problem]},
+          }
+
+      problems = []
+      if not isinstance(data, dict):
+          problems.append("the top level must be a mapping")
+      else:
+          if data.get("version") != 1:
+              problems.append("'version' must be 1")
+          components = data.get("components")
+          if not isinstance(components, list) or not components:
+              problems.append("'components' must be a non-empty list")
+          else:
+              if len(components) > MAX_COMPONENTS:
+                  problems.append(f"at most {MAX_COMPONENTS} components are allowed (found {len(components)})")
+              dirs = set()
+              for f in files:
+                  parts = f.split("/")
+                  for i in range(1, len(parts)):
+                      dirs.add("/".join(parts[:i]))
+              seen = set()
+              for i, c in enumerate(components):
+                  check_component(c, f"components[{i}]", dirs, seen, problems)
+
+      if not problems:
+          count = len(data["components"])
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"{MAP_FILE} is valid ({count} component(s))",
+              "details": {"components": count},
+          }
+
+      return {
+          "passed": False,
+          "score": max(0, 100 - len(problems) * 20),
+          "message": (
+              f"{MAP_FILE} has {len(problems)} problem(s), so GitGrit ignores it and maps with an LLM:\n"
+              + "\n".join(f"- {p}" for p in problems)
+          ),
+          "details": {"violations": problems},
+      }
+test_cases:
+  - name: Valid monorepo map
+    input:
+      list_files:
+        - .gitgrit.yml
+        - apps/api/pyproject.toml
+        - apps/web/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: apps/api
+              kind: service
+              technologies: [Python, FastAPI]
+              dependencies:
+                internal:
+                  - target: "#apps/web"
+                  - target: acme/billing#svc
+                    label: REST
+                infrastructure:
+                  - name: PostgreSQL
+                    kind: database
+                external_providers:
+                  - name: Stripe
+                    url: https://stripe.com
+            - path: ./apps/web/
+              kind: frontend
+    expected:
+      passed: true
+      score: 100
+  - name: Valid root-only map
+    input:
+      list_files:
+        - .gitgrit.yml
+        - pyproject.toml
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: ""
+    expected:
+      passed: true
+      score: 100
+  - name: Map file missing
+    input:
+      list_files:
+        - pyproject.toml
+    expected:
+      passed: false
+      score: 0
+  - name: Not valid YAML
+    input:
+      list_files:
+        - .gitgrit.yml
+      get_file_content:
+        .gitgrit.yml: "components: [\n"
+    expected:
+      passed: false
+      score: 0
+  - name: Wrong version and no components
+    input:
+      list_files:
+        - .gitgrit.yml
+      get_file_content:
+        .gitgrit.yml: |
+          version: 2
+          components: []
+    expected:
+      passed: false
+      score: 60
+  - name: Missing directory, duplicate path and bad kind
+    input:
+      list_files:
+        - .gitgrit.yml
+        - apps/api/pyproject.toml
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: apps/api
+            - path: apps/api/
+              kind: database
+            - path: apps/gone
+    expected:
+      passed: false
+      score: 40
+  - name: Bad dependencies
+    input:
+      list_files:
+        - .gitgrit.yml
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: ""
+              dependencies:
+                internal:
+                  - target: billing
+                  - label: no target
+                infrastructure:
+                  - name: Redis
+                    kind: memory
+                external_providers:
+                  - url: https://x.io
+                libraries: []
+    expected:
+      passed: false
+      score: 0
+  - name: More than 25 components
+    input:
+      list_files:
+        - .gitgrit.yml
+      get_file_content:
+        .gitgrit.yml: "version: 1\ncomponents:\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n- path: ''\n"
+    expected:
+      passed: false
+      score: 0

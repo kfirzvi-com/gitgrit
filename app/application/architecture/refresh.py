@@ -171,8 +171,17 @@ class RefreshProjectTopology:
             project.deps_status = Project.DepsStatus.OK
             project.deps_analyzed_at = timezone.now()
             project.deps_error = ""
+            project.deps_source = topology.source
+            project.deps_map = topology.map_text
             project.save(
-                update_fields=["deps_evidence", "deps_status", "deps_analyzed_at", "deps_error"]
+                update_fields=[
+                    "deps_evidence",
+                    "deps_status",
+                    "deps_analyzed_at",
+                    "deps_error",
+                    "deps_source",
+                    "deps_map",
+                ]
             )
 
             if affected and self._enqueue_refresh is not None:

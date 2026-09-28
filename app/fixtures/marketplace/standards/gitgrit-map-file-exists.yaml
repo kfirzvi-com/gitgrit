@@ -1,0 +1,232 @@
+slug: gitgrit-map-file-exists
+name: GitGrit Map File Exists
+description: >
+  Checks that a .gitgrit.yml map file is committed at the repository root.
+  GitGrit reads this file to draw the repository's components and their
+  dependencies instead of running an LLM on every map run. When the file is
+  missing, the result message holds the file format plus the exact
+  instructions GitGrit's own LLM follows, ready to paste into your AI coding
+  tool so it can write the file for you.
+author: GitGrit
+suggested_labels:
+  - ai
+  - architecture
+  - documentation
+criteria:
+  events:
+    - push
+    - manual
+code: |
+  MAP_FILE = ".gitgrit.yml"
+
+  FORMAT = """version: 1
+  components:
+    - path: ""                 # required. repo-relative directory, "" = repo root
+      name: my-service         # optional (the root is always named after the project)
+      kind: service            # service | frontend | library | job | infra | other
+      description: One line.
+      technologies: [Python, Django]
+      dependencies:            # optional; every list is optional
+        internal:
+          - target: org/other-repo          # GitGrit ref: owner/repo, owner/repo#path,
+            label: REST                     # or #path for a sibling component
+        infrastructure:
+          - name: PostgreSQL
+            kind: database                  # database | cache | queue | storage
+            label: orders DB
+        external_providers:
+          - name: Stripe
+            url: https://stripe.com
+            label: payments
+        external_consumers:
+          - name: Partner portal
+            label: webhooks"""
+
+  RULES = """Rules (GitGrit ignores the whole file if any is broken):
+  - version is 1; components is a non-empty list of at most 25 entries.
+  - every component has a path; "" is the repository root, any other path must
+    be an existing directory; no two components share a path.
+  - kind is one of service, frontend, library, job, infra, other; technologies
+    is a list of strings.
+  - dependencies holds only internal, infrastructure, external_providers and
+    external_consumers; internal entries need a target, the others need a name;
+    an infrastructure kind is one of database, cache, queue, storage.
+  - an internal target is owner/repo, owner/repo#sub/dir, or #sub/dir.
+  - put the technologies you find in step 2 into that component's technologies
+    list as well."""
+
+  # Copied from GitGrit's map LLM prompts (app/infrastructure/topology/
+  # llm_inference.py). tests/test_marketplace_map_file_standards.py fails if
+  # they drift apart; the only edits are where the text says "return the
+  # structured result" and how internal targets are named.
+  DISCOVERY_PROMPT = (
+      "You are identifying the COMPONENTS of one software repository for an "
+      "architecture diagram: the independently deployable or publishable "
+      "units it contains — services/APIs, frontends/apps, shared libraries, "
+      "jobs and pipelines, infrastructure-as-code roots. Use the tools to "
+      "look at the repository yourself.\n"
+      "Evidence that a repository holds SEVERAL components: workspace "
+      "manifests (package.json `workspaces`, pnpm-workspace.yaml, turbo.json,"
+      " nx.json, lerna.json, `[tool.uv.workspace]` / Poetry workspaces in "
+      "pyproject.toml, go.work, a Cargo workspace), docker-compose `build:` "
+      "contexts pointing at sub-directories, per-directory Dockerfiles or "
+      "manifests, CODEOWNERS, a README that lists the parts, conventional "
+      "folders such as apps/, services/, packages/, libs/, infra/.\n"
+      "A repository with ONE manifest at its root and no such evidence is ONE"
+      " component at path '' (the repository root) — this is the common case;"
+      " do not invent sub-components for ordinary folders like src/, tests/, "
+      "docs/.\n"
+      "Do not list every folder: list units that are built, deployed or "
+      "published on their own. Give each a repository-relative directory "
+      "path, a short name (usually the directory name or the manifest's "
+      "package name), a kind (service | frontend | library | job | infra | "
+      "other), a one-line description, and the languages/frameworks you can "
+      "see in its manifest. Return at most 25 components. When you have "
+      "enough evidence, write the components into .gitgrit.yml in the format "
+      "above."
+  )
+
+  DEPENDENCY_PROMPT = (
+      "You are mapping the dependencies of one software COMPONENT (a "
+      "deployable unit inside a repository) for an architecture diagram. Use "
+      "the tools to inspect it yourself: list files and read the ones that "
+      "reveal dependencies — manifests and lockfiles (package.json, go.mod, "
+      "pyproject.toml, requirements, Gemfile, etc.), infrastructure-as-code "
+      "(Terraform, Helm, k8s, docker-compose), service config and env files, "
+      "CI config, and any code/config that references other services or "
+      "third-party APIs. The repository's root manifests (docker-compose, "
+      "go.work, workspace files) often describe how components connect — read"
+      " them too. Use your judgment about what's worth reading — you do NOT "
+      "need to read everything; skip bulk application source. The graph shows"
+      " COMPONENTS (deployable systems/services), not libraries. Classify "
+      "what you find into one of:\n"
+      "  • technologies — languages, frameworks, libraries, SDKs and tools "
+      "the component USES (e.g. Next.js, React, FastAPI, Express, Terraform, "
+      "the AWS SDK, zod, pydantic). These are NOT graph nodes — they become "
+      "the component's tech labels. Put every imported package/framework/tool"
+      " here.\n"
+      "  • internal — a dependency on ANOTHER component in this workspace; "
+      "only use components GitGrit knows — repositories connected to your "
+      "GitGrit workspace and the other components of this repository — and "
+      "write the component's exact GitGrit ref as the target: owner/repo for "
+      "a repository's root component, owner/repo#path for a component inside "
+      "a monorepo, and #path for a sibling component of this repository. A "
+      "call to another service in the same repository IS an internal "
+      "dependency.\n"
+      "  • infrastructure — a datastore/queue/cache/object-store the "
+      "component OWNS and operates as its own implementation detail (its "
+      "Postgres/MySQL/Mongo database, Redis cache, Kafka/RabbitMQ/SQS queue, "
+      "S3 bucket). These are stack-INTERNAL resources, not external services."
+      " Give each a `kind` of database, cache, queue, or storage.\n"
+      "  • external_provider — a TRUE third-party SERVICE operated by another"
+      " company that THIS component integrates with over the network: "
+      "SaaS/APIs like Stripe, Auth0, SendGrid, Twilio, an external partner "
+      "API. Do NOT put databases, caches, queues, object storage, or your own"
+      " cloud infra here — those go in infrastructure. A client library/SDK "
+      "is NOT a provider either — the SDK goes in technologies, the "
+      "third-party service it calls goes here (e.g. 'Stripe SDK' is a "
+      "technology, 'Stripe' is a provider). Do NOT list a bare cloud provider"
+      " (AWS, GCP, Azure) — list the specific managed service as "
+      "infrastructure instead.\n"
+      "  • external_consumer — a system OUTSIDE the workspace that depends on"
+      " THIS component (i.e. it exposes something the outside system "
+      "consumes). NEVER list a workspace component here — when a workspace "
+      "component consumes this one, that's captured as the other component's "
+      "internal dependency, not here. Infer external consumers only from real"
+      " evidence: a public/published API or OpenAPI spec, a package published"
+      " for outside use, inbound webhook endpoints (the external sender is "
+      "the consumer), CORS allow-lists or registered external client IDs, or "
+      "docs naming external clients. Be conservative — omit if there's no "
+      "clear signal.\n"
+      "Note a third party can be BOTH (e.g. you call Stripe's API = provider,"
+      " and Stripe calls your webhook = consumer). Do not include this "
+      "component itself, its repository, or other workspace components as "
+      "external. When you have enough evidence, write the result under this "
+      "component's `dependencies` in .gitgrit.yml."
+  )
+
+  INSTRUCTIONS = (
+      "Write a file named .gitgrit.yml at the root of this repository that maps "
+      "its components and their dependencies for GitGrit's architecture "
+      "diagram. Use this format:\n\n"
+      + FORMAT
+      + "\n\n"
+      + RULES
+      + "\n\nStep 1 — components.\n"
+      + DISCOVERY_PROMPT
+      + "\n\nStep 2 — dependencies. Do this for each component from step 1.\n"
+      + DEPENDENCY_PROMPT
+  )
+
+
+  def evaluate(project):
+      files = project.list_files()
+      if MAP_FILE in files:
+          return {
+              "passed": True,
+              "score": 100,
+              "message": f"{MAP_FILE} found at the repository root",
+              "details": {"path": MAP_FILE},
+          }
+
+      # A map file under another name or in a sub-directory is ignored by GitGrit.
+      near_misses = sorted(
+          f for f in files
+          if f.rsplit("/", 1)[-1].lower() in (".gitgrit.yml", ".gitgrit.yaml", "gitgrit.yml", "gitgrit.yaml")
+      )
+      hint = ""
+      if near_misses:
+          hint = (
+              f"Found {', '.join(near_misses)}, but GitGrit only reads {MAP_FILE} "
+              "at the repository root. Move or rename it.\n\n"
+          )
+
+      message = (
+          f"No {MAP_FILE} at the repository root, so GitGrit maps this repository "
+          "with an LLM on every map run. Commit the file to the default branch and "
+          "GitGrit reads it instead.\n\n"
+          + hint
+          + "Paste the instructions below into your AI coding tool (Claude Code, "
+          "Cursor, Copilot, ...) to write it:\n\n"
+          + INSTRUCTIONS
+      )
+      return {
+          "passed": False,
+          "score": 0,
+          "message": message,
+          "details": {"expected_path": MAP_FILE, "near_misses": near_misses},
+      }
+test_cases:
+  - name: Map file at the root
+    input:
+      list_files:
+        - .gitgrit.yml
+        - README.md
+        - pyproject.toml
+    expected:
+      passed: true
+      score: 100
+  - name: No map file
+    input:
+      list_files:
+        - README.md
+        - pyproject.toml
+    expected:
+      passed: false
+      score: 0
+  - name: Map file in a sub-directory does not count
+    input:
+      list_files:
+        - apps/api/.gitgrit.yml
+        - apps/api/pyproject.toml
+    expected:
+      passed: false
+      score: 0
+  - name: Wrong extension (.yaml) does not count
+    input:
+      list_files:
+        - .gitgrit.yaml
+        - package.json
+    expected:
+      passed: false
+      score: 0

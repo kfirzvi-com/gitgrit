@@ -84,6 +84,10 @@ class RepositoryTopology:
     externals: tuple[ExternalLink, ...] = ()
     infrastructure: tuple[InfrastructureResource, ...] = ()
     evidence: Evidence = field(default_factory=Evidence)
+    # Where the map came from ("file" = ``.gitgrit.yml``, "llm") and the
+    # ``.gitgrit.yml`` text it was built from; blank for fixtures.
+    source: str = ""
+    map_text: str = ""
 
     @property
     def is_monorepo(self) -> bool:
@@ -110,6 +114,8 @@ class RepositoryTopology:
                 tree_size=data.get("evidence", {}).get("tree_size"),
                 files_read=tuple(data.get("evidence", {}).get("files_read", ())),
             ),
+            source=data.get("source", ""),
+            map_text=data.get("map_text", ""),
         )
 
 

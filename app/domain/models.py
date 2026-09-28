@@ -256,6 +256,12 @@ class Project(models.Model):
         OK = "ok", "Analyzed"
         FAILED = "failed", "Failed"
 
+    class DepsSource(models.TextChoices):
+        """Where the dependency map was read from."""
+
+        FILE = "file", ".gitgrit.yml"
+        LLM = "llm", "LLM"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
         Tenant,
@@ -296,6 +302,13 @@ class Project(models.Model):
     # 50). Empty until an analysis completes; lets anyone see what a map is
     # grounded in.
     deps_evidence = models.JSONField(default=list, blank=True)
+    # Where the current map came from — the repository's ``.gitgrit.yml`` or
+    # the LLM — and the ``.gitgrit.yml`` text it was built from (the file
+    # as committed, or the LLM answer written in the same format).
+    deps_source = models.CharField(
+        max_length=10, choices=DepsSource.choices, blank=True, default=""
+    )
+    deps_map = models.TextField(blank=True, default="")
     standards = models.ManyToManyField(
         "Standard",
         through="ProjectStandard",

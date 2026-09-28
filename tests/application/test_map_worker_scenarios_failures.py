@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import TransactionTestCase
@@ -333,7 +334,14 @@ class InJobFailureScenarioTests(FailureScenarioBase):
             app=procrastinate_app, worker_name="test-worker", worker_queues=[QUEUE],
             job=job, start_timestamp=time.time(), abort_reason=lambda: None,
         )
-        with patch("app.tasks._sleep") as sleep:
+        # The repository is checked for a .gitgrit.yml before the role lookup.
+        repo = SimpleNamespace(
+            get_tree=lambda full_path, ref: ["README.md"],
+            get_file_content=lambda full_path, path, ref: None,
+        )
+        with patch("app.tasks._sleep") as sleep, patch(
+            "app.infrastructure.topology.snapshots.get_platform_client", return_value=repo
+        ):
             asyncio.run(worker._process_job(context))  # real infer_and_store
 
         self.assertEqual(sleep.call_count, tasks.INFERENCE_ATTEMPTS - 1)
