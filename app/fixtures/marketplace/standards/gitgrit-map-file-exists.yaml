@@ -32,7 +32,7 @@ code: |
             label: REST                     # or #path for a sibling component
         infrastructure:
           - name: PostgreSQL
-            kind: database                  # database | cache | queue | storage
+            kind: database                  # database | cache | queue | storage | other
             label: orders DB
         external_providers:
           - name: Stripe
@@ -43,14 +43,15 @@ code: |
             label: webhooks"""
 
   RULES = """Rules (GitGrit ignores the whole file if any is broken):
-  - version is 1; components is a non-empty list of at most 25 entries.
-  - every component has a path; "" is the repository root, any other path must
-    be an existing directory; no two components share a path.
+  - version is the number 1; components is a non-empty list of at most 25 entries.
+  - a component holds only these keys: path, name, kind, description, technologies, dependencies.
+  - every component has a path of at most 1024 characters; "" is the repository
+    root, any other path must be an existing directory; no two components share a path.
   - kind is one of service, frontend, library, job, infra, other; technologies
     is a list of strings.
-  - dependencies holds only internal, infrastructure, external_providers and
-    external_consumers; internal entries need a target, the others need a name;
-    an infrastructure kind is one of database, cache, queue, storage.
+  - dependencies holds only these keys: internal, infrastructure, external_providers, external_consumers;
+    internal entries need a target, the others need a name;
+    an infrastructure kind is one of database, cache, queue, storage, other.
   - an internal target is owner/repo, owner/repo#sub/dir, or #sub/dir.
   - put the technologies you find in step 2 into that component's technologies
     list as well."""

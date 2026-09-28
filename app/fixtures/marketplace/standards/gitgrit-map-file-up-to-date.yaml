@@ -18,8 +18,9 @@ description: >
   root), so it covers everything. With two or more components the root
   component "" covers only the root directory itself, not sub-directories.
   Root-level manifests never need covering, and manifests under
-  node_modules, vendor, dist, build, target, virtualenvs, fixtures and
-  testdata are ignored. If the map is still right after a flagged change,
+  node_modules, vendor, dist, build, target, virtualenvs, fixtures,
+  testdata and tool folders starting with "." (.github, .devcontainer)
+  are ignored. If the map is still right after a flagged change,
   commit any edit to .gitgrit.yml (such as a comment) to mark it reviewed.
 author: GitGrit
 suggested_labels:
@@ -31,7 +32,7 @@ criteria:
     - manual
 code: |
   import re
-  from datetime import datetime
+  from datetime import datetime, timezone
 
   MAP_FILE = ".gitgrit.yml"
   MAX_DATE_QUERIES = 30  # get_file_last_commit_date is one API call per file
@@ -57,7 +58,7 @@ code: |
   }
   DEPENDENCY_SUFFIXES = (".csproj", ".fsproj", ".tf", ".tfvars", ".sln")
   ENV_TEMPLATE_ENDINGS = ("example", "sample", "template", "dist")
-  K8S_DIRS = {"k8s", "kubernetes", "helm", "charts", "kustomize"}
+  K8S_DIRS = {"k8s", "kubernetes", "helm", "kustomize"}
   # Manifests that mark a directory as its own deployable/publishable unit.
   UNIT_MANIFESTS = {
       "package.json", "pyproject.toml", "setup.py", "go.mod", "cargo.toml",
@@ -82,9 +83,14 @@ code: |
           return True
       if base.startswith(("requirements", "values")) and base.endswith((".txt", ".yml", ".yaml")):
           return True
-      if "env" in base and base != ".env" and base.endswith(ENV_TEMPLATE_ENDINGS):
+      if base.startswith((".env.", "env.")) and base.endswith(ENV_TEMPLATE_ENDINGS):
           return True
-      return base.endswith((".yml", ".yaml")) and any(p.lower() in K8S_DIRS for p in parts[:-1])
+      if not base.endswith((".yml", ".yaml")):
+          return False
+      dirs = [p.lower() for p in parts[:-1]]
+      # A Helm chart's YAML lives under charts/<name>/templates/; a charts/
+      # folder alone is often a charting library.
+      return any(d in K8S_DIRS for d in dirs) or ("charts" in dirs and "templates" in dirs)
 
 
   def is_unit_manifest(path):
@@ -167,18 +173,20 @@ code: |
 
 
   def parse_date(value):
-      if not value:
+      if not isinstance(value, str) or not value:
           return None
       try:
-          return datetime.fromisoformat(value.replace("Z", "+00:00"))
+          date = datetime.fromisoformat(value.replace("Z", "+00:00"))
       except ValueError:
           return None
+      # A date without a time zone is taken as UTC, so it compares with the others.
+      return date if date.tzinfo else date.replace(tzinfo=timezone.utc)
 
 
   def evaluate(project):
       import yaml
 
-      files = project.list_files()
+      files = project.list_files() or []
       if MAP_FILE not in files:
           return {
               "passed": False,
@@ -189,7 +197,7 @@ code: |
 
       try:
           data = yaml.safe_load(project.get_file_content(".gitgrit.yml") or "")
-      except yaml.YAMLError:
+      except (yaml.YAMLError, RecursionError):  # RecursionError: nested too deep
           data = None
       components = data.get("components") if isinstance(data, dict) else None
       if not isinstance(components, list) or not components:
@@ -243,6 +251,8 @@ code: |
           for f in files:
               if "/" not in f or is_noise(f) or not is_unit_manifest(f):
                   continue
+              if any(part.startswith(".") for part in f.split("/")[:-1]):
+                  continue  # tool folders (.github, .devcontainer) are not components
               d = f.rsplit("/", 1)[0]
               if not any(d == p or d.startswith(p + "/") for p in sub_paths):
                   uncovered.setdefault(d, []).append(f)

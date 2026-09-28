@@ -4,10 +4,9 @@ description: >
   Checks that the repository's .gitgrit.yml map file follows every rule
   GitGrit applies when it reads the file: version 1, 1 to 25 components,
   each with a path that is the repository root ("") or an existing
-  directory outside the folders GitGrit skips (node_modules, vendor, dist,
-  build, target, ...), no duplicate paths, allowed component and infrastructure
-  kinds, and internal targets written as owner/repo, owner/repo#sub/dir or
-  #sub/dir. GitGrit ignores an invalid file and falls back to an LLM run,
+  directory (at most 1024 characters), no duplicate paths, no unknown component keys,
+  allowed component and infrastructure kinds, and internal targets written
+  as owner/repo, owner/repo#sub/dir or #sub/dir. GitGrit ignores an invalid file and falls back to an LLM run,
   so this standard lists every problem to fix.
 author: GitGrit
 suggested_labels:
@@ -22,22 +21,14 @@ code: |
 
   MAP_FILE = ".gitgrit.yml"
   MAX_COMPONENTS = 25
+  MAX_PATH = 1024
   COMPONENT_KINDS = ("service", "frontend", "library", "job", "infra", "other")
-  INFRA_KINDS = ("database", "cache", "queue", "storage")
+  INFRA_KINDS = ("database", "cache", "queue", "storage", "other")
+  COMPONENT_KEYS = ("path", "name", "kind", "description", "technologies", "dependencies")
   DEPENDENCY_KEYS = ("internal", "infrastructure", "external_providers", "external_consumers")
   # owner/repo (GitLab may nest groups), optionally #sub/dir; or #sub/dir for a
   # sibling component of this repository.
   TARGET = re.compile(r"^(?:[^\s#/]+(?:/[^\s#/]+)+(?:#[^\s#]+)?|#[^\s#]+)$")
-  # Folders GitGrit hides before it reads the file (build output, vendored
-  # code); a component inside one is rejected. Same set as the map toolbox.
-  NOISE_DIRS = {
-      "node_modules", "vendor", "dist", "build", "target", "__pycache__",
-      ".git", ".terraform", ".venv", "venv", ".idea", ".vscode",
-  }
-
-
-  def is_noise(path):
-      return any(part in NOISE_DIRS for part in path.split("/")[:-1])
 
 
   def dirs_of(files):
@@ -86,26 +77,30 @@ code: |
       return entries
 
 
-  def check_component(c, where, dirs, noise_dirs, seen, problems):
+  def check_unknown_keys(entry, allowed, where, problems):
+      unknown = sorted(str(k) for k in entry if k not in allowed)
+      if unknown:
+          problems.append(f"{where}: unknown key(s) {', '.join(unknown)}")
+
+
+  def check_component(c, where, dirs, seen, problems):
       if not isinstance(c, dict):
           problems.append(f"{where} must be a mapping")
           return
+      check_unknown_keys(c, COMPONENT_KEYS, where, problems)
       raw_path = check_text(c, "path", where, problems, required=True)
       if raw_path is not None:
           path = clean_path(raw_path)
-          if path and path not in dirs:
-              if path in noise_dirs:
-                  problems.append(
-                      f"{where}: path '{path}' is inside a folder GitGrit skips "
-                      f"({', '.join(sorted(NOISE_DIRS))})"
-                  )
-              else:
-                  problems.append(f"{where}: path '{path}' is not a directory in the repository")
+          if len(path) > MAX_PATH:
+              problems.append(f"{where}: path is longer than {MAX_PATH} characters")
+          elif path and path not in dirs:
+              problems.append(f"{where}: path '{path}' is not a directory in the repository")
           if path in seen:
               problems.append(f"{where}: duplicate path '{path}'")
           seen.add(path)
 
-      if c.get("kind", "other") not in COMPONENT_KINDS:
+      # An empty ``kind:`` is the same as leaving it out ("other").
+      if c.get("kind") is not None and c.get("kind") not in COMPONENT_KINDS:
           problems.append(f"{where}: kind must be one of {', '.join(COMPONENT_KINDS)}")
       technologies = c.get("technologies") or []
       if not isinstance(technologies, list) or not all(isinstance(t, str) for t in technologies):
@@ -118,9 +113,7 @@ code: |
       if not isinstance(deps, dict):
           problems.append(f"{where} must be a mapping")
           return
-      unknown = sorted(str(k) for k in deps if k not in DEPENDENCY_KEYS)
-      if unknown:
-          problems.append(f"{where}: unknown key(s) {', '.join(unknown)}")
+      check_unknown_keys(deps, DEPENDENCY_KEYS, where, problems)
 
       for j, d in check_entries(deps, "internal", where, problems):
           at = f"{where}.internal[{j}]"
@@ -160,7 +153,7 @@ code: |
       text = project.get_file_content(".gitgrit.yml") or ""
       try:
           data = yaml.safe_load(text)
-      except yaml.YAMLError as exc:
+      except (yaml.YAMLError, RecursionError) as exc:  # RecursionError: nested too deep
           problem = f"not valid YAML: {exc}"
           return {
               "passed": False,
@@ -173,7 +166,8 @@ code: |
       if not isinstance(data, dict):
           problems.append("the top level must be a mapping")
       else:
-          if data.get("version") != 1:
+          # ``type(...) is int``: YAML ``true`` and ``1.0`` equal 1 in Python.
+          if type(data.get("version")) is not int or data.get("version") != 1:
               problems.append("'version' must be 1")
           components = data.get("components")
           if not isinstance(components, list) or not components:
@@ -181,11 +175,10 @@ code: |
           else:
               if len(components) > MAX_COMPONENTS:
                   problems.append(f"at most {MAX_COMPONENTS} components are allowed (found {len(components)})")
-              dirs = dirs_of(f for f in files if not is_noise(f))
-              noise_dirs = dirs_of(files) - dirs
+              dirs = dirs_of(files)
               seen = set()
               for i, c in enumerate(components):
-                  check_component(c, f"components[{i}]", dirs, noise_dirs, seen, problems)
+                  check_component(c, f"components[{i}]", dirs, seen, problems)
 
       if not problems:
           count = len(data["components"])
@@ -313,7 +306,7 @@ test_cases:
     expected:
       passed: false
       score: 0
-  - name: Component inside a build folder
+  - name: Component inside a build folder is allowed
     input:
       list_files:
         - .gitgrit.yml
@@ -325,6 +318,22 @@ test_cases:
           components:
             - path: packages/ui
             - path: packages/ui/build
+    expected:
+      passed: true
+      score: 100
+  - name: Typo in a component key
+    input:
+      list_files:
+        - .gitgrit.yml
+        - packages/ui/package.json
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: packages/ui
+              dependancies:
+                internal:
+                  - target: acme/api
     expected:
       passed: false
       score: 80

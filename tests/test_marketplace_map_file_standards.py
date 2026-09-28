@@ -20,7 +20,6 @@ import yaml
 
 from app.domain.architecture.map_file import InvalidMapFile, parse_map_file
 from app.infrastructure.topology.llm_inference import _DEPENDENCY_PROMPT, _DISCOVERY_PROMPT
-from app.infrastructure.topology.toolbox import NOISE_DIRS, is_noise
 
 ROOT = Path(__file__).resolve().parents[1]
 SANDBOX_DIR = ROOT / "sandbox_image"
@@ -166,6 +165,7 @@ MAP_FILES = {
     "valid": VALID,
     "valid, only root": "version: 1\ncomponents:\n  - path: ''\n",
     "not yaml": "version: 1\ncomponents: [\n",
+    "nested too deep": "components: " + "[" * 600 + "]" * 600 + "\n",
     "top level is a list": "- path: ''\n",
     "wrong version": "version: 2\ncomponents:\n  - path: ''\n",
     "no components": "version: 1\ncomponents: []\n",
@@ -177,6 +177,12 @@ MAP_FILES = {
     "path not a directory": "version: 1\ncomponents:\n  - path: apps/nope\n",
     "path is a file": "version: 1\ncomponents:\n  - path: README.md\n",
     "path in a skipped folder": "version: 1\ncomponents:\n  - path: apps/web/dist\n",
+    "path too long": "version: 1\ncomponents:\n  - path: " + "a" * 1025 + "\n",
+    "version true": "version: true\ncomponents:\n  - path: ''\n",
+    "version 1.0": "version: 1.0\ncomponents:\n  - path: ''\n",
+    "empty kind": "version: 1\ncomponents:\n  - path: ''\n    kind:\n",
+    "unknown component key": "version: 1\ncomponents:\n  - path: ''\n    dependancies: {}\n",
+    "extra top-level key (YAML anchor)": "base: &b {kind: service}\nversion: 1\ncomponents:\n  - <<: *b\n    path: ''\n",
     "duplicate after cleaning": "version: 1\ncomponents:\n  - path: apps/api\n  - path: ./apps/api/\n",
     "bad kind": "version: 1\ncomponents:\n  - path: ''\n    kind: database\n",
     "technologies not strings": "version: 1\ncomponents:\n  - path: ''\n    technologies: [1]\n",
@@ -188,7 +194,8 @@ MAP_FILES = {
     "internal without target": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      internal:\n        - label: REST\n",
     "bad target": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      internal:\n        - target: billing\n",
     "infra without name": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      infrastructure:\n        - kind: cache\n",
-    "bad infra kind": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      infrastructure:\n        - name: Redis\n          kind: other\n",
+    "infra kind other": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      infrastructure:\n        - name: Redis\n          kind: other\n",
+    "bad infra kind": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      infrastructure:\n        - name: Redis\n          kind: stream\n",
     "provider without name": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      external_providers:\n        - url: https://x.io\n",
     "label not a string": "version: 1\ncomponents:\n  - path: ''\n    dependencies:\n      external_consumers:\n        - name: X\n          label: [a]\n",
 }
@@ -198,8 +205,8 @@ MAP_FILES = {
 def test_valid_standard_agrees_with_pipeline_parser(name):
     text = textwrap.dedent(MAP_FILES[name])
     try:
-        # The pipeline parses against the tree RepoToolbox.load_tree returns.
-        parse_map_file(text, [p for p in TREE if not is_noise(p)])
+        # The pipeline parses against every file (RepoToolbox.all_files).
+        parse_map_file(text, TREE)
         pipeline_ok = True
     except InvalidMapFile:
         pipeline_ok = False
@@ -212,13 +219,6 @@ def test_valid_standard_agrees_with_pipeline_parser(name):
     assert result["passed"] is pipeline_ok, result["message"]
     if not pipeline_ok:
         assert result["details"]["violations"]
-
-
-def test_valid_standard_skips_the_pipeline_noise_dirs():
-    namespace: dict = {}
-    exec(_fixture("gitgrit-map-file-valid")["code"], namespace)
-
-    assert namespace["NOISE_DIRS"] == set(NOISE_DIRS)
 
 
 # --- gitgrit-map-file-up-to-date bounds its API calls --------------------------------
@@ -253,3 +253,118 @@ def test_up_to_date_standard_caps_date_queries():
     assert provider.dated[1] == "docker-compose.yml"  # root-level files first
     assert result["details"]["dependency_files"] == 41
     assert "were not checked" in result["details"]["dates_note"]
+
+
+# --- gitgrit-map-file-up-to-date edge cases ------------------------------------------
+
+OLD_DATE, NEW_DATE = "2026-09-01T00:00:00Z", "2026-09-20T00:00:00Z"
+TWO_APPS = "version: 1\ncomponents:\n  - path: apps/api\n  - path: apps/web\n"
+ROOT_ONLY = "version: 1\ncomponents:\n  - path: ''\n"
+
+
+def _up_to_date(files, map_text, dates=None):
+    return _evaluate(
+        _fixture("gitgrit-map-file-up-to-date")["code"],
+        {
+            "list_files": files,
+            "get_file_content": {".gitgrit.yml": map_text},
+            "get_file_last_commit_date": dates or {},
+        },
+    )
+
+
+def test_up_to_date_skips_tool_folders_in_the_coverage_check():
+    result = _up_to_date(
+        [
+            ".gitgrit.yml",
+            "apps/api/pyproject.toml",
+            "apps/web/package.json",
+            ".devcontainer/Dockerfile",
+            ".github/actions/setup/package.json",
+        ],
+        TWO_APPS,
+    )
+
+    assert result["passed"], result["message"]
+
+
+@pytest.mark.parametrize(
+    "map_date,manifest_date,passed",
+    [
+        ("2026-09-10T00:00:00", NEW_DATE, False),  # no time zone = UTC
+        ("2026-09-30T00:00:00", NEW_DATE, True),
+        (1757462400, NEW_DATE, True),  # not a string = unknown, check skipped
+        (OLD_DATE, 1757462400, True),
+    ],
+)
+def test_up_to_date_handles_odd_dates(map_date, manifest_date, passed):
+    result = _up_to_date(
+        [".gitgrit.yml", "package.json"],
+        ROOT_ONLY,
+        {".gitgrit.yml": map_date, "package.json": manifest_date},
+    )
+
+    assert result["passed"] is passed, result["message"]
+
+
+def test_up_to_date_handles_a_map_nested_too_deep():
+    result = _up_to_date([".gitgrit.yml"], "components: " + "[" * 600 + "]" * 600 + "\n")
+
+    assert result["passed"] is False
+    assert "no readable component list" in result["message"]
+
+
+def test_up_to_date_handles_no_file_list():
+    result = _evaluate(_fixture("gitgrit-map-file-up-to-date")["code"], {"list_files": None})
+
+    assert result["passed"] is False
+    assert "No .gitgrit.yml" in result["message"]
+
+
+@pytest.mark.parametrize(
+    "path,counted",
+    [
+        ("src/charts/theme.yml", False),  # a charting library, not Helm
+        ("templates/greenvalley.template", False),  # "env" inside a word
+        ("charts/api/templates/deployment.yaml", True),
+        ("charts/api/values.yaml", True),
+        ("k8s/deployment.yaml", True),
+        ("config/.env.staging.example", True),
+        ("env.template", True),
+    ],
+)
+def test_up_to_date_dependency_files(path, counted):
+    result = _up_to_date(
+        [".gitgrit.yml", path], ROOT_ONLY, {".gitgrit.yml": OLD_DATE, path: NEW_DATE}
+    )
+
+    assert (not result["passed"]) is counted, result["message"]
+
+
+def test_valid_standard_constants_match_the_pipeline():
+    from app.domain.architecture import map_file, topology
+
+    namespace: dict = {}
+    exec(_fixture("gitgrit-map-file-valid")["code"], namespace)
+
+    assert namespace["MAX_COMPONENTS"] == topology.MAX_COMPONENTS
+    assert namespace["MAX_PATH"] == topology.MAX_PATH
+    assert namespace["COMPONENT_KINDS"] == topology.COMPONENT_KINDS
+    assert namespace["INFRA_KINDS"] == topology.INFRA_KINDS
+    assert namespace["COMPONENT_KEYS"] == map_file.COMPONENT_KEYS
+    assert namespace["DEPENDENCY_KEYS"] == map_file.DEPENDENCY_KEYS
+    assert namespace["TARGET"].pattern == map_file._TARGET.pattern
+    assert map_file.VERSION == 1  # the standard checks ``version`` against 1
+
+
+def test_exists_standard_rules_name_the_pipeline_rules():
+    from app.domain.architecture import map_file, topology
+
+    namespace: dict = {}
+    exec(_fixture("gitgrit-map-file-exists")["code"], namespace)
+    rules = _normalise(namespace["RULES"])
+
+    assert f"at most {topology.MAX_COMPONENTS} entries" in rules
+    assert f"at most {topology.MAX_PATH} characters" in rules
+    for words in (topology.COMPONENT_KINDS, topology.INFRA_KINDS, map_file.COMPONENT_KEYS, map_file.DEPENDENCY_KEYS):
+        assert ", ".join(words) in rules, words

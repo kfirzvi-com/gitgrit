@@ -9,6 +9,7 @@ service spelled two ways.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -42,13 +43,18 @@ class RosterEntry:
         return self.full_path if self.is_root else f"{self.full_path}#{self.path}"
 
 
-def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = "") -> RosterEntry | None:
+def resolve_ref(
+    target: str, roster: Iterable[RosterEntry], *, this_repo: str = "", strict: bool = False
+) -> RosterEntry | None:
     """Best-effort mapping of a model-returned target onto one roster entry.
 
     Tried in order: exact ref (``repo`` or ``repo#path``); ``#path`` or a bare
     path naming a sibling in ``this_repo``; a bare repository (its root, or
     its only component); ``repo/path`` written with a slash; a unique
     component name; a repository's last path segment (its root component).
+
+    ``strict`` (a hand-written ``.gitgrit.yml`` target) stops after the exact
+    forms — exact ref, ``#path`` sibling, bare repository — and never guesses.
     """
     t = (target or "").strip().lower().rstrip("/")
     if not t:
@@ -58,7 +64,7 @@ def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = 
     if t in by_ref:
         return by_ref[t]
 
-    if this_repo:
+    if this_repo and (t.startswith("#") or not strict):
         sibling_path = t[1:] if t.startswith("#") else t
         for e in roster:
             if e.full_path.lower() == this_repo.lower() and e.path.lower() == sibling_path:
@@ -76,6 +82,8 @@ def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = 
             return roots[0]
         if len(entries) == 1:
             return entries[0]
+    if strict:
+        return None
 
     for e in roster:
         if e.path and t == f"{e.full_path}/{e.path}".lower():
@@ -104,7 +112,7 @@ INFRA_TERMS = {
     "postgres": "database", "postgresql": "database", "mysql": "database",
     "mariadb": "database", "sqlite": "database", "mongodb": "database",
     "mongo": "database", "dynamodb": "database", "cassandra": "database",
-    "cockroach": "database", "rds": "database", "aurora": "database",
+    "cockroach": "database", "cockroachdb": "database", "rds": "database", "aurora": "database",
     "redis": "cache", "memcached": "cache",
     "kafka": "queue", "rabbitmq": "queue", "sqs": "queue", "sns": "queue",
     "kinesis": "queue", "pubsub": "queue", "nats": "queue",
@@ -121,10 +129,14 @@ GENERIC_CLOUD = {
 
 
 def infra_kind(name: str) -> str | None:
-    """An infrastructure kind if the name is a known datastore/queue, else None."""
-    n = (name or "").lower()
+    """An infrastructure kind if the name is a known datastore/queue, else None.
+
+    Terms match whole words ("Amazon RDS", "aws-s3", "sqlite3" — a version
+    number may follow), never inside a word ("Rewards", "Sales3").
+    """
+    words = " ".join(re.findall(r"[a-z0-9]+", (name or "").lower()))
     for term, kind in INFRA_TERMS.items():
-        if term in n:
+        if re.search(rf"(?<![a-z0-9]){re.escape(term)}\d*(?![a-z0-9])", words):
             return kind
     return None
 
@@ -154,8 +166,16 @@ class ResolvedTopology:
 def resolve_topology(
     topology: RepositoryTopology, roster: Iterable[RosterEntry], *, this_repo: str
 ) -> ResolvedTopology:
+    """Resolve internal targets and clean externals/infrastructure.
+
+    A ``.gitgrit.yml`` map (``source == "file"``) is kept as written: its
+    targets must match exactly and the backstops for model mistakes (bare
+    cloud providers, datastores filed as externals, workspace names, near
+    duplicates) are skipped.
+    """
     roster = list(roster)
     own_paths = {c.path for c in topology.components}
+    as_written = topology.source == "file"
 
     internal: list[ResolvedInternal] = []
     unresolved: list[str] = []
@@ -163,7 +183,7 @@ def resolve_topology(
     for dep in topology.internal:
         if dep.source_path not in own_paths:
             continue
-        entry = resolve_ref(dep.target_ref, roster, this_repo=this_repo)
+        entry = resolve_ref(dep.target_ref, roster, this_repo=this_repo, strict=as_written)
         if entry is None:
             unresolved.append(dep.target_ref)
             continue
@@ -180,7 +200,9 @@ def resolve_topology(
     def add_infra(source_path: str, name: str, kind: str, label: str = "") -> None:
         name = (name or "").strip()
         key = (source_path, name.lower())
-        if not name or key in infra or resolve_ref(name, roster, this_repo=this_repo):
+        if not name or key in infra:
+            return
+        if not as_written and resolve_ref(name, roster, this_repo=this_repo):
             return
         if kind not in INFRA_KINDS:
             kind = infra_kind(name) or "other"
@@ -200,17 +222,19 @@ def resolve_topology(
         name = (ext.name or "").strip()
         if not name:
             continue
-        # A workspace component listed as "external" belongs to internal edges.
-        if resolve_ref(name, roster, this_repo=this_repo):
-            continue
-        if ext.direction == OUTBOUND:
-            if name.lower() in GENERIC_CLOUD:
+        if not as_written:
+            # A workspace component listed as "external" belongs to internal edges.
+            if resolve_ref(name, roster, this_repo=this_repo):
                 continue
-            kind = infra_kind(name)
-            if kind:
-                add_infra(ext.source_path, name, kind, ext.label)
-                continue
-        key = (ext.source_path, canonical_key(name), ext.direction)
+            if ext.direction == OUTBOUND:
+                if name.lower() in GENERIC_CLOUD:
+                    continue
+                kind = infra_kind(name)
+                if kind:
+                    add_infra(ext.source_path, name, kind, ext.label)
+                    continue
+        dedupe = name.lower() if as_written else canonical_key(name)
+        key = (ext.source_path, dedupe, ext.direction)
         if key in seen_ext:
             continue
         seen_ext.add(key)

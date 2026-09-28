@@ -22,7 +22,6 @@ from dataclasses import replace
 from pydantic import BaseModel, Field
 
 from app.application.architecture.ports import InferenceContext, RepositorySnapshot
-from app.domain.architecture.map_file import dump_map_file
 from app.domain.architecture.resolve import RosterEntry
 from app.domain.architecture.topology import (
     INBOUND,
@@ -299,13 +298,12 @@ class LLMTopologyInference:
             f"{len(externals)} external ({agent.usage['total_tokens']} tokens, "
             f"{agent.usage['calls']} calls, {len(toolbox.files_read)} files read)"
         )
-        topology = RepositoryTopology(
+        # ``map_text`` is written once the targets are resolved (refresh.py).
+        return RepositoryTopology(
             components=tuple(final),
             internal=tuple(internal),
             externals=tuple(externals),
             infrastructure=tuple(infra),
             evidence=Evidence(tree_size=toolbox.tree_size, files_read=tuple(toolbox.files_read)),
+            source="llm",
         )
-        # Kept as ``.gitgrit.yml`` text so the answer can be read, or committed
-        # to skip the next run.
-        return replace(topology, source="llm", map_text=dump_map_file(topology))

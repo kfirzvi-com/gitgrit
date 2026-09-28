@@ -18,7 +18,7 @@ Stack-to-stack edges are NOT written here; they are derived at read time.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from django.db import transaction
@@ -29,11 +29,17 @@ from app.application.architecture.ports import (
     RepositorySnapshot,
     TopologyInference,
 )
+from app.domain.architecture.map_file import dump_map_file
 from app.domain.architecture.reconcile import inherited_memberships, plan_components
-from app.domain.architecture.resolve import RosterEntry, resolve_topology
+from app.domain.architecture.resolve import (
+    ResolvedTopology,
+    RosterEntry,
+    resolve_topology,
+)
 from app.domain.architecture.topology import (
     INBOUND,
     MAX_EVIDENCE_FILES,
+    InternalDependency,
     RepositoryTopology,
     check_evidence,
 )
@@ -105,6 +111,8 @@ class RefreshProjectTopology:
         )
 
         topology = self._inference.infer(self._snapshot_factory(project), context)
+        if topology.map_error:
+            logger.warning("deps[%s]: %s — running the LLM analysis", project.name, topology.map_error)
         check_evidence(topology.evidence)  # raise before touching any table
 
         # Siblings discovered in this run join the roster without ids; they are
@@ -116,6 +124,7 @@ class RefreshProjectTopology:
         resolved = resolve_topology(topology, full_roster, this_repo=project.full_path)
         for target in resolved.unresolved:
             logger.info("deps[%s]: unresolved internal target %r", project.name, target)
+        map_text = _resolved_map_text(topology, resolved) if topology.source == "llm" else topology.map_text
 
         with transaction.atomic():
             components, plan, affected = self._reconcile_components(project, topology)
@@ -172,7 +181,8 @@ class RefreshProjectTopology:
             project.deps_analyzed_at = timezone.now()
             project.deps_error = ""
             project.deps_source = topology.source
-            project.deps_map = topology.map_text
+            project.deps_map = map_text
+            project.deps_map_error = topology.map_error
             project.save(
                 update_fields=[
                     "deps_evidence",
@@ -181,6 +191,7 @@ class RefreshProjectTopology:
                     "deps_error",
                     "deps_source",
                     "deps_map",
+                    "deps_map_error",
                 ]
             )
 
@@ -271,3 +282,19 @@ class RefreshProjectTopology:
             Component.objects.filter(pk__in=removed_ids).delete()  # cascades edges + memberships
 
         return components, plan, affected
+
+
+def _resolved_map_text(topology: RepositoryTopology, resolved: ResolvedTopology) -> str:
+    """The LLM answer as ``.gitgrit.yml`` text, with the targets it resolved to
+    (exact refs) and the cleaned externals, so committing it as the map file
+    reproduces this map with no LLM run."""
+    return dump_map_file(
+        replace(
+            topology,
+            internal=tuple(
+                InternalDependency(r.source_path, r.target.ref, r.label) for r in resolved.internal
+            ),
+            externals=resolved.externals,
+            infrastructure=resolved.infrastructure,
+        )
+    )

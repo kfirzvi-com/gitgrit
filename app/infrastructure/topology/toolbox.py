@@ -62,7 +62,9 @@ class RepoToolbox:
         self._snapshot = snapshot
         self._full_path = full_path
         self._scope = clean_path(scope)
-        self._shared = _shared if _shared is not None else {"tree": None, "tree_size": None, "read": []}
+        self._shared = (
+            _shared if _shared is not None else {"tree": None, "all_files": None, "tree_size": None, "read": []}
+        )
 
     def scoped(self, path: str) -> "RepoToolbox":
         return RepoToolbox(self._snapshot, self._full_path, path, _shared=self._shared)
@@ -74,6 +76,12 @@ class RepoToolbox:
     @property
     def tree_size(self) -> int | None:  # None until list_repo_files ran
         return self._shared["tree_size"]
+
+    @property
+    def all_files(self) -> list[str]:
+        """Every file ``load_tree`` listed, noise folders included."""
+        self.load_tree()
+        return self._shared["all_files"]
 
     @property
     def files_read(self) -> list[str]:
@@ -89,6 +97,7 @@ class RepoToolbox:
     def load_tree(self) -> list[str]:
         if self._shared["tree"] is None:
             raw = self._snapshot.list_files() or []
+            self._shared["all_files"] = raw
             self._shared["tree_size"] = len(raw)
             self._shared["tree"] = [p for p in raw if not is_noise(p)]
         return self._shared["tree"]

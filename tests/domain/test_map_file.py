@@ -87,9 +87,25 @@ class ParseMapFileTests(SimpleTestCase):
         topo = parse_map_file(_body("  - path: ''\n"), [])
         self.assertEqual(topo.components, (ComponentDecl("", ""),))
 
+    def test_empty_kinds_and_infra_kind_other_mean_other(self):
+        topo = parse_map_file(
+            _body(
+                "  - path: ''\n    kind:\n    dependencies:\n      infrastructure:\n"
+                "        - name: Redis\n          kind:\n        - name: Search\n          kind: other\n"
+            ),
+            TREE,
+        )
+        self.assertEqual(topo.components[0].kind, "other")
+        self.assertEqual([i.kind for i in topo.infrastructure], ["other", "other"])
+
+    def test_path_of_1024_characters_is_allowed(self):
+        path = "a" * 1024
+        parse_map_file(_body(f"  - path: {path}\n"), [f"{path}/x.py"])
+
     def test_invalid_files_name_the_broken_rule(self):
         cases = {
             "version: 1\ncomponents: [\n": "not valid YAML",
+            "components: " + "[" * 600 + "]" * 600 + "\n": "not valid YAML (RecursionError)",
             "- a\n- b\n": "top level must be a mapping",
             "version: 2\ncomponents:\n  - path: ''\n": "'version' must be 1",
             "version: 1\ncomponents: []\n": "non-empty list",
@@ -108,7 +124,12 @@ class ParseMapFileTests(SimpleTestCase):
             _body("  - path: ''\n    dependencies:\n      internal:\n        - target: api\n"): "must be owner/repo",
             _body("  - path: ''\n    dependencies:\n      internal:\n        - target: org/a#b#c\n"): "must be owner/repo",
             _body("  - path: ''\n    dependencies:\n      infrastructure:\n        - kind: cache\n"): "'name' is required",
-            _body("  - path: ''\n    dependencies:\n      infrastructure:\n        - name: X\n          kind: other\n"): "kind must be one of database",
+            _body("  - path: ''\n    dependencies:\n      infrastructure:\n        - name: X\n          kind: stream\n"): "kind must be one of database",
+            "version: true\ncomponents:\n  - path: ''\n": "'version' must be 1",
+            "version: 1.0\ncomponents:\n  - path: ''\n": "'version' must be 1",
+            "version: '1'\ncomponents:\n  - path: ''\n": "'version' must be 1",
+            _body(f"  - path: {'a' * 1025}\n"): "longer than 1024 characters",
+            _body("  - path: ''\n    dependancies:\n      internal: []\n"): "unknown key(s) dependancies",
             _body("  - path: ''\n    dependencies:\n      external_consumers:\n        - url: x\n"): "'name' is required",
             _body("  - path: ''\n    dependencies:\n      external_providers: Stripe\n"): "must be a list",
         }
