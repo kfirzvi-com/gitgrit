@@ -368,3 +368,10 @@ def test_exists_standard_rules_name_the_pipeline_rules():
     assert f"at most {topology.MAX_PATH} characters" in rules
     for words in (topology.COMPONENT_KINDS, topology.INFRA_KINDS, map_file.COMPONENT_KEYS, map_file.DEPENDENCY_KEYS):
         assert ", ".join(words) in rules, words
+
+
+def test_architecture_map_ready_pack_holds_the_three_standards():
+    packs = yaml.safe_load((STANDARDS_DIR.parent / "packs.yaml").read_text())
+    pack = next(p for p in packs if p["slug"] == "architecture-map-ready")
+
+    assert pack["standards"] == list(SLUGS)
