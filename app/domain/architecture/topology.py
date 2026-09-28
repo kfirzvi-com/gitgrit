@@ -132,6 +132,14 @@ def clean_path(path) -> str:
     return "" if p == "." else p
 
 
+def safe_url(url) -> str:
+    """``url`` when it is a plain http(s) link, else ''. The map opens a
+    node's url on click, so anything else (``javascript:``, ``data:``) that a
+    repository file or a model answer carries must never be stored."""
+    u = (url or "").strip()
+    return u[:2048] if u.lower().startswith(("http://", "https://")) else ""
+
+
 def clean_technologies(values: Iterable[str], limit: int = MAX_TECHNOLOGIES) -> tuple[str, ...]:
     """Dedupe case-insensitively, keep first-seen order and spelling, cap."""
     seen: set[str] = set()

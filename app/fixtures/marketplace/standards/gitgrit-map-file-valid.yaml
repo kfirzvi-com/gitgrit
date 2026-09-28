@@ -4,7 +4,8 @@ description: >
   Checks that the repository's .gitgrit.yml map file follows every rule
   GitGrit applies when it reads the file: version 1, 1 to 25 components,
   each with a path that is the repository root ("") or an existing
-  directory, no duplicate paths, allowed component and infrastructure
+  directory outside the folders GitGrit skips (node_modules, vendor, dist,
+  build, target, ...), no duplicate paths, allowed component and infrastructure
   kinds, and internal targets written as owner/repo, owner/repo#sub/dir or
   #sub/dir. GitGrit ignores an invalid file and falls back to an LLM run,
   so this standard lists every problem to fix.
@@ -27,6 +28,25 @@ code: |
   # owner/repo (GitLab may nest groups), optionally #sub/dir; or #sub/dir for a
   # sibling component of this repository.
   TARGET = re.compile(r"^(?:[^\s#/]+(?:/[^\s#/]+)+(?:#[^\s#]+)?|#[^\s#]+)$")
+  # Folders GitGrit hides before it reads the file (build output, vendored
+  # code); a component inside one is rejected. Same set as the map toolbox.
+  NOISE_DIRS = {
+      "node_modules", "vendor", "dist", "build", "target", "__pycache__",
+      ".git", ".terraform", ".venv", "venv", ".idea", ".vscode",
+  }
+
+
+  def is_noise(path):
+      return any(part in NOISE_DIRS for part in path.split("/")[:-1])
+
+
+  def dirs_of(files):
+      dirs = set()
+      for f in files:
+          parts = f.split("/")
+          for i in range(1, len(parts)):
+              dirs.add("/".join(parts[:i]))
+      return dirs
 
 
   def clean_path(path):
@@ -66,7 +86,7 @@ code: |
       return entries
 
 
-  def check_component(c, where, dirs, seen, problems):
+  def check_component(c, where, dirs, noise_dirs, seen, problems):
       if not isinstance(c, dict):
           problems.append(f"{where} must be a mapping")
           return
@@ -74,7 +94,13 @@ code: |
       if raw_path is not None:
           path = clean_path(raw_path)
           if path and path not in dirs:
-              problems.append(f"{where}: path '{path}' is not a directory in the repository")
+              if path in noise_dirs:
+                  problems.append(
+                      f"{where}: path '{path}' is inside a folder GitGrit skips "
+                      f"({', '.join(sorted(NOISE_DIRS))})"
+                  )
+              else:
+                  problems.append(f"{where}: path '{path}' is not a directory in the repository")
           if path in seen:
               problems.append(f"{where}: duplicate path '{path}'")
           seen.add(path)
@@ -155,14 +181,11 @@ code: |
           else:
               if len(components) > MAX_COMPONENTS:
                   problems.append(f"at most {MAX_COMPONENTS} components are allowed (found {len(components)})")
-              dirs = set()
-              for f in files:
-                  parts = f.split("/")
-                  for i in range(1, len(parts)):
-                      dirs.add("/".join(parts[:i]))
+              dirs = dirs_of(f for f in files if not is_noise(f))
+              noise_dirs = dirs_of(files) - dirs
               seen = set()
               for i, c in enumerate(components):
-                  check_component(c, f"components[{i}]", dirs, seen, problems)
+                  check_component(c, f"components[{i}]", dirs, noise_dirs, seen, problems)
 
       if not problems:
           count = len(data["components"])
@@ -290,6 +313,21 @@ test_cases:
     expected:
       passed: false
       score: 0
+  - name: Component inside a build folder
+    input:
+      list_files:
+        - .gitgrit.yml
+        - packages/ui/package.json
+        - packages/ui/build/index.js
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: packages/ui
+            - path: packages/ui/build
+    expected:
+      passed: false
+      score: 80
   - name: More than 25 components
     input:
       list_files:

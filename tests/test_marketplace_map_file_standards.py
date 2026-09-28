@@ -20,6 +20,7 @@ import yaml
 
 from app.domain.architecture.map_file import InvalidMapFile, parse_map_file
 from app.infrastructure.topology.llm_inference import _DEPENDENCY_PROMPT, _DISCOVERY_PROMPT
+from app.infrastructure.topology.toolbox import NOISE_DIRS, is_noise
 
 ROOT = Path(__file__).resolve().parents[1]
 SANDBOX_DIR = ROOT / "sandbox_image"
@@ -127,7 +128,13 @@ def test_exists_standard_failure_message_carries_the_instructions():
 
 # --- gitgrit-map-file-valid agrees with the pipeline's parser -----------------------
 
-TREE = ["README.md", "apps/api/pyproject.toml", "apps/web/package.json", "infra/main.tf"]
+TREE = [
+    "README.md",
+    "apps/api/pyproject.toml",
+    "apps/web/package.json",
+    "apps/web/dist/index.js",
+    "infra/main.tf",
+]
 
 VALID = """
 version: 1
@@ -169,6 +176,7 @@ MAP_FILES = {
     "path not a string": "version: 1\ncomponents:\n  - path: 3\n",
     "path not a directory": "version: 1\ncomponents:\n  - path: apps/nope\n",
     "path is a file": "version: 1\ncomponents:\n  - path: README.md\n",
+    "path in a skipped folder": "version: 1\ncomponents:\n  - path: apps/web/dist\n",
     "duplicate after cleaning": "version: 1\ncomponents:\n  - path: apps/api\n  - path: ./apps/api/\n",
     "bad kind": "version: 1\ncomponents:\n  - path: ''\n    kind: database\n",
     "technologies not strings": "version: 1\ncomponents:\n  - path: ''\n    technologies: [1]\n",
@@ -190,7 +198,8 @@ MAP_FILES = {
 def test_valid_standard_agrees_with_pipeline_parser(name):
     text = textwrap.dedent(MAP_FILES[name])
     try:
-        parse_map_file(text, TREE)
+        # The pipeline parses against the tree RepoToolbox.load_tree returns.
+        parse_map_file(text, [p for p in TREE if not is_noise(p)])
         pipeline_ok = True
     except InvalidMapFile:
         pipeline_ok = False
@@ -203,6 +212,13 @@ def test_valid_standard_agrees_with_pipeline_parser(name):
     assert result["passed"] is pipeline_ok, result["message"]
     if not pipeline_ok:
         assert result["details"]["violations"]
+
+
+def test_valid_standard_skips_the_pipeline_noise_dirs():
+    namespace: dict = {}
+    exec(_fixture("gitgrit-map-file-valid")["code"], namespace)
+
+    assert namespace["NOISE_DIRS"] == set(NOISE_DIRS)
 
 
 # --- gitgrit-map-file-up-to-date bounds its API calls --------------------------------

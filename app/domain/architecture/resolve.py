@@ -19,6 +19,7 @@ from app.domain.architecture.topology import (
     ExternalLink,
     InfrastructureResource,
     RepositoryTopology,
+    safe_url,
 )
 
 
@@ -218,7 +219,7 @@ def resolve_topology(
                 source_path=ext.source_path,
                 name=name[:255],
                 direction=ext.direction,
-                url=(ext.url or "")[:2048],
+                url=safe_url(ext.url),
                 label=(ext.label or "")[:255],
             )
         )

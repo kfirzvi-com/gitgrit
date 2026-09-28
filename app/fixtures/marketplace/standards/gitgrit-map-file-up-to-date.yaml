@@ -9,7 +9,10 @@ description: >
   such files are dated, root-level first, to bound API calls, and unknown
   dates count as fresh; or (2) a directory with its own manifest
   (package.json, pyproject.toml, go.mod, Cargo.toml, Dockerfile, ...) is not
-  covered by any component path. Coverage rule: a component covers its
+  covered by any component path; or (3) a docker-compose file says one
+  declared component depends_on another (both built from their component's
+  directory) but .gitgrit.yml does not list that internal dependency — only
+  the first 10 compose files are read. Coverage rule: a component covers its
   directory and everything under it. A file with a single component
   describes the whole repository (GitGrit treats a lone component as the
   root), so it covers everything. With two or more components the root
@@ -27,10 +30,12 @@ criteria:
     - push
     - manual
 code: |
+  import re
   from datetime import datetime
 
   MAP_FILE = ".gitgrit.yml"
   MAX_DATE_QUERIES = 30  # get_file_last_commit_date is one API call per file
+  MAX_COMPOSE_FILES = 10  # get_file_content is one API call per file
 
   NOISE_DIRS = {
       "node_modules", "vendor", "dist", "build", "target", "__pycache__",
@@ -61,6 +66,7 @@ code: |
       "serverless.yml", "main.tf",
   }
   UNIT_SUFFIXES = (".csproj", ".fsproj")
+  COMPOSE = re.compile(r"^(docker-)?compose(\.[\w.-]+)?\.ya?ml$")
 
 
   def is_noise(path):
@@ -92,6 +98,72 @@ code: |
           p = p[2:]
       p = p.strip("/")
       return "" if p == "." else p
+
+
+  def resolve_dir(base, rel):
+      """``rel`` (a compose build context) relative to ``base``, '..' resolved."""
+      parts = base.split("/") if base else []
+      for seg in rel.strip().replace("\\", "/").split("/"):
+          if seg == "..":
+              if parts:
+                  parts.pop()
+          elif seg and seg != ".":
+              parts.append(seg)
+      return "/".join(parts)
+
+
+  def compose_links(project, files, paths):
+      """(source_path, target_path) pairs from docker-compose depends_on between
+      services whose build context is a declared component's directory."""
+      import yaml
+
+      links = set()
+      compose_files = sorted(
+          (f for f in files if not is_noise(f) and COMPOSE.match(f.rsplit("/", 1)[-1].lower())),
+          key=lambda f: (f.count("/"), f),
+      )
+      for f in compose_files[:MAX_COMPOSE_FILES]:
+          try:
+              doc = yaml.safe_load(project.get_file_content(f) or "")
+          except (yaml.YAMLError, RecursionError):
+              continue
+          services = doc.get("services") if isinstance(doc, dict) else None
+          if not isinstance(services, dict):
+              continue
+          base = f.rsplit("/", 1)[0] if "/" in f else ""
+          built_from = {}
+          for name, svc in services.items():
+              build = svc.get("build") if isinstance(svc, dict) else None
+              if isinstance(build, dict):
+                  build = build.get("context")
+              if isinstance(build, str):
+                  d = resolve_dir(base, build)
+                  if d in paths:
+                      built_from[name] = d
+          for name, src in built_from.items():
+              deps = services[name].get("depends_on") or []
+              if isinstance(deps, dict):
+                  deps = list(deps)
+              if not isinstance(deps, list):
+                  continue
+              for dep in deps:
+                  dst = built_from.get(dep) if isinstance(dep, str) else None
+                  if dst is not None and dst != src:
+                      links.add((src, dst))
+      return links
+
+
+  def declared_targets(component):
+      """Sibling paths named by this component's internal targets
+      (#sub/dir or owner/repo#sub/dir)."""
+      deps = component.get("dependencies")
+      internal = deps.get("internal") if isinstance(deps, dict) else None
+      out = set()
+      for d in internal if isinstance(internal, list) else []:
+          target = d.get("target") if isinstance(d, dict) else None
+          if isinstance(target, str) and "#" in target:
+              out.add(clean_path(target.split("#", 1)[1]))
+      return out
 
 
   def parse_date(value):
@@ -179,6 +251,24 @@ code: |
               f"{d}/ has its own manifest ({', '.join(sorted(uncovered[d]))}) but no component covers it"
           )
       details["uncovered_directories"] = sorted(uncovered)
+
+      # (3) docker-compose depends_on links between components the file misses.
+      # A lone component is the whole repository, so it has no siblings; the
+      # root component can't be named with #path, so links to it are skipped.
+      missing_links = []
+      if len(components) > 1:
+          by_path = {
+              clean_path(c["path"]): c for c in components
+              if isinstance(c, dict) and isinstance(c.get("path"), str)
+          }
+          for src, dst in sorted(compose_links(project, files, set(by_path))):
+              if dst and dst not in declared_targets(by_path[src]):
+                  missing_links.append(f"{src or '<root>'} -> {dst}")
+                  violations.append(
+                      f"docker-compose says {src or 'the root component'} depends on {dst}, "
+                      f"but its dependencies.internal does not list '#{dst}'"
+                  )
+      details["compose_links_missing"] = missing_links
 
       if not violations:
           return {
@@ -304,6 +394,60 @@ test_cases:
           components:
             - path: apps/api
             - path: apps/web
+    expected:
+      passed: true
+      score: 100
+  - name: docker-compose link missing from the map
+    input:
+      list_files:
+        - .gitgrit.yml
+        - docker-compose.yml
+        - gateway/package.json
+        - auth/pyproject.toml
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: gateway
+            - path: auth
+        docker-compose.yml: |
+          services:
+            gateway:
+              build: ./gateway
+              depends_on: [auth, db]
+            auth:
+              build:
+                context: ./auth
+            db:
+              image: postgres
+    expected:
+      passed: false
+      score: 75
+  - name: docker-compose link declared, compose file inside a component
+    input:
+      list_files:
+        - .gitgrit.yml
+        - gateway/docker-compose.yml
+        - gateway/package.json
+        - auth/pyproject.toml
+      get_file_content:
+        .gitgrit.yml: |
+          version: 1
+          components:
+            - path: gateway
+              dependencies:
+                internal:
+                  - target: acme/shop#auth
+            - path: auth
+        gateway/docker-compose.yml: |
+          services:
+            api:
+              build: .
+              depends_on:
+                auth:
+                  condition: service_started
+            auth:
+              build: ../auth
     expected:
       passed: true
       score: 100
