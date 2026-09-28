@@ -19,6 +19,7 @@ OUTBOUND = "outbound"  # the component depends on the external system
 INBOUND = "inbound"  # the external system depends on the component
 
 MAX_COMPONENTS = 25
+MAX_PATH = 1024  # Component.path
 MAX_TECHNOLOGIES = 20
 MAX_EVIDENCE_FILES = 50
 
@@ -88,6 +89,8 @@ class RepositoryTopology:
     # ``.gitgrit.yml`` text it was built from; blank for fixtures.
     source: str = ""
     map_text: str = ""
+    # Why ``.gitgrit.yml`` was not used when the LLM ran instead; blank otherwise.
+    map_error: str = ""
 
     @property
     def is_monorepo(self) -> bool:
@@ -116,6 +119,7 @@ class RepositoryTopology:
             ),
             source=data.get("source", ""),
             map_text=data.get("map_text", ""),
+            map_error=data.get("map_error", ""),
         )
 
 

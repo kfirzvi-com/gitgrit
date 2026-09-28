@@ -36,8 +36,11 @@ class MapFileInference:
         if len(toolbox.files_read) == read_before:
             raise MapFileMissing(f"{MAP_FILE} is not a readable text file")
 
-        parsed = parse_map_file(text, tree)
-        components = normalise_components(parsed.components, tree, context.project_name)
+        # Paths are checked against every folder: a developer may list one the
+        # LLM's listing hides as noise (vendor/, build/, dist/).
+        files = toolbox.all_files
+        parsed = parse_map_file(text, files)
+        components = normalise_components(parsed.components, files, context.project_name)
         # A single component is always the root (normalise_components); its
         # dependencies follow it there.
         moved = {parsed.components[0].path: components[0].path} if len(parsed.components) == 1 else {}

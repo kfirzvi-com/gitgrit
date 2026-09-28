@@ -11,6 +11,8 @@ when the file is missing or invalid, so its role is looked up only then.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from app.application.architecture.ports import (
     InferenceContext,
     RepositorySnapshot,
@@ -39,19 +41,31 @@ def llm_inference_for(tenant) -> LLMTopologyInference:
 
 class FileFirstInference:
     """The repository's ``.gitgrit.yml`` when it is present and valid, else the
-    workspace's LLM (looked up only then, so a valid file needs no LLM role)."""
+    workspace's LLM (looked up only then, so a valid file needs no LLM role).
+    Why the file was not used is returned as the topology's ``map_error``."""
 
     def __init__(self, tenant):
         self._tenant = tenant
 
     def infer(self, snapshot: RepositorySnapshot, context: InferenceContext) -> RepositoryTopology:
+        file_problem = True
         try:
             return MapFileInference().infer(snapshot, context)
         except MapFileMissing as exc:
-            context.log(f"{exc} — running the LLM analysis")
+            reason, file_problem = str(exc), False
         except InvalidMapFile as exc:
-            context.log(f"{MAP_FILE} is invalid ({exc}) — running the LLM analysis")
-        return llm_inference_for(self._tenant).infer(snapshot, context)
+            reason = f"{MAP_FILE} is invalid ({exc})"
+        except Exception as exc:  # a platform read error: the LLM still gets its turn
+            reason = f"reading {MAP_FILE} failed ({exc.__class__.__name__}: {str(exc)[:300]})"
+        try:
+            topology = llm_inference_for(self._tenant).infer(snapshot, context)
+        except Exception as exc:
+            if not file_problem:
+                raise
+            # Keep why the file was not used: fixing it is the way out when
+            # the workspace has no LLM, and it is the error the task stores.
+            raise RuntimeError(f"{reason}; the LLM fallback failed too: {exc}") from exc
+        return replace(topology, map_error=reason)
 
 
 def _enqueue_refresh(project_id: str) -> None:

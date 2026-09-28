@@ -20,19 +20,23 @@ import yaml
 from app.domain.architecture.topology import (
     COMPONENT_KINDS,
     INBOUND,
+    INFRA_KINDS,
     OUTBOUND,
     ComponentDecl,
     ExternalLink,
     InfrastructureResource,
     InternalDependency,
     MAX_COMPONENTS,
+    MAX_PATH,
     RepositoryTopology,
     clean_path,
 )
 
 MAP_FILE = ".gitgrit.yml"
 VERSION = 1
+# Infra kinds ``dump_map_file`` writes; "other" is the default and left out.
 MAP_INFRA_KINDS = ("database", "cache", "queue", "storage")
+COMPONENT_KEYS = ("path", "name", "kind", "description", "technologies", "dependencies")
 DEPENDENCY_KEYS = ("internal", "infrastructure", "external_providers", "external_consumers")
 
 # ``owner/repo`` (GitLab may nest groups), optionally ``#sub/dir``; or ``#sub/dir``
@@ -64,6 +68,12 @@ def _text(entry: dict, key: str, where: str, *, required: bool = False) -> str:
     return value
 
 
+def _no_unknown_keys(entry: dict, allowed: tuple[str, ...], where: str) -> None:
+    unknown = sorted(str(k) for k in entry if k not in allowed)
+    if unknown:
+        raise InvalidMapFile(f"{where}: unknown key(s) {', '.join(unknown)}")
+
+
 def _entries(deps: dict, key: str, where: str) -> list[dict]:
     value = deps.get(key)
     if value is None:
@@ -86,11 +96,13 @@ def parse_map_file(text: str, tree: Iterable[str]) -> RepositoryTopology:
     """
     try:
         data = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, RecursionError) as exc:  # RecursionError: nested too deep
         raise InvalidMapFile(f"not valid YAML ({exc.__class__.__name__})") from exc
     if not isinstance(data, dict):
         raise InvalidMapFile("the top level must be a mapping")
-    if data.get("version") != VERSION:
+    version = data.get("version")
+    # ``type(...) is int``: YAML ``true`` and ``1.0`` equal 1 in Python.
+    if type(version) is not int or version != VERSION:
         raise InvalidMapFile(f"'version' must be {VERSION}")
     raw_components = data.get("components")
     if not isinstance(raw_components, list) or not raw_components:
@@ -108,14 +120,19 @@ def parse_map_file(text: str, tree: Iterable[str]) -> RepositoryTopology:
         where = f"components[{i}]"
         if not isinstance(c, dict):
             raise InvalidMapFile(f"{where} must be a mapping")
+        _no_unknown_keys(c, COMPONENT_KEYS, where)
         path = clean_path(_text(c, "path", where, required=True))
+        if len(path) > MAX_PATH:
+            raise InvalidMapFile(f"{where}: path is longer than {MAX_PATH} characters")
         if path and path not in dirs:
             raise InvalidMapFile(f"{where}: path '{path}' is not a directory in the repository")
         if path in seen:
             raise InvalidMapFile(f"{where}: duplicate path '{path}'")
         seen.add(path)
 
-        kind = c.get("kind", "other")
+        kind = c.get("kind")
+        if kind is None:  # left out, or an empty ``kind:``
+            kind = "other"
         if kind not in COMPONENT_KINDS:
             raise InvalidMapFile(f"{where}: kind must be one of {', '.join(COMPONENT_KINDS)}")
         technologies = c.get("technologies") or []
@@ -135,9 +152,7 @@ def parse_map_file(text: str, tree: Iterable[str]) -> RepositoryTopology:
         where = f"{where}.dependencies"
         if not isinstance(deps, dict):
             raise InvalidMapFile(f"{where} must be a mapping")
-        unknown = sorted(str(k) for k in deps if k not in DEPENDENCY_KEYS)
-        if unknown:
-            raise InvalidMapFile(f"{where}: unknown key(s) {', '.join(unknown)}")
+        _no_unknown_keys(deps, DEPENDENCY_KEYS, where)
 
         for j, d in enumerate(_entries(deps, "internal", where)):
             at = f"{where}.internal[{j}]"
@@ -150,8 +165,8 @@ def parse_map_file(text: str, tree: Iterable[str]) -> RepositoryTopology:
         for j, d in enumerate(_entries(deps, "infrastructure", where)):
             at = f"{where}.infrastructure[{j}]"
             kind = d.get("kind")
-            if kind is not None and kind not in MAP_INFRA_KINDS:
-                raise InvalidMapFile(f"{at}: kind must be one of {', '.join(MAP_INFRA_KINDS)}")
+            if kind is not None and kind not in INFRA_KINDS:
+                raise InvalidMapFile(f"{at}: kind must be one of {', '.join(INFRA_KINDS)}")
             infra.append(
                 InfrastructureResource(
                     path, _text(d, "name", at, required=True), kind or "other", _text(d, "label", at)

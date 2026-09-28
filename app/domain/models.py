@@ -309,6 +309,9 @@ class Project(models.Model):
         max_length=10, choices=DepsSource.choices, blank=True, default=""
     )
     deps_map = models.TextField(blank=True, default="")
+    # Why ``.gitgrit.yml`` was not used (missing, invalid, unreadable) when the
+    # LLM built the map instead; blank when the file was used.
+    deps_map_error = models.TextField(blank=True, default="")
     standards = models.ManyToManyField(
         "Standard",
         through="ProjectStandard",

@@ -113,3 +113,83 @@ class ResolveTopologyTests(SimpleTestCase):
         topo = self._topology(internal=(InternalDependency("nope", "org/web"),))
         out = resolve_topology(topo, ROSTER, this_repo="org/svc")
         self.assertEqual(out.internal, ())
+
+
+class StrictResolveRefTests(SimpleTestCase):
+    """A hand-written ``.gitgrit.yml`` target is an exact ref: never guessed."""
+
+    def test_exact_refs_still_resolve(self):
+        cases = {
+            "org/web": WEB,
+            "ORG/WEB/": WEB,
+            "org/mono#apps/api-gateway": GATEWAY,
+            "org/mono": MONO_ROOT,
+        }
+        for target, expected in cases.items():
+            with self.subTest(target):
+                self.assertEqual(resolve_ref(target, ROSTER, strict=True), expected)
+        self.assertEqual(resolve_ref("#services/auth-service", ROSTER, this_repo="org/mono", strict=True), AUTH)
+
+    def test_no_guessing(self):
+        for target in (
+            "other/web",  # same repo name, other owner
+            "acme/mono#services/auth-service",  # other owner, same component path
+            "org/web#notifications",  # missing folder
+            "web",  # bare name
+            "org/mono/apps/api-gateway",  # slash form
+            "org/api-gateway",  # a unique component name as the last segment
+        ):
+            with self.subTest(target):
+                self.assertIsNone(resolve_ref(target, ROSTER, strict=True))
+
+
+class FileTopologyTests(SimpleTestCase):
+    """A ``.gitgrit.yml`` map is kept as written: no LLM backstops."""
+
+    def _file(self, **kw):
+        return RepositoryTopology(components=(ComponentDecl("", "svc"),), source="file", **kw)
+
+    def test_file_targets_are_exact(self):
+        topo = self._file(internal=(InternalDependency("", "other/web"), InternalDependency("", "org/web")))
+        out = resolve_topology(topo, ROSTER, this_repo="org/svc")
+        self.assertEqual([r.target for r in out.internal], [WEB])
+        self.assertEqual(out.unresolved, ("other/web",))
+
+    def test_externals_and_infra_are_kept_as_written(self):
+        topo = self._file(
+            externals=(
+                ExternalLink("", "AWS", OUTBOUND),
+                ExternalLink("", "PostgreSQL", OUTBOUND),
+                ExternalLink("", "Stripe", OUTBOUND),
+                ExternalLink("", "Stripe API", OUTBOUND),
+                ExternalLink("", "web", OUTBOUND),
+                ExternalLink("", "Stripe", OUTBOUND),  # exact duplicate
+            ),
+            infrastructure=(InfrastructureResource("", "Redis", "other"), InfrastructureResource("", "mono", "other")),
+        )
+        out = resolve_topology(topo, ROSTER, this_repo="org/svc")
+        self.assertEqual(
+            [e.name for e in out.externals], ["AWS", "PostgreSQL", "Stripe", "Stripe API", "web"]
+        )
+        self.assertEqual([(i.name, i.kind) for i in out.infrastructure], [("Redis", "other"), ("mono", "other")])
+
+
+class InfraKindTests(SimpleTestCase):
+    def test_whole_words_only(self):
+        from app.domain.architecture.resolve import infra_kind
+
+        cases = {
+            "Amazon RDS": "database",
+            "S3 bucket": "storage",
+            "aws-s3": "storage",
+            "PostgreSQL 15": "database",
+            "sqlite3": "database",
+            "CockroachDB": "database",
+            "Azure Blob Storage": "storage",
+            "Rewards Platform": None,
+            "Xero Sales3": None,
+            "Redistribution API": None,
+        }
+        for name, kind in cases.items():
+            with self.subTest(name):
+                self.assertEqual(infra_kind(name), kind)

@@ -296,3 +296,89 @@ class MapFileFirstTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(list(src.components.values_list("path", flat=True)), [""])
         src.refresh_from_db()
         self.assertEqual((src.deps_source, src.deps_map), ("", ""))
+
+    def test_why_the_file_was_not_used_is_saved(self):
+        cases = {
+            "missing": (None, "no .gitgrit.yml in the repository"),
+            "invalid": ("version: 1\ncomponents:\n  - path: apps/ghost\n", "path 'apps/ghost' is not a directory"),
+        }
+        for name, (text, reason) in cases.items():
+            with self.subTest(name):
+                src = self._setup(map_file=text, **LLM_ANSWER)
+
+                with self.assertLogs(LOGGER, "WARNING") as logs:
+                    da.infer_and_store(src)
+
+                self.assertIn(reason, "\n".join(logs.output))
+                src.refresh_from_db()
+                self.assertIn(reason, src.deps_map_error)
+
+        src = self._setup(map_file=MAP_FILE)
+        da.infer_and_store(src)
+        src.refresh_from_db()
+        self.assertEqual(src.deps_map_error, "")
+
+    def test_components_in_skipped_folders_are_allowed(self):
+        tree = MONO_TREE + ("vendor/lib/setup.py", "tools/build/main.go")
+        src = self._setup(
+            tree=tree,
+            map_file="version: 1\ncomponents:\n  - path: vendor/lib\n  - path: tools/build\n",
+        )
+
+        da.infer_and_store(src)
+
+        self.assertEqual(self.llm_calls, 0)
+        self.assertEqual(sorted(src.components.values_list("path", flat=True)), ["tools/build", "vendor/lib"])
+
+    def test_read_error_on_the_file_runs_the_llm(self):
+        import requests
+
+        src = self._setup(map_file=MAP_FILE, **LLM_ANSWER)
+
+        def get_file_content(full_path, path, ref):
+            if path == ".gitgrit.yml":
+                raise requests.HTTPError("502 Server Error: Bad Gateway")
+            return self._files.get(path)
+
+        client = _fake_client(self._tree, self._files)
+        client.get_file_content = get_file_content
+        self.monkeypatch.setattr("app.infrastructure.topology.snapshots.get_platform_client", lambda c: client)
+
+        da.infer_and_store(src)
+
+        self.assertGreater(self.llm_calls, 0)
+        src.refresh_from_db()
+        self.assertEqual(src.deps_source, Project.DepsSource.LLM)
+        self.assertIn("502 Server Error", src.deps_map_error)
+
+    def test_stored_llm_answer_uses_resolved_targets(self):
+        answer = dict(LLM_ANSWER)
+        answer["deps"] = {
+            **LLM_ANSWER["deps"],
+            "apps/api-gateway": li.DependencyResult(
+                internal=[{"target": "auth-service"}, {"target": "api"}, {"target": "nowhere"}],
+            ),
+        }
+        src = self._setup(**answer)
+        da.infer_and_store(src)
+        from_llm = _saved_map(src)
+        src.refresh_from_db()
+
+        self.assertIn('target: org/mono#services/auth-service', src.deps_map)
+        self.assertIn("target: org/api", src.deps_map)
+        self.assertNotIn("nowhere", src.deps_map)
+        self._commit(src.deps_map)
+        self._use_model()
+        da.infer_and_store(src)
+
+        self.assertEqual(self.llm_calls, 0)
+        self.assertEqual(_saved_map(src), from_llm)
+
+    def test_invalid_file_and_no_llm_role_keeps_the_file_reason(self):
+        src = self._setup(map_file="version: 1\ncomponents:\n  - path: apps/ghost\n", llm=False)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            da.infer_and_store(src)
+
+        self.assertIn("path 'apps/ghost' is not a directory", str(ctx.exception))
+        self.assertIn(str(self._role_error()), str(ctx.exception))
