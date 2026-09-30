@@ -1,0 +1,5 @@
+source:
+  # Order events emitted by services/orders-service
+  sqs_queue: gitgrit-demo-orders-events
+email:
+  provider: sendgrid

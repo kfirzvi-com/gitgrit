@@ -30,7 +30,7 @@ from app.application.architecture.ports import (
     TopologyInference,
 )
 from app.domain.architecture.reconcile import inherited_memberships, plan_components
-from app.domain.architecture.resolve import RosterEntry, resolve_topology
+from app.domain.architecture.resolve import RosterEntry, resolve_topology, with_siblings
 from app.domain.architecture.topology import (
     INBOUND,
     MAX_EVIDENCE_FILES,
@@ -109,10 +109,7 @@ class RefreshProjectTopology:
 
         # Siblings discovered in this run join the roster without ids; they are
         # looked up by path once the components are persisted.
-        full_roster = roster + tuple(
-            RosterEntry(full_path=project.full_path, path=c.path, name=c.name)
-            for c in topology.components
-        )
+        full_roster = with_siblings(roster, project.full_path, topology.components)
         resolved = resolve_topology(topology, full_roster, this_repo=project.full_path)
         for target in resolved.unresolved:
             logger.info("deps[%s]: unresolved internal target %r", project.name, target)
