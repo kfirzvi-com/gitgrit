@@ -1,5 +1,5 @@
-"""``eval_topology --runs N`` and ``--jev on``: multi-run scoring helpers and
-the summary block.
+"""``eval_topology --runs N``, repeated ``--fixture`` and ``--jev on``:
+multi-run scoring helpers and the summary block.
 
 The pure helpers (``f1``, ``jaccard_distance``, ``summarize``, ``flip_rate``)
 are tested without Django. The command itself runs against a ``--fixture``
@@ -159,6 +159,30 @@ class _EvalTopologyTestCase(MonkeyPatchMixin, TmpPathMixin, TestCase):
 
 
 class TestEvalTopologyRuns(_EvalTopologyTestCase):
+    def test_two_fixtures_are_two_runs_and_the_flip_rate_is_their_disagreement(self):
+        # The second fixture lacks the internal edge: run 1 has 2 edges, run 2 has 1
+        # in common → Jaccard distance 0.5 between the two "drafts".
+        other = self.tmp_path / "draft2.json"
+        other.write_text(json.dumps({**GOLDEN, "internal": []}))
+        save = self.tmp_path / "out.json"
+        text = self.run_command("--fixture", str(other), "--save-json", str(save))
+
+        self.assertIn("=== run 1/2 (fixture golden.json) ===", text)
+        self.assertIn("=== run 2/2 (fixture draft2.json) ===", text)
+        self.assertNotIn("=== run 1/2 ===", text)
+        self.assertIn("=== summary over 2 runs ===", text)
+        self.assertIn(f"{'internal':<15}{0.5:>7.2f}{0.5:>7.2f}{0.5:>7.2f}", text)  # run 1 perfect, run 2 empty
+        self.assertIn("flip rate (internal ∪ externals): 0.50", text)
+        self.assertEqual(len(json.loads((self.tmp_path / "out-run1.json").read_text())["internal"]), 1)
+        self.assertEqual(len(json.loads((self.tmp_path / "out-run2.json").read_text())["internal"]), 0)
+
+    def test_runs_above_one_with_several_fixtures_is_an_error(self):
+        from django.core.management.base import CommandError
+
+        with self.assertRaisesRegex(CommandError, "each fixture is one run"):
+            self.run_command("--fixture", str(self.golden), "--runs", "2")
+        self.run_command("--fixture", str(self.golden), "--runs", "1")  # explicit 1 is fine
+
     def test_two_runs_score_perfect_and_never_flip(self):
         save = self.tmp_path / "out.json"
         text = self.run_command("--runs", "2", "--save-json", str(save))
@@ -249,6 +273,25 @@ class TestEvalTopologyJev(_EvalTopologyTestCase):
         failed = int(re.search(r"jev decisions: .*failed (\d+)", text).group(1))
         self.assertGreaterEqual(failed, 2)
         self.assertEqual(failed, calls)
+        # Jev answered nothing, so no LLM edge was judged either way.
+        self.assertIn("jev verdicts: kept 0, moved 0, removed 0, no_evidence 0", text)
+
+    def test_verdicts_on_the_fixtures_own_edges_are_counted_across_fixtures(self):
+        # Jev confirms both env vars: the golden's web→auth edge is covered and kept, the
+        # orders edge is added (an extra), and the Stripe external has no evidence in the
+        # checkout and is removed. Two fixtures → the verdicts are summed over both runs.
+        use_jev(self.monkeypatch, FakeJevClient(link_answers()))
+        other = self.tmp_path / "draft2.json"
+        other.write_text(json.dumps(GOLDEN))
+
+        text = self.run_command("--fixture", str(other), "--jev", "on")
+
+        self.assertIn("=== run 2/2 (fixture draft2.json) ===", text)
+        self.assertIn("jev verdicts: kept 2, moved 0, removed 0, no_evidence 2", text)
+        self.assertRegex(text, r"jev decisions: confirmed 4, unsure 0, dropped 0, failed 0")
+        self.assertIn("internal extra: ('apps/web', 'org/orders')", text)
+        self.assertIn("externals missed: ('services/auth', 'stripe', 'outbound')", text)
+        self.assertIn("flip rate (internal ∪ externals): 0.00", text)
 
     def test_record_and_replay_together_is_an_error(self):
         from django.core.management.base import CommandError

@@ -1,0 +1,10 @@
+[project]
+name = "gitgrit-demo-auth-service"
+version = "0.3.0"
+dependencies = [
+  "fastapi>=0.110",
+  "shared-lib",
+]
+
+[tool.uv.sources]
+shared-lib = { path = "../../packages/shared-lib" }

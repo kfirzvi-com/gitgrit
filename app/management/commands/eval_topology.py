@@ -4,6 +4,7 @@
   manage.py eval_topology <project_id> --local-path ../repo --golden … --fixture other.json   # sanity: fixture vs golden
   manage.py eval_topology … --save-json out.json                                          # keep the inferred topology
   manage.py eval_topology … --runs 5                                                      # repeat, then summarise
+  manage.py eval_topology … --fixture d1.json --fixture d2.json --fixture d3.json         # one run per fixture
   manage.py eval_topology … --jev on [--record-jev c.json | --replay-jev c.json]          # add the Jev link stage
 
 The model is non-deterministic, so this is a scored comparison (precision /
@@ -22,11 +23,16 @@ rate*: the mean Jaccard distance between consecutive runs' edge sets
 (``internal`` ∪ ``externals`` keys). ``--save-json out.json`` becomes
 ``out-run1.json``, ``out-run2.json``, … when N > 1.
 
+``--fixture`` may be repeated: each fixture is then one run, in order (``--runs``
+must stay 1), so the flip rate becomes the agreement between fixtures — e.g.
+three LLM drafts of the same repository, with and without ``--jev on``.
+
 ``--jev on`` wraps the chosen inference in ``LinkEnrichedInference`` (the
 code-scanned candidate links judged by Jev). The Jev client comes from the
 settings, is recorded to a cassette with ``--record-jev``, or is replaced by a
 cassette replay with ``--replay-jev`` (no key or network needed). After the
-runs the block also prints Jev calls, input tokens and decisions per band.
+runs the block also prints Jev calls, input tokens, decisions per band and
+the verdicts on the LLM's own edges (kept / moved / removed / no_evidence).
 """
 from __future__ import annotations
 
@@ -51,7 +57,7 @@ from app.domain.architecture.naming import canonical_key
 from app.domain.architecture.resolve import resolve_topology, with_siblings
 from app.domain.architecture.topology import RepositoryTopology
 from app.infrastructure.jev import JevNotConfigured, client_for
-from app.infrastructure.topology.jev_links import BANDS, LinkEnrichedInference
+from app.infrastructure.topology.jev_links import BANDS, VERDICTS, LinkEnrichedInference
 from app.management.commands._projects import project_or_command_error
 
 
@@ -113,7 +119,11 @@ class Command(BaseCommand):
         parser.add_argument("project_id", help="Project whose workspace/roster/LLM role to use")
         parser.add_argument("--local-path", required=True, help="Checkout of the repository to analyse")
         parser.add_argument("--golden", required=True, help="Golden topology JSON")
-        parser.add_argument("--fixture", help="Use this topology JSON instead of the model (sanity check)")
+        parser.add_argument(
+            "--fixture",
+            action="append",
+            help="Use this topology JSON instead of the model; repeat it for one run per fixture",
+        )
         parser.add_argument("--save-json", help="Write the inferred topology here (-run<N> suffix when --runs > 1)")
         parser.add_argument("--runs", type=int, default=1, help="Repeat the inference N times and summarise")
         parser.add_argument(
@@ -126,8 +136,13 @@ class Command(BaseCommand):
         from app.infrastructure.topology.snapshots import LocalDirSnapshot
 
         runs = opts["runs"]
+        fixtures = opts.get("fixture") or []
         if runs < 1:
             raise CommandError("--runs must be at least 1")
+        if len(fixtures) > 1:
+            if runs != 1:
+                raise CommandError("--runs must be 1 (or omitted) with more than one --fixture: each fixture is one run")
+            runs = len(fixtures)
         if opts["jev"] == "off" and (opts.get("record_jev") or opts.get("replay_jev")):
             raise CommandError("--record-jev / --replay-jev need --jev on")
         if opts.get("record_jev") and opts.get("replay_jev"):
@@ -135,7 +150,8 @@ class Command(BaseCommand):
         project = project_or_command_error(opts["project_id"])
 
         snapshot = LocalDirSnapshot(opts["local_path"])
-        inference, jev = self._build_inference(opts, project)
+        jev = self._jev_client(opts)
+        inners = [self._inner(project, fixture) for fixture in fixtures] or [self._inner(project, None)]
         roster = workspace_roster(project)
         context = InferenceContext(
             project_name=project.name,
@@ -148,8 +164,13 @@ class Command(BaseCommand):
         rows_per_run: list[list[dict]] = []
         edge_sets: list[set] = []
         bands: Counter = Counter()
+        verdicts: Counter = Counter()
         for run in range(1, runs + 1):
-            if runs > 1:
+            inner = inners[run - 1] if len(inners) > 1 else inners[0]
+            inference = LinkEnrichedInference(inner, jev) if jev is not None else inner
+            if len(fixtures) > 1:
+                self.stdout.write(f"\n=== run {run}/{runs} (fixture {Path(fixtures[run - 1]).name}) ===")
+            elif runs > 1:
                 self.stdout.write(f"\n=== run {run}/{runs} ===")
             inferred = inference.infer(snapshot, context)
             if opts.get("save_json"):
@@ -162,32 +183,34 @@ class Command(BaseCommand):
             rows_per_run.append(rows)
             edge_sets.append(edge_keys(keys))
             if jev is not None:
-                bands.update(d.band for d in inference.decisions)
+                bands.update(d.band for d in inference.decisions if d.asked)
+                verdicts.update(d.verdict for d in inference.decisions if d.verdict)
             self._print_run(rows, inferred)
 
-        self._print_summary(rows_per_run, edge_sets, jev, bands)
+        self._print_summary(rows_per_run, edge_sets, jev, bands, verdicts)
 
     # --- helpers ---------------------------------------------------------------
 
-    def _build_inference(self, opts, project):
-        """The inference under test — the fixture or the workspace LLM — wrapped
-        in the Jev link stage when ``--jev on``. Returns ``(inference, jev)``;
-        ``jev`` is None when the stage is off."""
-        if opts.get("fixture"):
+    def _inner(self, project, fixture: str | None):
+        """The inference under test: ``fixture`` or the workspace LLM."""
+        if fixture:
             from app.infrastructure.topology.fake import FakeTopologyInference
 
-            inference = FakeTopologyInference.from_file(opts["fixture"])
-        else:
-            from app.application.dependency_agent import llm_inference_for
+            return FakeTopologyInference.from_file(fixture)
+        from app.application.dependency_agent import llm_inference_for
 
-            inference = llm_inference_for(project.tenant)
+        return llm_inference_for(project.tenant)
+
+    def _jev_client(self, opts):
+        """The Jev client for ``--jev on`` (settings, recorder or replay), None
+        when the stage is off. Every run's ``LinkEnrichedInference`` shares it
+        so the usage block covers the whole command."""
         if opts["jev"] == "off":
-            return inference, None
+            return None
         try:
-            jev = client_for(record=opts.get("record_jev"), replay=opts.get("replay_jev"))
+            return client_for(record=opts.get("record_jev"), replay=opts.get("replay_jev"))
         except JevNotConfigured as exc:
             raise CommandError(f"{exc}, or pass --replay-jev <cassette>") from exc
-        return LinkEnrichedInference(inference, jev), jev
 
     def _load_golden(self, opts, project, roster):
         """The golden topology's keys, resolved like a stored run would be:
@@ -216,7 +239,12 @@ class Command(BaseCommand):
         )
 
     def _print_summary(
-        self, rows_per_run: list[list[dict]], edge_sets: list[set], jev: object | None, bands: Counter
+        self,
+        rows_per_run: list[list[dict]],
+        edge_sets: list[set],
+        jev: object | None,
+        bands: Counter,
+        verdicts: Counter,
     ):
         runs = len(rows_per_run)
         self.stdout.write(f"\n=== summary over {runs} run{'s' if runs != 1 else ''} ===")
@@ -235,4 +263,5 @@ class Command(BaseCommand):
         )
         order = BANDS + tuple(sorted(b for b in bands if b not in BANDS))
         self.stdout.write("jev decisions: " + ", ".join(f"{band} {bands.get(band, 0)}" for band in order))
+        self.stdout.write("jev verdicts: " + ", ".join(f"{v} {verdicts.get(v, 0)}" for v in VERDICTS))
 

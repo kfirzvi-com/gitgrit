@@ -1,0 +1,9 @@
+{
+  "name": "admin-console",
+  "private": true,
+  "workspaces": ["apps/*", "packages/shared-lib"],
+  "dependencies": {
+    "next": "^14.2.0",
+    "@gitgrit-demo/shared-lib": "*"
+  }
+}

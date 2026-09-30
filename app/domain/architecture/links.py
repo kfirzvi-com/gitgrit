@@ -13,8 +13,10 @@ must not import infrastructure.
 """
 from __future__ import annotations
 
+import json
 import posixpath
 import re
+import tomllib
 from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
 
@@ -27,7 +29,8 @@ from app.domain.architecture.topology import ComponentDecl, RepositoryTopology, 
 
 # Most specific evidence first: this is also the order candidates are emitted
 # in, so the per-repo cap trims URLs before it trims compose edges.
-REFERENCE_KINDS = ("compose_depends_on", "image", "k8s_ref", "env_var", "url", "sdk_client", "queue_name")
+REFERENCE_KINDS = ("compose_depends_on", "image", "package_dep", "k8s_ref", "env_var", "url", "sdk_client", "queue_name")
+PACKAGE_DEP_KIND = "package_dep"
 
 DEFAULT_LIMIT = 150  # candidates per repository; the JEV_MAP_MAX_CANDIDATES default too
 MAX_OPTIONS = 6
@@ -50,12 +53,31 @@ LOCK_FILES = frozenset({
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "pipfile.lock",
     "composer.lock", "cargo.lock", "go.sum", "uv.lock",
 })
-CONFIG_SUFFIXES = (".yml", ".yaml", ".json", ".toml", ".ini", ".cfg", ".conf", ".properties")
+# Terraform/HCL counts as config: remote-state keys, buckets and hostnames name other services.
+CONFIG_SUFFIXES = (".yml", ".yaml", ".json", ".toml", ".ini", ".cfg", ".conf", ".properties", ".tf", ".tfvars", ".hcl")
 SOURCE_SUFFIXES = (".py", ".js", ".ts", ".tsx", ".go", ".java", ".rb", ".cs", ".php")
 # Dependency manifests: scanned for SDK names on every line, not only imports.
 MANIFEST_BASENAMES = frozenset({
     "package.json", "pyproject.toml", "requirements.txt", "go.mod", "gemfile", "composer.json", "pipfile",
 })
+# Dependency manifests whose entries can name a sibling component (``package_dep``);
+# ``requirements*.txt`` is matched by pattern below.
+DEP_MANIFEST_BASENAMES = frozenset({"package.json", "go.mod", "pyproject.toml", "cargo.toml"})
+REQUIREMENTS_FILE_RE = re.compile(r"^requirements[\w.-]*\.txt$")
+PACKAGE_JSON_DEP_SECTIONS = ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
+CARGO_DEP_SECTIONS = ("dependencies", "dev-dependencies", "build-dependencies")
+# Local-path forms: ``file:../x`` / ``link:../x`` in package.json, ``./`` / ``../`` elsewhere.
+PACKAGE_JSON_PATH_PREFIXES = ("file:", "link:")
+RELATIVE_PATH_PREFIXES = ("./", "../")
+GO_KEYWORDS = frozenset({"module", "go", "toolchain", "tool", "require", "replace", "exclude", "retract", "godebug"})
+GO_MODULE_RE = re.compile(r"^\s*module\s+(\S+)")
+GO_REQUIRE_RE = re.compile(r"^(\S+)\s+v\S+")
+GO_REPLACE_RE = re.compile(r"^(\S+)(?:\s+v\S+)?\s*=>\s*(\S+)")
+PEP508_NAME_RE = re.compile(r"^\s*([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)")
+REQUIREMENTS_EDITABLE_RE = re.compile(r"^(?:-e|--editable)\s+(\S+)")
+PACKAGE_KEY_RE = re.compile(r"[-_.]+")
+# A token longer than this is not a name; the same bound as ``_VALUE_TOKEN``.
+MAX_TOKEN_CHARS = 2048
 DEPLOY_DIRS = frozenset({"deploy", "k8s", "kubernetes", "helm", "charts", "manifests"})
 K8S_WORKLOAD_KINDS = frozenset({"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "ConfigMap"})
 
@@ -178,6 +200,100 @@ def find_link_candidates(
     return scanner.run(limit)
 
 
+EVIDENCE_KIND = "evidence"
+
+
+def find_evidence(
+    tree: Sequence[str],
+    read_file: Callable[[str], str | None],
+    component: ComponentDecl,
+    tokens: Sequence[str],
+    options: Sequence[TargetOption],
+    external_name: str = "",
+    *,
+    this_repo: str,
+    components: Sequence[ComponentDecl] = (),
+) -> LinkCandidate | None:
+    """One evidence candidate for an edge the LLM claimed: the first line in
+    the component's scannable files (same file order, skips and snippet
+    masking as the scanner) that mentions any of ``tokens`` as a whole word,
+    case-insensitively. ``reference_kind`` is ``EVIDENCE_KIND`` and
+    ``reference`` the matched token; ``options`` and ``external_name`` are
+    passed through so Jev is asked the same questions as for a scanned
+    candidate. None when nothing in the component mentions the target, which
+    the caller records as ``no_evidence``.
+
+    Matching: ``-``, ``_`` and ``.`` are interchangeable (``auth_service``
+    matches ``auth-service``) and a word boundary is any non-alphanumeric
+    character, so ``AUTH_SERVICE_URL`` and ``auth-service-legacy`` both
+    mention ``auth-service`` while ``oauth`` does not mention ``auth``. That
+    is deliberate: an env var or a hostname built on the name is exactly the
+    evidence wanted, and Jev's questions weigh the surrounding lines. The
+    component's own files come first (env, manifests, config, source — the
+    scanner's order and caps), then every compose / k8s file in the
+    repository, plain line scan. Pass ``components`` (all of the repository's)
+    so a parent or root component's search excludes its nested components'
+    files; without it only this component is known and nested files count
+    as its parent's.
+
+    A mention in a comment (``#``, ``//``, ``*``, ``--``, ``<!--``) is kept
+    only when nothing else mentions the target: a Terraform file whose first
+    line is ``# owned by org/infra`` and whose sixth is the remote-state key
+    must present the key, or Jev rightly answers "inactive"."""
+    pattern = _word_pattern(tokens)
+    if pattern is None:
+        return None
+    known = tuple(components) if any(c.path == component.path for c in components) else (component,)
+    scanner = _Scanner(list(tree), read_file, known, (), this_repo)
+    fallback: LinkCandidate | None = None
+    for path in scanner.evidence_files(component.path):
+        text = scanner._read(path)
+        if text is None:
+            continue
+        lines = text.splitlines()
+        for line_no, line in enumerate(lines, 1):
+            m = pattern.search(line)
+            if m is None:
+                continue
+            candidate = LinkCandidate(
+                source_path=component.path,
+                file=path,
+                line=line_no,
+                code=_snippet(lines, line_no, mask_centre=True),
+                reference=m.group(0),
+                reference_kind=EVIDENCE_KIND,
+                options=tuple(options),
+                external_name=external_name,
+            )
+            if _is_comment_line(line):
+                fallback = fallback or candidate
+                continue
+            return candidate
+    return fallback
+
+
+COMMENT_PREFIXES = ("#", "//", "/*", "*", "--", "<!--", ";")
+
+
+def _is_comment_line(line: str) -> bool:
+    stripped = line.lstrip()
+    return stripped.startswith(COMMENT_PREFIXES) and not stripped.startswith("#!")
+
+
+def _word_pattern(tokens: Iterable[str]) -> re.Pattern | None:
+    """One case-insensitive pattern for any of ``tokens`` as a whole word:
+    ``-``/``_``/``.`` interchangeable, bounded by non-alphanumerics, longest
+    token first so the most specific alternative wins at a position."""
+    parts = []
+    for token in sorted({(t or "").strip() for t in tokens}, key=len, reverse=True):
+        if not token or len(token) > MAX_TOKEN_CHARS:
+            continue
+        parts.append("".join("[-_.]" if ch in "-_." else re.escape(ch) for ch in token))
+    if not parts:
+        return None
+    return re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(parts) + r")(?![A-Za-z0-9])", re.I)
+
+
 def already_covered(candidate: LinkCandidate, topology: RepositoryTopology) -> bool:
     """True when the topology already draws this edge from the candidate's
     component: an internal dependency written as one of its options' exact
@@ -270,15 +386,20 @@ def _mask_secrets(line: str, previous: str = "") -> str:
     return m.group(1) + "***"
 
 
-def _snippet(lines: Sequence[str], line_no: int) -> str:
+def _snippet(lines: Sequence[str], line_no: int, *, mask_centre: bool = False) -> str:
     """The line plus up to ±SNIPPET_RADIUS neighbours, grown outwards until the
     character budget is spent, so the matched line is always inside.
 
-    The matched line names a service (its key and hostname stay), so it is
-    only userinfo-masked; its neighbours are secret-masked so an ``.env``
-    next to it never leaks a secret."""
+    A scanned centre line names a service (its key and hostname stay), so it
+    is only userinfo-masked; its neighbours are secret-masked so an ``.env``
+    next to it never leaks a secret. An evidence search can land on any line
+    that mentions a name, ``AUTH_SERVICE_SECRET=`` included, so its caller
+    passes ``mask_centre=True`` and the centre is secret-masked too."""
     centre = max(0, min(line_no - 1, len(lines) - 1))
-    picked = {centre: _mask_userinfo(lines[centre][:SNIPPET_CHARS])}
+    centre_text = lines[centre][:SNIPPET_CHARS]
+    if mask_centre:
+        centre_text = _mask_secrets(centre_text, lines[centre - 1] if centre else "")
+    picked = {centre: _mask_userinfo(centre_text)}
     total = len(picked[centre])
     for offset in range(1, SNIPPET_RADIUS + 1):
         for idx in (centre - offset, centre + offset):
@@ -365,6 +486,7 @@ class _Scanner:
         self._cache: dict[str, str | None] = {}
         self._files_read: list[str] = []
         self._found: dict[tuple[str, str, str], LinkCandidate] = {}
+        self._package_names: dict[str, str] | None = None  # package name key -> sibling path, read once
         self._entry_tokens = {
             e.ref: _tokens(canonical_key(e.name)) | _tokens(e.path.rsplit("/", 1)[-1]) | _tokens(e.full_path.rsplit("/", 1)[-1])
             for e in roster
@@ -386,6 +508,7 @@ class _Scanner:
                     manifest=base in MANIFEST_BASENAMES,
                     source_code=base.endswith(SOURCE_SUFFIXES),
                 )
+        self._scan_package_deps()
         ordered = sorted(
             self._found.values(),
             key=lambda c: (REFERENCE_KINDS.index(c.reference_kind), c.file, c.line),
@@ -417,16 +540,26 @@ class _Scanner:
         for path in self._tree:
             if not _is_scannable(path) or _is_compose(path) or _is_k8s_family(path):
                 continue
-            owner = self._component_containing(path.rsplit("/", 1)[0] if "/" in path else "")
-            if owner is None:
-                continue
-            if owner == "" and path.split("/")[0] in ROOT_ONLY_SKIP_DIRS:
-                continue
-            files[owner].append(path)
+            owner = self._owner(path)
+            if owner is not None:
+                files[owner].append(path)
         for paths in files.values():
             paths.sort(key=_file_order)
             del paths[MAX_FILES_PER_COMPONENT:]
         return files
+
+    def _owner(self, path: str) -> str | None:
+        """The component whose own file this is; None for a file nobody owns."""
+        owner = self._component_containing(path.rsplit("/", 1)[0] if "/" in path else "")
+        if owner == "" and path.split("/")[0] in ROOT_ONLY_SKIP_DIRS:
+            return None
+        return owner
+
+    def evidence_files(self, source: str) -> list[str]:
+        """Where ``find_evidence`` looks, in order: the component's own files as
+        the scanner would read them, then the repository's compose and k8s files."""
+        own = self._files_by_component().get(source, [])
+        return own + [p for p in self._tree if _is_compose(p) or _is_k8s_family(p)]
 
     # -- roster helpers --
 
@@ -670,6 +803,76 @@ class _Scanner:
                 else:
                     self._scan_env_pair(owner, path, line_no, lines, env_name, value)
 
+    # -- package manifests: a dependency on a sibling component --
+
+    def _scan_package_deps(self) -> None:
+        """``package_dep`` candidates: an entry in a component's own dependency
+        manifest that names a sibling of this repository, by the sibling
+        manifest's package name or by a relative path that lands on the
+        sibling. A third-party library, or a dependency on itself, is nothing."""
+        manifests = sorted((p for p in self._tree if _is_dep_manifest(p)), key=_file_order)
+        for path in manifests:
+            owner = self._owner(path)
+            if owner is None:
+                continue
+            text = self._read(path)
+            if text is None:
+                continue
+            lines = text.splitlines()
+            for dep in _manifest_deps(_basename(path), text, lines):
+                target = self._dep_target(owner, dep)
+                if target is None or target == owner:
+                    continue
+                sibling = self._sibling(target)
+                # The manifest already resolved this dependency to a sibling (by
+                # package name or path), so the target is known: no tokens, only
+                # the pinned sibling, and Jev is asked whether the dependency is
+                # real, not where it points. Offering a same-named other repo as
+                # a distractor made Jev pick it by name on the eval.
+                self._add(
+                    owner, path, dep.line, lines, dep.name, PACKAGE_DEP_KIND, set(),
+                    pinned=[sibling] if sibling is not None else (),
+                )
+
+    def _dep_target(self, source: str, dep: _Dep) -> str | None:
+        """The sibling component path a dependency resolves to: its relative
+        path against the component directory first, else its package name."""
+        if dep.path is not None:
+            directory = clean_path(posixpath.normpath(posixpath.join(source, dep.path)))
+            by_path = self._sibling_at(directory)
+            if by_path is not None:
+                return by_path
+        return self._package_names_index().get(_package_key(dep.name))
+
+    def _sibling_at(self, directory: str) -> str | None:
+        """The component at ``directory``, or the deepest non-root component it
+        is inside (a library split into per-language folders). The root only
+        by exact match: everything is inside it."""
+        best = None
+        for c in self._components:
+            if c.path and (directory == c.path or directory.startswith(c.path + "/")):
+                if best is None or len(c.path) > len(best):
+                    best = c.path
+        if best is None and directory == "" and "" in self._by_path:
+            return ""
+        return best
+
+    def _package_names_index(self) -> dict[str, str]:
+        """Package names declared by each component's own top-level manifests,
+        keyed for matching. Built once, on the first dependency looked up."""
+        if self._package_names is None:
+            by_dir: dict[str, list[str]] = {}
+            for path in self._tree:
+                if _basename(path) in DEP_MANIFEST_BASENAMES:
+                    by_dir.setdefault(path.rsplit("/", 1)[0] if "/" in path else "", []).append(path)
+            index: dict[str, str] = {}
+            for c in self._components:
+                for path in sorted(by_dir.get(c.path, ())):
+                    for name in _manifest_names(_basename(path), self._read(path) or ""):
+                        index.setdefault(_package_key(name), c.path)
+            self._package_names = index
+        return self._package_names
+
     # -- line scanning --
 
     def _scan_lines(self, source: str, file: str, text: str, *, manifest: bool, source_code: bool) -> None:
@@ -873,3 +1076,189 @@ def _compose_environment(spec: dict) -> list[tuple[str, str]]:
     if isinstance(env, dict):
         return [(_scalar(k), _scalar(v)) for k, v in env.items() if v is not None]
     return []
+
+
+# --- Dependency manifests -----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _Dep:
+    name: str  # as written (package name, module path, or the path itself for a bare ``-e ../x``)
+    path: str | None  # local path form, relative to the manifest's component, when the entry has one
+    line: int  # 1-based
+
+
+def _is_dep_manifest(path: str) -> bool:
+    base = _basename(path)
+    return base in DEP_MANIFEST_BASENAMES or REQUIREMENTS_FILE_RE.match(base) is not None
+
+
+def _package_key(name: str) -> str:
+    """Names compared the way package indexes do: lowercased, runs of
+    ``-``/``_``/``.`` folded to ``-``; an npm ``@scope/`` stays."""
+    return PACKAGE_KEY_RE.sub("-", (name or "").strip().lower())
+
+
+def _dict(node) -> dict:
+    return node if isinstance(node, dict) else {}
+
+
+def _line_naming(lines: Sequence[str], name: str, start: int = 1) -> int:
+    """1-based first line at or after ``start`` mentioning ``name`` as a word; ``start`` when absent."""
+    pattern = _word_pattern([name])
+    if pattern is not None:
+        for idx in range(max(0, start - 1), len(lines)):
+            if pattern.search(lines[idx]):
+                return idx + 1
+    return start
+
+
+def _manifest_names(base: str, text: str) -> list[str]:
+    """The package name(s) a manifest declares for its own directory."""
+    if base == "package.json":
+        data = _load_json(text)
+        return [data["name"]] if isinstance(data.get("name"), str) else []
+    if base == "go.mod":
+        return [m.group(1) for m in map(GO_MODULE_RE.match, text.splitlines()) if m]
+    if base in ("pyproject.toml", "cargo.toml"):
+        data = _load_toml(text)
+        candidates = (
+            _dict(data.get("project")).get("name"),
+            _dict(_dict(data.get("tool")).get("poetry")).get("name"),
+            _dict(data.get("package")).get("name"),
+        )
+        return [n for n in candidates if isinstance(n, str) and n]
+    return []
+
+
+def _manifest_deps(base: str, text: str, lines: Sequence[str]) -> list[_Dep]:
+    if base == "package.json":
+        return _package_json_deps(text, lines)
+    if base == "go.mod":
+        return _go_mod_deps(text)
+    if base == "pyproject.toml":
+        return _pyproject_deps(text, lines)
+    if base == "cargo.toml":
+        return _cargo_deps(text, lines)
+    if REQUIREMENTS_FILE_RE.match(base):
+        return _requirements_deps(text)
+    return []
+
+
+def _load_json(text: str) -> dict:
+    try:
+        return _dict(json.loads(text))
+    except (ValueError, RecursionError):  # a broken manifest is not a link
+        return {}
+
+
+def _load_toml(text: str) -> dict:
+    try:
+        return _dict(tomllib.loads(text))
+    except (tomllib.TOMLDecodeError, RecursionError):
+        return {}
+
+
+def _package_json_deps(text: str, lines: Sequence[str]) -> list[_Dep]:
+    data = _load_json(text)
+    deps: list[_Dep] = []
+    for section in PACKAGE_JSON_DEP_SECTIONS:
+        block = data.get(section)
+        if not isinstance(block, dict):
+            continue
+        start = _line_of(lines, f'"{section}"')
+        for name, spec in block.items():
+            if not isinstance(name, str) or not isinstance(spec, str):
+                continue
+            path = next((spec[len(p):] for p in PACKAGE_JSON_PATH_PREFIXES if spec.startswith(p)), None)
+            deps.append(_Dep(name, path or None, _line_of(lines, f'"{name}"', start)))
+    return deps
+
+
+def _go_mod_deps(text: str) -> list[_Dep]:
+    """``require`` entries (module path) and ``replace … => ./dir`` entries
+    (module path plus its local directory), single-line or in blocks."""
+    deps: list[_Dep] = []
+    block = None
+    for line_no, raw in enumerate(text.splitlines(), 1):
+        line = raw.split("//", 1)[0].strip()
+        if not line:
+            continue
+        if line == ")":
+            block = None
+            continue
+        words = line.split(None, 1)
+        if words[0] in GO_KEYWORDS:
+            kind, rest = words[0], words[1] if len(words) > 1 else ""
+        else:
+            kind, rest = block, line
+        if rest == "(":
+            block = kind
+            continue
+        if kind == "require" and (m := GO_REQUIRE_RE.match(rest)):
+            deps.append(_Dep(m.group(1), None, line_no))
+        elif kind == "replace" and (m := GO_REPLACE_RE.match(rest)):
+            target = m.group(2)
+            deps.append(_Dep(m.group(1), target if target.startswith(RELATIVE_PATH_PREFIXES + ("/",)) else None, line_no))
+    return deps
+
+
+def _pep508_names(items) -> list[str]:
+    names = []
+    for item in items if isinstance(items, list) else []:
+        m = PEP508_NAME_RE.match(item) if isinstance(item, str) else None
+        if m:
+            names.append(m.group(1))
+    return names
+
+
+def _pyproject_deps(text: str, lines: Sequence[str]) -> list[_Dep]:
+    """PEP 621 dependencies (also optional and PEP 735 groups), ``tool.uv.sources``
+    and Poetry dependencies; a ``path =`` table entry carries the path."""
+    data = _load_toml(text)
+    project = _dict(data.get("project"))
+    tool = _dict(data.get("tool"))
+    entries: list[tuple[str, str | None]] = [(n, None) for n in _pep508_names(project.get("dependencies"))]
+    for group in list(_dict(project.get("optional-dependencies")).values()) + list(_dict(data.get("dependency-groups")).values()):
+        entries += [(n, None) for n in _pep508_names(group)]
+    tables = [_dict(_dict(tool.get("uv")).get("sources"))]
+    poetry = _dict(tool.get("poetry"))
+    tables.append(_dict(poetry.get("dependencies")))
+    tables += [_dict(g.get("dependencies")) for g in _dict(poetry.get("group")).values() if isinstance(g, dict)]
+    for table in tables:
+        for name, spec in table.items():
+            if isinstance(name, str) and name.lower() != "python":
+                path = _dict(spec).get("path")
+                entries.append((name, path if isinstance(path, str) else None))
+    return [_Dep(name, path, _line_naming(lines, name)) for name, path in entries]
+
+
+def _cargo_deps(text: str, lines: Sequence[str]) -> list[_Dep]:
+    data = _load_toml(text)
+    tables = [_dict(data.get(s)) for s in CARGO_DEP_SECTIONS]
+    tables.append(_dict(_dict(data.get("workspace")).get("dependencies")))
+    tables += [_dict(t.get(s)) for t in _dict(data.get("target")).values() if isinstance(t, dict) for s in CARGO_DEP_SECTIONS]
+    deps: list[_Dep] = []
+    for table in tables:
+        for name, spec in table.items():
+            if isinstance(name, str):
+                path = _dict(spec).get("path")
+                deps.append(_Dep(name, path if isinstance(path, str) else None, _line_naming(lines, name)))
+    return deps
+
+
+def _requirements_deps(text: str) -> list[_Dep]:
+    """``-e ../x`` / bare ``../x`` lines carry a path (the path is the name);
+    plain requirement lines carry a distribution name."""
+    deps: list[_Dep] = []
+    for line_no, raw in enumerate(text.splitlines(), 1):
+        line = raw.split("#", 1)[0].strip()
+        if not line or (line.startswith("-") and not REQUIREMENTS_EDITABLE_RE.match(line)):
+            continue
+        m = REQUIREMENTS_EDITABLE_RE.match(line)
+        target = (m.group(1) if m else line).split("[", 1)[0]
+        if target.startswith(RELATIVE_PATH_PREFIXES + ("/",)):
+            deps.append(_Dep(target, target, line_no))
+        elif m is None and (name := PEP508_NAME_RE.match(target)):
+            deps.append(_Dep(name.group(1), None, line_no))
+    return deps

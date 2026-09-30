@@ -80,6 +80,8 @@ env:
     JEV_MODEL: "jev-1.13.0"
     JEV_TIMEOUT: "30"
     JEV_MAP_MAX_CANDIDATES: "150"
+    # "False" makes the Jev stage purely additive again (the LLM's own edges go unchecked).
+    JEV_VERIFY_LLM_EDGES: "True"
   secret:
     - SECRET_KEY
     - GITGRIT_ENCRYPTION_KEY

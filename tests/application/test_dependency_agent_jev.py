@@ -1,4 +1,6 @@
-"""``infer_and_store`` picks the Jev link stage up when Jev is configured.
+"""``infer_and_store`` picks the Jev link stage up when Jev is configured,
+and (plan §9) the LLM's own edges only reach the database when the evidence
+and Jev agree.
 
 Same stubbing as ``test_dependency_agent`` (``make_workspace``): the LLM role
 and agent are stubbed, the platform client is an in-memory tree.
@@ -13,10 +15,10 @@ import json
 from django.test import TestCase
 
 from app.application import dependency_agent as da
-from app.domain.models import ComponentDependency
+from app.domain.models import ComponentDependency, ExternalDependency
 from app.infrastructure.topology import llm_inference as li
 from app.infrastructure.topology.jev_links import LinkEnrichedInference
-from tests.application.dependency_agent_support import fake_client, make_workspace
+from tests.application.dependency_agent_support import fake_client, fake_model, make_workspace
 from tests.jev_support import FakeJevClient, JevError, link_answers, use_jev
 from tests.support import MonkeyPatchMixin
 
@@ -63,6 +65,38 @@ class DependencyAgentJevTests(MonkeyPatchMixin, TestCase):
         entry = json.loads(lines[0][len(prefix):])
         self.assertEqual(entry["band"], "confirmed")
         self.assertNotIn("code", entry)
+
+    def test_llm_edges_are_verified_before_they_become_rows(self):
+        # The LLM claims orders (covered by ORDERS_SERVICE_URL, confirmed → kept), a
+        # third-party nothing in the tree mentions (no evidence → removed) and one the
+        # scanner's env var names (evidence found, Jev says "none" → removed).
+        self.monkeypatch.setattr(
+            li.LLMAgent,
+            "run",
+            fake_model(
+                deps=li.DependencyResult(
+                    internal=[{"target": "org/orders", "label": "REST"}],
+                    external_providers=[{"name": "Twilio"}, {"name": "Mailgun"}],
+                )
+            ),
+        )
+        self.monkeypatch.setattr(
+            "app.infrastructure.topology.snapshots.get_platform_client",
+            lambda c: fake_client(TREE, {**FILES, ".env.example": "ORDERS_SERVICE_URL=http://orders:8000\nMAILGUN_URL=x\n"}),
+        )
+        web = self.web
+
+        def answer(state, questions):
+            return link_answers("none") if state["reference_kind"] == "evidence" else link_answers()
+
+        jev = use_jev(self.monkeypatch, FakeJevClient(answer))
+        summary = da.infer_and_store(web)
+
+        self.assertEqual([c[0]["reference"].lower() for c in jev.calls], ["orders_service_url", "mailgun"])
+        dep = ComponentDependency.objects.get(source=web.root_component)
+        self.assertEqual((dep.target.project.full_path, dep.label), ("org/orders", "REST"))  # kept as the LLM wrote it
+        self.assertEqual((summary.internal, summary.external), (1, 0))
+        self.assertEqual(ExternalDependency.objects.filter(component__project=web).count(), 0)
 
     def test_jev_off_runs_the_plain_llm_inference(self):
         use_jev(self.monkeypatch, None)
