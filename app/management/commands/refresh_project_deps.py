@@ -18,6 +18,7 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand, CommandError
 
 from app.domain.models import Project
+from app.management.commands._projects import project_or_command_error
 from app.tasks import infer_project_dependencies
 
 
@@ -45,7 +46,7 @@ class Command(BaseCommand):
         if opts["all"]:
             projects = list(Project.objects.all())
         elif opts["project_ids"]:
-            projects = list(Project.objects.filter(pk__in=opts["project_ids"]))
+            projects = [project_or_command_error(pid) for pid in opts["project_ids"]]
         else:
             raise CommandError("Pass project IDs or --all")
 

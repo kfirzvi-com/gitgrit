@@ -7,6 +7,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # The scanner's hostile-input tests (alias bombs, deep YAML) fail by
+    # hanging if a guard regresses, not by a slow assertion; cap the job so
+    # a hang is a red run, not a six-hour default timeout.
+    timeout-minutes: 20
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     services:

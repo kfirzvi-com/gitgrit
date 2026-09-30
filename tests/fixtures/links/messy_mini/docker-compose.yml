@@ -1,0 +1,25 @@
+# Local wiring. postgres and redis below are local stand-ins for RDS/ElastiCache.
+services:
+  admin-console:
+    build: .
+    ports: ["4000:4000"]
+    depends_on: [api-gateway]
+  web-storefront:
+    build: ./frontend/web-storefront
+    depends_on: [api-gateway]
+  api-gateway:
+    build: ./apps/api-gateway
+    depends_on: [auth-service, orders-service, redis]
+  auth-service:
+    build: ./services/auth-service
+    depends_on: [postgres]
+  orders-service:
+    build: ./services/orders-service
+    depends_on: [auth-service, payments-service, postgres]
+  payments-service:
+    # external to this repo: kfirzvi-com/gitgrit-demo-payments-service
+    image: ghcr.io/kfirzvi-com/gitgrit-demo-payments-service:latest
+  postgres:
+    image: postgres:16
+  redis:
+    image: redis:7

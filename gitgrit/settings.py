@@ -47,6 +47,16 @@ GIT_TAG = os.environ.get("GIT_TAG", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
 
+# Jev (TypeSafe System One) link enrichment for the architecture map. Off
+# unless explicitly enabled AND keyed; AIRGAPPED always wins (see
+# app.infrastructure.jev.jev_enabled).
+JEV_ENABLED = os.environ.get("JEV_ENABLED", "False") == "True"
+TYPESAFE_API_KEY = os.environ.get("TYPESAFE_API_KEY", "")
+JEV_MODEL = os.environ.get("JEV_MODEL", "jev-1.13.0")
+JEV_TIMEOUT = float(os.environ.get("JEV_TIMEOUT", "30"))
+JEV_MAP_MAX_CANDIDATES = int(os.environ.get("JEV_MAP_MAX_CANDIDATES", "150"))
+JEV_MAP_MAX_ESCALATIONS = int(os.environ.get("JEV_MAP_MAX_ESCALATIONS", "20"))
+
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [
     host for host in [urlparse(SITE_URL).hostname] if host
 ]

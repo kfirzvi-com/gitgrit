@@ -13,17 +13,14 @@ from __future__ import annotations
 from typing import Annotated
 
 from app.application.architecture.ports import RepositorySnapshot
+from app.domain.architecture.paths import is_noise
 from app.domain.architecture.topology import clean_path
 from app.infrastructure.llm_agent import tool
 
-# Directories that are never dependency evidence and routinely dwarf the rest
-# of the tree (committed node_modules, build output). Hidden from listings so
+# Noise directories (app.domain.architecture.paths) are hidden from listings so
 # the real manifests fit inside the tool-result cap; read_file can still open
 # anything inside them.
-NOISE_DIRS = frozenset({
-    "node_modules", "vendor", "dist", "build", "target", "__pycache__",
-    ".git", ".terraform", ".venv", "venv", ".idea", ".vscode",
-})
+
 # Basenames worth pointing the model at when a tree is too big to list whole.
 MANIFEST_NAMES = frozenset({
     "package.json", "pyproject.toml", "requirements.txt", "pipfile", "go.mod",
@@ -37,10 +34,6 @@ MANIFEST_NAMES = frozenset({
 })
 MANIFEST_SUFFIXES = (".csproj", ".fsproj", ".tf", ".sln")
 MAX_LISTING_ENTRIES = 400
-
-
-def is_noise(path: str) -> bool:
-    return any(part in NOISE_DIRS for part in path.split("/")[:-1])
 
 
 def looks_like_manifest(path: str) -> bool:

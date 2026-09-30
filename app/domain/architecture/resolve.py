@@ -41,6 +41,21 @@ class RosterEntry:
         return self.full_path if self.is_root else f"{self.full_path}#{self.path}"
 
 
+def with_siblings(
+    roster: Iterable[RosterEntry], full_path: str, components: Iterable
+) -> tuple[RosterEntry, ...]:
+    """The workspace roster plus this repository's own components as siblings.
+
+    Siblings have no ``component_id`` yet (they may be about to be created);
+    the use case looks them up by path once persisted. One helper because the
+    same tuple is built by the refresh use case, the LLM inference, the eval
+    command and the candidate scanner, and they must agree on the shape.
+    """
+    return tuple(roster) + tuple(
+        RosterEntry(full_path=full_path, path=c.path, name=c.name) for c in components
+    )
+
+
 def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = "") -> RosterEntry | None:
     """Best-effort mapping of a model-returned target onto one roster entry.
 

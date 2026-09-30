@@ -1,0 +1,10 @@
+services:
+  auth_url: http://auth-service:8000
+  # payments moved out of this repository in 2026-06:
+  # https://github.com/kfirzvi-com/gitgrit-demo-payments-service
+  payments_url: https://payments.gitgrit-demo.dev
+events:
+  # Provisioned by deploy/terraform/sqs.tf (aws_sqs_queue.orders_events)
+  sqs_queue: gitgrit-demo-orders-events
+db:
+  url: postgresql://orders@gitgrit-demo-orders-db:5432/orders

@@ -32,6 +32,7 @@ dependencies = [
     # installs with plain pip and has no lockfile of its own.
     "litellm==1.88.1",
     "pyjwt>=2.11.0",
+    "typesafe-sdk>=0.7.2",
 ]
 
 [dependency-groups]

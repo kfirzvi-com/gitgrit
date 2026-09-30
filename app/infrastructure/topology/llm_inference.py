@@ -22,7 +22,7 @@ from dataclasses import replace
 from pydantic import BaseModel, Field
 
 from app.application.architecture.ports import InferenceContext, RepositorySnapshot
-from app.domain.architecture.resolve import RosterEntry
+from app.domain.architecture.resolve import RosterEntry, with_siblings
 from app.domain.architecture.topology import (
     INBOUND,
     OUTBOUND,
@@ -254,10 +254,7 @@ class LLMTopologyInference:
 
         # Siblings join the roster so a component can depend on another one of
         # the same repository; they have no ids yet, the use case fills them.
-        siblings = tuple(
-            RosterEntry(full_path=context.full_path, path=c.path, name=c.name) for c in components
-        )
-        roster = context.roster + siblings
+        roster = with_siblings(context.roster, context.full_path, components)
 
         final: list[ComponentDecl] = []
         internal: list[InternalDependency] = []

@@ -1,0 +1,9 @@
+{
+  "name": "@gitgrit-demo/web-storefront",
+  "dependencies": {
+    "next": "14.2.0",
+    "react": "18.3.0",
+    "@stripe/stripe-js": "^3.0.0",
+    "@gitgrit-demo/shared-lib": "*"
+  }
+}
