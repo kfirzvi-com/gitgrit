@@ -5,8 +5,6 @@ dependency run per component); the stub answers each ``run`` by the response
 model it is asked for, and inspects the repository like a real model would so
 the evidence gate is satisfied.
 """
-from types import SimpleNamespace
-
 from django.test import TestCase
 from model_bakery import baker
 
@@ -18,64 +16,14 @@ from app.domain.models import (
     Project,
 )
 from app.infrastructure.topology import llm_inference as li
+from tests.application.dependency_agent_support import fake_client, fake_model, make_workspace
 from tests.support import MonkeyPatchMixin
 
 
-def _fake_client(tree=("README.md", "package.json"), files=None):
-    files = {"package.json": '{"name": "web"}'} if files is None else files
-    return SimpleNamespace(
-        get_tree=lambda full_path, ref: list(tree),
-        get_file_content=lambda full_path, path, ref: files.get(path),
-    )
-
-
-def _model(*, discovery=None, deps=None, paths=("package.json",), inspect=True):
-    """Stand in for ``LLMAgent.run``. ``deps`` is one ``DependencyResult`` for
-    every component, or a ``{path: DependencyResult}`` map."""
-    discovery = discovery or li.ComponentDiscovery(components=[])
-    deps = deps if deps is not None else li.DependencyResult()
-
-    def run(self, **kw):
-        toolbox = kw["toolbox"]
-        if inspect:
-            toolbox.list_repo_files("")
-        if kw["response_model"] is li.ComponentDiscovery:
-            return discovery
-        if inspect:
-            for path in paths:
-                toolbox.read_file(path)
-        if isinstance(deps, dict):
-            return deps.get(toolbox.scope, li.DependencyResult())
-        return deps
-
-    return run
-
-
 class DependencyAgentTests(MonkeyPatchMixin, TestCase):
-    def _setup(self, client=None, **model):
-        tenant = baker.make("app.Tenant")
-        conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
-        src = baker.make(
-            "app.Project", tenant=tenant, platform_connection=conn, name="web", full_path="org/web"
-        )
-        api = baker.make(
-            "app.Project", tenant=tenant, platform_connection=conn, name="api", full_path="org/api"
-        )
-        # Avoid network + LLM: stub the role lookup, the platform client and the model.
-        self.monkeypatch.setattr(
-            da,
-            "resolve_llm_roles",
-            lambda t: {"reasoning": {"model": "anthropic/claude", "base_url": "", "api_key": "k"}},
-        )
-        self.monkeypatch.setattr(
-            "app.infrastructure.topology.snapshots.get_platform_client",
-            lambda c: client or _fake_client(),
-        )
-        self.monkeypatch.setattr(li.LLMAgent, "run", _model(**model))
-        return tenant, src, api
-
     def test_writes_internal_and_external_edges_to_the_root_component(self):
-        _tenant, src, api = self._setup(
+        _tenant, src, api = make_workspace(
+            self.monkeypatch,
             deps=li.DependencyResult(
                 technologies=["Express", "Express", "Next.js"],  # dup → deduped
                 internal=[{"target": "org/api", "label": "REST"}],
@@ -110,8 +58,9 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
             "services/auth-service/pyproject.toml",
         )
         files = {p: "{}" for p in tree}
-        _tenant, src, api = self._setup(
-            client=_fake_client(tree, files),
+        _tenant, src, api = make_workspace(
+            self.monkeypatch,
+            client=fake_client(tree, files),
             discovery=li.ComponentDiscovery(
                 components=[
                     {"path": "apps/api-gateway", "name": "api-gateway", "kind": "service"},
@@ -144,7 +93,8 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(InfrastructureComponent.objects.get(component=auth).name, "PostgreSQL")
 
     def test_unresolved_internal_target_is_skipped(self):
-        _tenant, src, _api = self._setup(
+        _tenant, src, _api = make_workspace(
+            self.monkeypatch,
             deps=li.DependencyResult(internal=[{"target": "org/does-not-exist"}])
         )
 
@@ -156,7 +106,8 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(src.deps_status, Project.DepsStatus.OK)
 
     def test_rerun_replaces_edges_atomically(self):
-        _tenant, src, _api = self._setup(
+        _tenant, src, _api = make_workspace(
+            self.monkeypatch,
             deps=li.DependencyResult(internal=[{"target": "org/api"}], external_providers=[{"name": "Stripe"}])
         )
         da.infer_and_store(src)
@@ -164,7 +115,7 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(ExternalDependency.objects.filter(component__project=src).count(), 1)
 
         self.monkeypatch.setattr(
-            li.LLMAgent, "run", _model(deps=li.DependencyResult(external_providers=[{"name": "Auth0"}]))
+            li.LLMAgent, "run", fake_model(deps=li.DependencyResult(external_providers=[{"name": "Auth0"}]))
         )
         da.infer_and_store(src)
 
@@ -173,7 +124,8 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(names, ["Auth0"])
 
     def test_infrastructure_backstop_and_external_dedup(self):
-        _tenant, src, _api = self._setup(
+        _tenant, src, _api = make_workspace(
+            self.monkeypatch,
             deps=li.DependencyResult(
                 infrastructure=[{"name": "Redis", "kind": "cache"}],
                 external_providers=[
@@ -207,12 +159,14 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
     # --- evidence gate -------------------------------------------------------
 
     def test_answer_without_reading_any_file_is_rejected_and_old_map_kept(self):
-        _tenant, src, _api = self._setup(deps=li.DependencyResult(internal=[{"target": "org/api"}]))
+        _tenant, src, _api = make_workspace(
+            self.monkeypatch, deps=li.DependencyResult(internal=[{"target": "org/api"}])
+        )
         da.infer_and_store(src)
         self.assertEqual(ComponentDependency.objects.filter(source__project=src).count(), 1)
 
         # A model that guesses without inspecting the repo must not be saved.
-        self.monkeypatch.setattr(li.LLMAgent, "run", _model(inspect=False))
+        self.monkeypatch.setattr(li.LLMAgent, "run", fake_model(inspect=False))
         with self.assertRaises(RuntimeError) as ctx:
             da.infer_and_store(src)
         self.assertIn("without reading any repository file", str(ctx.exception))
@@ -222,12 +176,12 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         self.assertEqual(src.deps_status, Project.DepsStatus.OK)
 
     def test_listing_only_without_reading_is_still_rejected(self):
-        _tenant, src, _api = self._setup(paths=())
+        _tenant, src, _api = make_workspace(self.monkeypatch, paths=())
         with self.assertRaises(RuntimeError):
             da.infer_and_store(src)
 
     def test_empty_repository_listing_is_rejected_with_a_connection_hint(self):
-        _tenant, src, _api = self._setup(client=_fake_client(tree=(), files={}), paths=())
+        _tenant, src, _api = make_workspace(self.monkeypatch, client=fake_client(tree=(), files={}), paths=())
         with self.assertRaises(RuntimeError) as ctx:
             da.infer_and_store(src)
         self.assertIn("listing came back empty", str(ctx.exception))

@@ -12,6 +12,8 @@ from app.application.architecture.ports import RepositorySnapshot, TopologyInfer
 from app.application.architecture.refresh import InferenceSummary, RefreshProjectTopology
 from app.application.standard_engine import resolve_llm_roles
 from app.domain.models import Project
+from app.infrastructure.jev import JevClient
+from app.infrastructure.topology.jev_links import LinkEnrichedInference
 from app.infrastructure.topology.llm_inference import ROLE, LLMTopologyInference
 from app.infrastructure.topology.snapshots import snapshot_for_project
 
@@ -25,6 +27,16 @@ def llm_inference_for(tenant) -> LLMTopologyInference:
             "Workspace Settings → LLM."
         )
     return LLMTopologyInference(cfg)
+
+
+def _default_inference(tenant) -> TopologyInference:
+    """The production inference: the LLM, plus the Jev link stage when Jev is
+    switched on and keyed (``JevClient.from_settings()`` is None otherwise)."""
+    inference = llm_inference_for(tenant)
+    jev = JevClient.from_settings()
+    if jev is None:
+        return inference
+    return LinkEnrichedInference(inference, jev)
 
 
 def _enqueue_refresh(project_id: str) -> None:
@@ -45,7 +57,7 @@ def infer_and_store(
     caller/task records the failure and the previous map is kept).
     """
     use_case = RefreshProjectTopology(
-        inference=inference or llm_inference_for(project.tenant),
+        inference=inference or _default_inference(project.tenant),
         snapshot_factory=(lambda p: snapshot) if snapshot is not None else snapshot_for_project,
         enqueue_refresh=_enqueue_refresh,
     )
