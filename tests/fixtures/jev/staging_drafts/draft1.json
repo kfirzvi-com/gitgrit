@@ -1,0 +1,344 @@
+{
+ "components": [
+  {
+   "path": "apps/api-gateway",
+   "name": "api-gateway",
+   "kind": "service",
+   "description": "API Gateway service routing traffic and managing rate limits",
+   "technologies": [
+    "Express.js",
+    "TypeScript",
+    "Node.js",
+    "Express",
+    "axios",
+    "ioredis",
+    "express-rate-limit"
+   ]
+  },
+  {
+   "path": "deploy/helm/orders",
+   "name": "orders-helm",
+   "kind": "infra",
+   "description": "Helm chart for deploying the orders service",
+   "technologies": [
+    "Helm",
+    "Kubernetes"
+   ]
+  },
+  {
+   "path": "deploy/terraform",
+   "name": "terraform-infra",
+   "kind": "infra",
+   "description": "Terraform infrastructure definitions for AWS deployment",
+   "technologies": [
+    "Terraform",
+    "AWS"
+   ]
+  },
+  {
+   "path": "frontend/web-storefront",
+   "name": "web-storefront",
+   "kind": "frontend",
+   "description": "Customer-facing Next.js web storefront application",
+   "technologies": [
+    "Next.js",
+    "React",
+    "TypeScript",
+    "Auth0 React SDK",
+    "Stripe.js"
+   ]
+  },
+  {
+   "path": "packages/shared-lib",
+   "name": "shared-lib",
+   "kind": "library",
+   "description": "Shared library package for common utilities across services and frontends",
+   "technologies": [
+    "TypeScript",
+    "Go",
+    "Python",
+    "zod",
+    "pydantic"
+   ]
+  },
+  {
+   "path": "platform/backend/services/notifications",
+   "name": "notifications",
+   "kind": "service",
+   "description": "Notifications backend service",
+   "technologies": [
+    "Go",
+    "AWS SDK for Go",
+    "SendGrid Go SDK"
+   ]
+  },
+  {
+   "path": "services/auth-service",
+   "name": "auth-service",
+   "kind": "service",
+   "description": "Authentication service using FastAPI and Auth0",
+   "technologies": [
+    "FastAPI",
+    "Python",
+    "Uvicorn",
+    "Auth0 Python SDK",
+    "psycopg",
+    "React",
+    "Vite"
+   ]
+  },
+  {
+   "path": "services/data-pipeline",
+   "name": "data-pipeline",
+   "kind": "job",
+   "description": "Data pipeline service for processing analytics and events",
+   "technologies": [
+    "Python",
+    "boto3",
+    "pandas"
+   ]
+  },
+  {
+   "path": "services/orders-service",
+   "name": "orders-service",
+   "kind": "service",
+   "description": "Orders service built in Go",
+   "technologies": [
+    "Go",
+    "AWS SDK for Go"
+   ]
+  },
+  {
+   "path": "services/payments-service",
+   "name": "payments-service",
+   "kind": "service",
+   "description": "Payments integration service",
+   "technologies": [
+    "Go"
+   ]
+  }
+ ],
+ "internal": [
+  {
+   "source_path": "apps/api-gateway",
+   "target_ref": "{repo}#services/auth-service",
+   "label": "auth"
+  },
+  {
+   "source_path": "apps/api-gateway",
+   "target_ref": "{repo}#services/orders-service",
+   "label": "orders"
+  },
+  {
+   "source_path": "apps/api-gateway",
+   "target_ref": "{repo}#packages/shared-lib",
+   "label": "shared-lib"
+  },
+  {
+   "source_path": "deploy/helm/orders",
+   "target_ref": "{repo}#services/orders-service",
+   "label": "deploys"
+  },
+  {
+   "source_path": "deploy/terraform",
+   "target_ref": "kfirzvi-com/gitgrit-demo-infra",
+   "label": "remote state"
+  },
+  {
+   "source_path": "frontend/web-storefront",
+   "target_ref": "{repo}#apps/api-gateway",
+   "label": "REST"
+  },
+  {
+   "source_path": "platform/backend/services/notifications",
+   "target_ref": "{repo}#packages/shared-lib",
+   "label": "shared-lib"
+  },
+  {
+   "source_path": "services/auth-service",
+   "target_ref": "{repo}#packages/shared-lib",
+   "label": ""
+  },
+  {
+   "source_path": "services/data-pipeline",
+   "target_ref": "kfirzvi-com/gitgrit-demo-shared-lib",
+   "label": "shared-lib"
+  },
+  {
+   "source_path": "services/orders-service",
+   "target_ref": "{repo}#services/auth-service",
+   "label": "auth_url"
+  },
+  {
+   "source_path": "services/orders-service",
+   "target_ref": "{repo}#packages/shared-lib",
+   "label": "shared-lib"
+  }
+ ],
+ "externals": [
+  {
+   "source_path": "frontend/web-storefront",
+   "name": "Auth0",
+   "direction": "outbound",
+   "url": "",
+   "label": "auth"
+  },
+  {
+   "source_path": "frontend/web-storefront",
+   "name": "Stripe",
+   "direction": "outbound",
+   "url": "",
+   "label": "payments"
+  },
+  {
+   "source_path": "platform/backend/services/notifications",
+   "name": "SendGrid",
+   "direction": "outbound",
+   "url": "",
+   "label": "email delivery"
+  },
+  {
+   "source_path": "services/auth-service",
+   "name": "Auth0",
+   "direction": "outbound",
+   "url": "https://auth0.com",
+   "label": "identity provider"
+  },
+  {
+   "source_path": "services/orders-service",
+   "name": "gitgrit-demo-payments-service",
+   "direction": "outbound",
+   "url": "",
+   "label": "payments service"
+  }
+ ],
+ "infrastructure": [
+  {
+   "source_path": "apps/api-gateway",
+   "name": "Redis",
+   "kind": "cache",
+   "label": "gateway rate limit cache"
+  },
+  {
+   "source_path": "deploy/terraform",
+   "name": "AWS RDS Postgres",
+   "kind": "database",
+   "label": "auth db"
+  },
+  {
+   "source_path": "deploy/terraform",
+   "name": "AWS RDS Postgres",
+   "kind": "database",
+   "label": "orders db"
+  },
+  {
+   "source_path": "deploy/terraform",
+   "name": "AWS ElastiCache Redis",
+   "kind": "cache",
+   "label": "gateway cache"
+  },
+  {
+   "source_path": "deploy/terraform",
+   "name": "AWS SQS",
+   "kind": "queue",
+   "label": "orders events queue"
+  },
+  {
+   "source_path": "deploy/terraform",
+   "name": "AWS S3",
+   "kind": "storage",
+   "label": "warehouse bucket"
+  },
+  {
+   "source_path": "platform/backend/services/notifications",
+   "name": "AWS SQS",
+   "kind": "queue",
+   "label": "orders events queue"
+  },
+  {
+   "source_path": "services/auth-service",
+   "name": "PostgreSQL",
+   "kind": "database",
+   "label": "auth DB"
+  },
+  {
+   "source_path": "services/data-pipeline",
+   "name": "AWS SQS",
+   "kind": "queue",
+   "label": "gitgrit-demo-orders-events"
+  },
+  {
+   "source_path": "services/data-pipeline",
+   "name": "AWS S3",
+   "kind": "storage",
+   "label": "gitgrit-demo-warehouse"
+  },
+  {
+   "source_path": "services/orders-service",
+   "name": "PostgreSQL",
+   "kind": "database",
+   "label": "orders DB"
+  },
+  {
+   "source_path": "services/orders-service",
+   "name": "Amazon SQS",
+   "kind": "queue",
+   "label": "orders events queue"
+  }
+ ],
+ "evidence": {
+  "tree_size": 537,
+  "files_read": [
+   "package.json",
+   "go.work",
+   "apps/api-gateway/package.json",
+   "frontend/web-storefront/package.json",
+   "services/auth-service/pyproject.toml",
+   "apps/api-gateway/package.json",
+   "apps/api-gateway/config/services.yaml",
+   "apps/api-gateway/src/index.ts",
+   "docker-compose.yml",
+   "deploy/helm/orders/Chart.yaml",
+   "deploy/helm/orders/values.yaml",
+   "services/orders-service/go.mod",
+   "deploy/terraform/main.tf",
+   "deploy/terraform/rds.tf",
+   "deploy/terraform/elasticache.tf",
+   "deploy/terraform/sqs.tf",
+   "deploy/terraform/s3.tf",
+   "deploy/terraform/network.tf",
+   "frontend/web-storefront/package.json",
+   "frontend/web-storefront/.env.example",
+   "frontend/web-storefront/src/app/page.tsx",
+   "frontend/web-storefront/README.md",
+   "package.json",
+   "apps/api-gateway/config/services.yaml",
+   "docker-compose.yml",
+   "packages/shared-lib/package.json",
+   "packages/shared-lib/go.mod",
+   "packages/shared-lib/pyproject.toml",
+   "platform/backend/services/notifications/go.mod",
+   "platform/backend/services/notifications/main.go",
+   "platform/backend/services/notifications/config.yaml",
+   "services/auth-service/pyproject.toml",
+   "services/auth-service/app/main.py",
+   "services/auth-service/.env.example",
+   "services/auth-service/admin-ui/package.json",
+   "services/auth-service/README.md",
+   "services/data-pipeline/pyproject.toml",
+   "services/data-pipeline/config.yaml",
+   "services/data-pipeline/pipeline/main.py",
+   "services/orders-service/go.mod",
+   "services/orders-service/main.go",
+   "services/orders-service/config.yaml",
+   "services/orders-service/README.md",
+   "services/orders-service/cmd/worker/main.go",
+   "services/orders-service/go.mod",
+   "services/payments-service/MOVED",
+   "services/payments-service/README.md"
+  ]
+ },
+ "source": "llm",
+ "map_text": "",
+ "map_error": ""
+}

@@ -1,0 +1,687 @@
+{
+ "1dd09dd59bdd9b7c86d3f1dad4f77b433a156ce06f15dd534cc7f015000f2d07": {
+  "questions": {
+   "edge_kind": {
+    "criteria": {
+     "build": "only at build or deploy time",
+     "dev_only": "a local development stand-in",
+     "optional": "feature-flagged or best-effort",
+     "runtime": "needed to serve requests or run jobs",
+     "test": "only in tests"
+    },
+    "instructions": "How is the service behind `reference` used by `source_component`?",
+    "type": "choice"
+   },
+   "inactive": {
+    "instructions": "Is `reference` in `code` present only in a comment, commented-out code, an example, documentation text, or a test fixture or mock?",
+    "type": "noul"
+   },
+   "runtime_call": {
+    "instructions": "Does `code` indicate that `source_component`, while it is running, connects to, calls, publishes to or consumes from the service behind `reference`? Configuration counts as evidence when the running component uses it: a service URL or hostname in a config or environment file, a docker-compose `depends_on` or service image, a queue or topic it publishes to or consumes from, a client SDK it installs or imports. Answer no when `reference` is used only at build or deploy time, only in tests, only in documentation or comments, or is commented out.",
+    "type": "noul"
+   },
+   "target": {
+    "criteria": {
+     "A": "auth-service (kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service)",
+     "B": "auth-admin-ui (kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service/admin-ui)",
+     "C": "auth-service (demo-org/auth-service)",
+     "D": "gitgrit-demo-auth-service (kfirzvi-com/gitgrit-demo-auth-service)",
+     "external": "a third-party service run by another company, referenced directly or through its client SDK or package (for example Stripe, Auth0, SendGrid, Twilio)",
+     "none": "not a service run by another party: a general-purpose library or framework, a local file, a database, cache or message broker the component itself operates, a build tool or package registry, a placeholder, or the component itself"
+    },
+    "instructions": "Which of `candidates` is the workspace service that `reference` in `code` refers to? `reference` may be a service name, a hostname or URL, an environment variable that holds a service address, a docker-compose service or container image, a queue or topic name (pick the service that owns or produces it), or a client SDK or package for a service. Pick `external` if it refers to a third-party service run by another company, including through that company's SDK or package. Pick `none` if it is not a service run by another party: a general-purpose library or framework, a local file, a database, cache or broker the component itself operates, a build tool or package registry, or a placeholder.",
+    "type": "choice"
+   }
+  },
+  "result": {
+   "answers": {
+    "edge_kind": {
+     "choice": "runtime",
+     "confidence": 1.0,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "build": 0.0,
+      "dev_only": 0.0,
+      "optional": 0.0,
+      "runtime": 1.0,
+      "test": 0.0
+     },
+     "score": null
+    },
+    "inactive": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.06,
+     "probabilities": {},
+     "score": null
+    },
+    "runtime_call": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.96,
+     "probabilities": {},
+     "score": null
+    },
+    "target": {
+     "choice": "A",
+     "confidence": 0.97,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "A": 0.98,
+      "B": 0.0,
+      "C": 0.0,
+      "D": 0.01,
+      "external": 0.0,
+      "none": 0.01
+     },
+     "score": null
+    }
+   },
+   "input_tokens": 1303,
+   "latency_ms": 235,
+   "model": "jev-1.13.0"
+  },
+  "state": {
+   "candidates": {
+    "A": {
+     "kind": "service",
+     "name": "auth-service",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service"
+    },
+    "B": {
+     "kind": "frontend",
+     "name": "auth-admin-ui",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service/admin-ui"
+    },
+    "C": {
+     "kind": "component",
+     "name": "auth-service",
+     "ref": "demo-org/auth-service"
+    },
+    "D": {
+     "kind": "component",
+     "name": "gitgrit-demo-auth-service",
+     "ref": "kfirzvi-com/gitgrit-demo-auth-service"
+    }
+   },
+   "code": "# Upstream services this gateway routes to (see docker-compose.yml at the root).\nupstreams:\n  auth:\n    url: http://auth-service:8000\n  orders:\n    url: http://orders-service:8080\nrate_limit:\n  # Redis provisioned by deploy/terraform/elasticache.tf, owned by this gateway.\n  redis_url: redis://gitgrit-demo-gateway-cache:6379",
+   "file": "apps/api-gateway/config/services.yaml",
+   "reference": "auth-service",
+   "reference_kind": "url",
+   "source_component": {
+    "kind": "service",
+    "name": "api-gateway",
+    "path": "apps/api-gateway"
+   }
+  }
+ },
+ "285bb792ed68f0172d7856bf7671a9f6d1c63a2fd7ec95903b3c3b17e5f33ddd": {
+  "questions": {
+   "edge_kind": {
+    "criteria": {
+     "build": "only at build or deploy time",
+     "dev_only": "a local development stand-in",
+     "optional": "feature-flagged or best-effort",
+     "runtime": "needed to serve requests or run jobs",
+     "test": "only in tests"
+    },
+    "instructions": "How is the service behind `reference` used by `source_component`?",
+    "type": "choice"
+   },
+   "inactive": {
+    "instructions": "Is `reference` in `code` present only in a comment, commented-out code, an example, documentation text, or a test fixture or mock?",
+    "type": "noul"
+   },
+   "runtime_call": {
+    "instructions": "Does `code` indicate that `source_component`, while it is running, connects to, calls, publishes to or consumes from the service behind `reference`? Configuration counts as evidence when the running component uses it: a service URL or hostname in a config or environment file, a docker-compose `depends_on` or service image, a queue or topic it publishes to or consumes from, a client SDK it installs or imports. Answer no when `reference` is used only at build or deploy time, only in tests, only in documentation or comments, or is commented out.",
+    "type": "noul"
+   },
+   "target": {
+    "criteria": {
+     "A": "orders-v1 (kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1)",
+     "B": "gitgrit-demo-orders-service (kfirzvi-com/gitgrit-demo-orders-service)",
+     "external": "a third-party service run by another company, referenced directly or through its client SDK or package (for example Stripe, Auth0, SendGrid, Twilio)",
+     "none": "not a service run by another party: a general-purpose library or framework, a local file, a database, cache or message broker the component itself operates, a build tool or package registry, a placeholder, or the component itself"
+    },
+    "instructions": "Which of `candidates` is the workspace service that `reference` in `code` refers to? `reference` may be a service name, a hostname or URL, an environment variable that holds a service address, a docker-compose service or container image, a queue or topic name (pick the service that owns or produces it), or a client SDK or package for a service. Pick `external` if it refers to a third-party service run by another company, including through that company's SDK or package. Pick `none` if it is not a service run by another party: a general-purpose library or framework, a local file, a database, cache or broker the component itself operates, a build tool or package registry, or a placeholder.",
+    "type": "choice"
+   }
+  },
+  "result": {
+   "answers": {
+    "edge_kind": {
+     "choice": "runtime",
+     "confidence": 0.91,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "build": 0.06,
+      "dev_only": 0.0,
+      "optional": 0.0,
+      "runtime": 0.9400000000000001,
+      "test": 0.0
+     },
+     "score": null
+    },
+    "inactive": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.14,
+     "probabilities": {},
+     "score": null
+    },
+    "runtime_call": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.87,
+     "probabilities": {},
+     "score": null
+    },
+    "target": {
+     "choice": "none",
+     "confidence": 0.42,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "A": 0.0,
+      "B": 0.43,
+      "external": 0.0,
+      "none": 0.57
+     },
+     "score": null
+    }
+   },
+   "input_tokens": 1199,
+   "latency_ms": 216,
+   "model": "jev-1.13.0"
+  },
+  "state": {
+   "candidates": {
+    "A": {
+     "kind": "service",
+     "name": "orders-v1",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1"
+    },
+    "B": {
+     "kind": "component",
+     "name": "gitgrit-demo-orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-orders-service"
+    }
+   },
+   "code": "  auth_url: http://auth-service:8000\n  # payments moved out of this repository in 2026-06:\n  # https://github.com/kfirzvi-com/gitgrit-demo-payments-service\n  payments_url: https://payments.gitgrit-demo.dev\nevents:\n  # Provisioned by deploy/terraform/sqs.tf (aws_sqs_queue.orders_events)\n  sqs_queue: gitgrit-demo-orders-events\ndb:\n  # deploy/terraform/rds.tf (aws_db_instance.orders)\n  url: postgresql://orders@gitgrit-demo-orders-db:5432/orders",
+   "file": "services/orders-service/config.yaml",
+   "reference": "gitgrit-demo-orders-events",
+   "reference_kind": "queue_name",
+   "source_component": {
+    "kind": "service",
+    "name": "orders-service",
+    "path": "services/orders-service"
+   }
+  }
+ },
+ "45c86227bb539f08e8d616413372de1475c1a0847e1f7ae457094e333e44b64f": {
+  "questions": {
+   "edge_kind": {
+    "criteria": {
+     "build": "only at build or deploy time",
+     "dev_only": "a local development stand-in",
+     "optional": "feature-flagged or best-effort",
+     "runtime": "needed to serve requests or run jobs",
+     "test": "only in tests"
+    },
+    "instructions": "How is the service behind `reference` used by `source_component`?",
+    "type": "choice"
+   },
+   "inactive": {
+    "instructions": "Is `reference` in `code` present only in a comment, commented-out code, an example, documentation text, or a test fixture or mock?",
+    "type": "noul"
+   },
+   "runtime_call": {
+    "instructions": "Does `code` indicate that `source_component`, while it is running, connects to, calls, publishes to or consumes from the service behind `reference`? Configuration counts as evidence when the running component uses it: a service URL or hostname in a config or environment file, a docker-compose `depends_on` or service image, a queue or topic it publishes to or consumes from, a client SDK it installs or imports. Answer no when `reference` is used only at build or deploy time, only in tests, only in documentation or comments, or is commented out.",
+    "type": "noul"
+   },
+   "target": {
+    "criteria": {
+     "A": "orders-v1 (kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1)",
+     "B": "orders-service (kfirzvi-com/gitgrit-demo-messy-monorepo#services/orders-service)",
+     "C": "gitgrit-demo-orders-service (kfirzvi-com/gitgrit-demo-orders-service)",
+     "external": "a third-party service run by another company, referenced directly or through its client SDK or package (for example Stripe, Auth0, SendGrid, Twilio)",
+     "none": "not a service run by another party: a general-purpose library or framework, a local file, a database, cache or message broker the component itself operates, a build tool or package registry, a placeholder, or the component itself"
+    },
+    "instructions": "Which of `candidates` is the workspace service that `reference` in `code` refers to? `reference` may be a service name, a hostname or URL, an environment variable that holds a service address, a docker-compose service or container image, a queue or topic name (pick the service that owns or produces it), or a client SDK or package for a service. Pick `external` if it refers to a third-party service run by another company, including through that company's SDK or package. Pick `none` if it is not a service run by another party: a general-purpose library or framework, a local file, a database, cache or broker the component itself operates, a build tool or package registry, or a placeholder.",
+    "type": "choice"
+   }
+  },
+  "result": {
+   "answers": {
+    "edge_kind": {
+     "choice": "runtime",
+     "confidence": 1.0,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "build": 0.0,
+      "dev_only": 0.0,
+      "optional": 0.0,
+      "runtime": 1.0,
+      "test": 0.0
+     },
+     "score": null
+    },
+    "inactive": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.05,
+     "probabilities": {},
+     "score": null
+    },
+    "runtime_call": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.96,
+     "probabilities": {},
+     "score": null
+    },
+    "target": {
+     "choice": "B",
+     "confidence": 0.97,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "A": 0.0,
+      "B": 0.97,
+      "C": 0.02,
+      "external": 0.0,
+      "none": 0.01
+     },
+     "score": null
+    }
+   },
+   "input_tokens": 1248,
+   "latency_ms": 216,
+   "model": "jev-1.13.0"
+  },
+  "state": {
+   "candidates": {
+    "A": {
+     "kind": "service",
+     "name": "orders-v1",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1"
+    },
+    "B": {
+     "kind": "service",
+     "name": "orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/orders-service"
+    },
+    "C": {
+     "kind": "component",
+     "name": "gitgrit-demo-orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-orders-service"
+    }
+   },
+   "code": "# Upstream services this gateway routes to (see docker-compose.yml at the root).\nupstreams:\n  auth:\n    url: http://auth-service:8000\n  orders:\n    url: http://orders-service:8080\nrate_limit:\n  # Redis provisioned by deploy/terraform/elasticache.tf, owned by this gateway.\n  redis_url: redis://gitgrit-demo-gateway-cache:6379",
+   "file": "apps/api-gateway/config/services.yaml",
+   "reference": "orders-service",
+   "reference_kind": "url",
+   "source_component": {
+    "kind": "service",
+    "name": "api-gateway",
+    "path": "apps/api-gateway"
+   }
+  }
+ },
+ "9e07f14e0365270399b0382b6e04d07c32c53327f415e8403d5ae8885295b4a1": {
+  "questions": {
+   "edge_kind": {
+    "criteria": {
+     "build": "only at build or deploy time",
+     "dev_only": "a local development stand-in",
+     "optional": "feature-flagged or best-effort",
+     "runtime": "needed to serve requests or run jobs",
+     "test": "only in tests"
+    },
+    "instructions": "How is the service behind `reference` used by `source_component`?",
+    "type": "choice"
+   },
+   "inactive": {
+    "instructions": "Is `reference` in `code` present only in a comment, commented-out code, an example, documentation text, or a test fixture or mock?",
+    "type": "noul"
+   },
+   "runtime_call": {
+    "instructions": "Does `code` indicate that `source_component`, while it is running, connects to, calls, publishes to or consumes from the service behind `reference`? Configuration counts as evidence when the running component uses it: a service URL or hostname in a config or environment file, a docker-compose `depends_on` or service image, a queue or topic it publishes to or consumes from, a client SDK it installs or imports. Answer no when `reference` is used only at build or deploy time, only in tests, only in documentation or comments, or is commented out.",
+    "type": "noul"
+   },
+   "target": {
+    "criteria": {
+     "A": "orders-service (kfirzvi-com/gitgrit-demo-messy-monorepo#services/orders-service)",
+     "B": "orders-v1 (kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1)",
+     "C": "gitgrit-demo-orders-service (kfirzvi-com/gitgrit-demo-orders-service)",
+     "external": "a third-party service run by another company, referenced directly or through its client SDK or package (for example Stripe, Auth0, SendGrid, Twilio)",
+     "none": "not a service run by another party: a general-purpose library or framework, a local file, a database, cache or message broker the component itself operates, a build tool or package registry, a placeholder, or the component itself"
+    },
+    "instructions": "Which of `candidates` is the workspace service that `reference` in `code` refers to? `reference` may be a service name, a hostname or URL, an environment variable that holds a service address, a docker-compose service or container image, a queue or topic name (pick the service that owns or produces it), or a client SDK or package for a service. Pick `external` if it refers to a third-party service run by another company, including through that company's SDK or package. Pick `none` if it is not a service run by another party: a general-purpose library or framework, a local file, a database, cache or broker the component itself operates, a build tool or package registry, or a placeholder.",
+    "type": "choice"
+   }
+  },
+  "result": {
+   "answers": {
+    "edge_kind": {
+     "choice": "runtime",
+     "confidence": 0.97,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "build": 0.02,
+      "dev_only": 0.0,
+      "optional": 0.0,
+      "runtime": 0.98,
+      "test": 0.0
+     },
+     "score": null
+    },
+    "inactive": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.03,
+     "probabilities": {},
+     "score": null
+    },
+    "runtime_call": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.82,
+     "probabilities": {},
+     "score": null
+    },
+    "target": {
+     "choice": "A",
+     "confidence": 0.94,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "A": 0.95,
+      "B": 0.0,
+      "C": 0.0,
+      "external": 0.0,
+      "none": 0.05
+     },
+     "score": null
+    }
+   },
+   "input_tokens": 1259,
+   "latency_ms": 213,
+   "model": "jev-1.13.0"
+  },
+  "state": {
+   "candidates": {
+    "A": {
+     "kind": "service",
+     "name": "orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/orders-service"
+    },
+    "B": {
+     "kind": "service",
+     "name": "orders-v1",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1"
+    },
+    "C": {
+     "kind": "component",
+     "name": "gitgrit-demo-orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-orders-service"
+    }
+   },
+   "code": "    depends_on: [api-gateway]\n  web-storefront:\n    build: ./frontend/web-storefront\n    depends_on: [api-gateway]\n  api-gateway:\n    build: ./apps/api-gateway\n    depends_on: [auth-service, orders-service, redis]\n  auth-service:\n    build: ./services/auth-service\n    depends_on: [postgres]\n  orders-service:\n    build: ./services/orders-service\n    depends_on: [auth-service, payments-service, postgres]",
+   "file": "docker-compose.yml",
+   "reference": "orders-service",
+   "reference_kind": "compose_depends_on",
+   "source_component": {
+    "kind": "service",
+    "name": "api-gateway",
+    "path": "apps/api-gateway"
+   }
+  }
+ },
+ "e2e3514d6bca23928b588067f5e204886b5b3fd34b8dbbca3e37ec7c0d2b569d": {
+  "questions": {
+   "edge_kind": {
+    "criteria": {
+     "build": "only at build or deploy time",
+     "dev_only": "a local development stand-in",
+     "optional": "feature-flagged or best-effort",
+     "runtime": "needed to serve requests or run jobs",
+     "test": "only in tests"
+    },
+    "instructions": "How is the service behind `reference` used by `source_component`?",
+    "type": "choice"
+   },
+   "inactive": {
+    "instructions": "Is `reference` in `code` present only in a comment, commented-out code, an example, documentation text, or a test fixture or mock?",
+    "type": "noul"
+   },
+   "runtime_call": {
+    "instructions": "Does `code` indicate that `source_component`, while it is running, connects to, calls, publishes to or consumes from the service behind `reference`? Configuration counts as evidence when the running component uses it: a service URL or hostname in a config or environment file, a docker-compose `depends_on` or service image, a queue or topic it publishes to or consumes from, a client SDK it installs or imports. Answer no when `reference` is used only at build or deploy time, only in tests, only in documentation or comments, or is commented out.",
+    "type": "noul"
+   },
+   "target": {
+    "criteria": {
+     "A": "orders-v1 (kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1)",
+     "B": "orders-service (kfirzvi-com/gitgrit-demo-messy-monorepo#services/orders-service)",
+     "C": "gitgrit-demo-orders-service (kfirzvi-com/gitgrit-demo-orders-service)",
+     "external": "a third-party service run by another company, referenced directly or through its client SDK or package (for example Stripe, Auth0, SendGrid, Twilio)",
+     "none": "not a service run by another party: a general-purpose library or framework, a local file, a database, cache or message broker the component itself operates, a build tool or package registry, a placeholder, or the component itself"
+    },
+    "instructions": "Which of `candidates` is the workspace service that `reference` in `code` refers to? `reference` may be a service name, a hostname or URL, an environment variable that holds a service address, a docker-compose service or container image, a queue or topic name (pick the service that owns or produces it), or a client SDK or package for a service. Pick `external` if it refers to a third-party service run by another company, including through that company's SDK or package. Pick `none` if it is not a service run by another party: a general-purpose library or framework, a local file, a database, cache or broker the component itself operates, a build tool or package registry, or a placeholder.",
+    "type": "choice"
+   }
+  },
+  "result": {
+   "answers": {
+    "edge_kind": {
+     "choice": "runtime",
+     "confidence": 0.99,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "build": 0.01,
+      "dev_only": 0.0,
+      "optional": 0.0,
+      "runtime": 0.99,
+      "test": 0.0
+     },
+     "score": null
+    },
+    "inactive": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.09,
+     "probabilities": {},
+     "score": null
+    },
+    "runtime_call": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.86,
+     "probabilities": {},
+     "score": null
+    },
+    "target": {
+     "choice": "B",
+     "confidence": 0.96,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "A": 0.0,
+      "B": 0.97,
+      "C": 0.01,
+      "external": 0.0,
+      "none": 0.02
+     },
+     "score": null
+    }
+   },
+   "input_tokens": 1212,
+   "latency_ms": 252,
+   "model": "jev-1.13.0"
+  },
+  "state": {
+   "candidates": {
+    "A": {
+     "kind": "service",
+     "name": "orders-v1",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#legacy/orders-v1"
+    },
+    "B": {
+     "kind": "service",
+     "name": "orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/orders-service"
+    },
+    "C": {
+     "kind": "component",
+     "name": "gitgrit-demo-orders-service",
+     "ref": "kfirzvi-com/gitgrit-demo-orders-service"
+    }
+   },
+   "code": "source:\n  # Order events emitted by services/orders-service\n  sqs_queue: gitgrit-demo-orders-events\nsink:\n  # deploy/terraform/s3.tf (aws_s3_bucket.warehouse)\n  s3_bucket: gitgrit-demo-warehouse",
+   "file": "services/data-pipeline/config.yaml",
+   "reference": "gitgrit-demo-orders-events",
+   "reference_kind": "queue_name",
+   "source_component": {
+    "kind": "job",
+    "name": "data-pipeline",
+    "path": "services/data-pipeline"
+   }
+  }
+ },
+ "e59f578fff2f541019eb29aecf517ec236a755a5976b2a29feea0b6df57c3cf0": {
+  "questions": {
+   "edge_kind": {
+    "criteria": {
+     "build": "only at build or deploy time",
+     "dev_only": "a local development stand-in",
+     "optional": "feature-flagged or best-effort",
+     "runtime": "needed to serve requests or run jobs",
+     "test": "only in tests"
+    },
+    "instructions": "How is the service behind `reference` used by `source_component`?",
+    "type": "choice"
+   },
+   "inactive": {
+    "instructions": "Is `reference` in `code` present only in a comment, commented-out code, an example, documentation text, or a test fixture or mock?",
+    "type": "noul"
+   },
+   "runtime_call": {
+    "instructions": "Does `code` indicate that `source_component`, while it is running, connects to, calls, publishes to or consumes from the service behind `reference`? Configuration counts as evidence when the running component uses it: a service URL or hostname in a config or environment file, a docker-compose `depends_on` or service image, a queue or topic it publishes to or consumes from, a client SDK it installs or imports. Answer no when `reference` is used only at build or deploy time, only in tests, only in documentation or comments, or is commented out.",
+    "type": "noul"
+   },
+   "target": {
+    "criteria": {
+     "A": "auth-service (kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service)",
+     "B": "auth-admin-ui (kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service/admin-ui)",
+     "C": "auth-service (demo-org/auth-service)",
+     "D": "gitgrit-demo-auth-service (kfirzvi-com/gitgrit-demo-auth-service)",
+     "external": "a third-party service run by another company, referenced directly or through its client SDK or package (for example Stripe, Auth0, SendGrid, Twilio)",
+     "none": "not a service run by another party: a general-purpose library or framework, a local file, a database, cache or message broker the component itself operates, a build tool or package registry, a placeholder, or the component itself"
+    },
+    "instructions": "Which of `candidates` is the workspace service that `reference` in `code` refers to? `reference` may be a service name, a hostname or URL, an environment variable that holds a service address, a docker-compose service or container image, a queue or topic name (pick the service that owns or produces it), or a client SDK or package for a service. Pick `external` if it refers to a third-party service run by another company, including through that company's SDK or package. Pick `none` if it is not a service run by another party: a general-purpose library or framework, a local file, a database, cache or broker the component itself operates, a build tool or package registry, or a placeholder.",
+    "type": "choice"
+   }
+  },
+  "result": {
+   "answers": {
+    "edge_kind": {
+     "choice": "runtime",
+     "confidence": 0.98,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "build": 0.01,
+      "dev_only": 0.0,
+      "optional": 0.0,
+      "runtime": 0.99,
+      "test": 0.0
+     },
+     "score": null
+    },
+    "inactive": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.03,
+     "probabilities": {},
+     "score": null
+    },
+    "runtime_call": {
+     "choice": null,
+     "confidence": null,
+     "kind": "noul",
+     "noul": 0.92,
+     "probabilities": {},
+     "score": null
+    },
+    "target": {
+     "choice": "A",
+     "confidence": 0.92,
+     "kind": "choice",
+     "noul": null,
+     "probabilities": {
+      "A": 0.9400000000000001,
+      "B": 0.0,
+      "C": 0.0,
+      "D": 0.0,
+      "external": 0.0,
+      "none": 0.06
+     },
+     "score": null
+    }
+   },
+   "input_tokens": 1314,
+   "latency_ms": 257,
+   "model": "jev-1.13.0"
+  },
+  "state": {
+   "candidates": {
+    "A": {
+     "kind": "service",
+     "name": "auth-service",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service"
+    },
+    "B": {
+     "kind": "frontend",
+     "name": "auth-admin-ui",
+     "ref": "kfirzvi-com/gitgrit-demo-messy-monorepo#services/auth-service/admin-ui"
+    },
+    "C": {
+     "kind": "component",
+     "name": "auth-service",
+     "ref": "demo-org/auth-service"
+    },
+    "D": {
+     "kind": "component",
+     "name": "gitgrit-demo-auth-service",
+     "ref": "kfirzvi-com/gitgrit-demo-auth-service"
+    }
+   },
+   "code": "    depends_on: [api-gateway]\n  web-storefront:\n    build: ./frontend/web-storefront\n    depends_on: [api-gateway]\n  api-gateway:\n    build: ./apps/api-gateway\n    depends_on: [auth-service, orders-service, redis]\n  auth-service:\n    build: ./services/auth-service\n    depends_on: [postgres]\n  orders-service:\n    build: ./services/orders-service\n    depends_on: [auth-service, payments-service, postgres]",
+   "file": "docker-compose.yml",
+   "reference": "auth-service",
+   "reference_kind": "compose_depends_on",
+   "source_component": {
+    "kind": "service",
+    "name": "api-gateway",
+    "path": "apps/api-gateway"
+   }
+  }
+ }
+}
