@@ -4,9 +4,9 @@ and Jev agree.
 
 Same stubbing as ``test_dependency_agent`` (``make_workspace``): the LLM role
 and agent are stubbed, the platform client is an in-memory tree.
-``use_jev`` patches ``JevClient.from_settings`` to hand back a
+``use_jev`` patches ``JevClient.for_tenant`` to hand back a
 ``FakeJevClient`` (Jev on) or ``None`` (Jev off); that is the whole switch,
-so the test does not depend on env vars.
+so the test depends on neither a TypeSafe provider row nor env vars.
 """
 from __future__ import annotations
 

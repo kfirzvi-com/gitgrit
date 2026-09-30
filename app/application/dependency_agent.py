@@ -30,10 +30,11 @@ def llm_inference_for(tenant) -> LLMTopologyInference:
 
 
 def _default_inference(tenant) -> TopologyInference:
-    """The production inference: the LLM, plus the Jev link stage when Jev is
-    switched on and keyed (``JevClient.from_settings()`` is None otherwise)."""
+    """The production inference: the LLM, plus the Jev link stage when the
+    workspace has a TypeSafe provider (``JevClient.for_tenant()`` is None
+    otherwise)."""
     inference = llm_inference_for(tenant)
-    jev = JevClient.from_settings()
+    jev = JevClient.for_tenant(tenant)
     if jev is None:
         return inference
     return LinkEnrichedInference(inference, jev)

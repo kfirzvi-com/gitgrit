@@ -168,6 +168,11 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                 LLMProvider.objects.filter(tenant=tenant).order_by("created_at")
             )
             context["llm_providers"] = llm_providers
+            # TypeSafe (Jev) feeds the architecture map directly; it is not a
+            # role candidate, so the role dropdowns get this filtered list.
+            context["llm_role_providers"] = [
+                p for p in llm_providers if p.provider_type != LLMProviderType.TYPESAFE
+            ]
             context["llm_provider_types"] = LLMProviderType.choices
             existing_roles = {
                 r.name: r
@@ -426,6 +431,13 @@ def _require_workspace_admin(request):
     return tenant, None
 
 
+def _stored_model(provider) -> str | None:
+    """The model a provider row already holds, so Test / fetch-models check
+    the same one the architecture map will use (TypeSafe only)."""
+    models = list(provider.available_models or [])
+    return models[0] if models else None
+
+
 def _auto_provider_name(tenant, provider_type) -> str:
     label = dict(LLMProviderType.choices).get(provider_type, provider_type)
     existing = set(
@@ -543,7 +555,12 @@ def test_llm_provider(request, provider_id):
         return HttpResponse('<span class="badge badge-error">No workspace</span>')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    if test_provider(provider.provider_type, provider.base_url, provider.api_key):
+    if test_provider(
+        provider.provider_type,
+        provider.base_url,
+        provider.api_key,
+        model=_stored_model(provider),
+    ):
         return HttpResponse('<span class="badge badge-success">Connected</span>')
     return HttpResponse('<span class="badge badge-error">Failed</span>')
 
@@ -560,7 +577,12 @@ def fetch_llm_models(request, provider_id):
         return HttpResponse('<span class="badge badge-error">Forbidden</span>')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    found = discover(provider.provider_type, provider.base_url, provider.api_key)
+    found = discover(
+        provider.provider_type,
+        provider.base_url,
+        provider.api_key,
+        model=_stored_model(provider),
+    )
     if found.models:
         provider.available_models = found.models
         provider.save(update_fields=["available_models"])
@@ -592,6 +614,11 @@ def set_llm_role(request, role_name):
         return redirect("tenant_settings")
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
+    if provider.provider_type == LLMProviderType.TYPESAFE:
+        messages.error(
+            request, "TypeSafe is used by the architecture map, not by roles."
+        )
+        return redirect("tenant_settings")
     if not model:
         messages.error(request, "Select a model for the role.")
         return redirect("tenant_settings")

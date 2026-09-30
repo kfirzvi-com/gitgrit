@@ -89,9 +89,12 @@ def link_answers(
 
 
 def use_jev(monkeypatch, client):
-    """Make ``JevClient.from_settings()`` hand back ``client`` — a fake, or
-    ``None`` for "Jev off". That one call is the whole switch the composition
-    root and the eval commands look at, so no env var or setting is touched.
-    Returns ``client``."""
+    """Make ``JevClient.for_tenant()`` (the composition root's switch) and
+    ``JevClient.from_settings()`` (the eval commands') hand back ``client`` — a
+    fake, or ``None`` for "Jev off" — so no provider row, env var or setting is
+    touched. Returns ``client``."""
+    monkeypatch.setattr(
+        "app.infrastructure.jev.JevClient.for_tenant", classmethod(lambda cls, tenant: client)
+    )
     monkeypatch.setattr("app.infrastructure.jev.JevClient.from_settings", classmethod(lambda cls: client))
     return client

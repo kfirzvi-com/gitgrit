@@ -47,9 +47,14 @@ GIT_TAG = os.environ.get("GIT_TAG", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
 
-# Jev (TypeSafe System One) link enrichment for the architecture map. Off
-# unless explicitly enabled AND keyed; AIRGAPPED always wins (see
-# app.infrastructure.jev.jev_enabled).
+# Jev (TypeSafe System One) link enrichment for the architecture map.
+# Production and staging switch it on per workspace: a "TypeSafe (Jev)"
+# provider under Workspace Settings → LLM Providers (JevClient.for_tenant).
+# The JEV_ENABLED / TYPESAFE_API_KEY pair is the env fallback for local dev
+# and the eval commands, off by default: an env key applies to EVERY
+# workspace without a provider row and bypasses the per-workspace kill
+# switch, so deployments leave it unset. AIRGAPPED always wins (see
+# app.infrastructure.jev.jev_enabled). The rest is tuning shared by both.
 JEV_ENABLED = os.environ.get("JEV_ENABLED", "False") == "True"
 TYPESAFE_API_KEY = os.environ.get("TYPESAFE_API_KEY", "")
 JEV_MODEL = os.environ.get("JEV_MODEL", "jev-1.13.0")

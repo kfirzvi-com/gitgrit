@@ -357,7 +357,7 @@
                           data-role-provider="{{ role.name }}"
                           class="select select-bordered flex-1">
                     <option value="">— None —</option>
-                    {% for provider in llm_providers %}
+                    {% for provider in llm_role_providers %}
                       <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
                         {{ provider.display_name }}
                       </option>
@@ -377,6 +377,8 @@
         <div class="card bg-base-100">
           <div class="card-body">
             <h2 class="card-title">Add LLM Provider</h2>
+            <p class="text-sm opacity-70 -mt-1 mb-2">TypeSafe (Jev) powers the
+              architecture map's link checks; it needs no role.</p>
             <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
               {% csrf_token %}
               <div class="flex flex-col sm:flex-row gap-3">

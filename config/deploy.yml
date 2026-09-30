@@ -72,11 +72,13 @@ env:
     GITHUB_APP_ID: ""
     GITHUB_APP_SLUG: ""
     GITHUB_APP_CLIENT_ID: ""
-    # Jev (TypeSafe) link stage for the architecture map. Off until switched
-    # on per destination; JEV_TIMEOUT / JEV_MAP_MAX_CANDIDATES are parsed with
-    # float() / int() at startup, so they must hold a number, never "". The
-    # TYPESAFE_API_KEY is a per-destination secret (set where the other secrets are).
-    JEV_ENABLED: "False"
+    # Jev (TypeSafe) link stage for the architecture map. Switched on per
+    # workspace, not per destination: add a "TypeSafe (Jev)" provider under
+    # Workspace Settings → LLM Providers and paste the key there; it is stored
+    # encrypted like every other provider key (GITGRIT_ENCRYPTION_KEY), so no
+    # Kamal secret is involved. These are tuning only; JEV_TIMEOUT /
+    # JEV_MAP_MAX_CANDIDATES are parsed with float() / int() at startup, so
+    # they must hold a number, never "".
     JEV_MODEL: "jev-1.13.0"
     JEV_TIMEOUT: "30"
     JEV_MAP_MAX_CANDIDATES: "150"
@@ -95,4 +97,3 @@ env:
     - GITHUB_APP_PRIVATE_KEY_B64
     - GITHUB_APP_WEBHOOK_SECRET
     - GITHUB_APP_CLIENT_SECRET
-    - TYPESAFE_API_KEY

@@ -4,20 +4,24 @@ one bad call from sinking a batch. No network: the SDK's HTTP layer is
 api.typesafe.ai. Retries are turned off so the 5xx test does not sleep.
 
 ``SimpleTestCase`` because CI runs ``manage.py test`` and its loader only
-sees TestCase subclasses.
+sees TestCase subclasses; ``for_tenant`` reads provider rows, so its tests
+are a ``TestCase``.
 """
 from __future__ import annotations
 
 import json
 
 import httpx2
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from model_bakery import baker
 from typesafe_sdk import (
     Choice,
     Noul,
     RetryPolicy,
     Score,
+    TypeSafeClient,
     TypeSafeAuthenticationError,
+    TypeSafeError,
     TypeSafeInternalServerError,
 )
 
@@ -31,7 +35,7 @@ from app.infrastructure.jev import (
     jev_enabled,
 )
 from tests.jev_support import FakeJevClient, JevReplayMiss, ReplayJevClient
-from tests.support import TmpPathMixin
+from tests.support import MonkeyPatchMixin, TmpPathMixin
 
 NO_RETRY = RetryPolicy(max_retries=0)
 
@@ -202,6 +206,137 @@ class EnabledTests(SimpleTestCase):
         self.assertIsInstance(client, JevClient)
         self.assertEqual(client.model, "jev-9.9.9")
         self.assertEqual(client.usage, {"calls": 0, "input_tokens": 0, "failures": 0})
+
+
+PING_BODY = {
+    "model": "jev-1.13.0",
+    "usage": {"input_tokens": 3, "output_tokens": 1},
+    "answers": {"ok": {"type": "noul", "noul": 0.9}},
+}
+
+
+class PingTests(SimpleTestCase):
+    def test_ping_asks_one_noul_question(self):
+        sent = {}
+
+        def handler(request):
+            sent["body"] = json.loads(request.content)
+            return httpx2.Response(200, json=PING_BODY)
+
+        client = client_returning(handler)
+        self.assertIsNone(client.ping())
+        self.assertEqual(list(sent["body"]["questions"]), ["ok"])
+        self.assertEqual(sent["body"]["questions"]["ok"]["type"], "noul")
+        self.assertEqual(client.usage["calls"], 1)
+
+    def test_ping_raises_jev_error_on_sdk_error(self):
+        with self.assertRaises(JevError) as ctx:
+            client_returning(always(401, {"error": "bad key"})).ping()
+        self.assertIsInstance(ctx.exception.cause, TypeSafeAuthenticationError)
+
+    def test_malformed_key_is_a_jev_error_at_construction(self):
+        with self.assertRaises(JevError) as ctx:
+            JevClient(api_key="bad key", model="m")
+        self.assertIsInstance(ctx.exception.cause, TypeSafeError)
+        self.assertIn("printable ASCII", str(ctx.exception))
+
+    def test_close_closes_the_sdk_client(self):
+        client = client_returning(always(200, PING_BODY))
+        client.close()
+        with self.assertRaises(RuntimeError):  # httpx: client has been closed
+            client.ping()
+
+
+class _CaptureSDK:
+    """Stands in for ``TypeSafeClient`` so a test can read what a client was
+    built with (the key is not exposed by the real SDK)."""
+
+    built: list[dict] = []
+
+    def __init__(self, **kwargs):
+        _CaptureSDK.built.append(kwargs)
+
+
+class ForTenantTests(MonkeyPatchMixin, TestCase):
+    OFF = {"JEV_ENABLED": False, "TYPESAFE_API_KEY": "", "AIRGAPPED": False}
+
+    def setUp(self):
+        super().setUp()
+        _CaptureSDK.built = []
+        self.monkeypatch.setattr("app.infrastructure.jev.TypeSafeClient", _CaptureSDK)
+        self.tenant = baker.make("app.Tenant")
+
+    def _typesafe(self, **kw):
+        defaults = dict(
+            tenant=self.tenant,
+            provider_type="typesafe",
+            display_name="TypeSafe (Jev)",
+            api_key="ts-key",
+            base_url="",
+            available_models=["jev-2.0.0"],
+            enabled=True,
+        )
+        defaults.update(kw)
+        return baker.make("app.LLMProvider", **defaults)
+
+    def test_enabled_provider_gives_a_client_with_its_key_and_model(self):
+        self._typesafe(base_url="https://jev.example.test")
+        with override_settings(**self.OFF, JEV_TIMEOUT=7.0):
+            client = JevClient.for_tenant(self.tenant)
+        self.assertIsInstance(client, JevClient)
+        self.assertEqual(client.model, "jev-2.0.0")
+        built = _CaptureSDK.built[-1]
+        self.assertEqual(built["api_key"], "ts-key")  # decrypted from the row
+        self.assertEqual(built["base_url"], "https://jev.example.test")
+        self.assertEqual(built["timeout"], 7.0)
+
+    def test_provider_without_models_uses_the_settings_model(self):
+        self._typesafe(available_models=[])
+        with override_settings(**self.OFF, JEV_MODEL="jev-9.9.9"):
+            client = JevClient.for_tenant(self.tenant)
+        self.assertEqual(client.model, "jev-9.9.9")
+        self.assertIsNone(_CaptureSDK.built[-1]["base_url"])
+
+    def test_disabled_provider_falls_back_to_the_env_path(self):
+        self._typesafe(enabled=False)
+        with override_settings(**self.OFF):
+            self.assertIsNone(JevClient.for_tenant(self.tenant))
+        with override_settings(JEV_ENABLED=True, TYPESAFE_API_KEY="env-key", AIRGAPPED=False):
+            client = JevClient.for_tenant(self.tenant)
+        self.assertIsInstance(client, JevClient)
+        self.assertEqual(_CaptureSDK.built[-1]["api_key"], "env-key")
+
+    def test_another_workspaces_provider_does_not_count(self):
+        self._typesafe(tenant=baker.make("app.Tenant"))
+        with override_settings(**self.OFF):
+            self.assertIsNone(JevClient.for_tenant(self.tenant))
+
+    def test_for_provider_is_the_builder_the_map_and_the_test_button_share(self):
+        provider = self._typesafe(base_url="https://jev.example.test")
+        retry = RetryPolicy(max_retries=0)
+        client = JevClient.for_provider(provider, timeout=3.0, retry=retry)
+        self.assertEqual(client.model, "jev-2.0.0")
+        built = _CaptureSDK.built[-1]
+        self.assertEqual(
+            (built["api_key"], built["base_url"], built["timeout"]),
+            ("ts-key", "https://jev.example.test", 3.0),
+        )
+        self.assertIs(built["retry"], retry)
+
+    def test_malformed_row_logs_and_turns_jev_off(self):
+        # The real SDK rejects the key before any network call.
+        self.monkeypatch.setattr("app.infrastructure.jev.TypeSafeClient", TypeSafeClient)
+        self._typesafe(api_key="bad key")
+        with override_settings(**self.OFF), self.assertLogs("app.infrastructure.jev", "WARNING") as logs:
+            self.assertIsNone(JevClient.for_tenant(self.tenant))
+        self.assertIn("unusable", logs.output[0])
+        self.assertNotIn("bad key", logs.output[0])
+
+    def test_airgapped_wins_even_with_a_provider(self):
+        self._typesafe()
+        with override_settings(JEV_ENABLED=True, TYPESAFE_API_KEY="k", AIRGAPPED=True):
+            self.assertIsNone(JevClient.for_tenant(self.tenant))
+        self.assertEqual(_CaptureSDK.built, [])
 
 
 class CassetteTests(TmpPathMixin, SimpleTestCase):

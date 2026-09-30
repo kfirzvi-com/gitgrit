@@ -8,6 +8,7 @@ from django.db.models import QuerySet
 from app.domain.events import DomainEvent
 from app.domain.models import (
     AuthMethod,
+    LLMProviderType,
     LLMRole,
     Project,
     Standard,
@@ -44,10 +45,14 @@ def resolve_llm_roles(tenant) -> dict:
     LiteLLM-formatted (``provider_type/model``). Empty when nothing is set.
 
     Shared by the StandardEngine (real runs) and the standard editor's test run.
+    TypeSafe (Jev) is not a LiteLLM provider, so a role pointing at one is
+    never handed to the sandbox (the UI refuses to create such a role too).
     """
-    roles = LLMRole.objects.filter(
-        tenant=tenant, provider__enabled=True
-    ).select_related("provider")
+    roles = (
+        LLMRole.objects.filter(tenant=tenant, provider__enabled=True)
+        .exclude(provider__provider_type=LLMProviderType.TYPESAFE)
+        .select_related("provider")
+    )
     return {
         role.name: {
             "model": f"{role.provider.provider_type}/{role.model}",
