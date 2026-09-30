@@ -155,6 +155,11 @@ class LLMProviderType(models.TextChoices):
     A configured model is handed to LiteLLM as ``f"{provider_type}/{model}"``
     (e.g. ``anthropic/claude-opus-4``, ``litellm_proxy/qwen-coder``), so these
     values intentionally mirror LiteLLM's provider IDs — no translation layer.
+
+    ``TYPESAFE`` is the one exception: it is not a chat model and never goes
+    through LiteLLM or a role. The architecture map's link checks
+    (``app.infrastructure.jev``) pick it up directly; storing it here reuses
+    the same encrypted-key row, settings UI and per-workspace kill switch.
     """
 
     ANTHROPIC = "anthropic", "Anthropic"
@@ -166,6 +171,7 @@ class LLMProviderType(models.TextChoices):
     MISTRAL = "mistral", "Mistral"
     OLLAMA = "ollama", "Ollama"
     LITELLM_PROXY = "litellm_proxy", "LiteLLM Proxy"
+    TYPESAFE = "typesafe", "TypeSafe (Jev)"
 
 
 class LLMProvider(models.Model):

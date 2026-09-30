@@ -17,18 +17,23 @@ can log, fake and replay:
 * ``RecordingJevClient`` — writes every real answer to a JSON cassette keyed
   by a hash of the request, so the eval commands and the tests can replay a
   real run offline (``tests/jev_support.ReplayJevClient``).
+* ``JevClient.for_provider(provider)`` / ``for_tenant(tenant)`` — the
+  production switch: a workspace's "TypeSafe (Jev)" LLM provider row (key
+  encrypted like every other provider key), falling back to the env
+  settings for local dev and the evals.
 * ``client_for(record=, replay=)`` — the one place the eval commands get
   their client from: a replay, the settings client, or that client recorded.
 
 Retries live in the SDK (429/5xx with backoff); we pass its defaults and only
-wrap what still fails. This module imports ``django.conf.settings`` and
-nothing else from Django, so it can be used from management commands, the
-worker, and pure tests alike.
+wrap what still fails. At import this module needs only
+``django.conf.settings`` — the ORM is imported lazily inside ``for_tenant`` —
+so it can be used from management commands, the worker, and pure tests alike.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
@@ -39,12 +44,16 @@ from typing import Any, Callable, Iterable
 from django.conf import settings
 from typesafe_sdk import (
     ChoiceAnswer,
+    Noul,
     NoulAnswer,
     RetryPolicy,
     ScoreAnswer,
     TypeSafeClient,
     TypeSafeError,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class JevError(RuntimeError):
@@ -145,17 +154,24 @@ class JevClient:
         api_key: str,
         model: str,
         timeout: float = 30.0,
+        base_url: str | None = None,
         transport=None,
         retry: RetryPolicy | None = None,
     ):
         self.model = model
-        self._client = TypeSafeClient(
-            api_key=api_key,
-            model=model,
-            timeout=timeout,
-            transport=transport,
-            retry=retry if retry is not None else RetryPolicy(),
-        )
+        try:
+            self._client = TypeSafeClient(
+                api_key=api_key,
+                model=model,
+                timeout=timeout,
+                base_url=base_url or None,  # the SDK's default host when blank
+                transport=transport,
+                retry=retry if retry is not None else RetryPolicy(),
+            )
+        except TypeSafeError as exc:
+            # The SDK rejects a malformed key (whitespace, non-ASCII) up front;
+            # callers handle one error type whether it fails here or on a call.
+            raise JevError(f"jev client rejected: {exc}", cause=exc) from exc
         self.usage = _new_usage()
         self._lock = Lock()
 
@@ -168,6 +184,70 @@ class JevClient:
             model=settings.JEV_MODEL,
             timeout=settings.JEV_TIMEOUT,
         )
+
+    @classmethod
+    def for_provider(
+        cls, provider, *, timeout: float, retry: RetryPolicy | None = None
+    ) -> "JevClient":
+        """The client for one "TypeSafe (Jev)" ``LLMProvider`` row: its
+        decrypted key, its ``base_url`` when set, and the model discovery
+        stored (else ``JEV_MODEL``). The one builder the map run and the
+        settings screen's Test/discover share, so the test pings the model
+        the map will use. ``JevError`` when the row's key is malformed."""
+        models = list(provider.available_models or [])
+        return cls(
+            api_key=provider.api_key,
+            model=models[0] if models else settings.JEV_MODEL,
+            timeout=timeout,
+            base_url=provider.base_url,
+            retry=retry,
+        )
+
+    @classmethod
+    def for_tenant(cls, tenant) -> "JevClient | None":
+        """The client a workspace's map run uses, or None for "Jev off".
+
+        The first enabled "TypeSafe (Jev)" provider under the workspace's LLM
+        Providers wins (``for_provider``). Without one, the env settings
+        decide (``from_settings``), so local dev and the eval commands keep
+        working without a database row. AIRGAPPED always wins. A row whose
+        key the SDK rejects is logged and skipped: a bad paste must never
+        fail a map refresh.
+        """
+        if settings.AIRGAPPED:
+            return None
+        # Lazy: this module must stay importable without Django's app registry.
+        from app.domain.models import LLMProvider, LLMProviderType
+
+        provider = (
+            LLMProvider.objects.filter(
+                tenant=tenant, provider_type=LLMProviderType.TYPESAFE, enabled=True
+            )
+            .order_by("created_at")
+            .first()
+        )
+        if provider is None:
+            return cls.from_settings()
+        try:
+            return cls.for_provider(provider, timeout=settings.JEV_TIMEOUT)
+        except JevError as exc:
+            logger.warning(
+                "Jev is off for workspace %s: provider %s unusable (%s)",
+                tenant.pk, provider.pk, exc,
+            )
+            return None
+
+    def close(self) -> None:
+        self._client.close()
+
+    def ping(self) -> None:
+        """One tiny call to prove the key and model work; ``JevError`` if not.
+
+        The settings screen's Test button and provider discovery use this in
+        place of a model catalog: TypeSafe has no LiteLLM-style list endpoint
+        that reflects what a key may call, and a real answer does.
+        """
+        self.ask({"ok": True}, {"ok": Noul(instructions="Is the state ok?")})
 
     def ask(self, state, questions) -> JevResult:
         started = time.monotonic()

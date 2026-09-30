@@ -20,7 +20,11 @@ class Command(BaseCommand):
     help = "Probe every model a provider lists and show which ones this key can use."
 
     def add_arguments(self, parser):
-        parser.add_argument("provider_type", choices=LLMProviderType.values)
+        # TypeSafe (Jev) has no catalog to probe; it is checked by one Jev call.
+        parser.add_argument(
+            "provider_type",
+            choices=[v for v in LLMProviderType.values if v != LLMProviderType.TYPESAFE],
+        )
         parser.add_argument(
             "--api-key-env",
             required=True,

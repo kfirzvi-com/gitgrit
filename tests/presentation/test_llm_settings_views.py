@@ -13,6 +13,7 @@ NON_MANIFEST_STORAGES = {
 }
 
 from app.domain.models import LLMProvider, LLMRole
+from app.infrastructure.jev import JevError
 from app.infrastructure.llm_models import Discovery, ProbeResult
 
 
@@ -21,6 +22,7 @@ def _found(models, results=()):
 
 ADD_URL = "/tenants/llm/providers/add/"
 DISCOVER = "app.presentation.views.tenant_views.discover"
+PING = "app.infrastructure.jev.JevClient.ping"
 
 
 @pytest.mark.django_db
@@ -101,6 +103,58 @@ class TestLLMProviderViews(TestCase):
             resp = self.client.post(ADD_URL, {"provider_type": "bogus", "api_key": "k"})
         assert resp.status_code == 302
         assert LLMProvider.objects.count() == 0
+
+    def test_admin_adds_typesafe_provider_with_its_one_model(self):
+        self._admin()
+        with patch(DISCOVER, return_value=_found(["jev-1.13.0"])):
+            resp = self.client.post(
+                ADD_URL, {"provider_type": "typesafe", "api_key": "ts-key"}
+            )
+        assert resp.status_code == 302
+        provider = LLMProvider.objects.get()
+        assert provider.provider_type == "typesafe"
+        assert provider.display_name == "TypeSafe (Jev)"
+        assert provider.available_models == ["jev-1.13.0"]
+        assert provider.api_key == "ts-key"
+
+    def test_typesafe_connection_test_pings_jev(self):
+        _, tenant = self._admin()
+        provider = self._provider(
+            tenant, provider_type="typesafe", display_name="TypeSafe (Jev)"
+        )
+        with patch(PING, return_value=None) as ping:
+            resp = self.client.post(f"/tenants/llm/providers/{provider.id}/test/")
+        assert b"Connected" in resp.content
+        assert ping.call_count == 1
+        with patch(PING, side_effect=JevError("401 bad key")):
+            resp = self.client.post(f"/tenants/llm/providers/{provider.id}/test/")
+        assert b"Failed" in resp.content
+
+    def test_typesafe_test_and_fetch_use_the_stored_model(self):
+        _, tenant = self._admin()
+        provider = self._provider(
+            tenant, provider_type="typesafe", display_name="TypeSafe (Jev)",
+            available_models=["jev-2.0.0"],
+        )
+        with patch("app.presentation.views.tenant_views.test_provider", return_value=True) as tp:
+            self.client.post(f"/tenants/llm/providers/{provider.id}/test/")
+        assert tp.call_args.kwargs["model"] == "jev-2.0.0"
+        with patch(DISCOVER, return_value=_found(["jev-2.0.0"])) as dc:
+            self.client.post(f"/tenants/llm/providers/{provider.id}/fetch-models/")
+        assert dc.call_args.kwargs["model"] == "jev-2.0.0"
+
+    @override_settings(STORAGES=NON_MANIFEST_STORAGES)
+    def test_role_dropdown_omits_typesafe_provider(self):
+        _, tenant = self._admin()
+        anthropic = self._provider(tenant)
+        typesafe = self._provider(
+            tenant, provider_type="typesafe", display_name="TypeSafe (Jev)"
+        )
+        resp = self.client.get("/tenants/settings/")
+        html = resp.content.decode()
+        assert f'<option value="{anthropic.id}"' in html
+        assert f'<option value="{typesafe.id}"' not in html
+        assert "TypeSafe (Jev)" in html  # still listed in the providers table
 
     def test_remove_provider_cascades_roles(self):
         _, tenant = self._admin()
@@ -183,6 +237,24 @@ class TestSetLLMRole(TestCase):
         )
         assert resp.status_code == 302
         assert LLMRole.objects.filter(tenant=tenant, name="reasoning").count() == 0
+
+    def test_typesafe_provider_cannot_take_a_role(self):
+        _, tenant = self._admin()
+        provider = baker.make(
+            "app.LLMProvider",
+            tenant=tenant,
+            provider_type="typesafe",
+            display_name="TypeSafe (Jev)",
+            available_models=["jev-1.13.0"],
+            enabled=True,
+        )
+        resp = self.client.post(
+            "/tenants/llm/roles/reasoning/set/",
+            {"provider_id": str(provider.id), "model": "jev-1.13.0"},
+            follow=True,
+        )
+        assert "TypeSafe is used by the architecture map, not by roles." in resp.content.decode()
+        assert LLMRole.objects.count() == 0
 
     def test_invalid_role_name_rejected(self):
         _, tenant = self._admin()

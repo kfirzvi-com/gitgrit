@@ -298,3 +298,62 @@ def test_discover_returns_models_and_results():
     assert [r.model for r in found.results] == ["a", "b"]
     with patch(URLOPEN, side_effect=OSError("down")):
         assert discover("openai", "", "k") == Discovery([], [])
+
+
+PING = "app.infrastructure.jev.JevClient.ping"
+
+
+class TestTypeSafeDiscovery:
+    """TypeSafe has no catalog: one Jev ping decides, and the one model is JEV_MODEL."""
+
+    def test_discover_returns_the_settings_model_when_the_ping_succeeds(self, settings):
+        settings.JEV_MODEL = "jev-9.9.9"
+        with patch(URLOPEN) as urlopen, patch(PING, return_value=None):
+            found = discover("typesafe", "", "ts-key")
+        assert found.models == ["jev-9.9.9"]
+        assert found.reason == ""
+        urlopen.assert_not_called()
+
+    def test_discover_reports_the_error_when_the_ping_fails(self):
+        from app.infrastructure.jev import JevError
+
+        with patch(PING, side_effect=JevError("jev call failed: 401 bad key")):
+            found = discover("typesafe", "", "ts-key")
+        assert found.models == []
+        assert "401 bad key" in found.reason
+
+    def test_test_provider_follows_the_ping(self):
+        from app.infrastructure.jev import JevError
+
+        with patch(PING, return_value=None):
+            assert check_provider("typesafe", "", "ts-key") is True
+        with patch(PING, side_effect=JevError("down")):
+            assert check_provider("typesafe", "", "ts-key") is False
+
+    def test_malformed_key_never_raises(self):
+        # No patching: the SDK rejects the key before any network call.
+        found = discover("typesafe", "", "bad key")
+        assert found.models == []
+        assert "printable ASCII" in found.reason
+        assert check_provider("typesafe", "", "bäd-key") is False
+
+    def test_ping_never_retries_and_uses_the_stored_model(self, settings):
+        settings.JEV_MODEL = "jev-1.13.0"
+        built = []
+
+        class CaptureSDK:
+            def __init__(self, **kwargs):
+                built.append(kwargs)
+
+            def close(self):
+                built.append("closed")
+
+        with patch("app.infrastructure.jev.TypeSafeClient", CaptureSDK), patch(PING, return_value=None):
+            assert discover("typesafe", "", "ts-key").models == ["jev-1.13.0"]
+            assert discover("typesafe", "", "ts-key", model="jev-2.0.0").models == ["jev-2.0.0"]
+            assert check_provider("typesafe", "https://jev.example.test", "ts-key", model="jev-2.0.0")
+        kwargs = [b for b in built if b != "closed"]
+        assert [b["model"] for b in kwargs] == ["jev-1.13.0", "jev-2.0.0", "jev-2.0.0"]
+        assert kwargs[-1]["base_url"] == "https://jev.example.test"
+        assert all(b["retry"].max_retries == 0 for b in kwargs)
+        assert built.count("closed") == 3

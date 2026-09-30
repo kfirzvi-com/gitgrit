@@ -30,7 +30,10 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
-from app.domain.models import LLMProviderType
+from django.conf import settings
+
+from app.domain.models import LLMProvider, LLMProviderType
+from app.infrastructure.jev import JevClient, JevError, RetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +67,7 @@ _BODY_CODE = re.compile(r'"code"\s*:\s*([1-5]\d\d)\b')
 _ZERO_QUOTA = re.compile(r'"quotaValue"\s*:\s*"0"|\blimit:\s*0\b')
 
 PROBE_TIMEOUT = 8.0  # seconds per model
+_REASON_MAX = 140  # chars of provider error text shown in the UI
 PROBE_BUDGET = 20.0  # seconds for the whole batch; Kamal proxy cuts at 30s
 PROBE_WORKERS = 8
 
@@ -249,9 +253,13 @@ class Discovery:
 
     models: list[str]
     results: list[ProbeResult]
+    # A provider with no per-model probes (TypeSafe) states its failure here.
+    error: str = ""
 
     @property
     def reason(self) -> str:
+        if self.error:
+            return self.error
         if self.models or not self.results:
             return ""
         rejected = [r for r in self.results if r.verdict is False]
@@ -265,13 +273,51 @@ class Discovery:
             counts[key] = counts.get(key, 0) + 1
         text = max(counts, key=counts.get)
         text = text.split(". ")[0].rstrip(".")  # first sentence is enough
-        return text[:140]
+        return text[:_REASON_MAX]
+
+
+def _typesafe_ping(base_url: str, api_key: str, model: str, timeout: float) -> str:
+    """Prove a TypeSafe key with one Jev call; "" on success, else why not.
+
+    TypeSafe is not a LiteLLM provider: there is no catalog to list and no
+    chat completion to probe, so ``model`` is checked by asking it something.
+    The client is built the way the map builds it (``JevClient.for_provider``
+    over an unsaved row) and never retries: this runs on the request thread,
+    and a dead host must not push Add/Test past the proxy's 30s cut.
+    """
+    row = LLMProvider(base_url=base_url, api_key=api_key, available_models=[model])
+    client = None
+    try:
+        client = JevClient.for_provider(row, timeout=timeout, retry=RetryPolicy(max_retries=0))
+        client.ping()
+    except JevError as exc:
+        return " ".join(str(exc).split())[:_REASON_MAX]
+    finally:
+        if client is not None:
+            client.close()
+    return ""
 
 
 def discover(
-    provider_type: str, base_url: str, api_key: str, timeout: float = 10.0
+    provider_type: str,
+    base_url: str,
+    api_key: str,
+    timeout: float = 10.0,
+    *,
+    model: str | None = None,
 ) -> Discovery:
-    """Catalog → probe → the models this key can use. Empty on any failure."""
+    """Catalog → probe → the models this key can use. Empty on any failure.
+
+    ``model`` is only for TypeSafe: the provider's stored model when there
+    is a row (fetch-models), else ``JEV_MODEL`` (first Add).
+    """
+    if provider_type == LLMProviderType.TYPESAFE:
+        model = model or settings.JEV_MODEL
+        error = _typesafe_ping(base_url, api_key, model, timeout)
+        if error:
+            logger.warning("LLM model discovery failed for %s: %s", provider_type, error)
+            return Discovery([], [], error=error)
+        return Discovery([model], [])
     try:
         catalog = fetch_catalog(provider_type, base_url, api_key, timeout)
     except Exception as exc:  # noqa: BLE001 — best-effort; caller falls back
@@ -289,9 +335,17 @@ def discover_models(
 
 
 def test_provider(
-    provider_type: str, base_url: str, api_key: str, timeout: float = 10.0
+    provider_type: str,
+    base_url: str,
+    api_key: str,
+    timeout: float = 10.0,
+    *,
+    model: str | None = None,
 ) -> bool:
-    """True when the provider's models endpoint accepts the credentials."""
+    """True when the provider's models endpoint accepts the credentials.
+    ``model`` is only for TypeSafe (see ``discover``)."""
+    if provider_type == LLMProviderType.TYPESAFE:
+        return not _typesafe_ping(base_url, api_key, model or settings.JEV_MODEL, timeout)
     try:
         fetch_catalog(provider_type, base_url, api_key, timeout)
         return True
