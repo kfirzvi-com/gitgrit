@@ -11,14 +11,17 @@ from django.test import SimpleTestCase
 
 from app.domain.architecture.links import (
     DEFAULT_LIMIT,
+    EVIDENCE_KIND,
     MAX_FILE_CHARS,
     MAX_FILES_PER_COMPONENT,
+    PACKAGE_DEP_KIND,
     REFERENCE_KINDS,
     SNIPPET_CHARS,
     LinkCandidate,
     TargetOption,
     _image_name,
     already_covered,
+    find_evidence,
     find_link_candidates,
 )
 from app.domain.architecture.resolve import RosterEntry, with_siblings
@@ -197,6 +200,35 @@ class MiniFixtureTests(SimpleTestCase):
         c = find(self.mini, "platform/backend/services/notifications", "queue_name", "gitgrit-demo-orders-events")
         self.assertIsNotNone(c)
         self.assertEqual(refs(c)[0], f"{THIS_REPO}#services/orders-service")
+
+    def test_package_dep_on_the_shared_lib_from_every_manifest_kind(self):
+        shared = f"{THIS_REPO}#packages/shared-lib"
+        expected = {
+            # source, dependency as written, manifest, text on the line
+            ("apps/api-gateway", "@gitgrit-demo/shared-lib", "apps/api-gateway/package.json", "workspace:*"),
+            ("frontend/web-storefront", "@gitgrit-demo/shared-lib", "frontend/web-storefront/package.json", "file:../../packages/shared-lib"),
+            ("", "@gitgrit-demo/shared-lib", "package.json", '"@gitgrit-demo/shared-lib": "*"'),
+            ("services/auth-service", "shared-lib", "services/auth-service/pyproject.toml", '"shared-lib"'),
+            ("services/orders-service", "demo/shared-lib", "services/orders-service/go.mod", "demo/shared-lib v0.0.0"),
+        }
+        for source, reference, file, text in expected:
+            with self.subTest(source=source):
+                c = find(self.mini, source, PACKAGE_DEP_KIND, reference)
+                self.assertIsNotNone(c)
+                self.assertEqual((c.file, c.reference, c.external_name), (file, reference, ""))
+                self.assertIn(text, fixture_line(c))
+                # The manifest resolved the target, so the sibling is the only option:
+                # no same-named other repo for Jev to pick by name.
+                self.assertEqual(c.options, (TargetOption("A", shared, "shared-lib", "library"),))
+                self.assertIn(reference, c.code)
+        found = {(c.source_path, c.reference) for c in self.mini.candidates if c.reference_kind == PACKAGE_DEP_KIND}
+        self.assertEqual(found, {(s, r) for s, r, _, _ in expected})  # express, next, sqs… are not links
+
+    def test_package_dep_is_emitted_right_after_image(self):
+        self.assertEqual(REFERENCE_KINDS.index(PACKAGE_DEP_KIND), REFERENCE_KINDS.index("image") + 1)
+        kinds = [c.reference_kind for c in self.mini.candidates]
+        self.assertLess(kinds.index("image"), kinds.index(PACKAGE_DEP_KIND))
+        self.assertLess(kinds.index(PACKAGE_DEP_KIND), kinds.index("k8s_ref"))
 
     # --- what is ignored ---
 
@@ -547,6 +579,285 @@ class SecretMaskingTests(SimpleTestCase):
         self.assertIn("password: ***", code)
 
 
+LIB_COMPONENTS = (ComponentDecl("apps/gw", "gw", "service"), ComponentDecl("packages/lib", "lib", "library"))
+LIB_REF = "org/x#packages/lib"
+
+
+def package_deps(result):
+    return [(c.source_path, c.reference, c.file, c.line) for c in result.candidates if c.reference_kind == PACKAGE_DEP_KIND]
+
+
+class PackageDepTests(SimpleTestCase):
+    """A dependency in a component's own manifest that names a sibling, per
+    manifest kind; third-party libraries and self-dependencies are nothing."""
+
+    def assert_lib_dep(self, result, reference: str, file: str, line: int, source: str = "apps/gw"):
+        self.assertEqual(package_deps(result), [(source, reference, file, line)])
+        (c,) = [c for c in result.candidates if c.reference_kind == PACKAGE_DEP_KIND]
+        self.assertEqual((refs(c), c.external_name), ([LIB_REF], ""))
+        self.assertEqual(c.options[0], TargetOption("A", LIB_REF, "lib", "library"))
+        return c
+
+    def test_package_json_by_name_and_by_path(self):
+        by_name = {
+            "packages/lib/package.json": '{"name": "@org/lib"}\n',
+            "apps/gw/package.json": (
+                '{\n  "name": "@org/gw",\n  "dependencies": {\n    "express": "^4.0.0",\n'
+                '    "@org/lib": "workspace:*"\n  },\n  "devDependencies": {"@org/gw": "*"}\n}\n'
+            ),
+        }
+        self.assert_lib_dep(scan_tree(by_name, LIB_COMPONENTS), "@org/lib", "apps/gw/package.json", 5)
+        by_path = {
+            "packages/lib/package.json": '{"name": "something-else"}\n',
+            "apps/gw/package.json": '{"dependencies": {"shared": "file:../../packages/lib", "left-pad": "link:../../vendor/x"}}\n',
+        }
+        self.assert_lib_dep(scan_tree(by_path, LIB_COMPONENTS), "shared", "apps/gw/package.json", 1)
+
+    def test_go_mod_require_by_module_path_and_replace_by_directory(self):
+        by_module = {
+            "packages/lib/go.mod": "module github.com/org/x/packages/lib\n\ngo 1.22\n",
+            "apps/gw/go.mod": (
+                "module github.com/org/x/apps/gw\n\ngo 1.22\n\nrequire (\n"
+                "\tgithub.com/aws/aws-sdk-go-v2 v1.30.0\n"
+                "\tgithub.com/org/x/packages/lib v0.0.0 // indirect\n)\n"
+            ),
+        }
+        self.assert_lib_dep(scan_tree(by_module, LIB_COMPONENTS), "github.com/org/x/packages/lib", "apps/gw/go.mod", 7)
+        by_replace = {
+            "packages/lib/go.mod": "module example.com/renamed\n",
+            "apps/gw/go.mod": "module gw\n\nrequire example.com/lib v1.0.0\n\nreplace example.com/lib v1.0.0 => ../../packages/lib\n",
+        }
+        self.assert_lib_dep(scan_tree(by_replace, LIB_COMPONENTS), "example.com/lib", "apps/gw/go.mod", 5)
+        no_sibling = {"apps/gw/go.mod": "module gw\n\nrequire example.com/lib v1.0.0\n\nreplace example.com/lib => example.com/fork v1.1.0\n"}
+        self.assertEqual(package_deps(scan_tree(no_sibling, LIB_COMPONENTS)), [])
+
+    def test_pyproject_dependencies_uv_sources_and_poetry(self):
+        pep621 = {
+            "packages/lib/pyproject.toml": '[project]\nname = "Org_Shared.Lib"\n',
+            "apps/gw/pyproject.toml": '[project]\nname = "gw"\ndependencies = [\n  "fastapi>=0.110",\n  "org-shared-lib>=1",\n]\n',
+        }
+        self.assert_lib_dep(scan_tree(pep621, LIB_COMPONENTS), "org-shared-lib", "apps/gw/pyproject.toml", 5)
+        uv = {
+            "packages/lib/pyproject.toml": '[project]\nname = "unrelated"\n',
+            "apps/gw/pyproject.toml": '[project]\nname = "gw"\ndependencies = ["shared"]\n\n[tool.uv.sources]\nshared = { path = "../../packages/lib" }\n',
+        }
+        self.assert_lib_dep(scan_tree(uv, LIB_COMPONENTS), "shared", "apps/gw/pyproject.toml", 3)
+        poetry = {
+            "packages/lib/pyproject.toml": '[tool.poetry]\nname = "lib"\n',
+            "apps/gw/pyproject.toml": '[tool.poetry]\nname = "gw"\n\n[tool.poetry.dependencies]\npython = "^3.12"\nlib = { path = "../../packages/lib", develop = true }\n',
+        }
+        self.assert_lib_dep(scan_tree(poetry, LIB_COMPONENTS), "lib", "apps/gw/pyproject.toml", 6)
+
+    def test_requirements_editable_path_and_distribution_name(self):
+        editable = {"apps/gw/requirements-dev.txt": "# tools\npytest>=8\n-e ../../packages/lib[extra]\n"}
+        c = self.assert_lib_dep(scan_tree(editable, LIB_COMPONENTS), "../../packages/lib", "apps/gw/requirements-dev.txt", 3)
+        self.assertIn("apps/gw/requirements-dev.txt", c.file)
+        by_name = {
+            "packages/lib/pyproject.toml": '[project]\nname = "org-lib"\n',
+            "apps/gw/requirements.txt": "-r base.txt\nrequests==2.32.0\norg_lib==1.0  # sibling\n",
+        }
+        self.assert_lib_dep(scan_tree(by_name, LIB_COMPONENTS), "org_lib", "apps/gw/requirements.txt", 3)
+
+    def test_cargo_path_dependency(self):
+        cargo = {
+            "packages/lib/Cargo.toml": '[package]\nname = "lib"\n',
+            "apps/gw/Cargo.toml": '[package]\nname = "gw"\n\n[dependencies]\nserde = "1"\nlib = { path = "../../packages/lib" }\n',
+        }
+        self.assert_lib_dep(scan_tree(cargo, LIB_COMPONENTS), "lib", "apps/gw/Cargo.toml", 6)
+
+    def test_third_party_and_self_dependencies_are_nothing(self):
+        contents = {
+            "packages/lib/package.json": '{"name": "@org/lib", "dependencies": {"@org/lib": "*", "zod": "^3"}}\n',
+            "apps/gw/package.json": '{"dependencies": {"express": "^4", "react": "*"}}\n',
+            "apps/gw/go.mod": "module gw\nrequire github.com/stripe/stripe-go v78.0.0\n",
+        }
+        self.assertEqual(package_deps(scan_tree(contents, LIB_COMPONENTS)), [])
+
+    def test_a_path_that_lands_outside_every_sibling_is_nothing(self):
+        contents = {
+            "apps/gw/package.json": '{"dependencies": {"tooling": "file:../../tools/x", "root": "file:../.."}}\n',
+        }
+        self.assertEqual(package_deps(scan_tree(contents, LIB_COMPONENTS)), [])
+        with_root = LIB_COMPONENTS + (ComponentDecl("", "x"),)
+        result = scan_tree(contents, with_root)
+        self.assertEqual([(s, r) for s, r, _, _ in package_deps(result)], [("apps/gw", "root")])  # ``../..`` is the root itself
+
+    def test_a_path_inside_a_sibling_resolves_to_it(self):
+        contents = {"apps/gw/pyproject.toml": '[tool.uv.sources]\nlibpy = { path = "../../packages/lib/python" }\n'}
+        self.assert_lib_dep(scan_tree(contents, LIB_COMPONENTS), "libpy", "apps/gw/pyproject.toml", 2)
+
+    def test_broken_json_and_toml_are_tolerated(self):
+        contents = {
+            "packages/lib/package.json": '{"name": "@org/lib"',
+            "packages/lib/pyproject.toml": "[project\nname = ",
+            "apps/gw/package.json": '{"dependencies": {"@org/lib": ',
+            "apps/gw/pyproject.toml": "dependencies = [",
+            "apps/gw/Cargo.toml": "[dependencies\n",
+            "apps/gw/.env": "LIB_URL=http://lib:8000\n",
+        }
+        result = scan_tree(contents, LIB_COMPONENTS)
+        self.assertEqual([c.key for c in result.candidates], [("apps/gw", "env_var", "lib_url")])
+
+    def test_dependency_lines_are_scanned_only_for_files_a_component_owns(self):
+        contents = {
+            "packages/lib/package.json": '{"name": "@org/lib"}\n',
+            "package.json": '{"dependencies": {"@org/lib": "*"}}\n',  # no root component: nobody's manifest
+            "docs/package.json": '{"dependencies": {"@org/lib": "*"}}\n',
+        }
+        self.assertEqual(package_deps(scan_tree(contents, LIB_COMPONENTS)), [])
+
+
+AUTH = ComponentDecl("services/auth-service", "auth-service", "service")
+GW = ComponentDecl("apps/api-gateway", "api-gateway", "service")
+AUTH_OPTIONS = (TargetOption("A", f"{THIS_REPO}#services/auth-service", "auth-service", "service"),)
+
+
+def evidence(contents: dict[str, str], component=GW, tokens=("auth-service",), options=AUTH_OPTIONS, external_name=""):
+    return find_evidence(list(contents), contents.get, component, tokens, options, external_name, this_repo=THIS_REPO)
+
+
+class FindEvidenceTests(SimpleTestCase):
+    """One evidence candidate for an edge the LLM claimed: the first line in
+    the component that mentions the target."""
+
+    def test_found_in_a_config_file_with_the_scanner_snippet(self):
+        contents = {
+            "apps/api-gateway/src/index.ts": "import express from 'express';\n",
+            "apps/api-gateway/config/services.yaml": "upstreams:\n  auth: http://auth-service:8000\n  orders: http://orders-service:8080\n",
+        }
+        c = evidence(contents)
+        self.assertIsNotNone(c)
+        self.assertEqual((c.source_path, c.file, c.line), ("apps/api-gateway", "apps/api-gateway/config/services.yaml", 2))
+        self.assertEqual((c.reference, c.reference_kind), ("auth-service", EVIDENCE_KIND))
+        self.assertEqual((c.options, c.external_name), (AUTH_OPTIONS, ""))
+        self.assertEqual(c.code, "upstreams:\n  auth: http://auth-service:8000\n  orders: http://orders-service:8080")
+        self.assertEqual(c.key, ("apps/api-gateway", EVIDENCE_KIND, "auth-service"))
+
+    def test_config_files_are_read_before_source_and_the_first_line_wins(self):
+        contents = {
+            "apps/api-gateway/src/config.ts": "export const auth = process.env.AUTH_SERVICE_URL;\n",
+            "apps/api-gateway/.env.example": "PORT=3000\nAUTH_SERVICE_URL=http://auth-service:8000\n",
+        }
+        c = evidence(contents)
+        self.assertEqual((c.file, c.line, c.reference), ("apps/api-gateway/.env.example", 2, "AUTH_SERVICE"))
+
+    def test_token_variants_and_word_boundaries(self):
+        cases = {
+            # line, token -> matched text (None: no evidence)
+            ("AUTH_SERVICE_URL=http://x\n", "auth-service"): "AUTH_SERVICE",
+            ("auth.service.local\n", "auth_service"): "auth.service",
+            ("upstream: auth-service-legacy\n", "auth-service"): "auth-service",  # a longer name built on it still mentions it
+            ("client = oauth.Client()\n", "auth"): None,
+            ("authservice = 1\n", "auth-service"): None,
+            ("x = Stripe(key)\n", "stripe"): "Stripe",
+            ("image: ghcr.io/kfirzvi-com/gitgrit-demo-payments-service:latest\n", "gitgrit-demo-payments-service"): "gitgrit-demo-payments-service",
+        }
+        for (line, token), expected in cases.items():
+            with self.subTest(line=line, token=token):
+                c = evidence({"apps/api-gateway/config.yaml": line}, tokens=(token,))
+                self.assertEqual(c.reference if c else None, expected)
+
+    def test_longest_token_wins_and_empty_tokens_are_nothing(self):
+        line = "image: ghcr.io/org/gitgrit-demo-payments-service:latest\n"
+        c = evidence({"apps/api-gateway/config.yaml": line}, tokens=("payments", "gitgrit-demo-payments-service", ""))
+        self.assertEqual(c.reference, "gitgrit-demo-payments-service")
+        self.assertIsNone(evidence({"apps/api-gateway/config.yaml": line}, tokens=("", " ")))
+        self.assertIsNone(evidence({"apps/api-gateway/config.yaml": line}, tokens=("x" * 3000,)))
+
+    def test_none_when_the_component_never_mentions_the_target(self):
+        contents = {
+            "apps/api-gateway/src/config.ts": "export const orders = process.env.ORDERS_SERVICE_URL;\n",
+            "services/auth-service/app/main.py": "SELF = 'auth-service'\n",  # another component's file
+            "README.md": "The gateway calls auth-service.\n",  # not scannable
+        }
+        self.assertIsNone(evidence(contents))
+
+    def test_skips_and_caps_match_the_scanner(self):
+        contents = {
+            "apps/api-gateway/node_modules/x/index.js": "fetch('http://auth-service:8000')\n",
+            "apps/api-gateway/vendor/y/config.json": '{"auth-service": 1}\n',
+            "apps/api-gateway/fixtures/case.json": '{"auth-service": 1}\n',
+            "apps/api-gateway/package-lock.json": '{"auth-service": 1}\n',
+            "apps/api-gateway/big.json": '{"auth-service": 1}' + "#" * MAX_FILE_CHARS,
+        }
+        self.assertIsNone(evidence(contents))
+        root_skips = {"docs/auth.md": "auth-service\n", "legacy/old.py": "x = 'auth-service'\n", "scripts/x.py": "auth-service\n"}
+        self.assertIsNone(evidence(root_skips, component=ComponentDecl("", "root")))
+
+    def test_compose_and_k8s_files_count_after_the_components_own_files(self):
+        contents = {
+            "docker-compose.yml": "services:\n  api-gateway:\n    build: ./apps/api-gateway\n    depends_on: [auth-service]\n",
+            "deploy/k8s/gw.yaml": "kind: Deployment\nmetadata: {name: api-gateway}\n",
+            "apps/api-gateway/src/index.ts": "import express from 'express';\n",
+        }
+        c = evidence(contents)
+        self.assertEqual((c.file, c.line, c.reference), ("docker-compose.yml", 4, "auth-service"))
+        own_first = {**contents, "apps/api-gateway/config.yaml": "auth: http://auth-service:8000\n"}
+        self.assertEqual(evidence(own_first).file, "apps/api-gateway/config.yaml")
+
+    def test_snippet_masks_secrets_and_userinfo(self):
+        env = (
+            "STRIPE_SECRET_KEY=sk_live_abc\n"
+            "AUTH_SERVICE_URL=http://svc:hunter2@auth-service:8000\n"
+            "DB_PASSWORD='p4ss'\n"
+        )
+        c = evidence({"apps/api-gateway/.env": env})
+        self.assertEqual(c.line, 2)
+        self.assertIn("AUTH_SERVICE_URL=http://***@auth-service:8000", c.code)
+        self.assertIn("STRIPE_SECRET_KEY=***", c.code)
+        self.assertIn("DB_PASSWORD=***", c.code)
+        for secret in ("sk_live_abc", "hunter2", "p4ss"):
+            self.assertNotIn(secret, c.code)
+
+    def test_a_comment_mention_is_kept_only_when_nothing_else_mentions_the_target(self):
+        """Terraform: line 1 is a comment naming the infra repo, line 6 the
+        remote-state key. The key must be the evidence, or Jev answers
+        "inactive" for a real dependency."""
+        tf = (
+            "# Shared VPC/subnets are owned by kfirzvi-com/gitgrit-demo-infra.\n"
+            "data \"terraform_remote_state\" \"network\" {\n"
+            "  backend = \"s3\"\n"
+            "  config = {\n"
+            "    bucket = \"demo-tfstate\"\n"
+            "    key    = \"gitgrit-demo-infra/network.tfstate\"\n"
+            "  }\n}\n"
+        )
+        terraform = ComponentDecl("deploy/terraform", "terraform", "infra")
+        c = evidence({"deploy/terraform/network.tf": tf}, component=terraform, tokens=("gitgrit-demo-infra", "infra"))
+        self.assertEqual((c.file, c.line), ("deploy/terraform/network.tf", 6))
+        only_comment = evidence(
+            {"deploy/terraform/README.tf": "# see kfirzvi-com/gitgrit-demo-infra\n"},
+            component=terraform, tokens=("gitgrit-demo-infra",),
+        )
+        self.assertEqual((only_comment.file, only_comment.line), ("deploy/terraform/README.tf", 1))
+
+    def test_the_matched_line_itself_is_secret_masked(self):
+        contents = {"apps/api-gateway/.env": "AUTH_SERVICE_SECRET=hunter2\nAUTH_SERVICE_URL=http://auth-service:8000\n"}
+        c = evidence(contents)
+        self.assertEqual(c.line, 1)  # the first mention is the secret line
+        self.assertNotIn("hunter2", c.code)
+        self.assertIn("AUTH_SERVICE_SECRET=", c.code)
+
+    def test_a_root_component_does_not_borrow_nested_components_files(self):
+        contents = {
+            "package.json": '{"name": "console"}\n',
+            "services/auth-service/app/main.py": "SELF = 'auth-service'\n",
+        }
+        root = ComponentDecl("", "console", "frontend")
+        borrowed = find_evidence(list(contents), contents.get, root, ("auth-service",), AUTH_OPTIONS, this_repo=THIS_REPO)
+        self.assertIsNotNone(borrowed)  # alone, the root owns every file
+        scoped = find_evidence(
+            list(contents), contents.get, root, ("auth-service",), AUTH_OPTIONS,
+            this_repo=THIS_REPO, components=(root, AUTH),
+        )
+        self.assertIsNone(scoped)
+
+    def test_external_target_passes_its_name_through(self):
+        c = evidence({"apps/api-gateway/package.json": '{"dependencies": {"@stripe/stripe-js": "^4"}}\n'},
+                     tokens=("stripe",), options=(), external_name="stripe")
+        self.assertEqual((c.reference, c.options, c.external_name), ("stripe", (), "stripe"))
+
+
 class AlreadyCoveredTests(SimpleTestCase):
     def test_already_covered_by_an_internal_edge(self):
         topology = RepositoryTopology(
@@ -631,3 +942,25 @@ class RealMessyMonorepoTests(SimpleTestCase):
         self.assertFalse(
             any(f.startswith(("legacy/", "services/orders-service/vendor/")) or "node_modules" in f for f in result.files_read)
         )
+
+    def test_shared_lib_package_deps_match_the_golden_edges(self):
+        """Every golden ``→ packages/shared-lib`` edge has a ``package_dep``
+        candidate whose first option is the sibling library."""
+        result = scan(MESSY)
+        shared = f"{THIS_REPO}#packages/shared-lib"
+        golden_sources = {"", "apps/api-gateway", "frontend/web-storefront", "services/auth-service",
+                          "services/orders-service", "services/data-pipeline", "platform/backend/services/notifications"}
+        by_source = {c.source_path: c for c in result.candidates if c.reference_kind == PACKAGE_DEP_KIND and refs(c)[0] == shared}
+        self.assertEqual(set(by_source), golden_sources)
+        for source, c in by_source.items():
+            with self.subTest(source=source):
+                self.assertTrue(c.file.startswith(source), c.file)
+                self.assertEqual(c.options, (TargetOption("A", shared, "shared-lib", "library"),))
+                self.assertEqual(c.external_name, "")
+        self.assertEqual(
+            {c.reference for c in by_source.values()},
+            {"@gitgrit-demo/shared-lib", "gitgrit-demo-shared-lib", "github.com/kfirzvi-com/gitgrit-demo-monorepo/packages/shared-lib"},
+        )
+        # Nothing else in a manifest is a link: the other-repo payments client and the third-party libraries.
+        others = [c for c in result.candidates if c.reference_kind == PACKAGE_DEP_KIND and refs(c)[0] != shared]
+        self.assertEqual(others, [])

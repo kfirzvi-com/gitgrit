@@ -1,0 +1,9 @@
+{
+  "name": "@gitgrit-demo/api-gateway",
+  "version": "0.6.0",
+  "dependencies": {
+    "express": "^4.19.0",
+    "@gitgrit-demo/shared-lib": "workspace:*",
+    "ioredis": "^5.4.0"
+  }
+}

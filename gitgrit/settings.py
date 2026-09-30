@@ -56,6 +56,8 @@ JEV_MODEL = os.environ.get("JEV_MODEL", "jev-1.13.0")
 JEV_TIMEOUT = float(os.environ.get("JEV_TIMEOUT", "30"))
 JEV_MAP_MAX_CANDIDATES = int(os.environ.get("JEV_MAP_MAX_CANDIDATES", "150"))
 JEV_MAP_MAX_ESCALATIONS = int(os.environ.get("JEV_MAP_MAX_ESCALATIONS", "20"))
+# Plan §9: reconcile the LLM's own edges with code evidence + Jev (off = purely additive link stage).
+JEV_VERIFY_LLM_EDGES = os.environ.get("JEV_VERIFY_LLM_EDGES", "True") == "True"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [
     host for host in [urlparse(SITE_URL).hostname] if host
