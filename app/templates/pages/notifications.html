@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications — GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold">Notifications</h1>
+  {% if active %}
+    <form method="post" action="{% url 'notifications_mark_all_read' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm">Mark all read</button>
+    </form>
+  {% endif %}
+</div>
+
+<section class="mb-8">
+  <h2 class="text-xl font-semibold mb-2">Active</h2>
+  <div class="card bg-base-100 shadow-xl">
+    {% for delivery in active %}
+      {% include "components/notification_item.html" with when=delivery.notification.created_at %}
+    {% empty %}
+      <div class="card-body text-sm opacity-70">Nothing needs your attention.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2 class="text-xl font-semibold mb-2">History</h2>
+  <div class="card bg-base-100 shadow-xl">
+    {% for delivery in history %}
+      {% include "components/notification_item.html" with when=delivery.read_at %}
+    {% empty %}
+      <div class="card-body text-sm opacity-70">No read notifications yet.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll("[data-local-time]").forEach(function (el) {
+    el.textContent = new Date(el.dateTime).toLocaleString(undefined, {
+      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+  });
+</script>
+{% endblock %}

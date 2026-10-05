@@ -17,6 +17,8 @@ execution model as the Run button): RUNNING executions are created in the
 publisher's request and the ``run_standards`` job fills them in. Handlers
 return a summary dict so publish sites can flash feedback; the bus swallows
 handler exceptions, so a failed enqueue never fails the mutation it reacted to.
+
+Notification sources register here too.
 """
 from __future__ import annotations
 
@@ -25,6 +27,7 @@ import logging
 from django.db import transaction
 from procrastinate.exceptions import AlreadyEnqueued
 
+import app.application.notifications.sources as notifications_sources
 from app.application.event_bus import subscribe
 from app.application.standard_runs import enqueue_manual_run, queue_summary_message
 from app.domain.events import (
@@ -134,3 +137,4 @@ def register() -> None:
     subscribe(StandardsAttached, _on_standards_attached)
     subscribe(StandardSaved, _on_standard_changed)
     subscribe(StandardActivated, _on_standard_changed)
+    notifications_sources.register()
