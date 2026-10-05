@@ -1,6 +1,7 @@
-"""The ``#project-results`` anchor that ``standards.failing`` notices link to.
+"""The ``#compliance`` anchor that ``standards.failing`` notices link to, and the
+``#project-results`` wrapper around it.
 
-It must exist on the full page and survive the HTMX poll that swaps it in place.
+Both must exist on the full page and survive the HTMX poll that swaps it in place.
 """
 import pytest
 from django.test import TestCase, override_settings
@@ -30,9 +31,13 @@ class TestProjectResultsAnchor(TestCase):
     def test_project_page_has_the_anchor(self):
         resp = self.client.get(reverse("project_detail", args=[self.project.pk]))
         assert resp.status_code == 200
-        assert 'id="project-results"' in resp.content.decode()
+        body = resp.content.decode()
+        assert 'id="project-results"' in body
+        assert 'id="compliance"' in body
 
     def test_poll_partial_keeps_the_anchor(self):
         resp = self.client.get(reverse("project_results", args=[self.project.pk]))
         assert resp.status_code == 200
-        assert 'id="project-results"' in resp.content.decode()
+        body = resp.content.decode()
+        assert 'id="project-results"' in body
+        assert 'id="compliance"' in body

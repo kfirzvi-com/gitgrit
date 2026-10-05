@@ -153,11 +153,11 @@ class StandardsFailingTests(TestCase):
         n = Notification.objects.get()
         self.assertEqual(n.kind, "standards.failing")
         self.assertEqual(n.severity, "warning")
-        self.assertEqual(n.title, "2 standards failing on Acme")
-        self.assertIn("score 67/100: README present, Pinned CI", n.body)
-        self.assertTrue(n.url.endswith("#project-results"))
+        self.assertEqual(n.title, "Acme 2 standards failed")
+        self.assertEqual(n.body, "score 67/100: README present, Pinned CI")
+        self.assertTrue(n.url.endswith("#compliance"))
         self.assertEqual(
-            n.url, reverse("project_detail", args=[self.project.pk]) + "#project-results"
+            n.url, reverse("project_detail", args=[self.project.pk]) + "#compliance"
         )
         self.assertEqual(n.dedupe_key, f"standards:{self.project.pk}")
         self.assertEqual(n.context["project_id"], str(self.project.pk))
@@ -170,7 +170,7 @@ class StandardsFailingTests(TestCase):
         ]
         sources.on_standard_run_finished(self._event(rows, passed=1, failed=1))
         self.assertEqual(
-            Notification.objects.get().title, "1 standard failing on Acme"
+            Notification.objects.get().title, "Acme 1 standard failed"
         )
 
     def test_more_than_three_names_are_capped(self):
@@ -233,7 +233,7 @@ class DependencyGraphFailedTests(TestCase):
         sources.on_dependency_inference_failed(self._event())
         n = Notification.objects.get()
         self.assertEqual(n.kind, "graph.failed")
-        self.assertEqual(n.severity, "warning")
+        self.assertEqual(n.severity, "info")
         self.assertIn("Acme", n.title)
         self.assertEqual(n.body, "LLM timed out")
         self.assertTrue(n.url.endswith("#components"))

@@ -7,9 +7,9 @@ from app.domain.notifications import Audience, Rule
 logger = logging.getLogger(__name__)
 
 RULES: dict[str, Rule] = {
-    "run.failed": Rule(Audience.admins(), ("inbox",)),
-    "standards.failing": Rule(Audience.admins(), ("inbox",)),
-    "graph.failed": Rule(Audience.admins(), ("inbox",)),
+    "run.failed": Rule(Audience.team(), ("inbox",)),
+    "standards.failing": Rule(Audience.team(), ("inbox",)),
+    "graph.failed": Rule(Audience.team(), ("inbox",)),
 }
 
 

@@ -3,7 +3,8 @@
 A source turns a fact into a ``Notice`` and hands it to ``notify()``. It never
 decides the audience; the rule table in ``router.py`` does. A finished run
 yields ``run.failed`` (could not evaluate) or ``standards.failing``; a
-dependency graph that gave up building yields ``graph.failed``.
+dependency graph that gave up building yields ``graph.failed``. Every kind
+goes to the whole team (see ``router.py``); the run's trigger is added on top.
 """
 
 from __future__ import annotations
@@ -69,7 +70,7 @@ def _run_failed_notice(event: StandardRunFinished, project) -> Notice:
         kind="run.failed",
         tenant_id=event.tenant_id,
         severity=Severity.CRITICAL,
-        title=f"GitGrit could not evaluate {project.name}",
+        title=f"{project.name} GitGrit could not evaluate",
         body=_first_line(body),
         url=url,
         context={
@@ -107,14 +108,14 @@ def _standards_failing_notice(event: StandardRunFinished, project) -> Notice | N
     listing = ", ".join(names)
     if len(failed_rows) > 3:
         listing += f" and {len(failed_rows) - 3} more"
-    score_text = f" · score {round(score)}/100" if score is not None else ""
+    body = f"score {round(score)}/100: {listing}" if score is not None else listing
     return Notice(
         kind="standards.failing",
         tenant_id=event.tenant_id,
         severity=Severity.WARNING,
-        title=f"{n} standard{'s' if n != 1 else ''} failing on {project.name}",
-        body=f"{n} standards failing{score_text}: {listing}",
-        url=reverse("project_detail", args=[project.pk]) + "#project-results",
+        title=f"{project.name} {n} standard{'s' if n != 1 else ''} failed",
+        body=body,
+        url=reverse("project_detail", args=[project.pk]) + "#compliance",
         context={
             "project_id": str(event.project_id),
             "execution_ids": [str(e) for e in event.execution_ids],
@@ -164,8 +165,8 @@ def on_dependency_inference_failed(event: DependencyInferenceFailed) -> None:
         Notice(
             kind="graph.failed",
             tenant_id=event.tenant_id,
-            severity=Severity.WARNING,
-            title=f"Dependency graph failed on {project.name}",
+            severity=Severity.INFO,
+            title=f"{project.name} dependency graph failed",
             body=_first_line(event.error),
             url=reverse("project_detail", args=[project.pk]) + "#components",
             context={"project_id": str(event.project_id)},
