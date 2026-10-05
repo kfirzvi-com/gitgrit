@@ -147,6 +147,20 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
         raise
 
 
+@app.task(queue="notifications", name="deliver_notification")
+def deliver_notification(notification_id: str) -> None:
+    """Deliver one stored notification on its channels.
+
+    No Procrastinate retry: a channel that fails gets a ``failed`` delivery
+    row, which is the record; nothing re-sends it. ``deliver`` skips channels
+    that already have a ``sent`` row, so a re-run after a crashed worker
+    (``recover_stalled_jobs``) never double-posts.
+    """
+    from app.application.notifications.delivery import deliver
+
+    deliver(notification_id)
+
+
 @app.periodic(cron="*/5 * * * *")
 @app.task(queue="standards", name="expire_stale_standard_runs", pass_context=False)
 def expire_stale_standard_runs(timestamp: int) -> int:
