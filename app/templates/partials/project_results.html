@@ -2,7 +2,7 @@
 {# Served standalone to the HTMX poll below, so the cards refresh themselves #}
 {# while a background run is in flight (data-no-loader keeps the full-page #}
 {# "loading" overlay out of a poll that happens every few seconds). #}
-<div id="project-results" class="space-y-6"
+<div id="project-results" class="space-y-6 scroll-mt-20"
      {% if running_standard_ids %}hx-get="{% url 'project_results' project.pk %}" hx-trigger="every 3s" hx-swap="outerHTML" data-no-loader{% endif %}>
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
@@ -87,7 +87,7 @@
       </div>
     </div>
 
-    <div class="card bg-base-100 shadow-xl">
+    <div class="card bg-base-100 shadow-xl scroll-mt-20" id="compliance">
       <div class="card-body">
         <h2 class="card-title">Compliance</h2>
         {% if compliance_score is not None %}

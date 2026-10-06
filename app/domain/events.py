@@ -94,3 +94,40 @@ class StandardSaved:
 class StandardActivated:
     standard_id: str
     tenant_id: str
+
+
+# --- Run outcome events --------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StandardRunFinished:
+    """Published by ``run_standards`` after a run, whatever its outcome.
+
+    ``error`` is set only when the job itself blew up (token fetch, config
+    build) and every remaining row was marked ERROR. Workers publish it and
+    know nothing about who listens.
+    """
+
+    project_id: str
+    tenant_id: str
+    execution_ids: tuple[str, ...]
+    passed: int
+    failed: int
+    errored: int
+    error: str = ""
+
+
+@dataclass(frozen=True)
+class DependencyInferenceFailed:
+    """Published by ``infer_project_dependencies`` once its in-process retries
+    are exhausted.
+
+    ``had_worked_before`` says whether this project had a map before this run,
+    so listeners can stay quiet for workspaces where the graph has never
+    worked (for example, no AI model configured).
+    """
+
+    project_id: str
+    tenant_id: str
+    error: str
+    had_worked_before: bool

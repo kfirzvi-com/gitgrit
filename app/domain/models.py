@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from app.domain.notifications import Severity
 from app.infrastructure.model_fields import EncryptedCharField
 
 
@@ -968,3 +969,89 @@ class FeedbackReport(models.Model):
 
     def __str__(self):
         return f"Feedback from {self.user_email or self.user_id or 'anonymous'} @ {self.created_at:%Y-%m-%d}"
+
+
+class Notification(models.Model):
+    """The fact as reported: one row per notice, whoever ends up hearing it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    kind = models.CharField(max_length=100)
+    severity = models.CharField(
+        max_length=10,
+        choices=[(s.value, s.value.title()) for s in Severity],
+    )
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True)
+    url = models.CharField(max_length=500, blank=True)
+    context = models.JSONField(default=dict, blank=True)
+    dedupe_key = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notifications"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["tenant", "created_at"],
+                name="idx_notification_tenant_date",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.kind} — {self.title}"
+
+
+class NotificationDelivery(models.Model):
+    """One recipient's copy of a Notification on one channel.
+
+    read_at lives here, not on Notification, on purpose: reading is personal,
+    so one admin opening an item must not clear it for the others.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    notification = models.ForeignKey(
+        Notification,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+    channel = models.CharField(max_length=50)
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="notification_deliveries",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    error = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notification_deliveries"
+        ordering = ["-created_at"]
+        indexes = [
+            # The bell: unread inbox items for one user.
+            models.Index(
+                fields=["recipient", "channel", "read_at"],
+                name="idx_notifdelivery_bell",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.channel} → {self.recipient_id} ({self.status})"

@@ -4,6 +4,7 @@
 {% url 'stack_list' as url_stacks %}
 {% url 'standard_list' as url_standards %}
 {% url 'marketplace_browse' as url_marketplace %}
+{% url 'notification_list' as url_notifications %}
 <div class="navbar bg-base-100 shadow-lg">
   <div class="navbar-start">
     {% if user.is_authenticated %}
@@ -72,6 +73,15 @@
             </ul>
           </div>
         </div>
+      {% endif %}
+
+      {% if current_tenant %}
+        <a href="{{ url_notifications }}" class="btn btn-ghost btn-circle" aria-label="Notifications" title="Notifications">
+          <div class="indicator">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5{% if request.path == url_notifications %} text-primary{% endif %}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+            {% if unread_notifications > 0 %}<span class="indicator-item badge badge-error badge-sm">{{ unread_notifications }}</span>{% endif %}
+          </div>
+        </a>
       {% endif %}
 
       <div class="dropdown dropdown-end">

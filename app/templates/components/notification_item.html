@@ -1,0 +1,19 @@
+{% comment %}One inbox row. Expects `delivery`; `when` is the timestamp to show.{% endcomment %}
+<a href="{% url 'notification_open' delivery.pk %}"
+   class="block p-4 hover:bg-base-200 border-b border-base-200 last:border-b-0">
+  <div class="flex items-start gap-3">
+    {% if delivery.notification.severity == "critical" %}
+      <span class="badge badge-error">Critical</span>
+    {% elif delivery.notification.severity == "warning" %}
+      <span class="badge badge-warning">Warning</span>
+    {% else %}
+      <span class="badge badge-ghost">Info</span>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <div class="font-bold">{{ delivery.notification.title }}</div>
+      <div class="text-sm line-clamp-2">{{ delivery.notification.body }}</div>
+      <div class="text-xs opacity-60 mt-1">{{ delivery.notification.kind }}</div>
+    </div>
+    <time datetime="{{ when|date:'c' }}" data-local-time class="text-xs opacity-60 whitespace-nowrap">{{ when|date:"j M Y, H:i" }}</time>
+  </div>
+</a>
