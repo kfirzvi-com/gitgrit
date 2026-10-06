@@ -39,6 +39,14 @@ class NotifyTests(TestCase):
             row.context, {"project_id": "p1", "mentioned_user_ids": ["u1"]}
         )
 
+    def test_a_long_title_is_cut_to_the_column_instead_of_failing(self):
+        from dataclasses import replace
+
+        with notify_defer_patch():
+            notify(replace(self.notice, title="x" * 300))
+
+        self.assertEqual(len(Notification.objects.get().title), 255)
+
     def test_a_failed_defer_leaves_no_row(self):
         with notify_defer_patch(side_effect=RuntimeError("queue down")):
             with self.assertRaises(RuntimeError):

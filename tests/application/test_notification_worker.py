@@ -69,6 +69,18 @@ def _process(row: dict, queue: str) -> None:
     asyncio.run(worker._process_job(context))
 
 
+class DeliveryPriorityTests(TransactionTestCase):
+    def test_delivery_outranks_runs_and_graph_jobs(self):
+        """One worker serves every queue and fetches by priority, then id; a
+        notice must not wait behind the standard runs queued before it."""
+        from app import tasks
+
+        self.assertGreater(tasks.deliver_notification.priority, tasks.run_standards.priority)
+        self.assertGreater(
+            tasks.deliver_notification.priority, tasks.infer_project_dependencies.priority
+        )
+
+
 class NotifyFromRunningTaskTests(CleanProcrastinateTables, TransactionTestCase):
     def setUp(self):
         super().setUp()

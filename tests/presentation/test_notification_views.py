@@ -103,6 +103,13 @@ class TestNotificationViews(TestCase):
         response = self.client.get(reverse("notification_open", args=[delivery.pk]))
         self.assertRedirects(response, reverse("notification_list"), fetch_redirect_response=False)
 
+    def test_open_never_redirects_off_site(self):
+        delivery = self._delivery(url="https://example.com/")
+        response = self.client.get(reverse("notification_open", args=[delivery.pk]))
+        self.assertRedirects(response, reverse("notification_list"), fetch_redirect_response=False)
+        delivery.refresh_from_db()
+        self.assertIsNotNone(delivery.read_at)
+
     def test_open_other_users_delivery_is_404(self):
         delivery = self._delivery(user=baker.make("app.User"))
         response = self.client.get(reverse("notification_open", args=[delivery.pk]))
@@ -125,6 +132,72 @@ class TestNotificationViews(TestCase):
         for d in (other_user, other_tenant):
             d.refresh_from_db()
             self.assertIsNone(d.read_at)
+
+    def test_pin_keeps_the_item_unread_when_opened(self):
+        delivery = self._delivery(url="/standards/")
+
+        response = self.client.post(reverse("notification_pin", args=[delivery.pk]))
+
+        self.assertRedirects(response, reverse("notification_list"))
+        delivery.refresh_from_db()
+        self.assertIsNotNone(delivery.pinned_at)
+        self.client.get(reverse("notification_open", args=[delivery.pk]))
+        delivery.refresh_from_db()
+        self.assertIsNone(delivery.read_at)
+
+    def test_mark_all_read_skips_pinned(self):
+        pinned = self._delivery("pinned")
+        plain = self._delivery("plain")
+        self.client.post(reverse("notification_pin", args=[pinned.pk]))
+
+        self.client.post(reverse("notifications_mark_all_read"))
+
+        pinned.refresh_from_db()
+        plain.refresh_from_db()
+        self.assertIsNone(pinned.read_at)
+        self.assertIsNotNone(plain.read_at)
+
+    def test_unpin_lets_open_mark_it_read_again(self):
+        delivery = self._delivery()
+        self.client.post(reverse("notification_pin", args=[delivery.pk]))
+        self.client.post(reverse("notification_pin", args=[delivery.pk]))
+
+        delivery.refresh_from_db()
+        self.assertIsNone(delivery.pinned_at)
+        self.client.get(reverse("notification_open", args=[delivery.pk]))
+        delivery.refresh_from_db()
+        self.assertIsNotNone(delivery.read_at)
+
+    def test_pinning_a_read_item_brings_it_back_to_active(self):
+        delivery = self._delivery("was-read", read_at=timezone.now())
+
+        self.client.post(reverse("notification_pin", args=[delivery.pk]))
+
+        response = self.client.get(reverse("notification_list"))
+        self.assertEqual([d.notification.title for d in response.context["active"]], ["was-read"])
+        self.assertEqual(list(response.context["history"]), [])
+
+    def test_pinned_items_come_first_in_active(self):
+        older = self._delivery("older")
+        self._delivery("newer")
+        self.client.post(reverse("notification_pin", args=[older.pk]))
+
+        response = self.client.get(reverse("notification_list"))
+
+        self.assertEqual(
+            [d.notification.title for d in response.context["active"]], ["older", "newer"]
+        )
+        self.assertContains(response, "Unpin")
+        self.assertContains(response, "pinned")
+
+    def test_pin_other_users_delivery_is_404(self):
+        delivery = self._delivery(user=baker.make("app.User"))
+        response = self.client.post(reverse("notification_pin", args=[delivery.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_pin_requires_post(self):
+        delivery = self._delivery()
+        self.assertEqual(self.client.get(reverse("notification_pin", args=[delivery.pk])).status_code, 405)
 
     def test_mark_all_read_requires_post(self):
         self.assertEqual(self.client.get(reverse("notifications_mark_all_read")).status_code, 405)

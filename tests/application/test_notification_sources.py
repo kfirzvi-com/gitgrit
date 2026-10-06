@@ -64,6 +64,22 @@ class NotificationSourcesTests(TestCase):
         sources.on_standard_run_finished(self._event([row]))
         self.assertEqual(Notification.objects.get().body, "sandbox exploded")
 
+    def test_sandbox_error_flag_falls_back_to_the_exception_line(self):
+        """The sandbox marks a raising standard with ``details={"error": True}``
+        and puts the traceback in ``message``; the body is the exception line."""
+        row = self._row(
+            details={"error": True},
+            message=(
+                "Standard execution error: Traceback (most recent call last):\n"
+                '  File "/entrypoint.py", line 1, in <module>\n'
+                "RuntimeError: boom from standard"
+            ),
+        )
+        sources.on_standard_run_finished(self._event([row]))
+        n = Notification.objects.get()
+        self.assertEqual(n.kind, "run.failed")
+        self.assertEqual(n.body, "RuntimeError: boom from standard")
+
     def test_mixed_run_is_not_run_failed(self):
         rows = [self._row(), self._row(status=StandardExecution.Status.PASSED)]
         sources.on_standard_run_finished(
@@ -233,7 +249,7 @@ class DependencyGraphFailedTests(TestCase):
         sources.on_dependency_inference_failed(self._event())
         n = Notification.objects.get()
         self.assertEqual(n.kind, "graph.failed")
-        self.assertEqual(n.severity, "info")
+        self.assertEqual(n.severity, "warning")
         self.assertIn("Acme", n.title)
         self.assertEqual(n.body, "LLM timed out")
         self.assertTrue(n.url.endswith("#components"))

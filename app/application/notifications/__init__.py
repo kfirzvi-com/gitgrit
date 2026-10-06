@@ -17,12 +17,15 @@ def notify(notice: Notice) -> str:
     from app.domain.models import Notification
     from app.tasks import deliver_notification
 
+    # A title carries a project name that may itself fill the column; cut it
+    # rather than lose the whole notice to a DataError nobody sees.
+    title_max = Notification._meta.get_field("title").max_length
     with transaction.atomic():
         row = Notification.objects.create(
             tenant_id=notice.tenant_id,
             kind=notice.kind,
             severity=notice.severity,
-            title=notice.title,
+            title=notice.title[:title_max],
             body=notice.body,
             url=notice.url,
             # Mentions ride in context so the model needs no extra column.

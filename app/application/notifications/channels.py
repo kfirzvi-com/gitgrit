@@ -2,7 +2,7 @@
 
 import logging
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 
 from app.domain.models import NotificationDelivery
@@ -20,15 +20,23 @@ class InboxChannel:
         """Write one sent inbox row per recipient.
 
         Repeat rule: a notice with a dedupe_key replaces the recipient's unread
-        copies of the same key, so a repeating problem shows once. Read ones stay.
+        copies of the same key, so a repeating problem shows once. Read ones
+        stay, and so do pinned ones: the recipient asked to keep that copy.
+
+        Two deliveries of one key at the same time (two runs finishing together)
+        are serialized with a transaction-scoped advisory lock taken before the
+        delete: under READ COMMITTED the second DELETE then starts after the
+        first INSERT committed and sees it. Row locks alone would not do that.
         """
         now = timezone.now()
         with transaction.atomic():
             if notice.dedupe_key:
+                _lock_key(notice.tenant_id, notice.dedupe_key)
                 NotificationDelivery.objects.filter(
                     channel=self.name,
                     recipient_id__in=recipient_ids,
                     read_at__isnull=True,
+                    pinned_at__isnull=True,
                     notification__dedupe_key=notice.dedupe_key,
                     notification__tenant_id=notice.tenant_id,
                 ).delete()
@@ -42,6 +50,14 @@ class InboxChannel:
                 )
                 for user_id in recipient_ids
             )
+
+
+def _lock_key(tenant_id: str, dedupe_key: str) -> None:
+    """Hold a Postgres advisory lock for this key until the transaction ends."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))", [f"{tenant_id}:{dedupe_key}"]
+        )
 
 
 class LogChannel:

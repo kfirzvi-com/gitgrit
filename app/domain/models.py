@@ -1040,7 +1040,14 @@ class NotificationDelivery(models.Model):
     error = models.TextField(blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
     read_at = models.DateTimeField(null=True, blank=True)
+    # Pinned by its recipient: stays unread (Active) until they unpin it.
+    # Opening it, "Mark all read" and the repeat rule all leave it alone.
+    pinned_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_pinned(self) -> bool:
+        return self.pinned_at is not None
 
     class Meta:
         db_table = "notification_deliveries"

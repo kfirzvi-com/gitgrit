@@ -185,9 +185,17 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     _publish_finished()
 
 
-@app.task(queue="notifications", name="deliver_notification")
+# The one worker serves every queue and takes jobs by priority, then age, so
+# without this a notice waits behind every standard run queued before it.
+NOTIFICATION_PRIORITY = 10
+
+
+@app.task(
+    queue="notifications", name="deliver_notification", priority=NOTIFICATION_PRIORITY
+)
 def deliver_notification(notification_id: str) -> None:
-    """Deliver one stored notification on its channels.
+    """Deliver one stored notification on its channels. Runs ahead of queued
+    standard runs and graph jobs (see ``NOTIFICATION_PRIORITY``).
 
     No Procrastinate retry: a channel that fails gets a ``failed`` delivery
     row, which is the record; nothing re-sends it. ``deliver`` skips channels
