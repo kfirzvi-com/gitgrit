@@ -1,10 +1,6 @@
-"""Channels: the inbox repeat rule must replace unread copies and keep read ones."""
+"""Channels: the inbox writes one row per recipient and never replaces earlier ones."""
 
-import threading
-
-from django.db import connections
-from django.test import SimpleTestCase, TestCase, TransactionTestCase
-from django.utils import timezone
+from django.test import SimpleTestCase, TestCase
 from model_bakery import baker
 
 from app.application.notifications.channels import (
@@ -51,90 +47,23 @@ class InboxChannelTests(TestCase):
             self.assertEqual(row.status, "sent")
             self.assertIsNotNone(row.sent_at)
 
-    def test_dedupe_replaces_unread_keeps_read_and_other_recipients(self):
+    def test_same_key_adds_a_new_copy_and_keeps_the_old_one(self):
+        """A repeat of the same problem is a new notification, not a replacement."""
         old = self._notification("k")
         old_unread = baker.make(
             "app.NotificationDelivery", notification=old, channel="inbox", recipient=self.alice
-        )
-        old_read = baker.make(
-            "app.NotificationDelivery",
-            notification=old,
-            channel="inbox",
-            recipient=self.alice,
-            read_at=timezone.now(),
-        )
-        bobs = baker.make(
-            "app.NotificationDelivery", notification=old, channel="inbox", recipient=self.bob
         )
         new = self._notification("k")
 
         InboxChannel().deliver(_notice(self.tenant, "k"), str(new.pk), [str(self.alice.pk)])
 
-        self.assertFalse(NotificationDelivery.objects.filter(pk=old_unread.pk).exists())
-        self.assertTrue(NotificationDelivery.objects.filter(pk=old_read.pk).exists())
-        self.assertTrue(NotificationDelivery.objects.filter(pk=bobs.pk).exists())
+        self.assertTrue(NotificationDelivery.objects.filter(pk=old_unread.pk).exists())
         self.assertEqual(
-            NotificationDelivery.objects.filter(notification=new, recipient=self.alice).count(), 1
+            NotificationDelivery.objects.filter(
+                recipient=self.alice, read_at__isnull=True, notification__dedupe_key="k"
+            ).count(),
+            2,
         )
-
-
-class InboxChannelPinTests(TestCase):
-    def test_dedupe_keeps_a_pinned_unread_copy(self):
-        tenant = baker.make("app.Tenant")
-        alice = baker.make("app.User")
-        old = baker.make("app.Notification", tenant=tenant, dedupe_key="k")
-        pinned = baker.make(
-            "app.NotificationDelivery",
-            notification=old,
-            channel="inbox",
-            recipient=alice,
-            pinned_at=timezone.now(),
-        )
-        new = baker.make("app.Notification", tenant=tenant, dedupe_key="k")
-
-        InboxChannel().deliver(_notice(tenant, "k"), str(new.pk), [str(alice.pk)])
-
-        self.assertTrue(NotificationDelivery.objects.filter(pk=pinned.pk).exists())
-        self.assertEqual(NotificationDelivery.objects.filter(recipient=alice).count(), 2)
-
-
-class InboxChannelRaceTests(TransactionTestCase):
-    """Two deliveries with one dedupe key at the same time must not leave two
-    unread copies. Real threads and real connections: the repeat rule is a
-    delete-then-insert, and under READ COMMITTED a second DELETE that started
-    before the first INSERT committed cannot see it."""
-
-    ROUNDS = 5
-
-    def test_concurrent_deliveries_leave_one_unread_copy(self):
-        tenant = baker.make("app.Tenant")
-        alice = baker.make("app.User")
-        for _ in range(self.ROUNDS):
-            rows = [baker.make("app.Notification", tenant=tenant, dedupe_key="k") for _ in range(2)]
-            barrier = threading.Barrier(2)
-            errors = []
-
-            def deliver(notification):
-                try:
-                    barrier.wait(timeout=5)
-                    InboxChannel().deliver(_notice(tenant, "k"), str(notification.pk), [str(alice.pk)])
-                except Exception as exc:  # pragma: no cover - surfaced below
-                    errors.append(exc)
-                finally:
-                    connections.close_all()
-
-            threads = [threading.Thread(target=deliver, args=(row,)) for row in rows]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join(timeout=10)
-
-            self.assertEqual(errors, [])
-            unread = NotificationDelivery.objects.filter(
-                recipient=alice, read_at__isnull=True, notification__dedupe_key="k"
-            )
-            self.assertEqual(unread.count(), 1, "the repeat rule let two unread copies through")
-            unread.delete()
 
 
 class LogChannelTests(SimpleTestCase):
