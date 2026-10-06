@@ -169,14 +169,6 @@
           Components
           {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
         </h2>
-        {% if project.deps_status == "failed" %}
-          <div class="alert alert-warning text-sm items-start">
-            <div>
-              <p>The dependency graph could not be rebuilt. The components below are from the last successful analysis{% if project.deps_analyzed_at %} on {{ project.deps_analyzed_at|date:"j M Y, H:i" }}{% endif %}. GitGrit will try again on the next push.</p>
-              {% if project.deps_error %}<p class="mt-1 font-mono text-xs line-clamp-3">{{ project.deps_error }}</p>{% endif %}
-            </div>
-          </div>
-        {% endif %}
         <ul class="space-y-3">
           {% for component in project.components.all %}
             <li>

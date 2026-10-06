@@ -19,9 +19,17 @@ from app.domain.notifications import Notice, Severity
 _BODY_MAX = 200
 
 
+_TRACEBACK = "Traceback (most recent call last):"
+
+
 def _first_line(text: str) -> str:
-    lines = (text or "").strip().splitlines()
-    return lines[0][:_BODY_MAX] if lines else ""
+    """One line of body text. A traceback's useful line is its last one
+    (the exception); any other text is summarized by its first line."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    line = lines[-1] if any(_TRACEBACK in line for line in lines) else lines[0]
+    return line[:_BODY_MAX]
 
 
 def _outcome(event: StandardRunFinished) -> str | None:
@@ -58,7 +66,11 @@ def _run_failed_notice(event: StandardRunFinished, project) -> Notice:
     if event.error:
         body = event.error
     elif first is not None:
-        body = first.details.get("error") or first.message
+        # ``run_standards`` stores the error text under details["error"]; the
+        # sandbox only sets the flag (``True``) and puts the traceback in
+        # ``message``.
+        stored = first.details.get("error")
+        body = stored if isinstance(stored, str) and stored else first.message
     else:
         body = ""
     url = (
@@ -165,7 +177,7 @@ def on_dependency_inference_failed(event: DependencyInferenceFailed) -> None:
         Notice(
             kind="graph.failed",
             tenant_id=event.tenant_id,
-            severity=Severity.INFO,
+            severity=Severity.WARNING,
             title=f"{project.name} dependency graph failed",
             body=_first_line(event.error),
             url=reverse("project_detail", args=[project.pk]) + "#components",
