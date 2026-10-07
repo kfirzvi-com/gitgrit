@@ -1,19 +1,25 @@
 {% comment %}One inbox row. Expects `delivery`; `when` is the timestamp to show.{% endcomment %}
-<div class="flex items-start gap-3 p-4 border-b border-base-200 last:border-b-0 hover:bg-base-200">
+<div class="flex items-start gap-3 p-4 border-b border-base-200 last:border-b-0 hover:ring-2 hover:ring-inset hover:ring-base-content">
   <a href="{% url 'notification_open' delivery.pk %}" class="flex items-start gap-3 flex-1 min-w-0">
     {% if delivery.notification.severity == "critical" %}
-      <span class="badge badge-error">Critical</span>
+      <span class="badge badge-error w-20 shrink-0">Critical</span>
     {% elif delivery.notification.severity == "warning" %}
-      <span class="badge badge-warning">Warning</span>
+      <span class="badge badge-warning w-20 shrink-0">Warning</span>
     {% else %}
-      <span class="badge badge-ghost">Info</span>
+      <span class="badge badge-ghost w-20 shrink-0">Info</span>
     {% endif %}
     <div class="flex-1 min-w-0">
-      <div class="font-bold break-words">{{ delivery.notification.title }}</div>
+      <div class="flex items-baseline gap-2 min-w-0">
+        <span class="font-bold break-words">{{ delivery.notification.title }}</span>
+        {% if "score" in delivery.notification.context %}
+          {% with score=delivery.notification.context.score %}
+            <span class="font-bold shrink-0 {% if score >= 80 %}text-success{% elif score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ score }}</span>
+          {% endwith %}
+        {% endif %}
+      </div>
       <div class="text-sm line-clamp-2">{{ delivery.notification.body }}</div>
-      <div class="text-xs opacity-60 mt-1">{{ delivery.notification.kind }}{% if delivery.is_pinned %} · pinned{% endif %}</div>
     </div>
-    <time datetime="{{ when|date:'c' }}" data-local-time class="text-xs opacity-60 whitespace-nowrap">{{ when|date:"j M Y, H:i" }}</time>
+    <time datetime="{{ when|date:'c' }}" data-local-time class="text-sm opacity-70 whitespace-nowrap">{{ when|date:"j M Y, H:i" }}</time>
   </a>
   <form method="post" action="{% url 'notification_pin' delivery.pk %}">
     {% csrf_token %}
