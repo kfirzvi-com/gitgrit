@@ -120,19 +120,23 @@ def _standards_failing_notice(event: StandardRunFinished, project) -> Notice | N
     listing = ", ".join(names)
     if len(failed_rows) > 3:
         listing += f" and {len(failed_rows) - 3} more"
-    body = f"score {round(score)}/100: {listing}" if score is not None else listing
+    # The score rides in context so the inbox can show it next to the title,
+    # colored by value, instead of as text inside the body.
+    context = {
+        "project_id": str(event.project_id),
+        "execution_ids": [str(e) for e in event.execution_ids],
+        "failed_standard_ids": [str(r.standard_id) for r in failed_rows],
+    }
+    if score is not None:
+        context["score"] = round(score)
     return Notice(
         kind="standards.failing",
         tenant_id=event.tenant_id,
         severity=Severity.WARNING,
         title=f"{project.name} {n} standard{'s' if n != 1 else ''} failed",
-        body=body,
+        body=listing,
         url=reverse("project_detail", args=[project.pk]) + "#compliance",
-        context={
-            "project_id": str(event.project_id),
-            "execution_ids": [str(e) for e in event.execution_ids],
-            "failed_standard_ids": [str(r.standard_id) for r in failed_rows],
-        },
+        context=context,
         dedupe_key=f"standards:{project.pk}",
         mentioned_user_ids=_mentioned(event),
     )

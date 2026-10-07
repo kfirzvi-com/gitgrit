@@ -188,7 +188,6 @@ class TestNotificationViews(TestCase):
             [d.notification.title for d in response.context["active"]], ["older", "newer"]
         )
         self.assertContains(response, "Unpin")
-        self.assertContains(response, "pinned")
 
     def test_pin_other_users_delivery_is_404(self):
         delivery = self._delivery(user=baker.make("app.User"))

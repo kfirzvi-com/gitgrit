@@ -170,7 +170,8 @@ class StandardsFailingTests(TestCase):
         self.assertEqual(n.kind, "standards.failing")
         self.assertEqual(n.severity, "warning")
         self.assertEqual(n.title, "Acme 2 standards failed")
-        self.assertEqual(n.body, "score 67/100: README present, Pinned CI")
+        self.assertEqual(n.body, "README present, Pinned CI")
+        self.assertEqual(n.context["score"], 67)
         self.assertTrue(n.url.endswith("#compliance"))
         self.assertEqual(
             n.url, reverse("project_detail", args=[self.project.pk]) + "#compliance"
