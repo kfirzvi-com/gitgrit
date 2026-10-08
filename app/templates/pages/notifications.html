@@ -15,9 +15,15 @@
 
 <section class="mb-8">
   <h2 class="text-xl font-semibold mb-2">Active</h2>
-  <div class="card bg-base-100 shadow-xl">
-    {% for delivery in active %}
-      {% include "components/notification_item.html" with when=delivery.notification.created_at %}
+  <div class="card bg-base-100 shadow-xl overflow-hidden">
+    {% for label, deliveries in active_groups %}
+      <div data-day-group="{{ label }}" data-time-format="{% if label == 'Today' %}time{% else %}datetime{% endif %}"
+           class="border-b border-base-200 last:border-b-0">
+        <h3 class="px-4 py-2 bg-base-300 border-b border-base-200 uppercase tracking-wide {% if label == 'Today' %}text-base font-bold text-primary{% else %}text-xs font-semibold opacity-70{% endif %}">{{ label }}</h3>
+        {% for delivery in deliveries %}
+          {% include "components/notification_item.html" with when=delivery.notification.created_at %}
+        {% endfor %}
+      </div>
     {% empty %}
       <div class="card-body text-sm opacity-70">Nothing needs your attention.</div>
     {% endfor %}
@@ -26,20 +32,63 @@
 
 <section>
   <h2 class="text-xl font-semibold mb-2">History</h2>
-  <div class="card bg-base-100 shadow-xl">
+  <div class="card bg-base-100 shadow-xl" data-time-format="datetime">
     {% for delivery in history %}
-      {% include "components/notification_item.html" with when=delivery.read_at %}
+      <div data-history-row class="border-b border-base-200 last:border-b-0{% if forloop.counter > history_page %} hidden{% endif %}">
+        {% include "components/notification_item.html" with when=delivery.read_at %}
+      </div>
     {% empty %}
       <div class="card-body text-sm opacity-70">No read notifications yet.</div>
     {% endfor %}
+    {% if history|length > history_page %}
+      <div class="card-actions justify-center p-2">
+        <button type="button" class="btn btn-ghost btn-sm" data-history-more>Show more</button>
+      </div>
+    {% endif %}
   </div>
 </section>
 
+<div id="hover-hint" aria-hidden="true" class="hidden fixed z-50 rounded bg-neutral text-neutral-content text-xs px-2 py-1 shadow pointer-events-none"></div>
+
 <script>
-  document.querySelectorAll("[data-local-time]").forEach(function (el) {
-    el.textContent = new Date(el.dateTime).toLocaleString(undefined, {
-      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  (function () {
+    var DATETIME = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" };
+    var TIME = { hour: "2-digit", minute: "2-digit" };
+    document.querySelectorAll("[data-local-time]").forEach(function (el) {
+      var scope = el.closest("[data-time-format]");
+      var date = new Date(el.dateTime);
+      el.textContent = scope && scope.dataset.timeFormat === "time"
+        ? date.toLocaleTimeString(undefined, TIME)
+        : date.toLocaleString(undefined, DATETIME);
     });
-  });
+
+    var more = document.querySelector("[data-history-more]");
+    if (more) {
+      more.addEventListener("click", function () {
+        document.querySelectorAll("[data-history-row].hidden").forEach(function (row) {
+          row.classList.remove("hidden");
+        });
+        more.parentElement.remove();
+      });
+    }
+
+    // Hover hint: after one second over a row, a small bubble follows the mouse.
+    var hint = document.getElementById("hover-hint");
+    var hintTimer = null;
+    function moveHint(e) { hint.style.left = (e.clientX + 14) + "px"; hint.style.top = (e.clientY + 14) + "px"; }
+    document.querySelectorAll("[data-hover-hint]").forEach(function (row) {
+      row.addEventListener("mouseenter", function (e) {
+        hint.textContent = row.dataset.hoverHint;
+        moveHint(e);
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { hint.classList.remove("hidden"); }, 1000);
+      });
+      row.addEventListener("mousemove", moveHint);
+      row.addEventListener("mouseleave", function () {
+        clearTimeout(hintTimer);
+        hint.classList.add("hidden");
+      });
+    });
+  })();
 </script>
 {% endblock %}
