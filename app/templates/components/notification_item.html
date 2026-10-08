@@ -1,4 +1,4 @@
-{% comment %}One inbox row. Expects `delivery`; `when` is the timestamp to show.{% endcomment %}
+{% comment %}One inbox row. Expects `delivery`; `when` is when the notice was published.{% endcomment %}
 {% with ctx=delivery.notification.context %}
 <div data-hover-hint="More info" class="flex items-start gap-3 p-4 border-b border-base-200 last:border-b-0 hover:ring-2 hover:ring-inset hover:ring-base-content">
   <a href="{% url 'notification_open' delivery.pk %}" class="flex items-start gap-3 flex-1 min-w-0">

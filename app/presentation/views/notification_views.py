@@ -57,7 +57,7 @@ class NotificationListView(LoginRequiredMixin, TemplateView):
         )
         context["active"] = active
         context["active_groups"] = _group_by_day(active)
-        context["history"] = sent.filter(read_at__isnull=False).order_by("-read_at")[:HISTORY_LIMIT]
+        context["history"] = sent.filter(read_at__isnull=False).order_by("-notification__created_at")[:HISTORY_LIMIT]
         context["history_page"] = HISTORY_PAGE
         return context
 

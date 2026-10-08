@@ -35,7 +35,7 @@
   <div class="card bg-base-100 shadow-xl" data-time-format="datetime">
     {% for delivery in history %}
       <div data-history-row class="border-b border-base-200 last:border-b-0{% if forloop.counter > history_page %} hidden{% endif %}">
-        {% include "components/notification_item.html" with when=delivery.read_at %}
+        {% include "components/notification_item.html" with when=delivery.notification.created_at %}
       </div>
     {% empty %}
       <div class="card-body text-sm opacity-70">No read notifications yet.</div>
