@@ -74,6 +74,8 @@ from app.presentation.views.marketplace_views import (
 from app.presentation.views.notification_views import (
     NotificationListView,
     mark_all_read,
+    notification_active,
+    notification_bell,
     open_notification,
     toggle_pin,
 )
@@ -86,6 +88,8 @@ urlpatterns = [
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("notifications/", NotificationListView.as_view(), name="notification_list"),
     path("notifications/read-all/", mark_all_read, name="notifications_mark_all_read"),
+    path("notifications/active/", notification_active, name="notification_active"),
+    path("notifications/bell/", notification_bell, name="notification_bell"),
     path("notifications/<uuid:pk>/open/", open_notification, name="notification_open"),
     path("notifications/<uuid:pk>/pin/", toggle_pin, name="notification_pin"),
     path("profile/", ProfileView.as_view(), name="profile"),

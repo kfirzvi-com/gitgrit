@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
@@ -44,22 +44,47 @@ def _inbox(request):
     )
 
 
+def _active(request) -> list:
+    """Unread inbox items, pinned first, newest first."""
+    sent = _inbox(request).filter(status=NotificationDelivery.Status.SENT).select_related("notification")
+    return list(
+        sent.filter(read_at__isnull=True).order_by(
+            F("pinned_at").desc(nulls_last=True), "-notification__created_at"
+        )
+    )
+
+
 class NotificationListView(LoginRequiredMixin, TemplateView):
     template_name = "pages/notifications.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         sent = _inbox(self.request).filter(status=NotificationDelivery.Status.SENT).select_related("notification")
-        active = list(
-            sent.filter(read_at__isnull=True).order_by(
-                F("pinned_at").desc(nulls_last=True), "-notification__created_at"
-            )
-        )
+        active = _active(self.request)
         context["active"] = active
         context["active_groups"] = _group_by_day(active)
-        context["history"] = sent.filter(read_at__isnull=False).order_by("-read_at")[:HISTORY_LIMIT]
+        context["history"] = sent.filter(read_at__isnull=False).order_by("-notification__created_at")[:HISTORY_LIMIT]
         context["history_page"] = HISTORY_PAGE
         return context
+
+
+@login_required
+@require_GET
+def notification_active(request):
+    """The Active card on its own, for the HTMX poll on the Notifications page."""
+    return render(
+        request,
+        "partials/notifications_active.html",
+        {"active_groups": _group_by_day(_active(request))},
+    )
+
+
+@login_required
+@require_GET
+def notification_bell(request):
+    """The navbar bell on its own, for the HTMX poll that keeps its count fresh.
+    The unread count comes from the ``notification_context`` context processor."""
+    return render(request, "components/notification_bell.html")
 
 
 @login_required
