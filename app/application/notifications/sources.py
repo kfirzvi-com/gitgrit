@@ -5,6 +5,9 @@ decides the audience; the rule table in ``router.py`` does. A finished run
 yields ``run.failed`` (could not evaluate) or ``standards.failing``; a
 dependency graph that gave up building yields ``graph.failed``. Every kind
 goes to the whole team (see ``router.py``); the run's trigger is added on top.
+
+Titles do not name the project: the inbox shows ``context["project_name"]``
+(and the score, when there is one) in its own column next to the notice.
 """
 
 from __future__ import annotations
@@ -21,6 +24,11 @@ _BODY_MAX = 200
 
 _TRACEBACK = "Traceback (most recent call last):"
 
+# ``triggered_by`` values written by the app itself (``standard_runs`` and
+# ``subscribers``); anything else there is a webhook actor's username.
+_APP_TRIGGERS = frozenset({"manual", "attached", "activated", "saved"})
+_WEBHOOK_EVENTS = frozenset({"push", "pull_request"})
+
 
 def _first_line(text: str) -> str:
     """One line of body text. A traceback's useful line is its last one
@@ -30,6 +38,22 @@ def _first_line(text: str) -> str:
         return ""
     line = lines[-1] if any(_TRACEBACK in line for line in lines) else lines[0]
     return line[:_BODY_MAX]
+
+
+def _trigger(execution) -> str | None:
+    """One short machine word for what started the check: ``push`` or
+    ``pull_request`` for webhook runs, else how the app queued it
+    (``manual``/``attached``/``activated``/``saved``), else the raw event
+    type. None when nothing is known."""
+    if execution is None:
+        return None
+    event_type = (execution.event_type or "").strip()
+    if event_type in _WEBHOOK_EVENTS:
+        return event_type
+    triggered_by = (execution.triggered_by or "").strip()
+    if triggered_by in _APP_TRIGGERS:
+        return triggered_by
+    return event_type or None
 
 
 def _outcome(event: StandardRunFinished) -> str | None:
@@ -57,12 +81,11 @@ def _run_failed_notice(event: StandardRunFinished, project) -> Notice:
 
     rows = list(
         StandardExecution.objects.filter(
-            pk__in=event.execution_ids,
-            project=project,
-            status=StandardExecution.Status.ERROR,
+            pk__in=event.execution_ids, project=project
         ).order_by("created_at")
     )
-    first = rows[0] if rows else None
+    errored = [r for r in rows if r.status == StandardExecution.Status.ERROR]
+    first = errored[0] if errored else None
     if event.error:
         body = event.error
     elif first is not None:
@@ -78,37 +101,35 @@ def _run_failed_notice(event: StandardRunFinished, project) -> Notice:
         if first is not None
         else reverse("project_detail", args=[project.pk])
     )
+    context = {
+        "project_id": str(event.project_id),
+        "project_name": project.name,
+        "execution_ids": [str(e) for e in event.execution_ids],
+    }
+    if trigger := _trigger(rows[0] if rows else None):
+        context["trigger"] = trigger
     return Notice(
         kind="run.failed",
         tenant_id=event.tenant_id,
         severity=Severity.CRITICAL,
-        title=f"{project.name} GitGrit could not evaluate",
+        title="GitGrit could not evaluate",
         body=_first_line(body),
         url=url,
-        context={
-            "project_id": str(event.project_id),
-            "execution_ids": [str(e) for e in event.execution_ids],
-        },
+        context=context,
         dedupe_key=f"run_failed:{event.project_id}",
         mentioned_user_ids=_mentioned(event),
     )
 
 
 def _standards_failing_notice(event: StandardRunFinished, project) -> Notice | None:
-    """One notice per run. Count and score come from the project's current
-    picture; the names come from this run's failures. None when the current
-    picture shows nothing failing (a later run already passed, or the
-    standard was detached): a "0 standards failing" item would be noise."""
+    """One notice per run. The count and the names are this run's failures
+    (a single standard run by hand that fails reads "1 standard failed");
+    only the score comes from the project's current picture. None when this
+    run has no failed rows (a later run already passed, or the standard was
+    detached): a "0 standards failed" item would be noise."""
     from app.application.project_status_service import ProjectStatusService
     from app.domain.models import StandardExecution
 
-    status = ProjectStatusService().get_project_status(
-        project.tenant, str(project.pk)
-    )
-    n = status["failed"]
-    if n == 0:
-        return None
-    score = status["overall_score"]
     failed_rows = list(
         StandardExecution.objects.filter(
             pk__in=event.execution_ids,
@@ -116,24 +137,34 @@ def _standards_failing_notice(event: StandardRunFinished, project) -> Notice | N
             status=StandardExecution.Status.FAILED,
         ).order_by("score")
     )
+    n = len(failed_rows)
+    if n == 0:
+        return None
+    status = ProjectStatusService().get_project_status(
+        project.tenant, str(project.pk)
+    )
+    score = status["overall_score"]
     names = [r.standard_name for r in failed_rows[:3]]
     listing = ", ".join(names)
-    if len(failed_rows) > 3:
-        listing += f" and {len(failed_rows) - 3} more"
+    if n > 3:
+        listing += f" and {n - 3} more"
     # The score rides in context so the inbox can show it next to the title,
     # colored by value, instead of as text inside the body.
     context = {
         "project_id": str(event.project_id),
+        "project_name": project.name,
         "execution_ids": [str(e) for e in event.execution_ids],
         "failed_standard_ids": [str(r.standard_id) for r in failed_rows],
     }
     if score is not None:
         context["score"] = round(score)
+    if trigger := _trigger(failed_rows[0]):
+        context["trigger"] = trigger
     return Notice(
         kind="standards.failing",
         tenant_id=event.tenant_id,
         severity=Severity.WARNING,
-        title=f"{project.name} {n} standard{'s' if n != 1 else ''} failed",
+        title=f"{n} standard{'s' if n != 1 else ''} failed",
         body=listing,
         url=reverse("project_detail", args=[project.pk]) + "#compliance",
         context=context,
@@ -166,7 +197,8 @@ def on_standard_run_finished(event: StandardRunFinished) -> None:
 
 def on_dependency_inference_failed(event: DependencyInferenceFailed) -> None:
     """Warn when a map that used to work fails to rebuild. A workspace that
-    never had a map fails on every push, so it is not told."""
+    never had a map fails on every push, so it is not told. The graph is
+    built by the LLM provider, so the notice points at that setting."""
     if not event.had_worked_before:
         return
 
@@ -182,10 +214,13 @@ def on_dependency_inference_failed(event: DependencyInferenceFailed) -> None:
             kind="graph.failed",
             tenant_id=event.tenant_id,
             severity=Severity.WARNING,
-            title=f"{project.name} dependency graph failed",
+            title="Dependency graph failed",
             body=_first_line(event.error),
-            url=reverse("project_detail", args=[project.pk]) + "#components",
-            context={"project_id": str(event.project_id)},
+            url=reverse("tenant_settings") + "#section-llm",
+            context={
+                "project_id": str(event.project_id),
+                "project_name": project.name,
+            },
             dedupe_key=f"graph:{project.pk}",
         )
     )

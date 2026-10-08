@@ -5,7 +5,7 @@
 {% url 'standard_list' as url_standards %}
 {% url 'marketplace_browse' as url_marketplace %}
 {% url 'notification_list' as url_notifications %}
-<div class="navbar bg-base-100 shadow-lg">
+<div class="navbar bg-base-100 shadow-lg sticky top-0 z-30">
   <div class="navbar-start">
     {% if user.is_authenticated %}
       <div class="dropdown">

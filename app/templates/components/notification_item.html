@@ -1,21 +1,34 @@
 {% comment %}One inbox row. Expects `delivery`; `when` is the timestamp to show.{% endcomment %}
-<div class="flex items-start gap-3 p-4 border-b border-base-200 last:border-b-0 hover:ring-2 hover:ring-inset hover:ring-base-content">
+{% with ctx=delivery.notification.context %}
+<div data-hover-hint="More info" class="flex items-start gap-3 p-4 border-b border-base-200 last:border-b-0 hover:ring-2 hover:ring-inset hover:ring-base-content">
   <a href="{% url 'notification_open' delivery.pk %}" class="flex items-start gap-3 flex-1 min-w-0">
-    {% if delivery.notification.severity == "critical" %}
-      <span class="badge badge-error w-20 shrink-0">Critical</span>
-    {% elif delivery.notification.severity == "warning" %}
-      <span class="badge badge-warning w-20 shrink-0">Warning</span>
-    {% else %}
-      <span class="badge badge-ghost w-20 shrink-0">Info</span>
-    {% endif %}
+    <div class="w-28 shrink-0 min-w-0">
+      {% if ctx.project_name %}
+        <div class="font-bold text-lg truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</div>
+      {% endif %}
+      {% if "score" in ctx %}
+        {% with score=ctx.score %}
+          <div class="text-xs font-bold">score: {{ score }}%</div>
+        {% endwith %}
+      {% endif %}
+    </div>
     <div class="flex-1 min-w-0">
       <div class="flex items-baseline gap-2 min-w-0">
         <span class="font-bold break-words">{{ delivery.notification.title }}</span>
-        {% if "score" in delivery.notification.context %}
-          {% with score=delivery.notification.context.score %}
-            <span class="font-bold shrink-0 {% if score >= 80 %}text-success{% elif score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ score }}</span>
-          {% endwith %}
-        {% endif %}
+        {% with trigger=ctx.trigger %}
+          {% if trigger %}
+            <span class="badge badge-ghost badge-sm shrink-0">
+              {% if trigger == "manual" %}Manual
+              {% elif trigger == "push" %}Push
+              {% elif trigger == "pull_request" %}Pull request
+              {% elif trigger == "attached" %}Attached
+              {% elif trigger == "activated" %}Activated
+              {% elif trigger == "saved" %}Saved
+              {% else %}{{ trigger|title }}
+              {% endif %}
+            </span>
+          {% endif %}
+        {% endwith %}
       </div>
       <div class="text-sm line-clamp-2">{{ delivery.notification.body }}</div>
     </div>
@@ -30,3 +43,4 @@
     {% endif %}
   </form>
 </div>
+{% endwith %}

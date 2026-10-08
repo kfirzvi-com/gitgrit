@@ -1,11 +1,13 @@
 """View tests for the Notifications page, the open redirect and mark-all-read."""
+from datetime import timedelta
+
 import pytest
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
 
-from app.domain.models import NotificationDelivery
+from app.domain.models import Notification, NotificationDelivery
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -75,6 +77,49 @@ class TestNotificationViews(TestCase):
         self.assertEqual([d.notification.title for d in response.context["active"]], ["unread-item"])
         self.assertEqual([d.notification.title for d in response.context["history"]], ["read-item"])
         self.assertContains(response, "Mark all read")
+
+    def _created(self, delivery, when):
+        # auto_now_add ignores the value passed to create, so set it afterwards.
+        Notification.objects.filter(pk=delivery.notification_id).update(created_at=when)
+
+    def test_active_is_grouped_by_day(self):
+        now = timezone.now()
+        self._created(self._delivery("today-item"), now)
+        self._created(self._delivery("yesterday-item"), now - timedelta(days=1))
+        self._created(self._delivery("older-item"), now - timedelta(days=3))
+
+        response = self.client.get(reverse("notification_list"))
+
+        groups = [
+            (label, [d.notification.title for d in items])
+            for label, items in response.context["active_groups"]
+        ]
+        self.assertEqual(
+            groups,
+            [("Today", ["today-item"]), ("Yesterday", ["yesterday-item"]), ("Older", ["older-item"])],
+        )
+        self.assertContains(response, 'data-time-format="time"', count=1)
+        self.assertContains(response, 'data-day-group="Yesterday"')
+
+    def test_active_groups_leave_out_empty_days(self):
+        self._created(self._delivery("older-item"), timezone.now() - timedelta(days=3))
+
+        response = self.client.get(reverse("notification_list"))
+
+        self.assertEqual([label for label, _ in response.context["active_groups"]], ["Older"])
+
+    def test_history_shows_more_button_only_past_five(self):
+        for i in range(5):
+            self._delivery(f"read-{i}", read_at=timezone.now())
+        self.assertNotContains(self.client.get(reverse("notification_list")), "Show more")
+
+        for i in range(5, 7):
+            self._delivery(f"read-{i}", read_at=timezone.now())
+        response = self.client.get(reverse("notification_list"))
+
+        self.assertContains(response, "Show more")
+        self.assertContains(response, "<div data-history-row", count=7)
+        self.assertContains(response, 'last:border-b-0 hidden"', count=2)
 
     def test_empty_state(self):
         response = self.client.get(reverse("notification_list"))
