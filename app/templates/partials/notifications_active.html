@@ -1,0 +1,24 @@
+{% comment %}The Active card. Polls itself every 30s while the tab is visible so new
+notices appear without a reload; the page script re-applies time format and hover hints after
+each swap. Included by pages/notifications.html and served alone by notification_active.{% endcomment %}
+<section class="mb-8"
+         hx-get="{% url 'notification_active' %}"
+         hx-trigger="every 30s [document.visibilityState=='visible']"
+         hx-swap="outerHTML"
+         data-no-loader
+         data-active-section>
+  <h2 class="text-xl font-semibold mb-2">Active</h2>
+  <div class="card bg-base-100 shadow-xl overflow-hidden">
+    {% for label, deliveries in active_groups %}
+      <div data-day-group="{{ label }}" data-time-format="{% if label == 'Today' %}time{% else %}datetime{% endif %}"
+           class="border-b border-base-200 last:border-b-0">
+        <h3 class="px-4 py-2 bg-base-300 border-b border-base-200 uppercase tracking-wide {% if label == 'Today' %}text-base font-bold text-primary{% else %}text-xs font-semibold opacity-70{% endif %}">{{ label }}</h3>
+        {% for delivery in deliveries %}
+          {% include "components/notification_item.html" with when=delivery.notification.created_at %}
+        {% endfor %}
+      </div>
+    {% empty %}
+      <div class="card-body text-sm opacity-70">Nothing needs your attention.</div>
+    {% endfor %}
+  </div>
+</section>

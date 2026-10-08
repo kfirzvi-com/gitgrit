@@ -256,3 +256,73 @@ class TestNotificationViews(TestCase):
         self.assertContains(response, EMPTY_ACTIVE)
         self.assertContains(response, EMPTY_HISTORY)
         self.assertEqual(NotificationDelivery.objects.filter(recipient=user).count(), 0)
+
+
+@pytest.mark.django_db
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestNotificationPollPartials(TestCase):
+    """The Active card and the navbar bell re-fetch themselves by HTMX poll."""
+
+    def setUp(self):
+        self.user = baker.make("app.User")
+        self.tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=self.user, tenant=self.tenant, role="member")
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["active_tenant_id"] = str(self.tenant.id)
+        session.save()
+
+    def _unread(self, title, tenant=None):
+        notification = baker.make(
+            "app.Notification", tenant=tenant or self.tenant, title=title,
+            severity="warning", kind="test.kind", url="/dashboard/",
+        )
+        return baker.make(
+            "app.NotificationDelivery", notification=notification,
+            recipient=self.user, channel="inbox", status="sent", read_at=None,
+        )
+
+    def test_page_polls_the_active_card_and_the_bell(self):
+        response = self.client.get(reverse("notification_list"))
+
+        content = response.content.decode()
+        self.assertIn(f'hx-get="{reverse("notification_active")}"', content)
+        self.assertIn(f'hx-get="{reverse("notification_bell")}"', content)
+        self.assertEqual(content.count("every 30s [document.visibilityState=='visible']"), 2)
+
+    def test_active_partial_is_the_card_alone_scoped_to_the_workspace(self):
+        self._unread("mine")
+        self._unread("elsewhere", tenant=baker.make("app.Tenant"))
+
+        response = self.client.get(reverse("notification_active"))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("mine", content)
+        self.assertNotIn("elsewhere", content)
+        self.assertNotIn("<html", content)
+        self.assertNotIn("History", content)
+        self.assertIn("data-active-section", content)
+
+    def test_active_partial_shows_the_empty_state(self):
+        response = self.client.get(reverse("notification_active"))
+
+        self.assertContains(response, EMPTY_ACTIVE)
+
+    def test_bell_partial_carries_the_unread_count(self):
+        self._unread("one")
+        self._unread("two")
+
+        response = self.client.get(reverse("notification_bell"))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn('aria-label="Notifications"', content)
+        self.assertIn('badge badge-error badge-sm">2<', content)
+        self.assertNotIn("<html", content)
+
+    def test_partials_require_login(self):
+        self.client.logout()
+        for name in ("notification_active", "notification_bell"):
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 302, name)

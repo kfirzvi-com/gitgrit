@@ -13,22 +13,7 @@
   {% endif %}
 </div>
 
-<section class="mb-8">
-  <h2 class="text-xl font-semibold mb-2">Active</h2>
-  <div class="card bg-base-100 shadow-xl overflow-hidden">
-    {% for label, deliveries in active_groups %}
-      <div data-day-group="{{ label }}" data-time-format="{% if label == 'Today' %}time{% else %}datetime{% endif %}"
-           class="border-b border-base-200 last:border-b-0">
-        <h3 class="px-4 py-2 bg-base-300 border-b border-base-200 uppercase tracking-wide {% if label == 'Today' %}text-base font-bold text-primary{% else %}text-xs font-semibold opacity-70{% endif %}">{{ label }}</h3>
-        {% for delivery in deliveries %}
-          {% include "components/notification_item.html" with when=delivery.notification.created_at %}
-        {% endfor %}
-      </div>
-    {% empty %}
-      <div class="card-body text-sm opacity-70">Nothing needs your attention.</div>
-    {% endfor %}
-  </div>
-</section>
+{% include "partials/notifications_active.html" %}
 
 <section>
   <h2 class="text-xl font-semibold mb-2">History</h2>
@@ -54,13 +39,15 @@
   (function () {
     var DATETIME = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" };
     var TIME = { hour: "2-digit", minute: "2-digit" };
-    document.querySelectorAll("[data-local-time]").forEach(function (el) {
-      var scope = el.closest("[data-time-format]");
-      var date = new Date(el.dateTime);
-      el.textContent = scope && scope.dataset.timeFormat === "time"
-        ? date.toLocaleTimeString(undefined, TIME)
-        : date.toLocaleString(undefined, DATETIME);
-    });
+    function formatTimes(root) {
+      root.querySelectorAll("[data-local-time]").forEach(function (el) {
+        var scope = el.closest("[data-time-format]");
+        var date = new Date(el.dateTime);
+        el.textContent = scope && scope.dataset.timeFormat === "time"
+          ? date.toLocaleTimeString(undefined, TIME)
+          : date.toLocaleString(undefined, DATETIME);
+      });
+    }
 
     var more = document.querySelector("[data-history-more]");
     if (more) {
@@ -76,18 +63,32 @@
     var hint = document.getElementById("hover-hint");
     var hintTimer = null;
     function moveHint(e) { hint.style.left = (e.clientX + 14) + "px"; hint.style.top = (e.clientY + 14) + "px"; }
-    document.querySelectorAll("[data-hover-hint]").forEach(function (row) {
-      row.addEventListener("mouseenter", function (e) {
-        hint.textContent = row.dataset.hoverHint;
-        moveHint(e);
-        clearTimeout(hintTimer);
-        hintTimer = setTimeout(function () { hint.classList.remove("hidden"); }, 1000);
+    function bindHints(root) {
+      root.querySelectorAll("[data-hover-hint]").forEach(function (row) {
+        if (row.dataset.hintBound) return;
+        row.dataset.hintBound = "1";
+        row.addEventListener("mouseenter", function (e) {
+          hint.textContent = row.dataset.hoverHint;
+          moveHint(e);
+          clearTimeout(hintTimer);
+          hintTimer = setTimeout(function () { hint.classList.remove("hidden"); }, 1000);
+        });
+        row.addEventListener("mousemove", moveHint);
+        row.addEventListener("mouseleave", function () {
+          clearTimeout(hintTimer);
+          hint.classList.add("hidden");
+        });
       });
-      row.addEventListener("mousemove", moveHint);
-      row.addEventListener("mouseleave", function () {
-        clearTimeout(hintTimer);
-        hint.classList.add("hidden");
-      });
+    }
+    function dress(root) { formatTimes(root); bindHints(root); }
+
+    dress(document);
+    // htmx:load fires on every piece of new content (the whole body at first,
+    // then each swapped-in Active card), on the element itself, so the fresh
+    // rows get the same time format and hover hints.
+    document.addEventListener("htmx:load", function (e) {
+      dress(e.detail.elt);
+      hint.classList.add("hidden");
     });
   })();
 </script>
