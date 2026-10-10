@@ -5,9 +5,11 @@ Registered at startup via ``AppConfig.ready`` so the worker
 """
 from __future__ import annotations
 
+import functools
 import logging
 import time
 
+from django.db import connections
 from django.utils import timezone
 from procrastinate import exceptions
 from procrastinate.contrib.django import app
@@ -32,7 +34,40 @@ INFERENCE_RETRY_DELAY_SECONDS = 10
 _sleep = time.sleep  # seam for tests
 
 
+# Sync tasks run on a pool of reused worker threads, and Django keeps one DB
+# connection per thread. Outside a request nothing ever retires those
+# connections, so once Postgres drops one (restart, failover, idle kill) the
+# thread holding it fails every job it picks up with "the connection is
+# closed" — before the task can mark its rows ERROR. Do what Django does at
+# the start and end of every request: drop connections that are unusable or
+# past CONN_MAX_AGE (with the default 0, that is every connection), so each
+# job starts on a fresh one and an idle thread holds none.
+
+
+def _close_old_connections() -> None:
+    # Like ``django.db.close_old_connections``, but never under an open
+    # transaction: closing there would break it (only tests run tasks so).
+    for conn in connections.all(initialized_only=True):
+        if not conn.in_atomic_block:
+            conn.close_if_unusable_or_obsolete()
+
+
+def fresh_db_connection(func):
+    """Run a sync task between two connection sweeps (see above)."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        _close_old_connections()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            _close_old_connections()
+
+    return wrapper
+
+
 @app.task(queue="graph", name="infer_project_dependencies")
+@fresh_db_connection
 def infer_project_dependencies(project_id: str) -> None:
     """Analyze one project's repo and (re)write its dependency edges.
 
@@ -80,6 +115,7 @@ def infer_project_dependencies(project_id: str) -> None:
 
 
 @app.task(queue="standards", name="run_standards")
+@fresh_db_connection
 def run_standards(project_id: str, execution_ids: list[str]) -> None:
     """Run the given standard executions of one project in the sandbox.
 
@@ -149,6 +185,7 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
 
 @app.periodic(cron="*/5 * * * *")
 @app.task(queue="standards", name="expire_stale_standard_runs", pass_context=False)
+@fresh_db_connection
 def expire_stale_standard_runs(timestamp: int) -> int:
     """Turn RUNNING executions nobody will finish into ERROR rows.
 
