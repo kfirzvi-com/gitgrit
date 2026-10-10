@@ -354,8 +354,13 @@ TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
 # falls through to Python's last-resort handler, which prints the bare message
 # with no timestamp. The support-view audit trail (a superuser acting inside a
 # customer's workspace, see app/workspace_access.py) has to say *when*, so
-# route it through a timestamped console handler. Kept to that one logger so
-# the rest of the app's logging behaviour is unchanged.
+# route it through a timestamped console handler.
+#
+# The Procrastinate worker logs every job's start and outcome, but successes
+# are INFO and were dropped. Emitting them gives the worker a heartbeat in the
+# worker log group: the periodic jobs report "ended with status: Success"
+# every few minutes, so their absence means the worker is down or wedged
+# (alarmed on in infra modules/monitoring).
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -374,6 +379,11 @@ LOGGING = {
     },
     "loggers": {
         "app.support_view": {
+            "handlers": ["console_timestamped"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "procrastinate.worker": {
             "handlers": ["console_timestamped"],
             "level": "INFO",
             "propagate": False,
