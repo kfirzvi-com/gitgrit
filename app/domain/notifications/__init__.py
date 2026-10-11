@@ -59,6 +59,7 @@ _PLAIN_REASONS = (
     (("invalid x-api-key", "invalid api key", "api key"), "The AI provider rejected the API key."),
     (("bad credentials", "401", "unauthorized"), "GitHub or GitLab refused GitGrit's access token."),
     (("403", "forbidden"), "GitGrit is not allowed to read this repository."),
+    (("404", "not found"), "The branch or repository no longer exists, or GitGrit can't see it."),
     (("rate limit", "429"), "The provider asked GitGrit to slow down. It tries again on the next push."),
     (("timed out", "timeout"), "It took too long and was stopped."),
 )
