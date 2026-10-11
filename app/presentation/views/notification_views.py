@@ -14,8 +14,8 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
+from app.application.standard_results import attention_items
 from app.domain.models import NotificationDelivery
-from app.presentation.architecture import attention_items
 
 HISTORY_LIMIT = 50
 HISTORY_PAGE = 5

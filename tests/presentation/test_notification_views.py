@@ -337,7 +337,7 @@ class TestNeedsAttentionInPane(TestCase):
 
         response = self.client.get(reverse("notification_panel"))
 
-        names = [i["standard_name"] for i in response.context["attention_items"]]
+        names = [i.standard_name for i in response.context["attention_items"]]
         self.assertEqual(names, ["Critical standard", "Warn standard"])
         content = response.content.decode()
         self.assertIn("data-attention-section", content)

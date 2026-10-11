@@ -261,6 +261,7 @@
   </footer>
 
   {% if user.is_authenticated %}{% include "components/feedback_modal.html" %}{% endif %}
+  {% if user.is_authenticated %}<script src="{% static 'app/attention.js' %}"></script>{% endif %}
   {% if user.is_authenticated and current_tenant %}{% include "components/notification_panel.html" %}{% endif %}
 </body>
 </html>

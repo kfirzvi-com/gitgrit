@@ -1,0 +1,27 @@
+{% comment %}"Needs attention": the workspace's current failing results, worst first
+(app.application.standard_results.attention_items). Shared by the dashboard card and the
+notifications pane. Expects `attention_items` and `attention_total`; shows three and hides the
+rest behind Show all (toggled by app/attention.js).{% endcomment %}
+<div data-attention>
+  <div class="flex items-baseline justify-between gap-2 mb-2">
+    <h3 class="text-sm font-semibold uppercase tracking-wide opacity-70">Needs attention</h3>
+    {% if attention_total > 3 %}
+      <button type="button" class="text-xs link link-hover opacity-70" data-attention-toggle data-total="{{ attention_total }}">Show all {{ attention_total }}</button>
+    {% endif %}
+  </div>
+  {% for item in attention_items %}
+    <a href="{% url 'standard_execution_detail' item.execution_id %}"
+       class="flex items-start gap-3 -mx-2 px-2 py-2 rounded hover:bg-base-200{% if forloop.counter > 3 %} hidden{% endif %}"{% if forloop.counter > 3 %} data-attention-extra{% endif %}>
+      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 {% if item.level == 'critical' %}bg-error{% else %}bg-warning{% endif %}" title="{{ item.level|title }}"></span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="font-semibold truncate" title="{{ item.standard_name }}">{{ item.standard_name }}</span>
+          <span class="text-sm font-bold shrink-0 {% if item.level == 'critical' %}text-error{% else %}text-warning{% endif %}">{{ item.score }}%</span>
+        </div>
+        <div class="text-xs opacity-70 truncate">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
+      </div>
+    </a>
+  {% empty %}
+    <p class="text-sm opacity-70">All clear — nothing needs attention.</p>
+  {% endfor %}
+</div>
