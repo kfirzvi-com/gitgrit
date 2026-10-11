@@ -23,44 +23,28 @@ is reserved for future manual stack-level labels and is not read here).
 
 from collections import Counter, defaultdict
 
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Q
 from django.urls import reverse
 
 from app.application.naming import canonical_key
+from app.application.standard_results import attached_executions
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
     InfrastructureComponent,
     Project,
-    ProjectStandard,
     Stack,
     StandardExecution,
 )
-from app.presentation.health import (
+from app.domain.health import (
     CRITICAL,
-    HEALTHY,
     HEALTHY_MIN,
     WARNING,
-    level_from_score,
     project_level,
     stack_level,
 )
 
 MAX_TECHNOLOGIES = 8
-
-
-def _attached_executions(tenant):
-    """Tenant executions whose standard is currently attached to their project.
-
-    Detached (or deleted) standards' old executions must not drag project
-    scores or raise attention items, so every dashboard read starts here.
-    """
-    attached = ProjectStandard.objects.filter(
-        project_id=OuterRef("project_id"), standard_id=OuterRef("standard_id")
-    )
-    return StandardExecution.objects.filter(
-        Exists(attached), project__tenant=tenant
-    )
 
 
 def latest_scores_by_project(tenant):
@@ -72,7 +56,7 @@ def latest_scores_by_project(tenant):
     until the worker finishes them, which would read as a regression.
     """
     executions = (
-        _attached_executions(tenant)
+        attached_executions(tenant)
         .exclude(status=StandardExecution.Status.RUNNING)
         .order_by("-created_at")
         .values("project_id", "standard_id", "standard_name", "score")
@@ -93,56 +77,6 @@ def _project_score(project_id, latest):
     if not results:
         return None
     return round(sum(r["score"] for r in results.values()) / len(results))
-
-
-def attention_items(tenant):
-    """Current standard results that need attention, worst-first.
-
-    The latest result per (project, standard) that is needs-attention/critical by
-    score or failed/errored. Returns the full ranked list; the dashboard shows
-    the top few and counts the rest. Each item links to its execution detail.
-    """
-    # In-flight rows score 0 until the worker finishes them; they would show
-    # as critical and hide the real latest result for that pair.
-    executions = (
-        _attached_executions(tenant)
-        .exclude(status=StandardExecution.Status.RUNNING)
-        .select_related("project", "standard")
-        .order_by("-created_at")[:500]
-    )
-
-    seen = set()
-    items = []
-    for ex in executions:
-        key = (ex.project_id, ex.standard_id)
-        if key in seen:
-            continue
-        seen.add(key)
-
-        level = level_from_score(ex.score)
-        failed = ex.status in ("failed", "error")
-        if level == HEALTHY and not failed:
-            continue
-        if level == HEALTHY:  # failed/errored but scored OK — still flag it
-            level = WARNING
-
-        items.append(
-            {
-                "level": level,
-                "project_name": ex.project.name,
-                "project_url": reverse("project_detail", args=[ex.project_id]),
-                "standard_name": ex.standard_name,
-                "standard_url": reverse("standard_detail", args=[ex.standard_id]),
-                "score": ex.score,
-                "status": ex.get_status_display(),
-                "url": reverse("standard_execution_detail", args=[ex.id]),
-                "when": ex.created_at,
-            }
-        )
-
-    rank = {CRITICAL: 2, WARNING: 1}
-    items.sort(key=lambda i: (rank.get(i["level"], 0), i["when"]), reverse=True)
-    return items
 
 
 def _project_issues(project_id, latest):

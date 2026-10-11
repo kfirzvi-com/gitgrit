@@ -71,6 +71,14 @@ from app.presentation.views.marketplace_views import (
     install_marketplace_standard,
     update_marketplace_standard,
 )
+from app.presentation.views.notification_views import (
+    mark_all_read,
+    mark_read,
+    mark_unread,
+    notification_bell,
+    notification_panel,
+    open_notification,
+)
 from app.presentation.views.web_views import DashboardView, HomeView
 from app.presentation.views.workspace_switcher_views import workspace_switcher_list
 from app.presentation.views.token_views import create_api_token, revoke_api_token
@@ -78,6 +86,12 @@ from app.presentation.views.token_views import create_api_token, revoke_api_toke
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
+    path("notifications/panel/", notification_panel, name="notification_panel"),
+    path("notifications/read-all/", mark_all_read, name="notifications_mark_all_read"),
+    path("notifications/bell/", notification_bell, name="notification_bell"),
+    path("notifications/<uuid:pk>/open/", open_notification, name="notification_open"),
+    path("notifications/<uuid:pk>/read/", mark_read, name="notification_mark_read"),
+    path("notifications/<uuid:pk>/unread/", mark_unread, name="notification_mark_unread"),
     path("profile/", ProfileView.as_view(), name="profile"),
     path("profile/disconnect/<str:provider>/", disconnect_social, name="disconnect_social"),
     # Tenant management

@@ -1,0 +1,51 @@
+{% comment %}The notifications pane's contents: header, Needs attention (the workspace's
+current failing results, always shown), Active grouped by day, and History. Served by notification_panel, and in reply to Mark read, Mark unread and Mark all
+read, which swap it in place.{% endcomment %}
+<div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-base-200 sticky top-0 bg-base-100 z-10">
+  <h2 class="text-lg font-bold">Notifications</h2>
+  <div class="flex items-center gap-1">
+    {% if active %}
+      <button type="button" class="btn btn-ghost btn-xs"
+              hx-post="{% url 'notifications_mark_all_read' %}"
+              hx-target="#notification-panel-body" hx-swap="innerHTML"
+              data-no-loader>Mark all read</button>
+    {% endif %}
+    <button type="button" class="btn btn-ghost btn-sm btn-circle" aria-label="Close notifications" data-notification-close>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+    </button>
+  </div>
+</div>
+
+<section data-attention-section class="px-4 pt-4 pb-2 border-b border-base-200">
+  {% include "components/attention_list.html" %}
+</section>
+
+<section data-active-section>
+  <h3 class="px-4 pt-4 pb-2 text-sm font-semibold uppercase tracking-wide opacity-70">Active</h3>
+  {% for label, items in active_groups %}
+    <div data-day-group="{{ label }}" data-time-format="{% if label == 'Today' %}time{% else %}datetime{% endif %}">
+      <h4 class="px-4 py-1.5 bg-base-300 text-xs font-bold uppercase tracking-wide text-primary">{{ label }}</h4>
+      {% for item in items %}
+        {% include "components/notification_item.html" with when=item.notification.created_at %}
+      {% endfor %}
+    </div>
+  {% empty %}
+    <p class="px-4 pb-4 text-sm opacity-70">No new notifications.</p>
+  {% endfor %}
+</section>
+
+<section data-time-format="datetime">
+  <h3 class="px-4 pt-6 pb-2 text-sm font-semibold uppercase tracking-wide opacity-70">History</h3>
+  {% for item in history %}
+    <div data-history-row class="{% if forloop.counter > history_page %}hidden{% endif %}">
+      {% include "components/notification_item.html" with when=item.notification.created_at %}
+    </div>
+  {% empty %}
+    <p class="px-4 pb-4 text-sm opacity-70">No read notifications yet.</p>
+  {% endfor %}
+  {% if history|length > history_page %}
+    <div class="flex justify-center p-2">
+      <button type="button" class="btn btn-ghost btn-sm" data-history-more>Show more</button>
+    </div>
+  {% endif %}
+</section>

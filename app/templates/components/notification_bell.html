@@ -1,0 +1,15 @@
+{% comment %}The navbar bell with its unread badge. Opens the notifications side pane
+(components/notification_panel.html). Polls every 30s while the tab is visible, and right away
+when an action in the pane changes the count. Included by the navbar and served alone by
+notification_bell.{% endcomment %}
+<button type="button" class="btn btn-ghost btn-circle" aria-label="Notifications" title="Notifications"
+        aria-controls="notification-panel" data-notification-open
+        hx-get="{% url 'notification_bell' %}"
+        hx-trigger="every 30s [document.visibilityState=='visible'], notificationsCountChanged from:body"
+        hx-swap="outerHTML"
+        data-no-loader>
+  <div class="indicator">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+    {% if unread_notifications > 0 %}<span class="indicator-item badge badge-error badge-sm">{{ unread_notifications }}</span>{% endif %}
+  </div>
+</button>

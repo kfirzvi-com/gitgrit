@@ -13,6 +13,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
 from django_htmx.http import HttpResponseClientRedirect
 
+from app.application.event_bus import publish
+from app.domain.events import MemberJoined, MemberRemoved
 from app.domain.models import (
     LLMProvider,
     LLMProviderType,
@@ -103,6 +105,13 @@ def leave_workspace(request):
         return redirect("tenant_settings")
 
     membership.delete()
+    publish(
+        MemberRemoved(
+            tenant_id=str(tenant.pk),
+            user_id=str(request.user.pk),
+            removed_by_user_id=str(request.user.pk),
+        )
+    )
     request.session.pop("active_tenant_id", None)
     messages.success(request, f'You left "{tenant.name}".')
     return redirect("dashboard")
@@ -228,6 +237,14 @@ def invite_member(request):
         return redirect("tenant_settings")
 
     Membership.objects.create(user=invitee, tenant=tenant, role=role)
+    publish(
+        MemberJoined(
+            tenant_id=str(tenant.pk),
+            user_id=str(invitee.pk),
+            role=role,
+            added_by_user_id=str(request.user.pk),
+        )
+    )
     messages.success(request, f"{email} added as {role}.")
     return redirect("tenant_settings")
 
@@ -251,6 +268,13 @@ def remove_member(request, membership_id):
         return redirect("tenant_settings")
 
     target.delete()
+    publish(
+        MemberRemoved(
+            tenant_id=str(tenant.pk),
+            user_id=str(target.user_id),
+            removed_by_user_id=str(request.user.pk),
+        )
+    )
     messages.success(request, "Member removed.")
     return redirect("tenant_settings")
 

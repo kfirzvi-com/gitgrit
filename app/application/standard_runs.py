@@ -23,7 +23,7 @@ from django.utils import timezone
 
 from app.application.event_bus import publish
 from app.application.standard_engine import StandardEngine, literal_ref
-from app.domain.events import DomainEvent, RepositoryPushed
+from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsTimedOut
 from app.domain.identity import resolve_user
 from app.domain.models import Project, Standard, StandardExecution
 from app.tasks import run_standards
@@ -63,8 +63,12 @@ def expire_stale_runs() -> int:
     number of rows changed. Called by the periodic ``expire_stale_standard_runs``
     job; safe to run at any time."""
     message = STALE_MESSAGE.format(minutes=settings.STANDARD_RUN_STALE_MINUTES)
-    changed = StandardExecution.objects.filter(
+    stale = StandardExecution.objects.filter(
         status=StandardExecution.Status.RUNNING, created_at__lt=stale_cutoff()
+    )
+    rows = list(stale.values_list("pk", "project_id", "project__tenant_id"))
+    changed = StandardExecution.objects.filter(
+        pk__in=[pk for pk, _, _ in rows], status=StandardExecution.Status.RUNNING
     ).update(
         status=StandardExecution.Status.ERROR,
         message=message,
@@ -72,6 +76,17 @@ def expire_stale_runs() -> int:
     )
     if changed:
         logger.warning("expired %d stale standard run(s)", changed)
+        by_project = {}
+        for pk, project_id, tenant_id in rows:
+            by_project.setdefault((project_id, tenant_id), []).append(str(pk))
+        for (project_id, tenant_id), execution_ids in by_project.items():
+            publish(
+                StandardRunsTimedOut(
+                    project_id=str(project_id),
+                    tenant_id=str(tenant_id),
+                    execution_ids=tuple(execution_ids),
+                )
+            )
     return changed
 
 

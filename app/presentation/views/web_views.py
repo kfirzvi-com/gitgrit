@@ -4,13 +4,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
+from app.application.standard_results import attention_items
 from app.domain.models import PlatformConnection, Standard, Project, Stack
 from app.workspace_access import is_workspace_admin
-from app.presentation.architecture import (
-    attention_items,
-    latest_scores_by_project,
-    workspace_graph,
-)
+from app.presentation.architecture import latest_scores_by_project, workspace_graph
 
 
 class HomeView(TemplateView):
@@ -62,5 +59,5 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 {"stacks": [], "dependencies": []}
             )
             context["attention_items"] = []
-            context["attention_more"] = 0
+            context["attention_total"] = 0
         return context

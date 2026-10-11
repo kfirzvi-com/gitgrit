@@ -85,6 +85,8 @@ def infer_project_dependencies(project_id: str) -> None:
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
     from app.application.dependency_agent import infer_and_store
+    from app.application.event_bus import publish
+    from app.domain.events import DependencyInferenceFailed
     from app.domain.models import Project
 
     project = Project.objects.filter(pk=project_id).first()
@@ -92,6 +94,8 @@ def infer_project_dependencies(project_id: str) -> None:
         logger.warning("infer_project_dependencies: project %s no longer exists", project_id)
         return
 
+    # Read before this run: only a successful refresh sets deps_analyzed_at.
+    had_worked_before = project.deps_analyzed_at is not None
     Project.objects.filter(pk=project_id).update(
         deps_status=Project.DepsStatus.RUNNING, deps_error=""
     )
@@ -109,6 +113,15 @@ def infer_project_dependencies(project_id: str) -> None:
             if attempt == INFERENCE_ATTEMPTS:
                 Project.objects.filter(pk=project_id).update(
                     deps_status=Project.DepsStatus.FAILED, deps_error=str(exc)[:2000]
+                )
+                publish(
+                    DependencyInferenceFailed(
+                        project_id=str(project.pk),
+                        tenant_id=str(project.tenant_id),
+                        error=str(exc)[:2000],
+                        had_worked_before=had_worked_before,
+                        provider_status=getattr(exc, "status_code", None),
+                    )
                 )
                 raise  # no retry strategy: Procrastinate marks the job failed
             _sleep(INFERENCE_RETRY_DELAY_SECONDS * attempt)
@@ -135,7 +148,9 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     """
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
+    from app.application.event_bus import publish
     from app.application.standard_engine import StandardEngine
+    from app.domain.events import StandardRunFinished
     from app.domain.models import Project, StandardExecution
 
     def _fail(rows, message: str) -> None:
@@ -143,6 +158,27 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
             status=StandardExecution.Status.ERROR,
             message=message,
             details={"error": message},
+        )
+
+    def _publish_finished(error: str = "") -> None:
+        """Tell listeners how the run ended. Outcomes are re-read from the
+        database and only this project's rows count."""
+        rows = list(
+            StandardExecution.objects.filter(pk__in=execution_ids, project=project)
+            .order_by("created_at")
+            .values_list("pk", "status")
+        )
+        statuses = [status for _, status in rows]
+        publish(
+            StandardRunFinished(
+                project_id=str(project.pk),
+                tenant_id=str(project.tenant_id),
+                execution_ids=tuple(str(pk) for pk, _ in rows),
+                passed=statuses.count(StandardExecution.Status.PASSED),
+                failed=statuses.count(StandardExecution.Status.FAILED),
+                errored=statuses.count(StandardExecution.Status.ERROR),
+                error=error,
+            )
         )
 
     project = (
@@ -179,8 +215,33 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
             engine.run_execution(execution, input_config)
     except Exception as exc:
         logger.exception("run_standards failed for project %s", project_id)
-        _fail(executions, str(exc)[:2000])
+        message = str(exc)[:2000]
+        _fail(executions, message)
+        _publish_finished(error=message)
         raise
+    _publish_finished()
+
+
+# The one worker serves every queue and takes jobs by priority, then age, so
+# without this a notification waits behind every standard run queued before it.
+NOTIFICATION_PRIORITY = 10
+
+
+@app.task(
+    queue="notifications", name="deliver_notification", priority=NOTIFICATION_PRIORITY
+)
+def deliver_notification(notification_id: str) -> None:
+    """Deliver one stored notification on its channels. Runs ahead of queued
+    standard runs and graph jobs (see ``NOTIFICATION_PRIORITY``).
+
+    No Procrastinate retry: a channel that fails gets a FAILED ``DeliveryLog``
+    row, which is the record; nothing re-sends it. ``dispatch`` skips channels
+    that already have a SENT row, so a re-run after a crashed worker
+    (``recover_stalled_jobs``) never double-posts.
+    """
+    from app.application.notifications.dispatcher import dispatch
+
+    dispatch(notification_id)
 
 
 @app.periodic(cron="*/5 * * * *")

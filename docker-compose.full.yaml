@@ -84,11 +84,12 @@ services:
 
   # Background worker (Procrastinate). Executes the standard runs — Run /
   # Run All, attach/save/activate, and webhook deliveries all only *queue*
-  # them — and the dependency-graph analysis. Standards stay stuck in
-  # "running" on the project page if this container is not up.
+  # them — the dependency-graph analysis, and notification delivery.
+  # Standards stay stuck in "running" on the project page if this container
+  # is not up.
   worker:
     <<: *gitgrit-service
-    command: python manage.py procrastinate worker --queues=graph,standards --concurrency 4
+    command: python manage.py procrastinate worker --queues=graph,standards,notifications --concurrency 4
     # Procrastinate's own check: DB reachable, schema migrated, app wired.
     # A worker that cannot pass this cannot consume the queues either, and
     # `docker compose ps` then shows it unhealthy instead of silently idle.

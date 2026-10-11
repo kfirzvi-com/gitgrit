@@ -12,7 +12,8 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import StandardExecution
-from app.presentation.architecture import attention_items, latest_scores_by_project
+from app.application.standard_results import attention_items
+from app.presentation.architecture import latest_scores_by_project
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {

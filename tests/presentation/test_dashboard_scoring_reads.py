@@ -1,8 +1,9 @@
 """Dashboard and badge scoring reads count only currently-attached standards.
 
 Attachment defines which standards apply to a project; detaching (or deleting)
-a standard must also remove its execution history from the project's score and
-from the attention list, so old runs stop dragging the numbers.
+a standard must also remove its execution history from the project's score, so
+old runs stop dragging the numbers. (The attention list's version of this rule
+is tested in tests/application/test_standard_results.py.)
 """
 import pytest
 from django.test import TestCase
@@ -10,7 +11,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import StandardExecution
-from app.presentation.architecture import attention_items, latest_scores_by_project
+from app.presentation.architecture import latest_scores_by_project
 
 
 def _execution(project, standard, score, status=StandardExecution.Status.PASSED):
@@ -63,26 +64,6 @@ class TestLatestScoresByProject(TestCase):
 
         assert with_standard.id in latest
         assert without_standard.id not in latest
-
-
-@pytest.mark.django_db
-class TestAttentionItems(TestCase):
-    def test_detached_standard_failure_is_not_raised(self):
-        tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        attached = baker.make("app.Standard", tenant=tenant)
-        detached = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(attached)
-        _execution(
-            project, attached, score=20, status=StandardExecution.Status.FAILED
-        )
-        _execution(
-            project, detached, score=5, status=StandardExecution.Status.FAILED
-        )
-
-        items = attention_items(tenant)
-
-        assert [i["standard_name"] for i in items] == [attached.name]
 
 
 @pytest.mark.django_db

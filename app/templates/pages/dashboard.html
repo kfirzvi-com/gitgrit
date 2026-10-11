@@ -80,32 +80,7 @@
   </div>
 
   <aside class="gg-attention">
-    <div class="flex items-baseline justify-between gap-2 mb-3">
-      <div class="section-label">Needs attention</div>
-      {% if attention_total > 3 %}
-        <button id="attention-toggle" type="button" class="text-xs link link-hover opacity-70">Show all {{ attention_total }}</button>
-      {% endif %}
-    </div>
-    {% if attention_items %}
-      <ol id="attention-list" class="gg-timeline">
-        {% for item in attention_items %}
-          <li class="gg-timeline__item gg-health-{{ item.level }}{% if forloop.counter > 3 %} gg-attention-extra{% endif %}">
-            <a href="{{ item.url }}" class="gg-timeline__link">
-              <div class="gg-timeline__row">
-                <span class="gg-timeline__title">{{ item.standard_name }}</span>
-                <span class="gg-timeline__score">{{ item.score }}%</span>
-              </div>
-              <div class="gg-timeline__sub">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
-            </a>
-          </li>
-        {% endfor %}
-      </ol>
-      {% if attention_total > 3 %}
-        <p id="attention-hint" class="text-xs opacity-50 mt-3 pl-4">Showing top 3 of {{ attention_total }}</p>
-      {% endif %}
-    {% else %}
-      <p class="text-sm opacity-60">All clear — nothing needs attention.</p>
-    {% endif %}
+    {% include "components/attention_list.html" %}
   </aside>
   </div>
 
@@ -134,19 +109,6 @@
     });
   })();
 
-  // Expand / collapse the needs-attention list (top 3 ⇄ all).
-  (function () {
-    var btn = document.getElementById("attention-toggle");
-    if (!btn) return;
-    var list = document.getElementById("attention-list");
-    var hint = document.getElementById("attention-hint");
-    var total = {{ attention_total }};
-    btn.addEventListener("click", function () {
-      var expanded = list.classList.toggle("is-expanded");
-      btn.textContent = expanded ? "Show less" : "Show all " + total;
-      if (hint) hint.classList.toggle("hidden", expanded);
-    });
-  })();
   </script>
 
   <script id="architecture-data" type="application/json">{{ architecture_data|safe }}</script>

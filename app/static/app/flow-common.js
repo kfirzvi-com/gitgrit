@@ -22,7 +22,7 @@ window.GitGritFlow = (function () {
 
   // Health colour codes — single source of truth for node stripes (via the
   // --gg-health custom property) and legend swatches. Kept in step with the
-  // levels in app/presentation/health.py.
+  // levels in app/domain/health.py.
   var HEALTH_COLOR = {
     healthy: "#34d399",
     warning: "#fbbf24",

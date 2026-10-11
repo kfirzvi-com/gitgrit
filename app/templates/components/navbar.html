@@ -4,7 +4,7 @@
 {% url 'stack_list' as url_stacks %}
 {% url 'standard_list' as url_standards %}
 {% url 'marketplace_browse' as url_marketplace %}
-<div class="navbar bg-base-100 shadow-lg">
+<div class="navbar bg-base-100 shadow-lg sticky top-0 z-30">
   <div class="navbar-start">
     {% if user.is_authenticated %}
       <div class="dropdown">
@@ -72,6 +72,10 @@
             </ul>
           </div>
         </div>
+      {% endif %}
+
+      {% if current_tenant %}
+        {% include "components/notification_bell.html" %}
       {% endif %}
 
       <div class="dropdown dropdown-end">

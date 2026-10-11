@@ -26,9 +26,9 @@
   font-family: var(--gg-font-sans);
 }
 
-/* Health colour codes as CSS vars, for elements coloured in templates
-   (e.g. the attention timeline). Kept in step with flow-common.js HEALTH_COLOR
-   and app/presentation/health.py. Diagram nodes set --gg-health inline. */
+/* Health colour codes as CSS vars, for elements coloured in templates.
+   Kept in step with flow-common.js HEALTH_COLOR
+   and app/domain/health.py. Diagram nodes set --gg-health inline. */
 .gg-health-healthy { --gg-health: #34d399; }
 .gg-health-warning { --gg-health: #fbbf24; }
 .gg-health-critical { --gg-health: #f87171; }
@@ -331,67 +331,3 @@
   opacity: 0.85;
 }
 
-/* Needs-attention list (dashboard side panel) — clean, frameless.
-   The dot is a flex child of the title row (align-items:center) so it always
-   sits on the title's centre line, regardless of font/line-height. */
-.gg-timeline {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.gg-timeline__item + .gg-timeline__item {
-  border-top: 1px solid color-mix(in oklab, var(--gg-border) 55%, transparent);
-}
-.gg-timeline__link {
-  display: block;
-  padding: 7px 0;
-}
-.gg-timeline__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.gg-timeline__row::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--gg-health, var(--gg-border));
-  flex-shrink: 0;
-}
-.gg-timeline__title {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.8rem;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.gg-timeline__link:hover .gg-timeline__title {
-  text-decoration: underline;
-}
-.gg-timeline__score {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--gg-health, currentColor);
-  flex-shrink: 0;
-}
-/* Indent the sub-line to line up under the title (past the dot + gap). */
-.gg-timeline__sub {
-  padding-left: 15px;
-  font-size: 0.7rem;
-  opacity: 0.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
-
-/* Top-3 by default; the toggle reveals the rest. */
-.gg-attention-extra {
-  display: none;
-}
-#attention-list.is-expanded .gg-attention-extra {
-  display: block;
-}

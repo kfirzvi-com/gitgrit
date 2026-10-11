@@ -287,7 +287,11 @@ def add_project_search(request, connection_id):
                 f'Project added but webhook registration failed. You can retry from the project page.',
             )
 
-        publish(ProjectCreated(project_id=str(project.id), tenant_id=str(tenant.id)))
+        publish(
+            ProjectCreated(
+                project_id=str(project.id), tenant_id=str(tenant.id), user_id=str(request.user.pk)
+            )
+        )
         messages.success(request, f'Project "{project.name}" added.')
         # After the metadata fetch above, so language criteria see real data.
         _run_newly_attached(
@@ -380,7 +384,14 @@ def delete_project(request, pk):
 
     project_id = str(project.pk)
     project.delete()
-    publish(ProjectDeleted(project_id=project_id, tenant_id=str(tenant.id)))
+    publish(
+        ProjectDeleted(
+            project_id=project_id,
+            tenant_id=str(tenant.id),
+            project_name=name,
+            user_id=str(request.user.pk),
+        )
+    )
     messages.success(request, f'Project "{name}" removed.')
     return redirect("project_list")
 
