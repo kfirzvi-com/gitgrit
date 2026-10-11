@@ -16,6 +16,9 @@ class DomainEvent:
     target_ref: str | None = None
     actor: str | None = None
     raw_payload: dict = field(default_factory=dict)
+    # A push that deletes its branch or tag (GitHub sends ``deleted: true``,
+    # GitLab an all-zeros ``after``). There is nothing left at the ref to read.
+    deleted: bool = False
 
 
 # --- Workspace domain events -------------------------------------------------

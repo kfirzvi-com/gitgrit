@@ -16,6 +16,7 @@ from model_bakery import baker
 from app.application.standard_engine import bare_ref, literal_ref
 from app.application.standard_runs import enqueue_for_event, enqueue_manual_run
 from app.domain.events import DomainEvent
+from app.domain.models import StandardExecution
 from tests.support import queued_standards_run_inline
 
 
@@ -141,6 +142,36 @@ class TestRunRef(TestCase):
 
         assert len(queued) == 1
         assert self._sandbox_ref() == "develop"
+
+    def test_a_branch_deletion_runs_nothing_and_rebuilds_nothing(self):
+        """Deleting a merged branch arrives as a push to it. Nothing is left
+        at that ref, so no standard runs and no graph rebuild is queued."""
+        project = self._project()
+        standard = baker.make(
+            "app.Standard",
+            tenant=project.tenant,
+            enabled=True,
+            draft=False,
+            criteria={"events": ["push"], "languages": []},
+        )
+        project.standards.add(standard)
+        event = DomainEvent(
+            event_type="push",
+            platform="github",
+            external_project_id="42",
+            ref="refs/heads/feature/merged",
+            actor="alice",
+            raw_payload={},
+            deleted=True,
+        )
+
+        with mock.patch("app.application.standard_runs.publish") as publish:
+            queued = self._webhook_run(event)
+
+        assert queued == []
+        self.runner.run.assert_not_called()
+        publish.assert_not_called()
+        assert not StandardExecution.objects.filter(project=project).exists()
 
     def test_webhook_on_other_branch_does_not_run(self):
         project = self._project()

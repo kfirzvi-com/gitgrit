@@ -3,6 +3,9 @@ from __future__ import annotations
 from app.domain.events import DomainEvent
 from app.infrastructure.parsers.base import BaseWebhookParser
 
+# A push's ``after`` when the push deleted the branch or tag.
+DELETED_SHA = "0" * 40
+
 # Map GitLab event names to canonical event types (the names standards use).
 GITLAB_EVENT_MAP = {
     "merge_request": "pull_request",
@@ -35,4 +38,5 @@ class GitLabParser(BaseWebhookParser):
             target_ref=attributes.get("target_branch"),
             actor=actor,
             raw_payload=payload,
+            deleted=payload.get("after") == DELETED_SHA,
         )

@@ -35,4 +35,5 @@ class GitHubParser(BaseWebhookParser):
             target_ref=pull_request.get("base", {}).get("ref"),
             actor=sender.get("login"),
             raw_payload=payload,
+            deleted=payload.get("deleted") is True,
         )
