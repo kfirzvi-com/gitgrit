@@ -30,7 +30,7 @@ class NamedConstructorTests(TestCase):
         self.assertEqual(n.kind, Kind.RUN_FAILED)
         self.assertEqual(n.severity, Severity.CRITICAL)
         self.assertEqual(n.title, "GitGrit could not evaluate")
-        self.assertEqual(n.body, "401 Bad credentials")
+        self.assertEqual(n.body, "GitHub or GitLab refused GitGrit's access token.")
         self.assertEqual(n.url, reverse("standard_execution_detail", args=[execution_id]))
         self.assertEqual(
             n.context,
@@ -44,6 +44,12 @@ class NamedConstructorTests(TestCase):
             },
         )
         self.assertEqual(n.triggered_by_user_ids, ["u1"])
+
+    def test_an_unknown_error_never_shows_raw(self):
+        n = Notification.could_not_evaluate(
+            project=self.project, error="FileNotFoundError: [Errno 2] No such file: '/policy.py'"
+        )
+        self.assertEqual(n.body, "The run stopped before it could score the project. Open it to see why.")
 
     def test_could_not_evaluate_without_a_run_links_to_the_project(self):
         n = Notification.could_not_evaluate(project=self.project, error="boom")
@@ -94,7 +100,7 @@ class NamedConstructorTests(TestCase):
         self.assertEqual(n.kind, Kind.GRAPH_FAILED)
         self.assertEqual(n.severity, Severity.WARNING)
         self.assertEqual(n.title, "Dependency graph failed")
-        self.assertEqual(n.body, "LLM timed out")
+        self.assertEqual(n.body, "It took too long and was stopped.")
         self.assertEqual(n.url, reverse("tenant_settings") + "#section-llm")
         self.assertEqual(
             n.context,
@@ -133,7 +139,7 @@ class NewKindConstructorTests(TestCase):
         n = Notification.ai_provider_failed(project=self.project, error="credit balance is too low\n...")
         self.assertEqual((n.kind, n.severity), (Kind.AI_PROVIDER_FAILED, Severity.CRITICAL))
         self.assertEqual(n.subject, "AI provider")
-        self.assertEqual(n.body, "credit balance is too low")
+        self.assertEqual(n.body, "The AI provider account is out of credit.")
         self.assertEqual(n.url, reverse("tenant_settings") + "#section-llm")
 
     def test_project_added_and_removed_name_the_actor(self):

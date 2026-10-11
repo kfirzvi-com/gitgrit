@@ -6,7 +6,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
 
-from app.domain.notifications import Kind, Severity, first_line
+from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
 
@@ -1058,7 +1058,8 @@ class Notification(models.Model):
             kind=Kind.RUN_FAILED,
             severity=Severity.CRITICAL,
             title="GitGrit could not evaluate",
-            body=first_line(error),
+            body=plain_reason(error)
+            or "The run stopped before it could score the project. Open it to see why.",
             url=url,
             context=_run_context(execution_ids, trigger, triggered_by_user_ids),
         )
@@ -1083,7 +1084,7 @@ class Notification(models.Model):
             kind=Kind.STANDARDS_FAILING,
             severity=Severity.WARNING,
             title=f"{n} standard{'s' if n != 1 else ''} failed",
-            body=first_line(listing),
+            body=listing[:BODY_MAX],
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,
         )
@@ -1150,7 +1151,7 @@ class Notification(models.Model):
             kind=Kind.GRAPH_FAILED,
             severity=Severity.WARNING,
             title="Dependency graph failed",
-            body=first_line(error),
+            body=plain_reason(error) or "The map could not be rebuilt, so the last one is still shown.",
             url=reverse("tenant_settings") + "#section-llm",
             context={},
         )
@@ -1165,7 +1166,8 @@ class Notification(models.Model):
             kind=Kind.AI_PROVIDER_FAILED,
             severity=Severity.CRITICAL,
             title="AI provider refused GitGrit",
-            body=first_line(error),
+            body=plain_reason(error)
+            or "Check the AI provider's key and account in workspace settings.",
             url=reverse("tenant_settings") + "#section-llm",
             context={},
         )

@@ -175,6 +175,19 @@ class TestNotificationViews(TestCase):
             d.refresh_from_db()
             self.assertIsNone(d.read_at)
 
+    def test_every_row_shows_its_severity(self):
+        for severity in ("critical", "warning", "info"):
+            item = self._item(f"{severity}-item")
+            Notification.objects.filter(pk=item.notification_id).update(severity=severity)
+
+        content = self.client.get(reverse("notification_panel")).content.decode()
+
+        for severity, color in (("critical", "bg-error"), ("warning", "bg-warning"), ("info", "bg-info")):
+            with self.subTest(severity=severity):
+                self.assertIn(f'data-severity="{severity}"', content)
+                self.assertIn(f'aria-label="{severity.title()}"', content)
+                self.assertIn(color, content)
+
     def test_mark_read_moves_one_item_to_history_without_navigating(self):
         target = self._item("target")
         self._item("other")

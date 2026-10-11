@@ -3,7 +3,13 @@ notice was published.{% endcomment %}
 {% with ctx=item.notification.context %}
 <div data-hover-hint="More info" class="flex items-start gap-2 px-4 py-3 border-b border-base-200 hover:bg-base-200">
   <a href="{% url 'notification_open' item.pk %}" class="flex-1 min-w-0">
-    <div class="font-bold truncate" title="{{ item.notification.subject }}">{{ item.notification.subject }}</div>
+    {% with severity=item.notification.severity %}
+      <div class="flex items-center gap-2 min-w-0" data-severity="{{ severity }}">
+        <span role="img" aria-label="{{ severity|title }}" title="{{ severity|title }}"
+              class="h-2.5 w-2.5 rounded-full shrink-0 {% if severity == 'critical' %}bg-error{% elif severity == 'warning' %}bg-warning{% else %}bg-info{% endif %}"></span>
+        <span class="font-bold truncate" title="{{ item.notification.subject }}">{{ item.notification.subject }}</span>
+      </div>
+    {% endwith %}
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
       <span class="font-semibold break-words">{{ item.notification.title }}</span>
       {% with trigger=ctx.trigger %}

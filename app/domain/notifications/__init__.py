@@ -1,7 +1,7 @@
 """The notification domain.
 
 This module is the vocabulary shared by every layer: the kinds, the
-severities, and the one-line summary rule for a notification's detail text.
+severities, and the plain-language reasons shown instead of raw error text.
 Pure Python (no Django), so the models, the policies and tests can import it
 from anywhere. Alongside it:
 
@@ -47,15 +47,28 @@ class Kind:
     STANDARD_CHANGED = "standard.changed"
 
 
+# Detail text longer than this is cut.
 BODY_MAX = 200
-_TRACEBACK = "Traceback (most recent call last):"
 
 
-def first_line(text: str) -> str:
-    """One line of detail text. A traceback's useful line is its last one (the
-    exception); any other text is summarized by its first line."""
-    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
-    if not lines:
-        return ""
-    line = lines[-1] if any(_TRACEBACK in line for line in lines) else lines[0]
-    return line[:BODY_MAX]
+# Known causes, in the order they are checked, and how to say them to a
+# person. Raw error text never reaches a notification: it stays on the page
+# the notification links to (the run's details, the project, settings).
+_PLAIN_REASONS = (
+    (("credit balance", "insufficient_quota"), "The AI provider account is out of credit."),
+    (("invalid x-api-key", "invalid api key", "api key"), "The AI provider rejected the API key."),
+    (("bad credentials", "401", "unauthorized"), "GitHub or GitLab refused GitGrit's access token."),
+    (("403", "forbidden"), "GitGrit is not allowed to read this repository."),
+    (("rate limit", "429"), "The provider asked GitGrit to slow down. It tries again on the next push."),
+    (("timed out", "timeout"), "It took too long and was stopped."),
+)
+
+
+def plain_reason(error: str) -> str | None:
+    """A person-readable reason for a known error, or None when the error is
+    not one we recognize."""
+    text = (error or "").lower()
+    for markers, reason in _PLAIN_REASONS:
+        if any(marker in text for marker in markers):
+            return reason
+    return None

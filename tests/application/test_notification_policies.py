@@ -92,7 +92,7 @@ class CouldNotEvaluateNotificationPolicyTests(_PolicyTestCase):
 
         n = Notification.objects.get()
         self.assertEqual(n.kind, "run.failed")
-        self.assertEqual(n.body, "401 Bad credentials")
+        self.assertEqual(n.body, "GitHub or GitLab refused GitGrit's access token.")
         self.assertEqual(n.url, reverse("standard_execution_detail", args=[row.pk]))
         self.assertEqual(n.context["project_name"], "Acme")
         self.assertEqual(n.context["execution_ids"], [str(row.pk)])
@@ -118,24 +118,24 @@ class CouldNotEvaluateNotificationPolicyTests(_PolicyTestCase):
         self.policy.handle(self._event([row], errored=1, error="sandbox exploded"))
         self.connection_works.assert_not_called()
 
-    def test_all_rows_errored_uses_the_row_error(self):
-        row = self._errored(details={"error": "sandbox exploded"})
+    def test_all_rows_errored_explains_the_row_error(self):
+        row = self._errored(details={"error": "Timed out after 30s"})
         self.policy.handle(self._event([row], errored=1))
-        self.assertEqual(Notification.objects.get().body, "sandbox exploded")
+        self.assertEqual(Notification.objects.get().body, "It took too long and was stopped.")
 
-    def test_sandbox_error_flag_falls_back_to_the_exception_line(self):
+    def test_sandbox_error_flag_falls_back_to_the_message(self):
         """The sandbox marks a raising standard with ``details={"error": True}``
-        and puts the traceback in ``message``."""
+        and puts the traceback in ``message``; the reason comes from there."""
         row = self._errored(
             details={"error": True},
             message=(
                 "Standard execution error: Traceback (most recent call last):\n"
                 '  File "/entrypoint.py", line 1, in <module>\n'
-                "RuntimeError: boom from standard"
+                "TimeoutError: timed out reading the repository"
             ),
         )
         self.policy.handle(self._event([row], errored=1))
-        self.assertEqual(Notification.objects.get().body, "RuntimeError: boom from standard")
+        self.assertEqual(Notification.objects.get().body, "It took too long and was stopped.")
 
     def test_a_mixed_run_is_not_its_business(self):
         rows = [self._errored(), self._row(StandardExecution.Status.PASSED, 100)]
@@ -318,7 +318,7 @@ class GraphBrokeNotificationPolicyTests(_PolicyTestCase):
         self.policy.handle(self._event())
         n = Notification.objects.get()
         self.assertEqual(n.kind, "graph.failed")
-        self.assertEqual(n.body, "LLM timed out")
+        self.assertEqual(n.body, "It took too long and was stopped.")
 
     def test_a_map_that_never_built_is_quiet(self):
         self.policy.handle(self._event(had_worked_before=False))
