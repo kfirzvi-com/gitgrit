@@ -3,10 +3,7 @@ notice was published.{% endcomment %}
 {% with ctx=item.notification.context %}
 <div data-hover-hint="More info" class="flex items-start gap-2 px-4 py-3 border-b border-base-200 hover:bg-base-200">
   <a href="{% url 'notification_open' item.pk %}" class="flex-1 min-w-0">
-    <div class="flex items-baseline justify-between gap-2">
-      <span class="font-bold truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</span>
-      <time datetime="{{ when|date:'c' }}" data-local-time class="text-xs opacity-70 whitespace-nowrap shrink-0">{{ when|date:"j M Y, H:i" }}</time>
-    </div>
+    <div class="font-bold truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</div>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
       <span class="font-semibold break-words">{{ item.notification.title }}</span>
       {% with trigger=ctx.trigger %}
@@ -27,12 +24,21 @@ notice was published.{% endcomment %}
     </div>
     <div class="text-sm opacity-80 line-clamp-2 break-words mt-0.5">{{ item.notification.body }}</div>
   </a>
-  {% if item.is_unread %}
-    <button type="button" class="btn btn-ghost btn-xs shrink-0"
-            hx-post="{% url 'notification_mark_read' item.pk %}"
-            hx-target="#notification-panel-body" hx-swap="innerHTML"
-            data-no-loader
-            title="Move to History without opening it">Mark read</button>
-  {% endif %}
+  <div class="flex flex-col items-end gap-1 shrink-0">
+    <time datetime="{{ when|date:'c' }}" data-local-time class="text-xs opacity-70 whitespace-nowrap">{{ when|date:"j M Y, H:i" }}</time>
+    {% if item.is_unread %}
+      <button type="button" class="btn btn-ghost btn-xs"
+              hx-post="{% url 'notification_mark_read' item.pk %}"
+              hx-target="#notification-panel-body" hx-swap="innerHTML"
+              data-no-loader
+              title="Move to History without opening it">Mark read</button>
+    {% else %}
+      <button type="button" class="btn btn-ghost btn-xs"
+              hx-post="{% url 'notification_mark_unread' item.pk %}"
+              hx-target="#notification-panel-body" hx-swap="innerHTML"
+              data-no-loader
+              title="Move back to Active">Mark unread</button>
+    {% endif %}
+  </div>
 </div>
 {% endwith %}

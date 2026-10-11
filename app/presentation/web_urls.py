@@ -74,6 +74,7 @@ from app.presentation.views.marketplace_views import (
 from app.presentation.views.notification_views import (
     mark_all_read,
     mark_read,
+    mark_unread,
     notification_bell,
     notification_panel,
     open_notification,
@@ -90,6 +91,7 @@ urlpatterns = [
     path("notifications/bell/", notification_bell, name="notification_bell"),
     path("notifications/<uuid:pk>/open/", open_notification, name="notification_open"),
     path("notifications/<uuid:pk>/read/", mark_read, name="notification_mark_read"),
+    path("notifications/<uuid:pk>/unread/", mark_unread, name="notification_mark_unread"),
     path("profile/", ProfileView.as_view(), name="profile"),
     path("profile/disconnect/<str:provider>/", disconnect_social, name="disconnect_social"),
     # Tenant management

@@ -6,7 +6,8 @@ The aggregate root over ``InboxItem`` rows. It owns the reading rules:
   not merged here; grouping, if ever, belongs in the notification policies so
   every channel gets it);
 * an item is Active until its recipient reads it, by opening it, marking it
-  read, or marking everything read; read items are History;
+  read, or marking everything read; read items are History, and marking one
+  unread puts it back in Active;
 * reading is personal: one person reading an item never changes anyone
   else's copy;
 * an inbox only holds notifications from its own workspace.
@@ -41,6 +42,15 @@ class Inbox:
         item = self._items().select_related("notification").get(pk=item_id)
         if item.is_unread:
             item.read_at = timezone.now()
+            item.save(update_fields=["read_at"])
+        return item
+
+    def mark_unread(self, item_id) -> InboxItem:
+        """Put a read item back in Active. Raises ``InboxItem.DoesNotExist``
+        for an item that is not in this inbox."""
+        item = self._items().get(pk=item_id)
+        if not item.is_unread:
+            item.read_at = None
             item.save(update_fields=["read_at"])
         return item
 

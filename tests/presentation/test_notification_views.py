@@ -200,6 +200,34 @@ class TestNotificationViews(TestCase):
         response = self.client.post(reverse("notification_mark_read", args=[item.pk]))
         self.assertEqual(response.status_code, 404)
 
+    def test_mark_unread_moves_one_item_back_to_active(self):
+        item = self._item("target", read_at=timezone.now())
+
+        response = self.client.post(reverse("notification_mark_unread", args=[item.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Trigger"], "notificationsCountChanged")
+        self.assertEqual([i.notification.title for i in response.context["active"]], ["target"])
+        self.assertEqual(list(response.context["history"]), [])
+
+    def test_mark_unread_shows_only_on_read_items(self):
+        unread = self._item("unread-item")
+        read = self._item("read-item", read_at=timezone.now())
+
+        content = self.client.get(reverse("notification_panel")).content.decode()
+
+        self.assertIn(reverse("notification_mark_unread", args=[read.pk]), content)
+        self.assertNotIn(reverse("notification_mark_unread", args=[unread.pk]), content)
+
+    def test_mark_unread_other_users_item_is_404(self):
+        item = self._item(user=baker.make("app.User"), read_at=timezone.now())
+        response = self.client.post(reverse("notification_mark_unread", args=[item.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_mark_unread_requires_post(self):
+        item = self._item(read_at=timezone.now())
+        self.assertEqual(self.client.get(reverse("notification_mark_unread", args=[item.pk])).status_code, 405)
+
     def test_mark_read_requires_post(self):
         item = self._item()
         self.assertEqual(self.client.get(reverse("notification_mark_read", args=[item.pk])).status_code, 405)

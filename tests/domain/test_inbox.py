@@ -72,6 +72,25 @@ class InboxTests(TestCase):
         theirs.refresh_from_db()
         self.assertTrue(theirs.is_unread)
 
+    def test_mark_unread_puts_a_read_item_back_in_active(self):
+        item = self._item(read=True)
+
+        self.assertTrue(self.inbox.mark_unread(item.pk).is_unread)
+        self.assertEqual([i.pk for i in self.inbox.active()], [item.pk])
+        self.assertEqual(self.inbox.history(), [])
+
+    def test_mark_unread_of_an_unread_item_changes_nothing(self):
+        item = self._item()
+        self.assertTrue(self.inbox.mark_unread(item.pk).is_unread)
+
+    def test_mark_unread_of_someone_elses_item_is_not_found(self):
+        item = self._item(read=True, user=baker.make("app.User"))
+
+        with self.assertRaises(InboxItem.DoesNotExist):
+            self.inbox.mark_unread(item.pk)
+        item.refresh_from_db()
+        self.assertFalse(item.is_unread)
+
     def test_mark_all_read_only_touches_my_unread_in_this_workspace(self):
         self._item("a")
         self._item("b")

@@ -82,6 +82,13 @@ def _mark_read(request, pk) -> InboxItem:
         raise Http404("No such notification") from None
 
 
+def _mark_unread(request, pk) -> InboxItem:
+    try:
+        return _inbox(request).mark_unread(pk)
+    except InboxItem.DoesNotExist:
+        raise Http404("No such notification") from None
+
+
 @login_required
 @require_GET
 def notification_panel(request):
@@ -116,6 +123,14 @@ def open_notification(request, pk):
 def mark_read(request, pk):
     """Read one item without leaving the page."""
     _mark_read(request, pk)
+    return _panel_after_change(request)
+
+
+@login_required
+@require_POST
+def mark_unread(request, pk):
+    """Put one read item back in Active."""
+    _mark_unread(request, pk)
     return _panel_after_change(request)
 
 

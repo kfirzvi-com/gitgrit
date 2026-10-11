@@ -60,7 +60,9 @@ Included once by base.html for signed-in users with an active workspace.{% endco
       if (e.key === "Escape" && panel.dataset.open === "1") closePanel();
     });
 
-    var DATETIME = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" };
+    // The year only when it is not this year, to keep the row's time column narrow.
+    var DATETIME = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
+    var DATETIME_YEAR = Object.assign({ year: "numeric" }, DATETIME);
     var TIME = { hour: "2-digit", minute: "2-digit" };
     function formatTimes(root) {
       root.querySelectorAll("[data-local-time]").forEach(function (el) {
@@ -68,7 +70,7 @@ Included once by base.html for signed-in users with an active workspace.{% endco
         var date = new Date(el.dateTime);
         el.textContent = scope && scope.dataset.timeFormat === "time"
           ? date.toLocaleTimeString(undefined, TIME)
-          : date.toLocaleString(undefined, DATETIME);
+          : date.toLocaleString(undefined, date.getFullYear() === new Date().getFullYear() ? DATETIME : DATETIME_YEAR);
       });
     }
 
