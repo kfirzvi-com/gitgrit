@@ -29,9 +29,8 @@ class FirstLineTests(TestCase):
 
 
 class PurityTests(TestCase):
-    def test_import_does_not_load_django(self):
-        code = (
-            "import sys, app.domain.notifications;"
-            "sys.exit(1 if 'django' in sys.modules else 0)"
-        )
-        self.assertEqual(subprocess.run([sys.executable, "-c", code]).returncode, 0)
+    def test_vocabulary_and_rules_do_not_load_django(self):
+        for module in ("app.domain.notifications", "app.domain.notifications.notification_rules"):
+            with self.subTest(module=module):
+                code = f"import sys, {module}; sys.exit(1 if 'django' in sys.modules else 0)"
+                self.assertEqual(subprocess.run([sys.executable, "-c", code]).returncode, 0)

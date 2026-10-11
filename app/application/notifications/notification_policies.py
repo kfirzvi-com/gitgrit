@@ -1,7 +1,8 @@
 """Notification policies: "whenever X happens, raise notification Y".
 
 Each notification policy reacts to one domain event, decides whether it is
-worth telling anyone, gathers the facts, builds the notification through its
+worth telling anyone (the rules live in ``app.domain.notifications.
+notification_rules``), gathers the facts, builds the notification through its
 named constructor on ``Notification`` (which holds the wording) and raises it.
 It never decides who hears it; that is notification routing's job
 (``notification_routing.py``). Workers publish the events and know nothing
@@ -14,6 +15,7 @@ from app.application.event_bus import subscribe
 from app.application.notifications.service import raise_notification
 from app.domain.events import DependencyInferenceFailed, StandardRunFinished
 from app.domain.models import Notification, Project, StandardExecution
+from app.domain.notifications import notification_rules
 
 # ``triggered_by`` values written by the app itself (``standard_runs`` and
 # ``subscribers``); anything else there is a webhook actor's username.
@@ -26,7 +28,7 @@ class CouldNotEvaluateNotificationPolicy:
     every standard in it errored), raise "GitGrit could not evaluate"."""
 
     def handle(self, event: StandardRunFinished) -> None:
-        if not could_not_evaluate(event):
+        if not notification_rules.could_not_evaluate(event):
             return
         project = _project(event)
         if project is None:
@@ -52,7 +54,7 @@ class StandardsFailingNotificationPolicy:
     failures; the score is the project's current overall score."""
 
     def handle(self, event: StandardRunFinished) -> None:
-        if event.failed == 0 or could_not_evaluate(event):
+        if not notification_rules.standards_failing(event):
             return
         project = _project(event)
         if project is None:
@@ -84,7 +86,7 @@ class GraphBrokeNotificationPolicy:
     model, say) would fail on every push, so it is not told."""
 
     def handle(self, event: DependencyInferenceFailed) -> None:
-        if not event.had_worked_before:
+        if not notification_rules.graph_broke(event):
             return
         project = _project(event)
         if project is None:
@@ -102,12 +104,6 @@ NOTIFICATION_POLICIES = (
 def register() -> None:
     for event_type, policy in NOTIFICATION_POLICIES:
         subscribe(event_type, policy.handle)
-
-
-def could_not_evaluate(event: StandardRunFinished) -> bool:
-    """The job failed, or every standard in the run errored."""
-    all_errored = event.errored > 0 and event.passed == 0 and event.failed == 0
-    return bool(event.error) or all_errored
 
 
 # --- Facts the notification policies gather ----------------------------------------------

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.application.notifications.inbox import Inbox
 from app.domain.models import Notification
+from app.domain.notifications.inbox import Inbox
 
 
 class Channel(Protocol):

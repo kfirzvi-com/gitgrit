@@ -15,9 +15,9 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from app.application.notifications.inbox import Inbox
 from app.application.standard_results import attention_items
 from app.domain.models import InboxItem
+from app.domain.notifications.inbox import Inbox
 
 HISTORY_PAGE = 5
 

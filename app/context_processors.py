@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from app.application.notifications.inbox import Inbox
+from app.domain.notifications.inbox import Inbox
 from app.domain.models import Membership, Tenant
 
 # Users with this many workspaces or fewer get a plain list; above it the

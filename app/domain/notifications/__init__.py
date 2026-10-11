@@ -1,8 +1,17 @@
-"""Notification vocabulary shared by every layer: the kinds, the severities,
-and the one-line summary rule for a notification's detail text.
+"""The notification domain.
 
-Pure Python (no Django), so the model, the notification policies and tests
-can import it from anywhere.
+This module is the vocabulary shared by every layer: the kinds, the
+severities, and the one-line summary rule for a notification's detail text.
+Pure Python (no Django), so the models, the policies and tests can import it
+from anywhere. Alongside it:
+
+* ``notification_rules`` — when something is worth a notification (pure);
+* ``notification_routing`` — who hears each kind, and on which channels;
+* ``inbox`` — the Inbox aggregate: one person's notifications and the
+  reading rules.
+
+The ``Notification``, ``InboxItem`` and ``DeliveryLog`` models live in
+``app.domain.models`` with the other models.
 """
 
 from __future__ import annotations

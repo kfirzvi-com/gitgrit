@@ -976,7 +976,7 @@ class Notification(models.Model):
     """Aggregate root: one thing that happened in a workspace that people should
     hear about. It is a fact, not a message to anyone: who hears it is decided
     by notification routing
-    (``app.application.notifications.notification_routing``).
+    (``app.domain.notifications.notification_routing``).
 
     Immutable once raised. Created only through the named constructors below
     (``could_not_evaluate``, ``standards_failing``, ``graph_failed``), which
@@ -1112,7 +1112,7 @@ class InboxItem(models.Model):
     """One person's copy of a Notification in their inbox.
 
     Read state is personal, so it lives here and not on the Notification.
-    Part of the Inbox aggregate (app.application.notifications.inbox), which
+    Part of the Inbox aggregate (``app.domain.notifications.inbox``), which
     owns the rules for creating and reading items.
     """
 

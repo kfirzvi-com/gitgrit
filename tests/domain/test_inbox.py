@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from model_bakery import baker
 
-from app.application.notifications.inbox import Inbox
+from app.domain.notifications.inbox import Inbox
 from app.domain.models import InboxItem, Notification
 
 

@@ -6,7 +6,7 @@ from model_bakery import baker
 
 from app.application.notifications import channels
 from app.application.notifications.dispatcher import dispatch
-from app.application.notifications.notification_routing import Admins, Route
+from app.domain.notifications.notification_routing import Admins, Route
 from app.domain.models import DeliveryLog, InboxItem
 
 
