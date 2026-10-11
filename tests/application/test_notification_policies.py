@@ -1,13 +1,13 @@
-"""Policies: a finished run or a broken map becomes the right notification."""
+"""Notification policies: a finished run or a broken map becomes the right notification."""
 from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
 from app.application import event_bus, subscribers
-from app.application.notifications.policies import (
-    CouldNotEvaluatePolicy,
-    GraphBrokePolicy,
-    StandardsFailingPolicy,
+from app.application.notifications.notification_policies import (
+    CouldNotEvaluateNotificationPolicy,
+    GraphBrokeNotificationPolicy,
+    StandardsFailingNotificationPolicy,
 )
 from app.domain.events import DependencyInferenceFailed, StandardRunFinished
 from app.domain.models import Notification, StandardExecution
@@ -51,8 +51,8 @@ class _PolicyTestCase(TestCase):
         )
 
 
-class CouldNotEvaluatePolicyTests(_PolicyTestCase):
-    policy = CouldNotEvaluatePolicy()
+class CouldNotEvaluateNotificationPolicyTests(_PolicyTestCase):
+    policy = CouldNotEvaluateNotificationPolicy()
 
     def _errored(self, **kwargs):
         return self._row(StandardExecution.Status.ERROR, **kwargs)
@@ -135,8 +135,8 @@ class CouldNotEvaluatePolicyTests(_PolicyTestCase):
         self.assertFalse(Notification.objects.exists())
 
 
-class StandardsFailingPolicyTests(_PolicyTestCase):
-    policy = StandardsFailingPolicy()
+class StandardsFailingNotificationPolicyTests(_PolicyTestCase):
+    policy = StandardsFailingNotificationPolicy()
 
     def _failed(self, score, name=None, **kwargs):
         return self._row(StandardExecution.Status.FAILED, score, name, **kwargs)
@@ -199,8 +199,8 @@ class StandardsFailingPolicyTests(_PolicyTestCase):
         self.assertEqual(Notification.objects.get().triggered_by_user_ids, [str(user.pk)])
 
 
-class GraphBrokePolicyTests(_PolicyTestCase):
-    policy = GraphBrokePolicy()
+class GraphBrokeNotificationPolicyTests(_PolicyTestCase):
+    policy = GraphBrokeNotificationPolicy()
 
     def _event(self, had_worked_before=True, tenant_id=None):
         return DependencyInferenceFailed(
@@ -226,7 +226,7 @@ class GraphBrokePolicyTests(_PolicyTestCase):
 
 
 class RegistrationTests(_PolicyTestCase):
-    def test_published_events_reach_the_policies(self):
+    def test_published_events_reach_the_notification_policies(self):
         event_bus.clear()
         subscribers.register()
         row = self._row(StandardExecution.Status.ERROR)

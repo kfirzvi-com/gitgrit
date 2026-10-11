@@ -1,9 +1,9 @@
-"""Policies: "whenever X happens, raise notification Y".
+"""Notification policies: "whenever X happens, raise notification Y".
 
-Each policy reacts to one domain event, decides whether it is worth telling
-anyone, gathers the facts, builds the notification through its named
-constructor on ``Notification`` (which holds the wording) and raises it. A
-policy never decides who hears it; the routing policy does. Workers publish
+Each notification policy reacts to one domain event, decides whether it is
+worth telling anyone, gathers the facts, builds the notification through its
+named constructor on ``Notification`` (which holds the wording) and raises it.
+It never decides who hears it; that is routing's job (``routing.py``). Workers publish
 the events and know nothing about these listeners.
 """
 
@@ -20,7 +20,7 @@ _APP_TRIGGERS = frozenset({"manual", "attached", "activated", "saved"})
 _WEBHOOK_EVENTS = frozenset({"push", "pull_request"})
 
 
-class CouldNotEvaluatePolicy:
+class CouldNotEvaluateNotificationPolicy:
     """Whenever a run could not be evaluated at all (the job itself failed, or
     every standard in it errored), raise "GitGrit could not evaluate"."""
 
@@ -45,7 +45,7 @@ class CouldNotEvaluatePolicy:
         )
 
 
-class StandardsFailingPolicy:
+class StandardsFailingNotificationPolicy:
     """Whenever a run that could be evaluated left standards failing, raise
     one "N standards failed" for the run. The count and names are this run's
     failures; the score is the project's current overall score."""
@@ -77,7 +77,7 @@ class StandardsFailingPolicy:
         )
 
 
-class GraphBrokePolicy:
+class GraphBrokeNotificationPolicy:
     """Whenever a dependency map that used to build fails to rebuild, raise
     "Dependency graph failed". A workspace whose map never built (no AI
     model, say) would fail on every push, so it is not told."""
@@ -91,15 +91,15 @@ class GraphBrokePolicy:
         raise_notification(Notification.graph_failed(project=project, error=event.error))
 
 
-POLICIES = (
-    (StandardRunFinished, CouldNotEvaluatePolicy()),
-    (StandardRunFinished, StandardsFailingPolicy()),
-    (DependencyInferenceFailed, GraphBrokePolicy()),
+NOTIFICATION_POLICIES = (
+    (StandardRunFinished, CouldNotEvaluateNotificationPolicy()),
+    (StandardRunFinished, StandardsFailingNotificationPolicy()),
+    (DependencyInferenceFailed, GraphBrokeNotificationPolicy()),
 )
 
 
 def register() -> None:
-    for event_type, policy in POLICIES:
+    for event_type, policy in NOTIFICATION_POLICIES:
         subscribe(event_type, policy.handle)
 
 
@@ -109,7 +109,7 @@ def could_not_evaluate(event: StandardRunFinished) -> bool:
     return bool(event.error) or all_errored
 
 
-# --- Facts the policies gather ----------------------------------------------
+# --- Facts the notification policies gather ----------------------------------------------
 
 
 def _project(event):

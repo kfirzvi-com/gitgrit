@@ -1,8 +1,8 @@
 """Notification vocabulary shared by every layer: the kinds, the severities,
 and the one-line summary rule for a notification's detail text.
 
-Pure Python (no Django), so the model, the policies and tests can import it
-from anywhere.
+Pure Python (no Django), so the model, the notification policies and tests
+can import it from anywhere.
 """
 
 from __future__ import annotations

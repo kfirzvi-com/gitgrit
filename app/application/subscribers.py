@@ -27,7 +27,7 @@ import logging
 from django.db import transaction
 from procrastinate.exceptions import AlreadyEnqueued
 
-import app.application.notifications.policies as notification_policies
+import app.application.notifications.notification_policies as notification_policies
 from app.application.event_bus import subscribe
 from app.application.standard_runs import enqueue_manual_run, queue_summary_message
 from app.domain.events import (

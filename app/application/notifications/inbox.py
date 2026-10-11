@@ -3,8 +3,8 @@
 The aggregate root over ``InboxItem`` rows. It owns the reading rules:
 
 * every notification delivered to a person becomes its own item (repeats are
-  not merged here; grouping, if ever, belongs in the policies so every
-  channel gets it);
+  not merged here; grouping, if ever, belongs in the notification policies so
+  every channel gets it);
 * an item is Active until its recipient reads it, by opening it, marking it
   read, or marking everything read; read items are History;
 * reading is personal: one person reading an item never changes anyone
