@@ -234,6 +234,18 @@ def enqueue_for_event(
     ``run_standards`` job does the work. Returns one entry per queued
     execution (execution/standard/project identity) for the webhook response.
     """
+    # Deleting a branch (after a merge, say) arrives as a push to it. There is
+    # nothing left at that ref: every standard would fail reading it, and a
+    # graph rebuild would be wasted. Nothing changed that a run could check.
+    if event.deleted:
+        logger.info(
+            "Ignoring branch deletion: platform=%s external_id=%s ref=%s",
+            event.platform,
+            event.external_project_id,
+            event.ref,
+        )
+        return []
+
     engine = StandardEngine()
     projects = engine.resolve_projects(event, installation_id=installation_id)
 
