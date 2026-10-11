@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 
+from app.application.standard_results import current_results
 from app.domain.models import StandardExecution, Project, Tenant
 from app.domain.standard_criteria import score_to_grade
 
@@ -10,30 +11,22 @@ class ProjectStatusService:
     ) -> dict:
         """Return an at-a-glance compliance snapshot for a project.
 
-        Aggregates the *latest* execution per standard (DISTINCT ON in Postgres —
-        safe here because the stack is Postgres-only) so a standard run many
-        times does not skew the average. Only standards currently attached to
-        the project count — detaching a standard removes its history from the
-        score. ``exclude_execution_ids`` leaves those executions out, which
-        gives the project's picture as it was before a run.
+        Aggregates each attached standard's latest passed or failed result on
+        its home branch (see ``app.application.standard_results``), so a
+        standard run many times does not skew the average and runs on other
+        branches do not move it. ``exclude_execution_ids`` leaves those
+        executions out, which gives the project's picture as it was before a
+        run.
         """
         try:
             project = Project.objects.get(tenant=tenant, id=project_id)
         except (Project.DoesNotExist, ValidationError):
             raise ValueError(f"Project {project_id} not found")
 
-        latest = list(
-            StandardExecution.objects.filter(
-                project=project,
-                standard__in=project.standards.all(),
-                status__in=[
-                    StandardExecution.Status.PASSED,
-                    StandardExecution.Status.FAILED,
-                ],
-            )
-            .exclude(pk__in=list(exclude_execution_ids))
-            .order_by("standard_id", "-created_at")
-            .distinct("standard_id")
+        latest = current_results(
+            [project],
+            statuses=(StandardExecution.Status.PASSED, StandardExecution.Status.FAILED),
+            exclude_execution_ids=exclude_execution_ids,
         )
 
         scores = [e.score for e in latest if e.score is not None]

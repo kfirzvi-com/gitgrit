@@ -12,6 +12,7 @@ from django.views.generic import DetailView, ListView, UpdateView
 
 from app.application import stack_service
 from app.application.event_bus import publish
+from app.application.standard_results import current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
@@ -101,25 +102,14 @@ def results_context(project) -> dict:
         ).values_list("standard_id", flat=True)
     )
 
-    # Deduplicate: latest finished execution per standard. RUNNING rows
-    # still show under "Recent Activity", but they score 0 until the
-    # worker finishes them, so they must not move the score.
-    seen_standards = {}
-    for ex in recent_executions:
-        if ex.status == StandardExecution.Status.RUNNING:
-            continue
-        if ex.standard_id not in seen_standards:
-            seen_standards[ex.standard_id] = ex
-    latest_executions = list(seen_standards.values())
+    # Each standard's current result on its home branch. Every run, on any
+    # branch and still RUNNING, shows under "Recent Activity" above; only
+    # these move the score.
+    latest_executions = sorted(
+        current_results([project]), key=lambda ex: ex.created_at, reverse=True
+    )
     context["latest_executions"] = latest_executions
-
-    # Compliance score: average of latest-per-standard scores
-    if latest_executions:
-        context["compliance_score"] = round(
-            sum(ex.score for ex in latest_executions) / len(latest_executions)
-        )
-    else:
-        context["compliance_score"] = None
+    context["compliance_score"] = project_score(latest_executions)
 
     return context
 

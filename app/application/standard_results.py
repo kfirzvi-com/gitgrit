@@ -1,10 +1,17 @@
-"""Reads of a workspace's current standard results.
+"""Reads of a project's current standard results: the one definition of
+project health.
 
-"Current" means the latest finished result per (project, standard) for
-standards still attached to their project. Every screen that scores projects
-or lists problems starts from ``attached_executions``, and every screen that
-shows "Needs attention" (the dashboard card, the notifications pane) calls
-``attention_items``, so they never disagree.
+A project's health is read from each attached standard's latest finished
+result **on that standard's home branch**: the project's default branch,
+unless the standard's Branch/Tag Filter names one branch literally. Runs on
+other branches (a feature-branch push, a pull request) show in the project's
+activity but never move its health: a half-finished branch must not make the
+project look critical, and a fix that only exists on a branch must not make
+it look healthy before it merges.
+
+Every screen that scores projects or lists problems reads from here (the
+dashboard, the stack diagram, the project page, the badge, the project
+status service, "Needs attention"), so they never disagree.
 """
 
 from __future__ import annotations
@@ -12,26 +19,54 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from django.db.models import Exists, OuterRef
+from django.db.models import Q
 
+from app.application.standard_engine import literal_ref
 from app.domain.health import CRITICAL, HEALTHY, WARNING, level_from_score
-from app.domain.models import ProjectStandard, StandardExecution
+from app.domain.models import Project, ProjectStandard, StandardExecution
 
-# How far back attention_items looks; plenty to find the latest result of
-# every attached pair in a workspace.
-_RECENT_EXECUTIONS = 500
+Status = StandardExecution.Status
+FINISHED = (Status.PASSED, Status.FAILED, Status.ERROR)
 
 
-def attached_executions(tenant):
-    """Tenant executions whose standard is currently attached to their project.
+def home_branch(project, standard) -> str:
+    """The branch a standard's results count on for ``project``."""
+    criteria = standard.criteria or {}
+    return literal_ref(criteria.get("ref")) or project.default_branch
 
-    Detached (or deleted) standards' old executions must not drag project
-    scores or raise attention items.
-    """
-    attached = ProjectStandard.objects.filter(
-        project_id=OuterRef("project_id"), standard_id=OuterRef("standard_id")
+
+def current_results(projects, statuses=FINISHED, exclude_execution_ids=()):
+    """The latest result per attached (project, standard) pair on that pair's
+    home branch, as ``StandardExecution`` rows with project and standard
+    loaded. ``statuses`` picks which results count (finished ones by
+    default); ``exclude_execution_ids`` leaves runs out, which gives the
+    picture as it was before them."""
+    pairs = ProjectStandard.objects.filter(project__in=projects).select_related(
+        "project", "standard"
     )
-    return StandardExecution.objects.filter(Exists(attached), project__tenant=tenant)
+    on_home_branch = Q()
+    for pair in pairs:
+        home = home_branch(pair.project, pair.standard)
+        refs = Q(ref=home) | Q(ref=f"refs/heads/{home}")
+        if home == pair.project.default_branch:
+            refs |= Q(ref="")
+        on_home_branch |= Q(project_id=pair.project_id, standard_id=pair.standard_id) & refs
+    if not on_home_branch:
+        return []
+    return list(
+        StandardExecution.objects.filter(on_home_branch, status__in=statuses)
+        .exclude(pk__in=list(exclude_execution_ids))
+        .select_related("project", "standard")
+        .order_by("project_id", "standard_id", "-created_at")
+        .distinct("project_id", "standard_id")
+    )
+
+
+def project_score(results) -> int | None:
+    """The average score of a set of current results, rounded; None when
+    there are none."""
+    scores = [r.score for r in results if r.score is not None]
+    return round(sum(scores) / len(scores)) if scores else None
 
 
 @dataclass(frozen=True)
@@ -56,30 +91,14 @@ def attention_items(tenant) -> list[AttentionItem]:
     failed or errored at all (a failed run that still scored well is a
     warning). Returns the full ranked list; screens decide how many to show.
     """
-    # In-flight rows score 0 until the worker finishes them; they would show
-    # as critical and hide the real latest result for that pair.
-    executions = (
-        attached_executions(tenant)
-        .exclude(status=StandardExecution.Status.RUNNING)
-        .select_related("project")
-        .order_by("-created_at")[:_RECENT_EXECUTIONS]
-    )
-
-    seen = set()
     items = []
-    for ex in executions:
-        key = (ex.project_id, ex.standard_id)
-        if key in seen:
-            continue
-        seen.add(key)
-
+    for ex in current_results(Project.objects.filter(tenant=tenant)):
         level = level_from_score(ex.score)
-        failed = ex.status in (StandardExecution.Status.FAILED, StandardExecution.Status.ERROR)
+        failed = ex.status in (Status.FAILED, Status.ERROR)
         if level == HEALTHY and not failed:
             continue
         if level == HEALTHY:
             level = WARNING
-
         items.append(
             AttentionItem(
                 level=level,

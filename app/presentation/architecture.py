@@ -27,14 +27,13 @@ from django.db.models import Count, Q
 from django.urls import reverse
 
 from app.application.naming import canonical_key
-from app.application.standard_results import attached_executions
+from app.application.standard_results import current_results
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
     InfrastructureComponent,
     Project,
     Stack,
-    StandardExecution,
 )
 from app.domain.health import (
     CRITICAL,
@@ -48,27 +47,16 @@ MAX_TECHNOLOGIES = 8
 
 
 def latest_scores_by_project(tenant):
-    """Map each attached project/standard pair to its latest result.
+    """Map each attached project/standard pair to its current result (see
+    ``app.application.standard_results``).
 
     Returns ``{project_id: {standard_id: {"name", "score"}}}``. The standard
     name is kept so health tooltips can name the specific standards dragging a
-    project down. In-flight (RUNNING) executions are excluded — they score 0
-    until the worker finishes them, which would read as a regression.
+    project down.
     """
-    executions = (
-        attached_executions(tenant)
-        .exclude(status=StandardExecution.Status.RUNNING)
-        .order_by("-created_at")
-        .values("project_id", "standard_id", "standard_name", "score")
-    )
     latest = defaultdict(dict)
-    for ex in executions:
-        results = latest[ex["project_id"]]
-        if ex["standard_id"] not in results:
-            results[ex["standard_id"]] = {
-                "name": ex["standard_name"],
-                "score": ex["score"],
-            }
+    for ex in current_results(Project.objects.filter(tenant=tenant)):
+        latest[ex.project_id][ex.standard_id] = {"name": ex.standard_name, "score": ex.score}
     return latest
 
 
