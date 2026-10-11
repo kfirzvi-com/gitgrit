@@ -1,4 +1,4 @@
-"""Routing policy: the one place that decides who hears each kind of
+"""Notification routing: the one place that decides who hears each kind of
 notification, and on which channels.
 
 A ``Route`` is an audience plus channels. An audience is a list of

@@ -12,7 +12,7 @@ import logging
 from django.db import transaction
 
 from app.application.notifications.channels import channel_for
-from app.application.notifications.routing import route_for
+from app.application.notifications.notification_routing import route_for
 from app.domain.models import DeliveryLog, Notification
 
 logger = logging.getLogger(__name__)

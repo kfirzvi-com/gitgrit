@@ -3,8 +3,9 @@
 Each notification policy reacts to one domain event, decides whether it is
 worth telling anyone, gathers the facts, builds the notification through its
 named constructor on ``Notification`` (which holds the wording) and raises it.
-It never decides who hears it; that is routing's job (``routing.py``). Workers publish
-the events and know nothing about these listeners.
+It never decides who hears it; that is notification routing's job
+(``notification_routing.py``). Workers publish the events and know nothing
+about these listeners.
 """
 
 from __future__ import annotations

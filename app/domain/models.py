@@ -975,7 +975,8 @@ class FeedbackReport(models.Model):
 class Notification(models.Model):
     """Aggregate root: one thing that happened in a workspace that people should
     hear about. It is a fact, not a message to anyone: who hears it is decided
-    by the routing policy (app.application.notifications.routing).
+    by notification routing
+    (``app.application.notifications.notification_routing``).
 
     Immutable once raised. Created only through the named constructors below
     (``could_not_evaluate``, ``standards_failing``, ``graph_failed``), which
@@ -996,7 +997,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=255)
     body = models.TextField(blank=True)
     url = models.CharField(max_length=500, blank=True)
-    # Facts the screens and the routing policy read: project id and name,
+    # Facts the screens and notification routing read: project id and name,
     # execution ids, trigger, score, and who triggered the run. Ids and short
     # values only; anything bigger is loaded from its own table.
     context = models.JSONField(default=dict, blank=True)

@@ -1,8 +1,8 @@
-"""Routing: who hears each kind, and never anyone outside the workspace."""
+"""Notification routing: who hears each kind, and never anyone outside the workspace."""
 from django.test import TestCase
 from model_bakery import baker
 
-from app.application.notifications.routing import (
+from app.application.notifications.notification_routing import (
     FALLBACK,
     ROUTES,
     Admins,
@@ -38,7 +38,7 @@ class RoutingTests(TestCase):
                 self.assertEqual(route.channels, ("inbox",))
 
     def test_unknown_kind_falls_back_to_admins_on_the_inbox_and_warns(self):
-        with self.assertLogs("app.application.notifications.routing", "WARNING"):
+        with self.assertLogs("app.application.notifications.notification_routing", "WARNING"):
             self.assertIs(route_for("nope"), FALLBACK)
         self.assertEqual([type(a) for a in FALLBACK.audience], [Admins])
 
