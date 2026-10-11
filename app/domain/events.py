@@ -34,12 +34,15 @@ class StackCreated:
 class ProjectCreated:
     project_id: str
     tenant_id: str
+    user_id: str | None = None  # who connected it
 
 
 @dataclass(frozen=True)
 class ProjectDeleted:
     project_id: str
     tenant_id: str
+    project_name: str = ""  # the row is gone by the time listeners run
+    user_id: str | None = None  # who removed it
 
 
 @dataclass(frozen=True)
@@ -88,12 +91,14 @@ class StandardsAttached:
 class StandardSaved:
     standard_id: str
     tenant_id: str
+    user_id: str | None = None  # who saved it
 
 
 @dataclass(frozen=True)
 class StandardActivated:
     standard_id: str
     tenant_id: str
+    user_id: str | None = None  # who activated it
 
 
 # --- Run outcome events --------------------------------------------------------
@@ -131,3 +136,29 @@ class DependencyInferenceFailed:
     tenant_id: str
     error: str
     had_worked_before: bool
+    # HTTP status of the AI provider's error, when the failure was one (401
+    # bad key, 402/403 no credit or no access); None otherwise.
+    provider_status: int | None = None
+
+
+@dataclass(frozen=True)
+class StandardRunsTimedOut:
+    """Published by ``expire_stale_runs`` for each project whose RUNNING
+    executions nobody finished in time and were marked ERROR."""
+
+    project_id: str
+    tenant_id: str
+    execution_ids: tuple[str, ...]
+
+
+# --- Workspace membership events -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MemberJoined:
+    """Someone was added to a workspace (not its creator)."""
+
+    tenant_id: str
+    user_id: str
+    role: str
+    added_by_user_id: str | None = None

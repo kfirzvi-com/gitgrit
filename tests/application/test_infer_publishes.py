@@ -84,3 +84,15 @@ class InferPublishesTests(MonkeyPatchMixin, TestCase):
         tasks.infer_project_dependencies.func(project_id="00000000-0000-0000-0000-000000000000")
 
         self.assertEqual(self.events, [])
+
+    def test_the_providers_http_status_travels_with_the_event(self):
+        class ProviderRefused(Exception):
+            status_code = 402
+
+        project = self._project()
+        self._inference([ProviderRefused("credit balance is too low")] * tasks.INFERENCE_ATTEMPTS)
+
+        with self.assertRaises(ProviderRefused):
+            tasks.infer_project_dependencies.func(project_id=str(project.id))
+
+        self.assertEqual(self.events[0].provider_status, 402)

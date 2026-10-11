@@ -50,7 +50,9 @@ def create_standard_version(standard: Standard, user: User, summary: str) -> dic
         return None
     results = publish(
         StandardSaved(
-            standard_id=str(standard.id), tenant_id=str(standard.tenant_id)
+            standard_id=str(standard.id),
+            tenant_id=str(standard.tenant_id),
+            user_id=str(user.pk) if user else None,
         )
     )
     return results[0] if results else None

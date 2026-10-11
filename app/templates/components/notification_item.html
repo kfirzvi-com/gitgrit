@@ -3,7 +3,7 @@ notice was published.{% endcomment %}
 {% with ctx=item.notification.context %}
 <div data-hover-hint="More info" class="flex items-start gap-2 px-4 py-3 border-b border-base-200 hover:bg-base-200">
   <a href="{% url 'notification_open' item.pk %}" class="flex-1 min-w-0">
-    <div class="font-bold truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</div>
+    <div class="font-bold truncate" title="{{ item.notification.subject }}">{{ item.notification.subject }}</div>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
       <span class="font-semibold break-words">{{ item.notification.title }}</span>
       {% with trigger=ctx.trigger %}

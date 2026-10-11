@@ -5,7 +5,8 @@ A ``Route`` is an audience plus channels. An audience is a list of
 specifications (``Admins``, ``Team``, ``Triggerer``), each of which finds its
 users for a given notification; the route's recipients are their union.
 Everyone is filtered through membership of the notification's workspace, so a
-notification never reaches anyone outside it.
+notification never reaches anyone outside it, and the person who made the
+change behind it is left out: nobody is told about their own action.
 """
 
 from __future__ import annotations
@@ -49,17 +50,31 @@ class Route:
     channels: tuple[str, ...]
 
     def recipients(self, notification: Notification) -> list[str]:
-        """Distinct user ids, in a stable order."""
+        """Distinct user ids, in a stable order, without the actor."""
         ids = set()
         for spec in self.audience:
             ids |= spec.user_ids(notification)
+        ids.discard(notification.actor_user_id)
         return sorted(ids)
 
 
+# Problems with a run go to the admins and whoever started it; changes to the
+# workspace go to the admins.
+_RUN = Route((Admins(), Triggerer()), ("inbox",))
+_WORKSPACE = Route((Admins(),), ("inbox",))
+
 ROUTES: dict[str, Route] = {
-    Kind.RUN_FAILED: Route((Admins(), Triggerer()), ("inbox",)),
-    Kind.STANDARDS_FAILING: Route((Admins(), Triggerer()), ("inbox",)),
-    Kind.GRAPH_FAILED: Route((Admins(), Triggerer()), ("inbox",)),
+    Kind.RUN_FAILED: _RUN,
+    Kind.STANDARDS_FAILING: _RUN,
+    Kind.PROJECT_CRITICAL: _RUN,
+    Kind.RUN_TIMED_OUT: _RUN,
+    Kind.CONNECTION_BROKEN: _RUN,
+    Kind.GRAPH_FAILED: _RUN,
+    Kind.AI_PROVIDER_FAILED: _WORKSPACE,
+    Kind.PROJECT_ADDED: _WORKSPACE,
+    Kind.PROJECT_REMOVED: _WORKSPACE,
+    Kind.MEMBER_JOINED: _WORKSPACE,
+    Kind.STANDARD_CHANGED: _WORKSPACE,
 }
 
 # An unknown kind (most likely a typo) still lands somewhere visible.

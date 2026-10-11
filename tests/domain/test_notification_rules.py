@@ -40,3 +40,50 @@ class GraphRuleTests(TestCase):
     def test_only_a_map_that_used_to_build_is_worth_telling(self):
         self.assertTrue(rules.graph_broke(self._event(True)))
         self.assertFalse(rules.graph_broke(self._event(False)))
+def _map_failure(error="boom", status=None, had_worked_before=True):
+    return DependencyInferenceFailed(
+        project_id="p", tenant_id="t", error=error,
+        had_worked_before=had_worked_before, provider_status=status,
+    )
+
+
+class TurnedCriticalTests(TestCase):
+    def test_crossing_below_fifty_turns_critical(self):
+        self.assertTrue(rules.turned_critical(80, 40))
+        self.assertTrue(rules.turned_critical(50, 49))
+
+    def test_already_critical_or_no_score_did_not_drop(self):
+        self.assertFalse(rules.turned_critical(30, 10))
+        self.assertFalse(rules.turned_critical(None, 10))
+
+    def test_staying_above_critical_is_not_a_drop(self):
+        self.assertFalse(rules.turned_critical(90, 60))
+
+
+class AIProviderTests(TestCase):
+    def test_refusal_statuses(self):
+        for status in (401, 402, 403):
+            with self.subTest(status=status):
+                self.assertTrue(rules.ai_provider_refused(_map_failure(status=status)))
+
+    def test_refusal_text_without_a_status(self):
+        error = 'AnthropicException - "Your credit balance is too low to access the Anthropic API."'
+        self.assertTrue(rules.ai_provider_refused(_map_failure(error=error)))
+
+    def test_other_failures_are_not_the_provider(self):
+        self.assertFalse(rules.ai_provider_refused(_map_failure(error="timed out", status=500)))
+
+    def test_a_provider_refusal_is_not_a_broken_graph(self):
+        self.assertFalse(rules.graph_broke(_map_failure(status=401)))
+        self.assertTrue(rules.graph_broke(_map_failure(error="timed out")))
+
+
+class AuthFailureTests(TestCase):
+    def test_platform_refusals_look_like_auth_failures(self):
+        for error in ("401 Bad credentials", "HTTPError: 403 Forbidden", "Unauthorized"):
+            with self.subTest(error=error):
+                self.assertTrue(rules.looks_like_auth_failure(error))
+
+    def test_other_errors_do_not(self):
+        self.assertFalse(rules.looks_like_auth_failure("sandbox exploded"))
+        self.assertFalse(rules.looks_like_auth_failure(""))

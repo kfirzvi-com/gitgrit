@@ -13,6 +13,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, TemplateView
 from django_htmx.http import HttpResponseClientRedirect
 
+from app.application.event_bus import publish
+from app.domain.events import MemberJoined
 from app.domain.models import (
     LLMProvider,
     LLMProviderType,
@@ -228,6 +230,14 @@ def invite_member(request):
         return redirect("tenant_settings")
 
     Membership.objects.create(user=invitee, tenant=tenant, role=role)
+    publish(
+        MemberJoined(
+            tenant_id=str(tenant.pk),
+            user_id=str(invitee.pk),
+            role=role,
+            added_by_user_id=str(request.user.pk),
+        )
+    )
     messages.success(request, f"{email} added as {role}.")
     return redirect("tenant_settings")
 

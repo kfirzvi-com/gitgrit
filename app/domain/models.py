@@ -1021,7 +1021,19 @@ class Notification(models.Model):
         """Users who started the run behind this notification, if any."""
         return list(self.context.get("triggered_by_user_ids", []))
 
+    @property
+    def subject(self) -> str:
+        """What the notification is about, for its row: a project, a
+        connection, a standard, a person. Older rows only named a project."""
+        return self.context.get("subject") or self.context.get("project_name", "")
+
+    @property
+    def actor_user_id(self) -> str | None:
+        """Who made the change behind this notification, if a person did."""
+        return self.context.get("actor_user_id")
+
     # --- Named constructors: one per kind ------------------------------------
+    # Runs
 
     @classmethod
     def could_not_evaluate(
@@ -1037,7 +1049,7 @@ class Notification(models.Model):
             else reverse("project_detail", args=[project.pk])
         )
         return cls._new(
-            project,
+            project=project,
             kind=Kind.RUN_FAILED,
             severity=Severity.CRITICAL,
             title="GitGrit could not evaluate",
@@ -1062,7 +1074,7 @@ class Notification(models.Model):
         if score is not None:
             context["score"] = round(score)
         return cls._new(
-            project,
+            project=project,
             kind=Kind.STANDARDS_FAILING,
             severity=Severity.WARNING,
             title=f"{n} standard{'s' if n != 1 else ''} failed",
@@ -1072,11 +1084,64 @@ class Notification(models.Model):
         )
 
     @classmethod
+    def project_turned_critical(
+        cls, *, project, score_before, score_after, execution_ids=(), trigger=None,
+        triggered_by_user_ids=(),
+    ):
+        """A run dropped the project's overall score into critical."""
+        context = _run_context(execution_ids, trigger, triggered_by_user_ids)
+        context["score"] = round(score_after)
+        return cls._new(
+            project=project,
+            kind=Kind.PROJECT_CRITICAL,
+            severity=Severity.CRITICAL,
+            title="Score dropped to critical",
+            body=f"From {round(score_before)}% to {round(score_after)}%.",
+            url=reverse("project_detail", args=[project.pk]) + "#compliance",
+            context=context,
+        )
+
+    @classmethod
+    def runs_timed_out(cls, *, project, execution_ids, triggered_by_user_ids=()):
+        """Runs nobody finished in time were marked as errors."""
+        n = len(execution_ids)
+        return cls._new(
+            project=project,
+            kind=Kind.RUN_TIMED_OUT,
+            severity=Severity.WARNING,
+            title=f"{n} standard run{'s' if n != 1 else ''} timed out",
+            body="Nothing finished them in time. Run them again from the project page.",
+            url=reverse("project_detail", args=[project.pk]),
+            context=_run_context(execution_ids, None, triggered_by_user_ids),
+        )
+
+    @classmethod
+    def connection_broken(
+        cls, *, project, connection, execution_ids=(), trigger=None, triggered_by_user_ids=(),
+    ):
+        """A run could not be evaluated because the Git connection no longer
+        works (expired or revoked). Links to where it is reconnected."""
+        context = _run_context(execution_ids, trigger, triggered_by_user_ids)
+        context["connection_id"] = str(connection.pk)
+        return cls._new(
+            project=project,
+            subject=connection.display_name,
+            kind=Kind.CONNECTION_BROKEN,
+            severity=Severity.CRITICAL,
+            title="Git connection broken",
+            body=f"GitGrit could not read {project.name}. Reconnect it in workspace settings.",
+            url=reverse("tenant_settings") + "#section-connections",
+            context=context,
+        )
+
+    # Dependency map
+
+    @classmethod
     def graph_failed(cls, *, project, error):
         """A dependency map that used to build failed to rebuild. The map is
         built by the workspace's AI model, so it links to that setting."""
         return cls._new(
-            project,
+            project=project,
             kind=Kind.GRAPH_FAILED,
             severity=Severity.WARNING,
             title="Dependency graph failed",
@@ -1086,17 +1151,110 @@ class Notification(models.Model):
         )
 
     @classmethod
-    def _new(cls, project, *, kind, severity, title, body, url, context):
+    def ai_provider_failed(cls, *, project, error):
+        """The workspace's AI provider refused GitGrit (bad key, no credit, no
+        access) while building ``project``'s map."""
+        return cls._new(
+            project=project,
+            subject="AI provider",
+            kind=Kind.AI_PROVIDER_FAILED,
+            severity=Severity.CRITICAL,
+            title="AI provider refused GitGrit",
+            body=first_line(error),
+            url=reverse("tenant_settings") + "#section-llm",
+            context={},
+        )
+
+    # Workspace changes
+
+    @classmethod
+    def project_added(cls, *, project, actor):
+        return cls._new(
+            project=project,
+            actor=actor,
+            kind=Kind.PROJECT_ADDED,
+            severity=Severity.INFO,
+            title="Project added",
+            body=f"{_display_name(actor)} added {project.name}.",
+            url=reverse("project_detail", args=[project.pk]),
+            context={},
+        )
+
+    @classmethod
+    def project_removed(cls, *, tenant_id, project_name, actor):
+        return cls._new(
+            tenant_id=tenant_id,
+            subject=project_name,
+            actor=actor,
+            kind=Kind.PROJECT_REMOVED,
+            severity=Severity.INFO,
+            title="Project removed",
+            body=f"{_display_name(actor)} removed {project_name}.",
+            url=reverse("project_list"),
+            context={"project_name": project_name},
+        )
+
+    @classmethod
+    def member_joined(cls, *, tenant_id, member, role, actor):
+        return cls._new(
+            tenant_id=tenant_id,
+            subject=_display_name(member),
+            actor=actor,
+            kind=Kind.MEMBER_JOINED,
+            severity=Severity.INFO,
+            title="Member joined",
+            body=f"{_display_name(actor)} added {_display_name(member)} as {role}.",
+            url=reverse("tenant_settings") + "#section-members",
+            context={"member_user_id": str(member.pk)},
+        )
+
+    @classmethod
+    def standard_changed(cls, *, standard, actor, activated=False):
+        """A runnable standard's code was saved, or it was switched on. Either
+        way it runs on its projects again, so scores may move."""
+        verb = "activated" if activated else "changed"
+        return cls._new(
+            tenant_id=standard.tenant_id,
+            subject=standard.name,
+            actor=actor,
+            kind=Kind.STANDARD_CHANGED,
+            severity=Severity.INFO,
+            title=f"Standard {verb}",
+            body=f"{_display_name(actor)} {verb} {standard.name}. It runs on its projects again.",
+            url=reverse("standard_detail", args=[standard.pk]),
+            context={"standard_id": str(standard.pk), "activated": activated},
+        )
+
+    @classmethod
+    def _new(
+        cls, *, kind, severity, title, body, url, context, project=None, tenant_id=None,
+        subject=None, actor=None,
+    ):
+        """Every notification names its ``subject`` (what the row is about: a
+        project, a connection, a standard, a person), and the person behind it
+        when there is one, so routing can leave them out."""
+        base = {"subject": subject or (project.name if project else "")}
+        if project is not None:
+            base["project_id"] = str(project.pk)
+            base["project_name"] = project.name
+        if actor is not None:
+            base["actor_user_id"] = str(actor.pk)
         title_max = cls._meta.get_field("title").max_length
         return cls(
-            tenant_id=project.tenant_id,
+            tenant_id=project.tenant_id if project is not None else tenant_id,
             kind=kind,
             severity=severity,
             title=title[:title_max],
             body=body,
             url=url,
-            context={"project_id": str(project.pk), "project_name": project.name, **context},
+            context={**base, **context},
         )
+
+
+def _display_name(user) -> str:
+    if user is None:
+        return "Someone"
+    return user.get_full_name() or user.email or user.username
 
 
 def _run_context(execution_ids, trigger, triggered_by_user_ids):

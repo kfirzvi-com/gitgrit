@@ -35,6 +35,7 @@ class NamedConstructorTests(TestCase):
         self.assertEqual(
             n.context,
             {
+                "subject": "Acme",
                 "project_id": str(self.project.pk),
                 "project_name": "Acme",
                 "execution_ids": [str(execution_id)],
@@ -95,7 +96,79 @@ class NamedConstructorTests(TestCase):
         self.assertEqual(n.title, "Dependency graph failed")
         self.assertEqual(n.body, "LLM timed out")
         self.assertEqual(n.url, reverse("tenant_settings") + "#section-llm")
-        self.assertEqual(n.context, {"project_id": str(self.project.pk), "project_name": "Acme"})
+        self.assertEqual(
+            n.context,
+            {"subject": "Acme", "project_id": str(self.project.pk), "project_name": "Acme"},
+        )
+        self.assertEqual(n.subject, "Acme")
+
+
+class NewKindConstructorTests(TestCase):
+    def setUp(self):
+        self.project = baker.make("app.Project", name="Acme")
+        self.actor = baker.make("app.User", first_name="Dana", last_name="Lee")
+
+    def test_project_turned_critical(self):
+        n = Notification.project_turned_critical(project=self.project, score_before=72.4, score_after=38.6)
+        self.assertEqual((n.kind, n.severity), (Kind.PROJECT_CRITICAL, Severity.CRITICAL))
+        self.assertEqual(n.title, "Score dropped to critical")
+        self.assertEqual(n.body, "From 72% to 39%.")
+        self.assertEqual(n.context["score"], 39)
+
+    def test_runs_timed_out(self):
+        n = Notification.runs_timed_out(project=self.project, execution_ids=["a", "b"])
+        self.assertEqual((n.kind, n.severity), (Kind.RUN_TIMED_OUT, Severity.WARNING))
+        self.assertEqual(n.title, "2 standard runs timed out")
+        self.assertEqual(n.context["execution_ids"], ["a", "b"])
+
+    def test_connection_broken_names_the_connection(self):
+        connection = baker.make("app.PlatformConnection", display_name="GitHub Acme")
+        n = Notification.connection_broken(project=self.project, connection=connection)
+        self.assertEqual((n.kind, n.severity), (Kind.CONNECTION_BROKEN, Severity.CRITICAL))
+        self.assertEqual(n.subject, "GitHub Acme")
+        self.assertEqual(n.url, reverse("tenant_settings") + "#section-connections")
+        self.assertIn("Acme", n.body)
+
+    def test_ai_provider_failed(self):
+        n = Notification.ai_provider_failed(project=self.project, error="credit balance is too low\n...")
+        self.assertEqual((n.kind, n.severity), (Kind.AI_PROVIDER_FAILED, Severity.CRITICAL))
+        self.assertEqual(n.subject, "AI provider")
+        self.assertEqual(n.body, "credit balance is too low")
+        self.assertEqual(n.url, reverse("tenant_settings") + "#section-llm")
+
+    def test_project_added_and_removed_name_the_actor(self):
+        added = Notification.project_added(project=self.project, actor=self.actor)
+        removed = Notification.project_removed(
+            tenant_id=self.project.tenant_id, project_name="Acme", actor=self.actor
+        )
+        self.assertEqual((added.kind, added.severity), (Kind.PROJECT_ADDED, Severity.INFO))
+        self.assertEqual(added.body, "Dana Lee added Acme.")
+        self.assertEqual(added.actor_user_id, str(self.actor.pk))
+        self.assertEqual((removed.kind, removed.subject), (Kind.PROJECT_REMOVED, "Acme"))
+        self.assertEqual(removed.body, "Dana Lee removed Acme.")
+        self.assertEqual(removed.url, reverse("project_list"))
+
+    def test_member_joined(self):
+        member = baker.make("app.User", first_name="Sam", last_name="Kim")
+        n = Notification.member_joined(
+            tenant_id=self.project.tenant_id, member=member, role="admin", actor=self.actor
+        )
+        self.assertEqual((n.kind, n.severity, n.subject), (Kind.MEMBER_JOINED, Severity.INFO, "Sam Kim"))
+        self.assertEqual(n.body, "Dana Lee added Sam Kim as admin.")
+
+    def test_standard_changed_and_activated(self):
+        standard = baker.make("app.Standard", name="Pinned CI")
+        changed = Notification.standard_changed(standard=standard, actor=self.actor)
+        activated = Notification.standard_changed(standard=standard, actor=self.actor, activated=True)
+        self.assertEqual((changed.kind, changed.title), (Kind.STANDARD_CHANGED, "Standard changed"))
+        self.assertEqual(activated.title, "Standard activated")
+        self.assertEqual(changed.subject, "Pinned CI")
+        self.assertEqual(changed.url, reverse("standard_detail", args=[standard.pk]))
+
+    def test_an_unknown_actor_reads_as_someone(self):
+        n = Notification.project_added(project=self.project, actor=None)
+        self.assertEqual(n.body, "Someone added Acme.")
+        self.assertIsNone(n.actor_user_id)
 
 
 class LifecycleTests(TestCase):

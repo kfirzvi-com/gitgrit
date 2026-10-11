@@ -39,7 +39,7 @@ class RaiseNotificationTests(TestCase):
 
     def test_a_long_title_is_cut_to_the_column_instead_of_failing(self):
         n = Notification._new(
-            self.project, kind="run.failed", severity="critical", title="x" * 300,
+            project=self.project, kind="run.failed", severity="critical", title="x" * 300,
             body="", url="", context={},
         )
         with deliver_defer_patch():

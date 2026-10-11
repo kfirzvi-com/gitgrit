@@ -27,11 +27,22 @@ class Severity(StrEnum):
 
 
 class Kind:
-    """The kinds of notification GitGrit raises today."""
+    """The kinds of notification GitGrit raises."""
 
+    # Runs
     RUN_FAILED = "run.failed"  # GitGrit could not evaluate a project
     STANDARDS_FAILING = "standards.failing"  # a run left standards failing
+    PROJECT_CRITICAL = "project.critical"  # a project's score dropped to critical
+    RUN_TIMED_OUT = "run.timed_out"  # runs nobody finished were expired
+    CONNECTION_BROKEN = "connection.broken"  # the Git connection stopped working
+    # Dependency map
     GRAPH_FAILED = "graph.failed"  # a dependency map that used to build broke
+    AI_PROVIDER_FAILED = "ai_provider.failed"  # the AI provider refused GitGrit
+    # Workspace changes
+    PROJECT_ADDED = "project.added"
+    PROJECT_REMOVED = "project.removed"
+    MEMBER_JOINED = "member.joined"
+    STANDARD_CHANGED = "standard.changed"
 
 
 BODY_MAX = 200

@@ -317,7 +317,9 @@ def toggle_standard(request, pk):
     if standard.enabled and not standard.draft:
         results = publish(
             StandardActivated(
-                standard_id=str(standard.id), tenant_id=str(tenant.id)
+                standard_id=str(standard.id),
+                tenant_id=str(tenant.id),
+                user_id=str(request.user.pk),
             )
         )
         run_summary = results[0] if results else None

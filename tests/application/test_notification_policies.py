@@ -1,15 +1,33 @@
 """Notification policies: a finished run or a broken map becomes the right notification."""
+from unittest import mock
+
 from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
 from app.application import event_bus, subscribers
 from app.application.notifications.notification_policies import (
+    AIProviderFailedNotificationPolicy,
     CouldNotEvaluateNotificationPolicy,
     GraphBrokeNotificationPolicy,
+    MemberJoinedNotificationPolicy,
+    ProjectAddedNotificationPolicy,
+    ProjectRemovedNotificationPolicy,
+    ProjectTurnedCriticalNotificationPolicy,
+    RunsTimedOutNotificationPolicy,
+    StandardChangedNotificationPolicy,
     StandardsFailingNotificationPolicy,
 )
-from app.domain.events import DependencyInferenceFailed, StandardRunFinished
+from app.domain.events import (
+    DependencyInferenceFailed,
+    MemberJoined,
+    ProjectCreated,
+    ProjectDeleted,
+    StandardActivated,
+    StandardRunFinished,
+    StandardRunsTimedOut,
+    StandardSaved,
+)
 from app.domain.models import Notification, StandardExecution
 from tests.support import deliver_defer_patch
 
@@ -22,6 +40,13 @@ class _PolicyTestCase(TestCase):
         patch = deliver_defer_patch()
         self.defer = patch.start()
         self.addCleanup(patch.stop)
+        # The Git connection probe is a network call; each test says how it answers.
+        probe = mock.patch(
+            "app.application.notifications.notification_policies._connection_works",
+            return_value=True,
+        )
+        self.connection_works = probe.start()
+        self.addCleanup(probe.stop)
         self.tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=self.tenant, name="Acme")
 
@@ -69,6 +94,25 @@ class CouldNotEvaluateNotificationPolicyTests(_PolicyTestCase):
         self.assertEqual(n.context["execution_ids"], [str(row.pk)])
         self.assertEqual(n.context["trigger"], "manual")
         self.defer.assert_called_once_with(notification_id=str(n.pk))
+
+    def test_a_refused_token_with_a_dead_connection_says_the_connection_is_broken(self):
+        self.connection_works.return_value = False
+        row = self._errored()
+        self.policy.handle(self._event([row], errored=1, error="401 Bad credentials"))
+
+        n = Notification.objects.get()
+        self.assertEqual(n.kind, "connection.broken")
+        self.assertEqual(n.subject, self.project.platform_connection.display_name)
+
+    def test_a_refused_token_with_a_working_connection_is_still_could_not_evaluate(self):
+        row = self._errored()
+        self.policy.handle(self._event([row], errored=1, error="401 Bad credentials"))
+        self.assertEqual(Notification.objects.get().kind, "run.failed")
+
+    def test_other_errors_never_probe_the_connection(self):
+        row = self._errored()
+        self.policy.handle(self._event([row], errored=1, error="sandbox exploded"))
+        self.connection_works.assert_not_called()
 
     def test_all_rows_errored_uses_the_row_error(self):
         row = self._errored(details={"error": "sandbox exploded"})
@@ -199,6 +243,62 @@ class StandardsFailingNotificationPolicyTests(_PolicyTestCase):
         self.assertEqual(Notification.objects.get().triggered_by_user_ids, [str(user.pk)])
 
 
+class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
+    policy = ProjectTurnedCriticalNotificationPolicy()
+
+    def _attached_result(self, standard, score, status):
+        return baker.make(
+            "app.StandardExecution", project=self.project, standard=standard,
+            standard_name=standard.name, status=status, score=score, event_type="manual",
+        )
+
+    def test_a_run_that_drops_the_score_into_critical_raises_it(self):
+        standard = baker.make("app.Standard", tenant=self.tenant)
+        self.project.standards.add(standard)
+        self._attached_result(standard, 90, StandardExecution.Status.PASSED)
+        new = self._attached_result(standard, 20, StandardExecution.Status.FAILED)
+
+        self.policy.handle(self._event([new], failed=1))
+
+        n = Notification.objects.get()
+        self.assertEqual(n.kind, "project.critical")
+        self.assertEqual(n.body, "From 90% to 20%.")
+
+    def test_a_project_that_was_already_critical_raises_nothing(self):
+        standard = baker.make("app.Standard", tenant=self.tenant)
+        self.project.standards.add(standard)
+        self._attached_result(standard, 30, StandardExecution.Status.FAILED)
+        new = self._attached_result(standard, 10, StandardExecution.Status.FAILED)
+
+        self.policy.handle(self._event([new], failed=1))
+
+        self.assertFalse(Notification.objects.exists())
+
+    def test_a_first_run_has_nothing_to_drop_from(self):
+        new = self._row(StandardExecution.Status.FAILED, 10)
+        self.policy.handle(self._event([new], failed=1))
+        self.assertFalse(Notification.objects.exists())
+
+
+class RunsTimedOutNotificationPolicyTests(_PolicyTestCase):
+    policy = RunsTimedOutNotificationPolicy()
+
+    def test_expired_runs_raise_one_for_their_project(self):
+        user = baker.make("app.User")
+        rows = [self._row(StandardExecution.Status.ERROR, triggered_by_user=user) for _ in range(2)]
+
+        self.policy.handle(
+            StandardRunsTimedOut(
+                project_id=str(self.project.pk), tenant_id=str(self.tenant.pk),
+                execution_ids=tuple(str(r.pk) for r in rows),
+            )
+        )
+
+        n = Notification.objects.get()
+        self.assertEqual((n.kind, n.title), ("run.timed_out", "2 standard runs timed out"))
+        self.assertEqual(n.triggered_by_user_ids, [str(user.pk)])
+
+
 class GraphBrokeNotificationPolicyTests(_PolicyTestCase):
     policy = GraphBrokeNotificationPolicy()
 
@@ -222,6 +322,84 @@ class GraphBrokeNotificationPolicyTests(_PolicyTestCase):
 
     def test_another_workspace_is_quiet(self):
         self.policy.handle(self._event(tenant_id=str(baker.make("app.Tenant").pk)))
+        self.assertFalse(Notification.objects.exists())
+
+    def test_an_ai_provider_refusal_is_left_to_the_provider_policy(self):
+        event = DependencyInferenceFailed(
+            project_id=str(self.project.pk), tenant_id=str(self.tenant.pk),
+            error="credit balance is too low", had_worked_before=True, provider_status=400,
+        )
+        self.policy.handle(event)
+        self.assertFalse(Notification.objects.exists())
+
+
+class AIProviderFailedNotificationPolicyTests(_PolicyTestCase):
+    policy = AIProviderFailedNotificationPolicy()
+
+    def _event(self, error="x", status=None, had_worked_before=False):
+        return DependencyInferenceFailed(
+            project_id=str(self.project.pk), tenant_id=str(self.tenant.pk), error=error,
+            had_worked_before=had_worked_before, provider_status=status,
+        )
+
+    def test_a_refusal_raises_it_even_for_a_map_that_never_built(self):
+        self.policy.handle(self._event(error="invalid x-api-key", status=401))
+        n = Notification.objects.get()
+        self.assertEqual((n.kind, n.severity), ("ai_provider.failed", "critical"))
+
+    def test_other_map_failures_are_not_its_business(self):
+        self.policy.handle(self._event(error="timed out", status=500, had_worked_before=True))
+        self.assertFalse(Notification.objects.exists())
+
+
+class WorkspaceChangeNotificationPolicyTests(_PolicyTestCase):
+    def setUp(self):
+        super().setUp()
+        self.actor = baker.make("app.User", first_name="Dana", last_name="Lee")
+
+    def test_project_added(self):
+        ProjectAddedNotificationPolicy().handle(
+            ProjectCreated(project_id=str(self.project.pk), tenant_id=str(self.tenant.pk), user_id=str(self.actor.pk))
+        )
+        n = Notification.objects.get()
+        self.assertEqual((n.kind, n.body), ("project.added", "Dana Lee added Acme."))
+        self.assertEqual(n.actor_user_id, str(self.actor.pk))
+
+    def test_project_removed_after_the_row_is_gone(self):
+        ProjectRemovedNotificationPolicy().handle(
+            ProjectDeleted(
+                project_id="gone", tenant_id=str(self.tenant.pk), project_name="Old repo",
+                user_id=str(self.actor.pk),
+            )
+        )
+        n = Notification.objects.get()
+        self.assertEqual((n.kind, n.subject, n.tenant_id), ("project.removed", "Old repo", self.tenant.pk))
+
+    def test_member_joined(self):
+        member = baker.make("app.User", first_name="Sam", last_name="Kim")
+        MemberJoinedNotificationPolicy().handle(
+            MemberJoined(
+                tenant_id=str(self.tenant.pk), user_id=str(member.pk), role="member",
+                added_by_user_id=str(self.actor.pk),
+            )
+        )
+        self.assertEqual(Notification.objects.get().body, "Dana Lee added Sam Kim as member.")
+
+    def test_standard_saved_and_activated(self):
+        standard = baker.make("app.Standard", tenant=self.tenant, name="Pinned CI")
+        policy = StandardChangedNotificationPolicy()
+        policy.handle(StandardSaved(standard_id=str(standard.pk), tenant_id=str(self.tenant.pk), user_id=str(self.actor.pk)))
+        policy.handle(StandardActivated(standard_id=str(standard.pk), tenant_id=str(self.tenant.pk), user_id=str(self.actor.pk)))
+        self.assertEqual(
+            sorted(Notification.objects.values_list("title", flat=True)),
+            ["Standard activated", "Standard changed"],
+        )
+
+    def test_another_workspaces_standard_is_ignored(self):
+        standard = baker.make("app.Standard", tenant=baker.make("app.Tenant"))
+        StandardChangedNotificationPolicy().handle(
+            StandardSaved(standard_id=str(standard.pk), tenant_id=str(self.tenant.pk))
+        )
         self.assertFalse(Notification.objects.exists())
 
 

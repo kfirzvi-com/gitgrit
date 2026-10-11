@@ -85,6 +85,7 @@ def infer_project_dependencies(project_id: str) -> None:
                         tenant_id=str(project.tenant_id),
                         error=str(exc)[:2000],
                         had_worked_before=had_worked_before,
+                        provider_status=getattr(exc, "status_code", None),
                     )
                 )
                 raise  # no retry strategy: Procrastinate marks the job failed

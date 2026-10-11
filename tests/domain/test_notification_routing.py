@@ -29,8 +29,11 @@ class RoutingTests(TestCase):
             project=self.project, error="boom", triggered_by_user_ids=triggered_by
         )
 
-    def test_every_kind_goes_to_admins_and_the_triggerer_on_the_inbox(self):
-        for kind in ("run.failed", "standards.failing", "graph.failed"):
+    def test_run_problems_go_to_admins_and_the_triggerer_on_the_inbox(self):
+        for kind in (
+            "run.failed", "standards.failing", "project.critical", "run.timed_out",
+            "connection.broken", "graph.failed",
+        ):
             with self.subTest(kind=kind):
                 route = route_for(kind)
                 self.assertIs(route, ROUTES[kind])
@@ -68,3 +71,23 @@ class RoutingTests(TestCase):
         route = Route((Admins(), Team()), ("inbox",))
         recipients = route.recipients(self._notification())
         self.assertEqual(recipients, sorted(set(self.users.values())))
+
+    def test_workspace_changes_go_to_admins_on_the_inbox(self):
+        for kind in (
+            "ai_provider.failed", "project.added", "project.removed", "member.joined",
+            "standard.changed",
+        ):
+            with self.subTest(kind=kind):
+                route = route_for(kind)
+                self.assertEqual([type(a) for a in route.audience], [Admins])
+                self.assertEqual(route.channels, ("inbox",))
+
+    def test_nobody_is_told_about_their_own_change(self):
+        actor = baker.make("app.User")
+        baker.make("app.Membership", user=actor, tenant=self.tenant, role="admin")
+        n = Notification.project_added(project=self.project, actor=actor)
+
+        recipients = route_for(n.kind).recipients(n)
+
+        self.assertNotIn(str(actor.pk), recipients)
+        self.assertEqual(set(recipients), {self.users["owner"], self.users["admin"]})

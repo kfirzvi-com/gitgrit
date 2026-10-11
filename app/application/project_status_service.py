@@ -5,14 +5,17 @@ from app.domain.standard_criteria import score_to_grade
 
 
 class ProjectStatusService:
-    def get_project_status(self, tenant: Tenant, project_id: str) -> dict:
+    def get_project_status(
+        self, tenant: Tenant, project_id: str, exclude_execution_ids=()
+    ) -> dict:
         """Return an at-a-glance compliance snapshot for a project.
 
         Aggregates the *latest* execution per standard (DISTINCT ON in Postgres —
         safe here because the stack is Postgres-only) so a standard run many
         times does not skew the average. Only standards currently attached to
         the project count — detaching a standard removes its history from the
-        score.
+        score. ``exclude_execution_ids`` leaves those executions out, which
+        gives the project's picture as it was before a run.
         """
         try:
             project = Project.objects.get(tenant=tenant, id=project_id)
@@ -28,6 +31,7 @@ class ProjectStatusService:
                     StandardExecution.Status.FAILED,
                 ],
             )
+            .exclude(pk__in=list(exclude_execution_ids))
             .order_by("standard_id", "-created_at")
             .distinct("standard_id")
         )
