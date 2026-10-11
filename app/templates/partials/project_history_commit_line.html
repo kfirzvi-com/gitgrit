@@ -1,0 +1,10 @@
+{% comment %}One commit's identity in the Branches & commits card: short SHA (linked to the
+platform when known), first line of the message, author and age. Expects `row` (a CommitRow).{% endcomment %}
+{% if row.url %}
+  <a href="{{ row.url }}" target="_blank" rel="noopener" class="font-mono text-xs opacity-70 link link-hover shrink-0" onclick="event.stopPropagation()">{{ row.short_sha }}</a>
+{% else %}
+  <span class="font-mono text-xs opacity-70 shrink-0">{{ row.short_sha }}</span>
+{% endif %}
+<span class="flex-1 min-w-0 truncate" title="{{ row.message }}">{{ row.title|default:"Commit message unavailable" }}</span>
+{% if row.author %}<span class="text-xs opacity-60 hidden md:inline shrink-0">{{ row.author }}</span>{% endif %}
+{% if row.date %}<span class="text-xs opacity-60 whitespace-nowrap shrink-0">{{ row.date|timesince }} ago</span>{% endif %}

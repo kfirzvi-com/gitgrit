@@ -9,9 +9,12 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
+from django.utils.dateparse import parse_datetime
 
 from app.application import stack_service
 from app.application.event_bus import publish
+from app.application.commit_checks import branch_commits, branch_status, branches, earlier_runs
+from app.application.standard_engine import StandardEngine
 from app.application.standard_results import current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
@@ -140,6 +143,80 @@ def project_results(request, pk):
         "partials/project_results.html",
         {"project": project, **results_context(project)},
     )
+
+
+def _history(request, project, branch, page=1, notice=""):
+    branch_names = branches(project)
+    if branch not in branch_names:
+        branch_names.append(branch)
+    rows, has_more = branch_commits(project, branch, page)
+    status = branch_status(project, branch)
+    return render(
+        request,
+        "partials/project_history.html",
+        {
+            "project": project,
+            "branches": branch_names,
+            "branch": branch,
+            "is_default": branch == project.default_branch,
+            "rows": rows,
+            "page": page,
+            "has_more": has_more,
+            "status": status,
+            "status_score": project_score(status),
+            "earlier": earlier_runs(project, branch) if page == 1 else [],
+            "running": any(row.running for row in rows),
+            "notice": notice,
+        },
+    )
+
+
+def _page(value) -> int:
+    try:
+        return max(1, int(value or 1))
+    except ValueError:
+        return 1
+
+
+@login_required
+def project_history(request, pk):
+    """The project page's Health card: a branch picker (the default branch
+    first), that branch's results, and its commits, each with the standards
+    GitGrit ran on it. Loaded after the page, since it asks the Git platform
+    for the branches and commits."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    branch = request.GET.get("branch") or project.default_branch
+    return _history(request, project, branch, _page(request.GET.get("page")))
+
+
+@login_required
+@require_POST
+def run_on_branch(request, pk):
+    """Run the project's current standards that apply to a branch: on the
+    branch's latest commit, or on one commit (``sha``). Answers with the
+    refreshed Health card, which then follows the run."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    branch = request.POST.get("branch") or project.default_branch
+    sha = request.POST.get("sha", "")
+    committed_at = parse_datetime(request.POST.get("committed_at") or "") if sha else None
+    standards = StandardEngine().standards_for_branch(project, branch)
+    summary = enqueue_run(
+        project,
+        standards,
+        triggered_by="manual",
+        user=request.user,
+        ref=branch,
+        commit_sha=sha,
+        committed_at=committed_at,
+    )
+    target = sha[:7] if sha else f"the latest commit on {branch}"
+    if summary is None:
+        notice = f"No standards apply to {branch}."
+    elif summary["queued"]:
+        notice = f"Running {summary['queued']} standard{'s' if summary['queued'] != 1 else ''} on {target}."
+    else:
+        notice = "Those standards are already running."
+    return _history(request, project, branch, _page(request.POST.get("page")), notice=notice)
 
 
 class EditProjectView(LoginRequiredMixin, UpdateView):

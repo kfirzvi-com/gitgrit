@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ project.name }} — GitGrit{% endblock %}
 
@@ -8,7 +9,11 @@
     <a href="{% url 'project_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Projects</a>
     <h1 class="text-3xl font-bold">{{ project.name }}</h1>
   </div>
-  <div class="flex gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" class="btn btn-sm btn-outline btn-primary gap-2" onclick="document.getElementById('badge_modal').showModal()">
+      <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-4 w-auto">
+      Get your Badge(r)
+    </button>
     <a href="{{ project.web_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
       Open in {{ project.get_platform_display }} &nearr;
     </a>
@@ -23,69 +28,55 @@
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-6">
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Details</h2>
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span class="opacity-70">Platform</span>
-            <p>
-              <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
-                {{ project.get_platform_display }}
-              </span>
-            </p>
-          </div>
-          <div>
-            <span class="opacity-70">Lifecycle</span>
-            <p><span class="badge badge-outline">{{ project.get_lifecycle_display }}</span></p>
-          </div>
-          <div>
-            <span class="opacity-70">Path</span>
-            <p class="break-all">{{ project.full_path }}</p>
-          </div>
-          <div>
-            <span class="opacity-70">Default Branch</span>
-            <p><code>{{ project.default_branch }}</code></p>
-          </div>
-          <div>
-            <span class="opacity-70">Owner</span>
-            <p>{{ project.owner|default:"—" }}</p>
-          </div>
-          <div class="col-span-2">
-            <span class="opacity-70">Connection</span>
-            <p>{{ project.platform_connection.display_name }}</p>
-          </div>
-          <div class="col-span-2">
-            <span class="opacity-70">Webhook</span>
-            <p class="flex items-center gap-2">
-              {% if project.platform_connection.auth_method == "github_app" %}
-                <span class="badge badge-success badge-sm">Active</span>
-                <span class="text-xs opacity-50">via GitHub App</span>
-              {% elif project.webhook_id %}
-                <span class="badge badge-success badge-sm">Active</span>
-                <span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
-              {% else %}
-                <span class="badge badge-warning badge-sm">Not registered</span>
-                <form method="post" action="{% url 'retry_webhook' project.pk %}" class="inline">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-xs btn-ghost">Register now</button>
-                </form>
-              {% endif %}
-            </p>
+<dialog id="badge_modal" class="modal">
+  <div class="modal-box max-w-xl">
+    <h3 class="font-bold text-lg flex items-center gap-2 mb-2">
+      <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-5 w-auto"> Your GitGrit badge
+    </h3>
+        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show the project's health score.</p>
+        <div class="mb-3">
+          <img src="{% url 'project_badge' project.pk %}" alt="health score badge">
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text text-xs opacity-70">Markdown</span></label>
+          <div class="join w-full">
+            <input type="text" readonly id="badge-md"
+                   value="[![gitgrit]({{ site_url }}/badge/{{ project.pk }}.svg)]({{ site_url }}/projects/{{ project.pk }}/)"
+                   class="input input-bordered input-sm font-mono text-xs join-item flex-1"
+                   onclick="this.select()">
+            <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-md').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           </div>
         </div>
-        {% if project.description %}
-          <div class="mt-4">
-            <span class="text-sm opacity-70">Description</span>
-            <p class="text-sm break-words">{{ project.description }}</p>
+        <div class="form-control mt-2">
+          <label class="label"><span class="label-text text-xs opacity-70">HTML</span></label>
+          <div class="join w-full">
+            <input type="text" readonly id="badge-html"
+                   value='<a href="{{ site_url }}/projects/{{ project.pk }}/"><img src="{{ site_url }}/badge/{{ project.pk }}.svg" alt="gitgrit"></a>'
+                   class="input input-bordered input-sm font-mono text-xs join-item flex-1"
+                   onclick="this.select()">
+            <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-html').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           </div>
-        {% endif %}
-      </div>
-    </div>
+        </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 
-    {% include "partials/project_results.html" %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    {# The main card: a branch's health (the default branch first) and its       #}
+    {# commits. Loaded after the page, since it asks the Git platform. The       #}
+    {# wrapper holds the #compliance anchor that notifications link to, so the   #}
+    {# link lands even before the card has loaded.                               #}
+    <section id="compliance" class="scroll-mt-20">
+      <div id="project-history" class="card bg-base-100 shadow-xl"
+           hx-get="{% url 'project_history' project.pk %}" hx-trigger="load" hx-swap="outerHTML" data-no-loader>
+        <div class="card-body">
+          <h2 class="card-title">Health</h2>
+          <p class="text-sm opacity-70">Loading branches and commits…</p>
+        </div>
+      </div>
+    </section>
+
 
     <dialog id="standards_modal" class="modal">
       <div class="modal-box max-w-5xl">
@@ -108,86 +99,70 @@
 
   <div class="space-y-6">
     <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title text-base">Badge</h2>
-        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show compliance status.</p>
-        <div class="mb-3">
-          <img src="{% url 'project_badge' project.pk %}" alt="compliance badge">
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text text-xs opacity-70">Markdown</span></label>
-          <div class="join w-full">
-            <input type="text" readonly id="badge-md"
-                   value="[![gitgrit]({{ site_url }}/badge/{{ project.pk }}.svg)]({{ site_url }}/projects/{{ project.pk }}/)"
-                   class="input input-bordered input-sm font-mono text-xs join-item flex-1"
-                   onclick="this.select()">
-            <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-md').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+      <div class="card-body p-5 gap-4 text-sm">
+        <h2 class="card-title text-base">About</h2>
+        {% if project.description %}<p class="break-words opacity-80">{{ project.description }}</p>{% endif %}
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+          <dt class="opacity-60">Platform</dt>
+          <dd>{{ project.get_platform_display }} · <span class="break-all">{{ project.full_path }}</span></dd>
+          <dt class="opacity-60">Default branch</dt>
+          <dd><code>{{ project.default_branch }}</code></dd>
+          <dt class="opacity-60">Lifecycle</dt>
+          <dd>{{ project.get_lifecycle_display }}</dd>
+          <dt class="opacity-60">Owner</dt>
+          <dd>{{ project.owner|default:"—" }}</dd>
+          <dt class="opacity-60">Connection</dt>
+          <dd>{{ project.platform_connection.display_name }}</dd>
+          <dt class="opacity-60">Webhook</dt>
+          <dd class="flex flex-wrap items-center gap-2">
+            {% if project.platform_connection.auth_method == "github_app" %}
+              <span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-50">via GitHub App</span>
+            {% elif project.webhook_id %}
+              <span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
+            {% else %}
+              <span class="badge badge-warning badge-sm">Not registered</span>
+              <form method="post" action="{% url 'retry_webhook' project.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-xs btn-ghost">Register now</button>
+              </form>
+            {% endif %}
+          </dd>
+        </dl>
+
+        {% if project.languages or project.tags %}
+          <div class="flex flex-wrap gap-1">
+            {% for lang in project.languages %}<span class="badge badge-outline badge-sm">{{ lang }}</span>{% endfor %}
+            {% for tag in project.tags %}<span class="badge badge-sm">{{ tag }}</span>{% endfor %}
           </div>
-        </div>
-        <div class="form-control mt-2">
-          <label class="label"><span class="label-text text-xs opacity-70">HTML</span></label>
-          <div class="join w-full">
-            <input type="text" readonly id="badge-html"
-                   value='<a href="{{ site_url }}/projects/{{ project.pk }}/"><img src="{{ site_url }}/badge/{{ project.pk }}.svg" alt="gitgrit"></a>'
-                   class="input input-bordered input-sm font-mono text-xs join-item flex-1"
-                   onclick="this.select()">
-            <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-html').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-          </div>
+        {% endif %}
+
+        <div class="scroll-mt-20" id="components">
+          <h3 class="font-semibold mb-1 flex items-center gap-2">
+            Components
+            {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
+          </h3>
+          <ul class="space-y-2">
+            {% for component in project.components.all %}
+              <li>
+                <div class="flex items-baseline gap-2">
+                  <span class="font-medium">{{ component.name }}</span>
+                  <span class="text-xs opacity-50 font-mono">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
+                </div>
+                <div class="flex flex-wrap gap-1 mt-0.5">
+                  {% for stack in component.stacks.all %}
+                    <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
+                  {% empty %}
+                    <span class="text-xs opacity-50">Not in any stack</span>
+                  {% endfor %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
         </div>
       </div>
     </div>
 
-    {% if project.tags %}
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">Tags</h2>
-          <div class="flex flex-wrap gap-2">
-            {% for tag in project.tags %}
-              <span class="badge badge-sm">{{ tag }}</span>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    {% endif %}
-
-    {% if project.languages %}
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">Languages</h2>
-          <div class="flex flex-wrap gap-2">
-            {% for lang in project.languages %}
-              <span class="badge badge-outline badge-sm">{{ lang }}</span>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    {% endif %}
-
-    <div class="card bg-base-100 shadow-xl scroll-mt-20" id="components">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          Components
-          {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
-        </h2>
-        <ul class="space-y-3">
-          {% for component in project.components.all %}
-            <li>
-              <div class="flex items-baseline gap-2">
-                <span class="font-medium">{{ component.name }}</span>
-                <span class="text-xs opacity-50 font-mono">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
-              </div>
-              <div class="flex flex-wrap gap-1 mt-1">
-                {% for stack in component.stacks.all %}
-                  <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
-                {% empty %}
-                  <span class="text-xs opacity-50">Not in any stack</span>
-                {% endfor %}
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
-      </div>
-    </div>
+    {% include "partials/project_results.html" %}
   </div>
 </div>
 {% endblock %}

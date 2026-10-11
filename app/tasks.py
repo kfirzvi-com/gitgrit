@@ -148,6 +148,7 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     """
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
+    from app.application.commit_checks import pin_head_commits
     from app.application.event_bus import publish
     from app.application.standard_engine import StandardEngine
     from app.domain.events import StandardRunFinished
@@ -196,11 +197,12 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
 
     executions = (
         StandardExecution.objects.filter(pk__in=execution_ids, project=project)
-        .select_related("standard", "project")
+        .select_related("standard", "project", "commit_check", "standard_version")
         .order_by("created_at")
     )
     engine = StandardEngine()
     try:
+        pin_head_commits(project, executions)
         input_config = engine.build_input_config(project)
         for execution in executions:
             if execution.status != StandardExecution.Status.RUNNING:

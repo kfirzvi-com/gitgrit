@@ -36,4 +36,6 @@ class GitHubParser(BaseWebhookParser):
             actor=sender.get("login"),
             raw_payload=payload,
             deleted=payload.get("deleted") is True,
+            commit_sha=pull_request.get("head", {}).get("sha") or payload.get("after") or "",
+            committed_at=(payload.get("head_commit") or {}).get("timestamp", ""),
         )

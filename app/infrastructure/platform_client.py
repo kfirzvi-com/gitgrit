@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import logging
 from abc import ABC, abstractmethod
+from urllib.parse import quote
 
 import requests
 
@@ -50,6 +51,23 @@ class PlatformClient(ABC):
     def get_file_content(self, full_path: str, path: str, ref: str = "") -> str | None:
         """Return a file's decoded text, or None if missing/binary. Override per platform."""
         return None
+
+    def list_branches(self, external_id: str, full_path: str) -> list[str]:
+        """Every branch name in the repository. Override per platform."""
+        return []
+
+    def list_commits(
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+    ) -> list[dict]:
+        """One page of a branch's commits, newest first, each as
+        ``{sha, message, author, date, url}`` (date is an ISO 8601 string).
+        Override per platform."""
+        return []
+
+    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+        """A branch's latest commit as ``{sha, date}`` (date is ISO 8601).
+        Override per platform."""
+        return {}
 
 
 class GitHubClient(PlatformClient):
@@ -193,6 +211,58 @@ class GitHubClient(PlatformClient):
                 return None
         return data.get("content") or None
 
+    def list_branches(self, external_id: str, full_path: str) -> list[str]:
+        names: list[str] = []
+        for page in range(1, 11):
+            resp = requests.get(
+                f"{self.base_url}/repos/{full_path}/branches",
+                headers=self._headers,
+                params={"per_page": 100, "page": page},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            batch = resp.json()
+            names += [b["name"] for b in batch]
+            if len(batch) < 100:
+                break
+        return names
+
+    def list_commits(
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+    ) -> list[dict]:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/commits",
+            headers=self._headers,
+            params={"sha": branch, "page": page, "per_page": per_page},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        commits = []
+        for c in resp.json():
+            info = c.get("commit") or {}
+            author = info.get("author") or {}
+            commits.append(
+                {
+                    "sha": c["sha"],
+                    "message": info.get("message", ""),
+                    "author": author.get("name") or (c.get("author") or {}).get("login", ""),
+                    "date": author.get("date", ""),
+                    "url": c.get("html_url", ""),
+                }
+            )
+        return commits
+
+    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/commits/{quote(branch, safe='')}",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        author = (data.get("commit") or {}).get("author") or {}
+        return {"sha": data.get("sha", ""), "date": author.get("date", "")}
+
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         # Need full_name (owner/repo) — look up from external_id
         resp = requests.get(
@@ -296,6 +366,53 @@ class GitLabClient(PlatformClient):
         )
         resp.raise_for_status()
         return resp.json().get("topics", [])
+
+    def list_branches(self, external_id: str, full_path: str) -> list[str]:
+        names: list[str] = []
+        for page in range(1, 11):
+            resp = requests.get(
+                f"{self._api_base}/projects/{external_id}/repository/branches",
+                headers=self._headers,
+                params={"per_page": 100, "page": page},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            batch = resp.json()
+            names += [b["name"] for b in batch]
+            if len(batch) < 100:
+                break
+        return names
+
+    def list_commits(
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+    ) -> list[dict]:
+        resp = requests.get(
+            f"{self._api_base}/projects/{external_id}/repository/commits",
+            headers=self._headers,
+            params={"ref_name": branch, "page": page, "per_page": per_page},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return [
+            {
+                "sha": c["id"],
+                "message": c.get("message", ""),
+                "author": c.get("author_name", ""),
+                "date": c.get("committed_date") or c.get("created_at", ""),
+                "url": c.get("web_url", ""),
+            }
+            for c in resp.json()
+        ]
+
+    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+        resp = requests.get(
+            f"{self._api_base}/projects/{external_id}/repository/branches/{quote(branch, safe='')}",
+            headers=self._headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        commit = resp.json().get("commit") or {}
+        return {"sha": commit.get("id", ""), "date": commit.get("committed_date", "")}
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         resp = requests.post(

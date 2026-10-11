@@ -129,6 +129,17 @@ class StandardEngine:
             )
         ]
 
+    def standards_for_branch(self, project: Project, branch: str) -> list[Standard]:
+        """The project's current runnable standards that apply to ``branch``:
+        attached, enabled, non-draft, matching its languages, and whose
+        Branch/Tag Filter (if any) matches the branch. What a manual run on a
+        branch or one of its commits runs."""
+        return [
+            s
+            for s in project.standards.filter(enabled=True, draft=False)
+            if self._matches_criteria(s, "manual", ref=branch, project=project, skip_event_check=True)
+        ]
+
     def _matches_criteria(
         self,
         standard: Standard,
@@ -196,9 +207,11 @@ class StandardEngine:
         """Run one already-created ``StandardExecution`` and record its result.
 
         The single place a standard's code meets the sandbox. The repository
-        is read at ``execution.ref``, fixed when the row was created: the
-        event's branch for webhook runs, the branch the Branch/Tag Filter
-        names for manual runs, or "" for the default branch. Fills in status
+        is read at the commit its ``CommitCheck`` is pinned to, so every
+        standard of a check reads the same code; a run with no pinned commit
+        reads ``execution.ref``: the event's branch for webhook runs, the
+        branch the Branch/Tag Filter names for manual runs, or "" for the
+        default branch. Fills in status
         (error beats passed, so each result lands in exactly one bucket),
         score, message, details and logs, then returns the runner's result
         enriched with the standard/execution/project identity.
@@ -212,9 +225,13 @@ class StandardEngine:
             project.name,
             execution.event_type,
         )
-        result = self.runner.run(
-            standard.code, {**input_config, "ref": bare_ref(execution.ref)}
-        )
+        check = execution.commit_check
+        read_at = (check.commit_sha if check else "") or bare_ref(execution.ref)
+        # The snapshot recorded when the run was queued, so a standard edited
+        # in between does not run code other than the one on record.
+        version = execution.standard_version
+        code = version.code if version else standard.code
+        result = self.runner.run(code, {**input_config, "ref": read_at})
 
         if result.get("details", {}).get("error"):
             execution.status = StandardExecution.Status.ERROR

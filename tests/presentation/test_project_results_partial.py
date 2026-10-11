@@ -1,8 +1,8 @@
-"""The polled results partial.
+"""The Standards card partial.
 
-Manual runs happen in the background, so the project page's results cards are
-served on their own from ``project_results`` and poll themselves while any
-standard of the project is RUNNING — and stop polling once nothing is.
+It lists the attached standards and opens Manage; it has no run buttons and
+never polls. Runs start from the Health card (a branch or one commit), which
+follows them while they are in flight.
 """
 import pytest
 from django.test import TestCase, override_settings
@@ -50,18 +50,17 @@ class TestProjectResultsPartial(TestCase):
             status=StandardExecution.Status.RUNNING,
         )
 
-    def test_polls_while_a_standard_is_running(self):
+    def test_never_polls_and_has_no_run_buttons_even_while_running(self):
         self._running_row()
 
         resp = self._get()
 
         assert resp.status_code == 200
         body = resp.content.decode()
-        assert 'hx-trigger="every 3s"' in body
         assert 'id="project-results"' in body
-        # The running standard's Run button is disabled with a spinner.
-        assert "btn-disabled" in body
-        assert "loading-spinner" in body
+        assert 'hx-trigger="every 3s"' not in body
+        assert reverse("run_project_standards", args=[self.project.pk]) not in body
+        assert "loading-spinner" not in body
 
     def test_does_not_poll_when_nothing_is_running(self):
         baker.make(
@@ -86,7 +85,7 @@ class TestProjectResultsPartial(TestCase):
 
         assert resp.status_code == 404
 
-    def test_the_project_page_polls_too(self):
+    def test_the_project_page_leaves_following_runs_to_the_health_card(self):
         self._running_row()
 
         resp = self.client.get(reverse("project_detail", args=[self.project.pk]))
@@ -94,4 +93,5 @@ class TestProjectResultsPartial(TestCase):
         assert resp.status_code == 200
         body = resp.content.decode()
         assert 'id="project-results"' in body
-        assert 'hx-trigger="every 3s"' in body
+        assert 'hx-trigger="every 3s"' not in body
+        assert reverse("project_history", args=[self.project.pk]) in body

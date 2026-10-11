@@ -26,6 +26,8 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
       <div><span class="opacity-70">Event</span><p>{{ execution.event_type }}</p></div>
       <div><span class="opacity-70">Ref</span><p><code>{{ execution.ref|default:"—" }}</code></p></div>
+      <div><span class="opacity-70">Commit</span><p><code>{% if execution.commit_check and execution.commit_check.commit_sha %}{{ execution.commit_check.commit_sha|slice:":12" }}{% else %}—{% endif %}</code></p></div>
+      <div><span class="opacity-70">Standard version</span><p>{% if execution.standard_version %}v{{ execution.standard_version.version }}{% if execution.standard and execution.standard.code != execution.standard_version.code %} <span class="text-warning">(changed since)</span>{% endif %}{% else %}—{% endif %}</p></div>
       <div><span class="opacity-70">Triggered by</span><p>{{ execution.triggered_by|default:"—" }}</p></div>
       <div><span class="opacity-70">When</span><p>{{ execution.created_at }}</p></div>
       {% if execution.details.llm_usage %}
@@ -50,6 +52,17 @@
     {% endif %}
   </div>
 </div>
+
+{% if execution.standard_version %}
+<div class="card bg-base-100 shadow-xl mb-6 scroll-mt-20" id="standard-code">
+  <div class="card-body">
+    <details>
+      <summary class="card-title cursor-pointer">Standard code that ran (v{{ execution.standard_version.version }})</summary>
+      <pre class="mt-3 p-3 rounded bg-base-200 text-xs overflow-x-auto"><code>{{ execution.standard_version.code }}</code></pre>
+    </details>
+  </div>
+</div>
+{% endif %}
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">

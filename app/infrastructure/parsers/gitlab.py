@@ -39,4 +39,13 @@ class GitLabParser(BaseWebhookParser):
             actor=actor,
             raw_payload=payload,
             deleted=payload.get("after") == DELETED_SHA,
+            commit_sha=(attributes.get("last_commit") or {}).get("id")
+            or payload.get("checkout_sha")
+            or payload.get("after")
+            or "",
+            committed_at=(attributes.get("last_commit") or {}).get("timestamp")
+            or next(
+                (c.get("timestamp", "") for c in payload.get("commits") or [] if c.get("id") == payload.get("checkout_sha")),
+                "",
+            ),
         )

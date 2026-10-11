@@ -1,7 +1,9 @@
-"""The ``#compliance`` anchor that ``standards.failing`` notices link to, and the
-``#project-results`` wrapper around it.
+"""The ``#compliance`` anchor that ``standards.failing`` notifications link to,
+and the ``#project-results`` Standards card.
 
-Both must exist on the full page and survive the HTMX poll that swaps it in place.
+The anchor wraps the Health card on the full page, outside anything HTMX swaps,
+so a link lands even before the card has loaded; the Standards card keeps its
+own id across its poll.
 """
 import pytest
 from django.test import TestCase, override_settings
@@ -35,9 +37,11 @@ class TestProjectResultsAnchor(TestCase):
         assert 'id="project-results"' in body
         assert 'id="compliance"' in body
 
-    def test_poll_partial_keeps_the_anchor(self):
-        resp = self.client.get(reverse("project_results", args=[self.project.pk]))
-        assert resp.status_code == 200
-        body = resp.content.decode()
-        assert 'id="project-results"' in body
-        assert 'id="compliance"' in body
+    def test_the_anchor_wraps_the_health_card_outside_the_polls(self):
+        body = self.client.get(reverse("project_detail", args=[self.project.pk])).content.decode()
+        anchor = body.index('id="compliance"')
+        assert anchor < body.index('id="project-history"') < body.index('id="project-results"')
+
+        poll = self.client.get(reverse("project_results", args=[self.project.pk])).content.decode()
+        assert 'id="project-results"' in poll
+        assert 'id="compliance"' not in poll

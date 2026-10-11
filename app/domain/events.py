@@ -19,6 +19,11 @@ class DomainEvent:
     # A push that deletes its branch or tag (GitHub sends ``deleted: true``,
     # GitLab an all-zeros ``after``). There is nothing left at the ref to read.
     deleted: bool = False
+    # The commit the event is about: a push's new head, or a pull request's
+    # head commit. Runs read the repository at exactly this commit.
+    commit_sha: str = ""
+    # When that commit was made (ISO 8601), when the payload says.
+    committed_at: str = ""
 
 
 # --- Workspace domain events -------------------------------------------------

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from django.db.models import Q
+from django.db.models.functions import Coalesce
 
 from app.application.standard_engine import literal_ref
 from app.domain.health import CRITICAL, HEALTHY, WARNING, level_from_score
@@ -35,29 +36,35 @@ def home_branch(project, standard) -> str:
     return literal_ref(criteria.get("ref")) or project.default_branch
 
 
-def current_results(projects, statuses=FINISHED, exclude_execution_ids=()):
+def current_results(projects, statuses=FINISHED, exclude_execution_ids=(), branch=None):
     """The latest result per attached (project, standard) pair on that pair's
     home branch, as ``StandardExecution`` rows with project and standard
     loaded. ``statuses`` picks which results count (finished ones by
     default); ``exclude_execution_ids`` leaves runs out, which gives the
-    picture as it was before them."""
+    picture as it was before them. ``branch`` reads every pair on that branch
+    instead of its home branch: a branch's own status, not the project's
+    health."""
     pairs = ProjectStandard.objects.filter(project__in=projects).select_related(
         "project", "standard"
     )
     on_home_branch = Q()
     for pair in pairs:
-        home = home_branch(pair.project, pair.standard)
+        home = branch if branch is not None else home_branch(pair.project, pair.standard)
         refs = Q(ref=home) | Q(ref=f"refs/heads/{home}")
         if home == pair.project.default_branch:
             refs |= Q(ref="")
         on_home_branch |= Q(project_id=pair.project_id, standard_id=pair.standard_id) & refs
     if not on_home_branch:
         return []
+    # The newest *commit* wins, not the newest run: checking an old commit
+    # again must not change the picture. Runs of the same commit (and runs
+    # with no known commit date) go by when they ran.
+    committed = Coalesce("commit_check__committed_at", "created_at")
     return list(
         StandardExecution.objects.filter(on_home_branch, status__in=statuses)
         .exclude(pk__in=list(exclude_execution_ids))
-        .select_related("project", "standard")
-        .order_by("project_id", "standard_id", "-created_at")
+        .select_related("project", "standard", "commit_check")
+        .order_by("project_id", "standard_id", committed.desc(), "-created_at")
         .distinct("project_id", "standard_id")
     )
 
