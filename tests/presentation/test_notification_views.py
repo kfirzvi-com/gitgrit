@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
 
-from app.domain.models import Notification, NotificationDelivery
+from app.domain.models import Notification, NotificationDelivery, StandardExecution
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -15,7 +15,7 @@ NON_MANIFEST_STORAGES = {
     },
 }
 
-EMPTY_ACTIVE = "Nothing needs your attention."
+EMPTY_ACTIVE = "No new notifications."
 EMPTY_HISTORY = "No read notifications yet."
 
 
@@ -303,3 +303,68 @@ class TestNotificationPaneAndBell(TestCase):
         for name in ("notification_panel", "notification_bell"):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 302, name)
+
+
+@pytest.mark.django_db
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestNeedsAttentionInPane(TestCase):
+    """The pane always shows the workspace's current failing results, the same
+    list the dashboard's Needs attention card shows."""
+
+    def setUp(self):
+        self.user = baker.make("app.User")
+        self.tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=self.user, tenant=self.tenant, role="member")
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["active_tenant_id"] = str(self.tenant.id)
+        session.save()
+
+    def _result(self, name, score, tenant=None, status=StandardExecution.Status.FAILED):
+        tenant = tenant or self.tenant
+        project = baker.make("app.Project", tenant=tenant, name=f"{name}-project")
+        standard = baker.make("app.Standard", tenant=tenant, name=name)
+        project.standards.add(standard)
+        return baker.make(
+            "app.StandardExecution", project=project, standard=standard,
+            standard_name=name, score=score, status=status,
+        )
+
+    def test_lists_current_failing_results_worst_first(self):
+        self._result("Warn standard", 60)
+        self._result("Critical standard", 10)
+        self._result("Healthy standard", 100, status=StandardExecution.Status.PASSED)
+
+        response = self.client.get(reverse("notification_panel"))
+
+        names = [i["standard_name"] for i in response.context["attention_items"]]
+        self.assertEqual(names, ["Critical standard", "Warn standard"])
+        content = response.content.decode()
+        self.assertIn("data-attention-section", content)
+        self.assertIn("Critical standard-project", content)
+        self.assertNotIn("Healthy standard", content)
+
+    def test_other_workspaces_results_are_not_shown(self):
+        self._result("Elsewhere standard", 10, tenant=baker.make("app.Tenant"))
+
+        response = self.client.get(reverse("notification_panel"))
+
+        self.assertEqual(response.context["attention_items"], [])
+        self.assertContains(response, "All clear — nothing needs attention.")
+
+    def test_shows_three_and_hides_the_rest_behind_show_all(self):
+        for i in range(5):
+            self._result(f"Std {i}", 10)
+
+        response = self.client.get(reverse("notification_panel"))
+
+        self.assertContains(response, "Show all 5")
+        self.assertContains(response, "data-attention-extra", count=2)
+
+    def test_is_shown_even_when_the_inbox_is_empty(self):
+        self._result("Critical standard", 10)
+
+        response = self.client.get(reverse("notification_panel"))
+
+        self.assertContains(response, "Critical standard")
+        self.assertContains(response, EMPTY_ACTIVE)

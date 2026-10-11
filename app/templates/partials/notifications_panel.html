@@ -1,5 +1,5 @@
-{% comment %}The notifications pane's contents: header, Active grouped by day, and
-History. Served by notification_panel, and in reply to Mark read and Mark all read, which
+{% comment %}The notifications pane's contents: header, Needs attention (the workspace's
+current failing results, always shown), Active grouped by day, and History. Served by notification_panel, and in reply to Mark read and Mark all read, which
 swap it in place.{% endcomment %}
 <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-base-200 sticky top-0 bg-base-100 z-10">
   <h2 class="text-lg font-bold">Notifications</h2>
@@ -16,6 +16,29 @@ swap it in place.{% endcomment %}
   </div>
 </div>
 
+<section data-attention-section class="border-b border-base-200 pb-2">
+  <div class="flex items-baseline justify-between gap-2 px-4 pt-4 pb-2">
+    <h3 class="text-sm font-semibold uppercase tracking-wide opacity-70">Needs attention</h3>
+    {% if attention_total > 3 %}
+      <button type="button" class="text-xs link link-hover opacity-70" data-attention-toggle data-total="{{ attention_total }}">Show all {{ attention_total }}</button>
+    {% endif %}
+  </div>
+  {% for item in attention_items %}
+    <a href="{{ item.url }}" class="flex items-start gap-3 px-4 py-2 hover:bg-base-200{% if forloop.counter > 3 %} hidden{% endif %}"{% if forloop.counter > 3 %} data-attention-extra{% endif %}>
+      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 {% if item.level == 'critical' %}bg-error{% else %}bg-warning{% endif %}" title="{{ item.level|title }}"></span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="font-semibold truncate" title="{{ item.standard_name }}">{{ item.standard_name }}</span>
+          <span class="text-sm font-bold shrink-0 {% if item.level == 'critical' %}text-error{% else %}text-warning{% endif %}">{{ item.score }}%</span>
+        </div>
+        <div class="text-xs opacity-70 truncate">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
+      </div>
+    </a>
+  {% empty %}
+    <p class="px-4 pb-2 text-sm opacity-70">All clear — nothing needs attention.</p>
+  {% endfor %}
+</section>
+
 <section data-active-section>
   <h3 class="px-4 pt-4 pb-2 text-sm font-semibold uppercase tracking-wide opacity-70">Active</h3>
   {% for label, deliveries in active_groups %}
@@ -26,7 +49,7 @@ swap it in place.{% endcomment %}
       {% endfor %}
     </div>
   {% empty %}
-    <p class="px-4 pb-4 text-sm opacity-70">Nothing needs your attention.</p>
+    <p class="px-4 pb-4 text-sm opacity-70">No new notifications.</p>
   {% endfor %}
 </section>
 

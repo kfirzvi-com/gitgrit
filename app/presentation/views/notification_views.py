@@ -1,6 +1,10 @@
 """The notifications side pane: opened from the navbar bell over the current
 page, never a page of its own. Every view here serves the pane's fragment or
 acts on one inbox item; ``open_notification`` is the only one that navigates.
+
+The pane has two kinds of content. "Needs attention" is the workspace's
+current state (the same list as the dashboard) and is always shown; Active
+and History are the inbox, events this user reads and clears.
 """
 from datetime import timedelta
 
@@ -11,6 +15,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
 from app.domain.models import NotificationDelivery
+from app.presentation.architecture import attention_items
 
 HISTORY_LIMIT = 50
 HISTORY_PAGE = 5
@@ -50,15 +55,19 @@ def _inbox(request):
 
 
 def _panel(request):
-    """Render the pane's contents: Active (unread, newest first) grouped by day,
-    and History (read, newest first)."""
+    """Render the pane's contents: Needs attention (current results, worst
+    first), Active (unread, newest first) grouped by day, and History (read,
+    newest first)."""
     sent = _inbox(request).filter(status=NotificationDelivery.Status.SENT).select_related("notification")
     active = list(sent.filter(read_at__isnull=True).order_by("-notification__created_at"))
     history = sent.filter(read_at__isnull=False).order_by("-notification__created_at")[:HISTORY_LIMIT]
+    attention = attention_items(request.tenant) if request.tenant else []
     return render(
         request,
         "partials/notifications_panel.html",
         {
+            "attention_items": attention,
+            "attention_total": len(attention),
             "active": active,
             "active_groups": _group_by_day(active),
             "history": history,

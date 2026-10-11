@@ -49,6 +49,12 @@ Included once by base.html for signed-in users with an active workspace.{% endco
         panel.dataset.open === "1" ? closePanel() : openPanel();
       } else if (e.target.closest("[data-notification-close]")) {
         closePanel();
+      } else if (e.target.closest("[data-attention-toggle]")) {
+        var toggle = e.target.closest("[data-attention-toggle]");
+        var extras = panel.querySelectorAll("[data-attention-extra]");
+        var expand = extras.length && extras[0].classList.contains("hidden");
+        extras.forEach(function (row) { row.classList.toggle("hidden", !expand); });
+        toggle.textContent = expand ? "Show less" : "Show all " + toggle.dataset.total;
       } else if (e.target.closest("[data-history-more]")) {
         panel.querySelectorAll("[data-history-row].hidden").forEach(function (row) {
           row.classList.remove("hidden");
