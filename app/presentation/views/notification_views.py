@@ -5,7 +5,6 @@ acts on one inbox item; ``open_notification`` is the only one that navigates.
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -51,14 +50,10 @@ def _inbox(request):
 
 
 def _panel(request):
-    """Render the pane's contents: Active (unread or pinned, pinned first, then
-    newest) grouped by day, and History (read, newest first)."""
+    """Render the pane's contents: Active (unread, newest first) grouped by day,
+    and History (read, newest first)."""
     sent = _inbox(request).filter(status=NotificationDelivery.Status.SENT).select_related("notification")
-    active = list(
-        sent.filter(read_at__isnull=True).order_by(
-            F("pinned_at").desc(nulls_last=True), "-notification__created_at"
-        )
-    )
+    active = list(sent.filter(read_at__isnull=True).order_by("-notification__created_at"))
     history = sent.filter(read_at__isnull=False).order_by("-notification__created_at")[:HISTORY_LIMIT]
     return render(
         request,
@@ -91,9 +86,9 @@ def notification_bell(request):
 @login_required
 @require_GET
 def open_notification(request, pk):
-    """Mark the item read (unless pinned), then send the user to what it is about."""
+    """Mark the item read, then send the user to what it is about."""
     delivery = get_object_or_404(_inbox(request).select_related("notification"), pk=pk)
-    if delivery.read_at is None and not delivery.is_pinned:
+    if delivery.read_at is None:
         delivery.read_at = timezone.now()
         delivery.save(update_fields=["read_at"])
     url = delivery.notification.url
@@ -108,7 +103,7 @@ def open_notification(request, pk):
 @login_required
 @require_POST
 def mark_all_read(request):
-    _inbox(request).filter(read_at__isnull=True, pinned_at__isnull=True).update(
+    _inbox(request).filter(read_at__isnull=True).update(
         read_at=timezone.now()
     )
     response = _panel(request)
@@ -118,16 +113,12 @@ def mark_all_read(request):
 
 @login_required
 @require_POST
-def toggle_pin(request, pk):
-    """Pin keeps the item in Active, unread, until the user unpins it.
-    Pinning a read item brings it back to Active."""
+def mark_read(request, pk):
+    """Mark one item read without leaving the page."""
     delivery = get_object_or_404(_inbox(request), pk=pk)
-    if delivery.is_pinned:
-        delivery.pinned_at = None
-    else:
-        delivery.pinned_at = timezone.now()
-        delivery.read_at = None
-    delivery.save(update_fields=["pinned_at", "read_at"])
+    if delivery.read_at is None:
+        delivery.read_at = timezone.now()
+        delivery.save(update_fields=["read_at"])
     response = _panel(request)
     response["HX-Trigger"] = COUNT_CHANGED_EVENT
     return response

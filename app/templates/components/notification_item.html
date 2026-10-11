@@ -27,10 +27,12 @@ notice was published.{% endcomment %}
     </div>
     <div class="text-sm opacity-80 line-clamp-2 break-words mt-0.5">{{ delivery.notification.body }}</div>
   </a>
-  <button type="button" class="btn btn-ghost btn-xs shrink-0"
-          hx-post="{% url 'notification_pin' delivery.pk %}"
-          hx-target="#notification-panel-body" hx-swap="innerHTML"
-          data-no-loader
-          title="{% if delivery.is_pinned %}Let this item be marked read again{% else %}Keep this item unread until you unpin it{% endif %}">{% if delivery.is_pinned %}Unpin{% else %}Pin{% endif %}</button>
+  {% if delivery.read_at is None %}
+    <button type="button" class="btn btn-ghost btn-xs shrink-0"
+            hx-post="{% url 'notification_mark_read' delivery.pk %}"
+            hx-target="#notification-panel-body" hx-swap="innerHTML"
+            data-no-loader
+            title="Move to History without opening it">Mark read</button>
+  {% endif %}
 </div>
 {% endwith %}

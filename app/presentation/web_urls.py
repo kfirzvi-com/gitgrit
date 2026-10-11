@@ -73,10 +73,10 @@ from app.presentation.views.marketplace_views import (
 )
 from app.presentation.views.notification_views import (
     mark_all_read,
+    mark_read,
     notification_bell,
     notification_panel,
     open_notification,
-    toggle_pin,
 )
 from app.presentation.views.web_views import DashboardView, HomeView
 from app.presentation.views.workspace_switcher_views import workspace_switcher_list
@@ -89,7 +89,7 @@ urlpatterns = [
     path("notifications/read-all/", mark_all_read, name="notifications_mark_all_read"),
     path("notifications/bell/", notification_bell, name="notification_bell"),
     path("notifications/<uuid:pk>/open/", open_notification, name="notification_open"),
-    path("notifications/<uuid:pk>/pin/", toggle_pin, name="notification_pin"),
+    path("notifications/<uuid:pk>/read/", mark_read, name="notification_mark_read"),
     path("profile/", ProfileView.as_view(), name="profile"),
     path("profile/disconnect/<str:provider>/", disconnect_social, name="disconnect_social"),
     # Tenant management

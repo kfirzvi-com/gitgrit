@@ -1,4 +1,4 @@
-"""View tests for the notifications side pane, the open redirect, mark-all-read and pin."""
+"""View tests for the notifications side pane, the open redirect, mark-read and mark-all-read."""
 from datetime import timedelta
 
 import pytest
@@ -179,71 +179,34 @@ class TestNotificationViews(TestCase):
             d.refresh_from_db()
             self.assertIsNone(d.read_at)
 
-    def test_pin_keeps_the_item_unread_when_opened(self):
-        delivery = self._delivery(url="/standards/")
+    def test_mark_read_moves_one_item_to_history_without_navigating(self):
+        target = self._delivery("target")
+        self._delivery("other")
 
-        response = self.client.post(reverse("notification_pin", args=[delivery.pk]))
+        response = self.client.post(reverse("notification_mark_read", args=[target.pk]))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["HX-Trigger"], "notificationsCountChanged")
-        delivery.refresh_from_db()
-        self.assertIsNotNone(delivery.pinned_at)
-        self.client.get(reverse("notification_open", args=[delivery.pk]))
-        delivery.refresh_from_db()
-        self.assertIsNone(delivery.read_at)
+        self.assertEqual([d.notification.title for d in response.context["active"]], ["other"])
+        self.assertEqual([d.notification.title for d in response.context["history"]], ["target"])
 
-    def test_mark_all_read_skips_pinned(self):
-        pinned = self._delivery("pinned")
-        plain = self._delivery("plain")
-        self.client.post(reverse("notification_pin", args=[pinned.pk]))
+    def test_mark_read_shows_only_on_unread_items(self):
+        unread = self._delivery("unread-item")
+        read = self._delivery("read-item", read_at=timezone.now())
 
-        self.client.post(reverse("notifications_mark_all_read"))
+        content = self.client.get(reverse("notification_panel")).content.decode()
 
-        pinned.refresh_from_db()
-        plain.refresh_from_db()
-        self.assertIsNone(pinned.read_at)
-        self.assertIsNotNone(plain.read_at)
+        self.assertIn(reverse("notification_mark_read", args=[unread.pk]), content)
+        self.assertNotIn(reverse("notification_mark_read", args=[read.pk]), content)
 
-    def test_unpin_lets_open_mark_it_read_again(self):
-        delivery = self._delivery()
-        self.client.post(reverse("notification_pin", args=[delivery.pk]))
-        self.client.post(reverse("notification_pin", args=[delivery.pk]))
-
-        delivery.refresh_from_db()
-        self.assertIsNone(delivery.pinned_at)
-        self.client.get(reverse("notification_open", args=[delivery.pk]))
-        delivery.refresh_from_db()
-        self.assertIsNotNone(delivery.read_at)
-
-    def test_pinning_a_read_item_brings_it_back_to_active(self):
-        delivery = self._delivery("was-read", read_at=timezone.now())
-
-        self.client.post(reverse("notification_pin", args=[delivery.pk]))
-
-        response = self.client.get(reverse("notification_panel"))
-        self.assertEqual([d.notification.title for d in response.context["active"]], ["was-read"])
-        self.assertEqual(list(response.context["history"]), [])
-
-    def test_pinned_items_come_first_in_active(self):
-        older = self._delivery("older")
-        self._delivery("newer")
-        self.client.post(reverse("notification_pin", args=[older.pk]))
-
-        response = self.client.get(reverse("notification_panel"))
-
-        self.assertEqual(
-            [d.notification.title for d in response.context["active"]], ["older", "newer"]
-        )
-        self.assertContains(response, "Unpin")
-
-    def test_pin_other_users_delivery_is_404(self):
+    def test_mark_read_other_users_delivery_is_404(self):
         delivery = self._delivery(user=baker.make("app.User"))
-        response = self.client.post(reverse("notification_pin", args=[delivery.pk]))
+        response = self.client.post(reverse("notification_mark_read", args=[delivery.pk]))
         self.assertEqual(response.status_code, 404)
 
-    def test_pin_requires_post(self):
+    def test_mark_read_requires_post(self):
         delivery = self._delivery()
-        self.assertEqual(self.client.get(reverse("notification_pin", args=[delivery.pk])).status_code, 405)
+        self.assertEqual(self.client.get(reverse("notification_mark_read", args=[delivery.pk])).status_code, 405)
 
     def test_mark_all_read_requires_post(self):
         self.assertEqual(self.client.get(reverse("notifications_mark_all_read")).status_code, 405)
@@ -319,7 +282,7 @@ class TestNotificationPaneAndBell(TestCase):
 
         content = self.client.get(reverse("notification_panel")).content.decode()
 
-        self.assertIn(f'hx-post="{reverse("notification_pin", args=[delivery.pk])}"', content)
+        self.assertIn(f'hx-post="{reverse("notification_mark_read", args=[delivery.pk])}"', content)
         self.assertIn(f'hx-post="{reverse("notifications_mark_all_read")}"', content)
         self.assertEqual(content.count('hx-target="#notification-panel-body"'), 2)
 
