@@ -55,6 +55,30 @@ class WorkspaceChangeNotificationTests(TestCase):
         self.assertEqual(self._delivered_to(n), {self.other_admin.pk})
         self.assertNotIn(newcomer.pk, self._delivered_to(n))
 
+    def test_removing_a_member_tells_the_other_admins(self):
+        leaver = baker.make("app.User", first_name="Sam", last_name="Kim")
+        membership = baker.make("app.Membership", user=leaver, tenant=self.tenant, role="member")
+
+        self.client.post(reverse("remove_member", args=[membership.pk]))
+
+        n = Notification.objects.get(kind="member.removed")
+        self.assertEqual(n.body, "Dana Lee removed Sam Kim.")
+        self.assertEqual(self._delivered_to(n), {self.other_admin.pk})
+
+    def test_leaving_tells_the_admins_who_stay(self):
+        leaver = baker.make("app.User", first_name="Sam", last_name="Kim")
+        baker.make("app.Membership", user=leaver, tenant=self.tenant, role="member")
+        self.client.force_login(leaver)
+        session = self.client.session
+        session["active_tenant_id"] = str(self.tenant.id)
+        session.save()
+
+        self.client.post(reverse("leave_workspace"))
+
+        n = Notification.objects.get(kind="member.removed")
+        self.assertEqual((n.title, n.body), ("Member left", "Sam Kim left the workspace."))
+        self.assertEqual(self._delivered_to(n), {self.me.pk, self.other_admin.pk})
+
     def test_activating_a_standard_tells_the_other_admins(self):
         standard = baker.make("app.Standard", tenant=self.tenant, name="Pinned CI", enabled=False, draft=False)
 

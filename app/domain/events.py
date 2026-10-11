@@ -162,3 +162,26 @@ class MemberJoined:
     user_id: str
     role: str
     added_by_user_id: str | None = None
+
+
+@dataclass(frozen=True)
+class MemberRemoved:
+    """Someone left a workspace or was removed from it. ``removed_by_user_id``
+    is the member themselves when they left."""
+
+    tenant_id: str
+    user_id: str
+    removed_by_user_id: str | None = None
+
+
+@dataclass(frozen=True)
+class MemberRoleChanged:
+    """A member's role changed. Nothing publishes this yet: the app has no
+    way to change a role. It is here so the notification is ready when one
+    lands."""
+
+    tenant_id: str
+    user_id: str
+    old_role: str
+    new_role: str
+    changed_by_user_id: str | None = None

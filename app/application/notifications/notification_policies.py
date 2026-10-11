@@ -16,6 +16,8 @@ from app.application.notifications.service import raise_notification
 from app.domain.events import (
     DependencyInferenceFailed,
     MemberJoined,
+    MemberRemoved,
+    MemberRoleChanged,
     ProjectCreated,
     ProjectDeleted,
     StandardActivated,
@@ -224,6 +226,39 @@ class MemberJoinedNotificationPolicy:
         )
 
 
+class MemberRemovedNotificationPolicy:
+    """Whenever someone leaves or is removed from the workspace, tell the
+    other admins."""
+
+    def handle(self, event: MemberRemoved) -> None:
+        member = _user(event.user_id)
+        if member is None:
+            return
+        raise_notification(
+            Notification.member_removed(
+                tenant_id=event.tenant_id, member=member, actor=_user(event.removed_by_user_id)
+            )
+        )
+
+
+class MemberRoleChangedNotificationPolicy:
+    """Whenever a member's role changes, tell the admins and that member."""
+
+    def handle(self, event: MemberRoleChanged) -> None:
+        member = _user(event.user_id)
+        if member is None:
+            return
+        raise_notification(
+            Notification.member_role_changed(
+                tenant_id=event.tenant_id,
+                member=member,
+                old_role=event.old_role,
+                new_role=event.new_role,
+                actor=_user(event.changed_by_user_id),
+            )
+        )
+
+
 class StandardChangedNotificationPolicy:
     """Whenever a runnable standard is saved or switched on, tell the other
     admins: it runs on its projects again, so scores may move."""
@@ -251,6 +286,8 @@ NOTIFICATION_POLICIES = (
     (ProjectCreated, ProjectAddedNotificationPolicy()),
     (ProjectDeleted, ProjectRemovedNotificationPolicy()),
     (MemberJoined, MemberJoinedNotificationPolicy()),
+    (MemberRemoved, MemberRemovedNotificationPolicy()),
+    (MemberRoleChanged, MemberRoleChangedNotificationPolicy()),
     (StandardSaved, StandardChangedNotificationPolicy()),
     (StandardActivated, StandardChangedNotificationPolicy()),
 )

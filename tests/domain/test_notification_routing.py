@@ -11,7 +11,7 @@ from app.domain.notifications.notification_routing import (
     Triggerer,
     route_for,
 )
-from app.domain.models import Notification
+from app.domain.models import Notification, User
 
 
 class RoutingTests(TestCase):
@@ -75,7 +75,7 @@ class RoutingTests(TestCase):
     def test_workspace_changes_go_to_admins_on_the_inbox(self):
         for kind in (
             "ai_provider.failed", "project.added", "project.removed", "member.joined",
-            "standard.changed",
+            "member.removed", "standard.changed",
         ):
             with self.subTest(kind=kind):
                 route = route_for(kind)
@@ -91,3 +91,19 @@ class RoutingTests(TestCase):
 
         self.assertNotIn(str(actor.pk), recipients)
         self.assertEqual(set(recipients), {self.users["owner"], self.users["admin"]})
+
+    def test_a_role_change_also_tells_the_member_it_is_about(self):
+        actor = baker.make("app.User")
+        baker.make("app.Membership", user=actor, tenant=self.tenant, role="owner")
+        n = Notification.member_role_changed(
+            tenant_id=self.tenant.pk,
+            member=User.objects.get(pk=self.users["member"]),
+            old_role="member",
+            new_role="admin",
+            actor=actor,
+        )
+
+        recipients = route_for(n.kind).recipients(n)
+
+        self.assertEqual(set(recipients), set(self.users.values()))
+        self.assertNotIn(str(actor.pk), recipients)

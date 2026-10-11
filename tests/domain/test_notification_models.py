@@ -156,6 +156,24 @@ class NewKindConstructorTests(TestCase):
         self.assertEqual((n.kind, n.severity, n.subject), (Kind.MEMBER_JOINED, Severity.INFO, "Sam Kim"))
         self.assertEqual(n.body, "Dana Lee added Sam Kim as admin.")
 
+    def test_member_removed_and_left(self):
+        member = baker.make("app.User", first_name="Sam", last_name="Kim")
+        removed = Notification.member_removed(tenant_id=self.project.tenant_id, member=member, actor=self.actor)
+        left = Notification.member_removed(tenant_id=self.project.tenant_id, member=member, actor=member)
+        self.assertEqual((removed.kind, removed.title), (Kind.MEMBER_REMOVED, "Member removed"))
+        self.assertEqual(removed.body, "Dana Lee removed Sam Kim.")
+        self.assertEqual((left.title, left.body), ("Member left", "Sam Kim left the workspace."))
+
+    def test_member_role_changed(self):
+        member = baker.make("app.User", first_name="Sam", last_name="Kim")
+        n = Notification.member_role_changed(
+            tenant_id=self.project.tenant_id, member=member, old_role="member", new_role="admin",
+            actor=self.actor,
+        )
+        self.assertEqual((n.kind, n.title), (Kind.MEMBER_ROLE_CHANGED, "Role changed"))
+        self.assertEqual(n.body, "Dana Lee made Sam Kim admin (was member).")
+        self.assertEqual(n.member_user_id, str(member.pk))
+
     def test_standard_changed_and_activated(self):
         standard = baker.make("app.Standard", name="Pinned CI")
         changed = Notification.standard_changed(standard=standard, actor=self.actor)

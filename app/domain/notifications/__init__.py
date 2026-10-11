@@ -42,6 +42,8 @@ class Kind:
     PROJECT_ADDED = "project.added"
     PROJECT_REMOVED = "project.removed"
     MEMBER_JOINED = "member.joined"
+    MEMBER_REMOVED = "member.removed"
+    MEMBER_ROLE_CHANGED = "member.role_changed"
     STANDARD_CHANGED = "standard.changed"
 
 

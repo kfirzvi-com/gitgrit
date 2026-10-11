@@ -2,8 +2,9 @@
 notification, and on which channels.
 
 A ``Route`` is an audience plus channels. An audience is a list of
-specifications (``Admins``, ``Team``, ``Triggerer``), each of which finds its
-users for a given notification; the route's recipients are their union.
+specifications (``Admins``, ``Team``, ``Triggerer``, ``AffectedMember``),
+each of which finds its users for a given notification; the route's
+recipients are their union.
 Everyone is filtered through membership of the notification's workspace, so a
 notification never reaches anyone outside it, and the person who made the
 change behind it is left out: nobody is told about their own action.
@@ -44,6 +45,16 @@ class Triggerer:
         return _members(notification, user_ids=named)
 
 
+class AffectedMember:
+    """The member a membership notification is about, while still a member."""
+
+    def user_ids(self, notification: Notification) -> set[str]:
+        member = notification.member_user_id
+        if not member:
+            return set()
+        return _members(notification, user_ids=[member])
+
+
 @dataclass(frozen=True)
 class Route:
     audience: tuple
@@ -74,6 +85,8 @@ ROUTES: dict[str, Route] = {
     Kind.PROJECT_ADDED: _WORKSPACE,
     Kind.PROJECT_REMOVED: _WORKSPACE,
     Kind.MEMBER_JOINED: _WORKSPACE,
+    Kind.MEMBER_REMOVED: _WORKSPACE,
+    Kind.MEMBER_ROLE_CHANGED: Route((Admins(), AffectedMember()), ("inbox",)),
     Kind.STANDARD_CHANGED: _WORKSPACE,
 }
 

@@ -11,6 +11,8 @@ from app.application.notifications.notification_policies import (
     CouldNotEvaluateNotificationPolicy,
     GraphBrokeNotificationPolicy,
     MemberJoinedNotificationPolicy,
+    MemberRemovedNotificationPolicy,
+    MemberRoleChangedNotificationPolicy,
     ProjectAddedNotificationPolicy,
     ProjectRemovedNotificationPolicy,
     ProjectTurnedCriticalNotificationPolicy,
@@ -21,6 +23,8 @@ from app.application.notifications.notification_policies import (
 from app.domain.events import (
     DependencyInferenceFailed,
     MemberJoined,
+    MemberRemoved,
+    MemberRoleChanged,
     ProjectCreated,
     ProjectDeleted,
     StandardActivated,
@@ -384,6 +388,23 @@ class WorkspaceChangeNotificationPolicyTests(_PolicyTestCase):
             )
         )
         self.assertEqual(Notification.objects.get().body, "Dana Lee added Sam Kim as member.")
+
+    def test_member_removed(self):
+        member = baker.make("app.User", first_name="Sam", last_name="Kim")
+        MemberRemovedNotificationPolicy().handle(
+            MemberRemoved(tenant_id=str(self.tenant.pk), user_id=str(member.pk), removed_by_user_id=str(self.actor.pk))
+        )
+        self.assertEqual(Notification.objects.get().body, "Dana Lee removed Sam Kim.")
+
+    def test_member_role_changed(self):
+        member = baker.make("app.User", first_name="Sam", last_name="Kim")
+        MemberRoleChangedNotificationPolicy().handle(
+            MemberRoleChanged(
+                tenant_id=str(self.tenant.pk), user_id=str(member.pk), old_role="member",
+                new_role="admin", changed_by_user_id=str(self.actor.pk),
+            )
+        )
+        self.assertEqual(Notification.objects.get().body, "Dana Lee made Sam Kim admin (was member).")
 
     def test_standard_saved_and_activated(self):
         standard = baker.make("app.Standard", tenant=self.tenant, name="Pinned CI")

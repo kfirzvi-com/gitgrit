@@ -1028,6 +1028,11 @@ class Notification(models.Model):
         return self.context.get("subject") or self.context.get("project_name", "")
 
     @property
+    def member_user_id(self) -> str | None:
+        """The workspace member a membership notification is about."""
+        return self.context.get("member_user_id")
+
+    @property
     def actor_user_id(self) -> str | None:
         """Who made the change behind this notification, if a person did."""
         return self.context.get("actor_user_id")
@@ -1206,6 +1211,41 @@ class Notification(models.Model):
             body=f"{_display_name(actor)} added {_display_name(member)} as {role}.",
             url=reverse("tenant_settings") + "#section-members",
             context={"member_user_id": str(member.pk)},
+        )
+
+    @classmethod
+    def member_removed(cls, *, tenant_id, member, actor):
+        """Someone was removed from the workspace, or left it (``actor`` is
+        then the member themselves)."""
+        left = actor is not None and actor.pk == member.pk
+        return cls._new(
+            tenant_id=tenant_id,
+            subject=_display_name(member),
+            actor=actor,
+            kind=Kind.MEMBER_REMOVED,
+            severity=Severity.INFO,
+            title="Member left" if left else "Member removed",
+            body=(
+                f"{_display_name(member)} left the workspace."
+                if left
+                else f"{_display_name(actor)} removed {_display_name(member)}."
+            ),
+            url=reverse("tenant_settings") + "#section-members",
+            context={"member_user_id": str(member.pk)},
+        )
+
+    @classmethod
+    def member_role_changed(cls, *, tenant_id, member, old_role, new_role, actor):
+        return cls._new(
+            tenant_id=tenant_id,
+            subject=_display_name(member),
+            actor=actor,
+            kind=Kind.MEMBER_ROLE_CHANGED,
+            severity=Severity.INFO,
+            title="Role changed",
+            body=f"{_display_name(actor)} made {_display_name(member)} {new_role} (was {old_role}).",
+            url=reverse("tenant_settings") + "#section-members",
+            context={"member_user_id": str(member.pk), "old_role": old_role, "new_role": new_role},
         )
 
     @classmethod
