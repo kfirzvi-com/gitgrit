@@ -186,7 +186,7 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
 
 
 # The one worker serves every queue and takes jobs by priority, then age, so
-# without this a notice waits behind every standard run queued before it.
+# without this a notification waits behind every standard run queued before it.
 NOTIFICATION_PRIORITY = 10
 
 
@@ -197,14 +197,14 @@ def deliver_notification(notification_id: str) -> None:
     """Deliver one stored notification on its channels. Runs ahead of queued
     standard runs and graph jobs (see ``NOTIFICATION_PRIORITY``).
 
-    No Procrastinate retry: a channel that fails gets a ``failed`` delivery
-    row, which is the record; nothing re-sends it. ``deliver`` skips channels
-    that already have a ``sent`` row, so a re-run after a crashed worker
+    No Procrastinate retry: a channel that fails gets a FAILED ``DeliveryLog``
+    row, which is the record; nothing re-sends it. ``dispatch`` skips channels
+    that already have a SENT row, so a re-run after a crashed worker
     (``recover_stalled_jobs``) never double-posts.
     """
-    from app.application.notifications.delivery import deliver
+    from app.application.notifications.dispatcher import dispatch
 
-    deliver(notification_id)
+    dispatch(notification_id)
 
 
 @app.periodic(cron="*/5 * * * *")

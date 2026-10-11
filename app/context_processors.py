@@ -1,6 +1,7 @@
 from django.conf import settings
 
-from app.domain.models import Membership, NotificationDelivery, Tenant
+from app.application.notifications.inbox import Inbox
+from app.domain.models import Membership, Tenant
 
 # Users with this many workspaces or fewer get a plain list; above it the
 # switcher shows a search box.
@@ -51,11 +52,4 @@ def notification_context(request):
     tenant = getattr(request, "tenant", None)
     if not hasattr(request, "user") or not request.user.is_authenticated or tenant is None:
         return {}
-    unread = NotificationDelivery.objects.filter(
-        recipient=request.user,
-        channel="inbox",
-        status=NotificationDelivery.Status.SENT,
-        read_at__isnull=True,
-        notification__tenant=tenant,
-    ).count()
-    return {"unread_notifications": unread}
+    return {"unread_notifications": Inbox(request.user.pk, tenant.pk).unread_count()}

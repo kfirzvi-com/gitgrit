@@ -1,14 +1,14 @@
-{% comment %}One inbox row in the notifications pane. Expects `delivery`; `when` is when the
+{% comment %}One inbox row in the notifications pane. Expects `item` (an InboxItem); `when` is when the
 notice was published.{% endcomment %}
-{% with ctx=delivery.notification.context %}
+{% with ctx=item.notification.context %}
 <div data-hover-hint="More info" class="flex items-start gap-2 px-4 py-3 border-b border-base-200 hover:bg-base-200">
-  <a href="{% url 'notification_open' delivery.pk %}" class="flex-1 min-w-0">
+  <a href="{% url 'notification_open' item.pk %}" class="flex-1 min-w-0">
     <div class="flex items-baseline justify-between gap-2">
       <span class="font-bold truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</span>
       <time datetime="{{ when|date:'c' }}" data-local-time class="text-xs opacity-70 whitespace-nowrap shrink-0">{{ when|date:"j M Y, H:i" }}</time>
     </div>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-      <span class="font-semibold break-words">{{ delivery.notification.title }}</span>
+      <span class="font-semibold break-words">{{ item.notification.title }}</span>
       {% with trigger=ctx.trigger %}
         {% if trigger %}
           <span class="badge badge-ghost badge-sm">
@@ -25,11 +25,11 @@ notice was published.{% endcomment %}
       {% endwith %}
       {% if "score" in ctx %}<span class="text-xs font-bold">Score: {{ ctx.score }}%</span>{% endif %}
     </div>
-    <div class="text-sm opacity-80 line-clamp-2 break-words mt-0.5">{{ delivery.notification.body }}</div>
+    <div class="text-sm opacity-80 line-clamp-2 break-words mt-0.5">{{ item.notification.body }}</div>
   </a>
-  {% if delivery.read_at is None %}
+  {% if item.is_unread %}
     <button type="button" class="btn btn-ghost btn-xs shrink-0"
-            hx-post="{% url 'notification_mark_read' delivery.pk %}"
+            hx-post="{% url 'notification_mark_read' item.pk %}"
             hx-target="#notification-panel-body" hx-swap="innerHTML"
             data-no-loader
             title="Move to History without opening it">Mark read</button>

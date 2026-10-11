@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
 
-from app.domain.models import Notification, NotificationDelivery, StandardExecution
+from app.domain.models import InboxItem, Notification, StandardExecution
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -34,8 +34,7 @@ class TestNotificationViews(TestCase):
         session["active_tenant_id"] = str(tenant.id)
         session.save()
 
-    def _delivery(self, title="Something", user=None, tenant=None, channel="inbox",
-                  read_at=None, url="/dashboard/"):
+    def _item(self, title="Something", user=None, tenant=None, read_at=None, url="/dashboard/"):
         notification = baker.make(
             "app.Notification",
             tenant=tenant or self.tenant,
@@ -45,53 +44,50 @@ class TestNotificationViews(TestCase):
             url=url,
         )
         return baker.make(
-            "app.NotificationDelivery",
+            "app.InboxItem",
             notification=notification,
             recipient=user or self.user,
-            channel=channel,
-            status="sent",
             read_at=read_at,
         )
 
-    def test_list_scopes_to_user_workspace_and_inbox(self):
-        self._delivery("mine")
-        self._delivery("theirs", user=baker.make("app.User"))
-        self._delivery("elsewhere", tenant=baker.make("app.Tenant"))
-        self._delivery("logged", channel="log")
+    def test_list_scopes_to_user_and_workspace(self):
+        self._item("mine")
+        self._item("theirs", user=baker.make("app.User"))
+        self._item("elsewhere", tenant=baker.make("app.Tenant"))
 
         response = self.client.get(reverse("notification_panel"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "mine")
-        for hidden in ("theirs", "elsewhere", "logged"):
+        for hidden in ("theirs", "elsewhere"):
             self.assertNotContains(response, hidden)
 
     def test_unread_under_active_and_read_under_history(self):
-        self._delivery("unread-item")
-        self._delivery("read-item", read_at=timezone.now())
+        self._item("unread-item")
+        self._item("read-item", read_at=timezone.now())
 
         response = self.client.get(reverse("notification_panel"))
 
         self.assertContains(response, "Active")
         self.assertContains(response, "History")
-        self.assertEqual([d.notification.title for d in response.context["active"]], ["unread-item"])
-        self.assertEqual([d.notification.title for d in response.context["history"]], ["read-item"])
+        self.assertEqual([i.notification.title for i in response.context["active"]], ["unread-item"])
+        self.assertEqual([i.notification.title for i in response.context["history"]], ["read-item"])
         self.assertContains(response, "Mark all read")
 
-    def _created(self, delivery, when):
+    def _created(self, item, when):
         # auto_now_add ignores the value passed to create, so set it afterwards.
-        Notification.objects.filter(pk=delivery.notification_id).update(created_at=when)
+        Notification.objects.filter(pk=item.notification_id).update(created_at=when)
 
     def test_active_is_grouped_by_day(self):
         now = timezone.now()
-        self._created(self._delivery("today-item"), now)
-        self._created(self._delivery("yesterday-item"), now - timedelta(days=1))
-        self._created(self._delivery("older-item"), now - timedelta(days=3))
+        self._created(self._item("today-item"), now)
+        self._created(self._item("yesterday-item"), now - timedelta(days=1))
+        self._created(self._item("older-item"), now - timedelta(days=3))
 
         response = self.client.get(reverse("notification_panel"))
 
         groups = [
-            (label, [d.notification.title for d in items])
+            (label, [i.notification.title for i in items])
             for label, items in response.context["active_groups"]
         ]
         self.assertEqual(
@@ -102,7 +98,7 @@ class TestNotificationViews(TestCase):
         self.assertContains(response, 'data-day-group="Yesterday"')
 
     def test_active_groups_leave_out_empty_days(self):
-        self._created(self._delivery("older-item"), timezone.now() - timedelta(days=3))
+        self._created(self._item("older-item"), timezone.now() - timedelta(days=3))
 
         response = self.client.get(reverse("notification_panel"))
 
@@ -110,11 +106,11 @@ class TestNotificationViews(TestCase):
 
     def test_history_shows_more_button_only_past_five(self):
         for i in range(5):
-            self._delivery(f"read-{i}", read_at=timezone.now())
+            self._item(f"read-{i}", read_at=timezone.now())
         self.assertNotContains(self.client.get(reverse("notification_panel")), "Show more")
 
         for i in range(5, 7):
-            self._delivery(f"read-{i}", read_at=timezone.now())
+            self._item(f"read-{i}", read_at=timezone.now())
         response = self.client.get(reverse("notification_panel"))
 
         self.assertContains(response, "Show more")
@@ -129,44 +125,44 @@ class TestNotificationViews(TestCase):
         self.assertNotContains(response, "Mark all read")
 
     def test_open_marks_read_and_redirects(self):
-        delivery = self._delivery(url="/standards/")
-        url = reverse("notification_open", args=[delivery.pk])
+        item = self._item(url="/standards/")
+        url = reverse("notification_open", args=[item.pk])
 
         response = self.client.get(url)
 
         self.assertRedirects(response, "/standards/", fetch_redirect_response=False)
-        delivery.refresh_from_db()
-        first_read = delivery.read_at
+        item.refresh_from_db()
+        first_read = item.read_at
         self.assertIsNotNone(first_read)
 
         self.assertEqual(self.client.get(url).status_code, 302)
-        delivery.refresh_from_db()
-        self.assertEqual(delivery.read_at, first_read)
+        item.refresh_from_db()
+        self.assertEqual(item.read_at, first_read)
 
     def test_open_without_url_falls_back_to_dashboard(self):
-        delivery = self._delivery(url="")
-        response = self.client.get(reverse("notification_open", args=[delivery.pk]))
+        item = self._item(url="")
+        response = self.client.get(reverse("notification_open", args=[item.pk]))
         self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
 
     def test_open_never_redirects_off_site(self):
-        delivery = self._delivery(url="https://example.com/")
-        response = self.client.get(reverse("notification_open", args=[delivery.pk]))
+        item = self._item(url="https://example.com/")
+        response = self.client.get(reverse("notification_open", args=[item.pk]))
         self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
-        delivery.refresh_from_db()
-        self.assertIsNotNone(delivery.read_at)
+        item.refresh_from_db()
+        self.assertIsNotNone(item.read_at)
 
-    def test_open_other_users_delivery_is_404(self):
-        delivery = self._delivery(user=baker.make("app.User"))
-        response = self.client.get(reverse("notification_open", args=[delivery.pk]))
+    def test_open_other_users_item_is_404(self):
+        item = self._item(user=baker.make("app.User"))
+        response = self.client.get(reverse("notification_open", args=[item.pk]))
         self.assertEqual(response.status_code, 404)
-        delivery.refresh_from_db()
-        self.assertIsNone(delivery.read_at)
+        item.refresh_from_db()
+        self.assertIsNone(item.read_at)
 
     def test_mark_all_read_only_touches_my_unread_in_this_workspace(self):
-        mine = self._delivery("a")
-        mine2 = self._delivery("b")
-        other_user = self._delivery("c", user=baker.make("app.User"))
-        other_tenant = self._delivery("d", tenant=baker.make("app.Tenant"))
+        mine = self._item("a")
+        mine2 = self._item("b")
+        other_user = self._item("c", user=baker.make("app.User"))
+        other_tenant = self._item("d", tenant=baker.make("app.Tenant"))
 
         response = self.client.post(reverse("notifications_mark_all_read"))
 
@@ -180,33 +176,33 @@ class TestNotificationViews(TestCase):
             self.assertIsNone(d.read_at)
 
     def test_mark_read_moves_one_item_to_history_without_navigating(self):
-        target = self._delivery("target")
-        self._delivery("other")
+        target = self._item("target")
+        self._item("other")
 
         response = self.client.post(reverse("notification_mark_read", args=[target.pk]))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["HX-Trigger"], "notificationsCountChanged")
-        self.assertEqual([d.notification.title for d in response.context["active"]], ["other"])
-        self.assertEqual([d.notification.title for d in response.context["history"]], ["target"])
+        self.assertEqual([i.notification.title for i in response.context["active"]], ["other"])
+        self.assertEqual([i.notification.title for i in response.context["history"]], ["target"])
 
     def test_mark_read_shows_only_on_unread_items(self):
-        unread = self._delivery("unread-item")
-        read = self._delivery("read-item", read_at=timezone.now())
+        unread = self._item("unread-item")
+        read = self._item("read-item", read_at=timezone.now())
 
         content = self.client.get(reverse("notification_panel")).content.decode()
 
         self.assertIn(reverse("notification_mark_read", args=[unread.pk]), content)
         self.assertNotIn(reverse("notification_mark_read", args=[read.pk]), content)
 
-    def test_mark_read_other_users_delivery_is_404(self):
-        delivery = self._delivery(user=baker.make("app.User"))
-        response = self.client.post(reverse("notification_mark_read", args=[delivery.pk]))
+    def test_mark_read_other_users_item_is_404(self):
+        item = self._item(user=baker.make("app.User"))
+        response = self.client.post(reverse("notification_mark_read", args=[item.pk]))
         self.assertEqual(response.status_code, 404)
 
     def test_mark_read_requires_post(self):
-        delivery = self._delivery()
-        self.assertEqual(self.client.get(reverse("notification_mark_read", args=[delivery.pk])).status_code, 405)
+        item = self._item()
+        self.assertEqual(self.client.get(reverse("notification_mark_read", args=[item.pk])).status_code, 405)
 
     def test_mark_all_read_requires_post(self):
         self.assertEqual(self.client.get(reverse("notifications_mark_all_read")).status_code, 405)
@@ -220,7 +216,7 @@ class TestNotificationViews(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, EMPTY_ACTIVE)
         self.assertContains(response, EMPTY_HISTORY)
-        self.assertEqual(NotificationDelivery.objects.filter(recipient=user).count(), 0)
+        self.assertEqual(InboxItem.objects.filter(recipient=user).count(), 0)
 
 
 @pytest.mark.django_db
@@ -243,8 +239,7 @@ class TestNotificationPaneAndBell(TestCase):
             severity="warning", kind="test.kind", url="/dashboard/",
         )
         return baker.make(
-            "app.NotificationDelivery", notification=notification,
-            recipient=self.user, channel="inbox", status="sent", read_at=None,
+            "app.InboxItem", notification=notification, recipient=self.user, read_at=None,
         )
 
     def test_every_page_carries_the_closed_pane_and_the_bell(self):
@@ -278,11 +273,11 @@ class TestNotificationPaneAndBell(TestCase):
         self.assertContains(response, EMPTY_ACTIVE)
 
     def test_pane_actions_swap_the_pane_in_place(self):
-        delivery = self._unread("one")
+        item = self._unread("one")
 
         content = self.client.get(reverse("notification_panel")).content.decode()
 
-        self.assertIn(f'hx-post="{reverse("notification_mark_read", args=[delivery.pk])}"', content)
+        self.assertIn(f'hx-post="{reverse("notification_mark_read", args=[item.pk])}"', content)
         self.assertIn(f'hx-post="{reverse("notifications_mark_all_read")}"', content)
         self.assertEqual(content.count('hx-target="#notification-panel-body"'), 2)
 

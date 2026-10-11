@@ -1,40 +1,31 @@
-import dataclasses
 import subprocess
 import sys
 from unittest import TestCase
 
-from app.domain.notifications import Audience, Notice, Severity
+from app.domain.notifications import BODY_MAX, first_line
 
 
-class AudienceTests(TestCase):
-    def test_team(self):
-        self.assertEqual(Audience.team().roles, ("owner", "admin", "member"))
-        self.assertEqual(Audience.team().user_ids, ())
+class FirstLineTests(TestCase):
+    def test_plain_text_is_summarized_by_its_first_line(self):
+        self.assertEqual(first_line("401 Bad credentials\nmore detail"), "401 Bad credentials")
 
-    def test_admins(self):
-        self.assertEqual(Audience.admins().roles, ("owner", "admin"))
-
-    def test_users(self):
-        audience = Audience.users("a", "b")
-        self.assertEqual(audience.user_ids, ("a", "b"))
-        self.assertEqual(audience.roles, ())
-
-
-class NoticeTests(TestCase):
-    def _notice(self):
-        return Notice(
-            kind="k", tenant_id="t", severity=Severity.INFO, title="T", body="B", url="/"
+    def test_a_traceback_is_summarized_by_its_exception_line(self):
+        text = (
+            "Standard execution error: Traceback (most recent call last):\n"
+            '  File "/entrypoint.py", line 1, in <module>\n'
+            "RuntimeError: boom from standard"
         )
+        self.assertEqual(first_line(text), "RuntimeError: boom from standard")
 
-    def test_is_frozen(self):
-        with self.assertRaises(dataclasses.FrozenInstanceError):
-            self._notice().title = "x"
+    def test_blank_lines_and_padding_are_ignored(self):
+        self.assertEqual(first_line("\n   \n  sandbox exploded  \n"), "sandbox exploded")
 
-    def test_defaults(self):
-        notice = self._notice()
-        self.assertEqual(notice.context, {})
-        self.assertIsNone(notice.dedupe_key)
-        self.assertEqual(notice.mentioned_user_ids, ())
+    def test_empty_or_missing_text_is_empty(self):
+        self.assertEqual(first_line(""), "")
+        self.assertEqual(first_line(None), "")
+
+    def test_long_lines_are_cut(self):
+        self.assertEqual(len(first_line("x" * 500)), BODY_MAX)
 
 
 class PurityTests(TestCase):

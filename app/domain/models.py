@@ -4,8 +4,9 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.urls import reverse
 
-from app.domain.notifications import Severity
+from app.domain.notifications import Kind, Severity, first_line
 from app.infrastructure.model_fields import EncryptedCharField
 
 
@@ -972,7 +973,14 @@ class FeedbackReport(models.Model):
 
 
 class Notification(models.Model):
-    """The fact as reported: one row per notice, whoever ends up hearing it."""
+    """Aggregate root: one thing that happened in a workspace that people should
+    hear about. It is a fact, not a message to anyone: who hears it is decided
+    by the routing policy (app.application.notifications.routing).
+
+    Immutable once raised. Created only through the named constructors below
+    (``could_not_evaluate``, ``standards_failing``, ``graph_failed``), which
+    hold each kind's wording, severity and link.
+    """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
@@ -988,8 +996,10 @@ class Notification(models.Model):
     title = models.CharField(max_length=255)
     body = models.TextField(blank=True)
     url = models.CharField(max_length=500, blank=True)
+    # Facts the screens and the routing policy read: project id and name,
+    # execution ids, trigger, score, and who triggered the run. Ids and short
+    # values only; anything bigger is loaded from its own table.
     context = models.JSONField(default=dict, blank=True)
-    dedupe_key = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1005,16 +1015,145 @@ class Notification(models.Model):
     def __str__(self):
         return f"{self.kind} — {self.title}"
 
+    @property
+    def triggered_by_user_ids(self) -> list[str]:
+        """Users who started the run behind this notification, if any."""
+        return list(self.context.get("triggered_by_user_ids", []))
 
-class NotificationDelivery(models.Model):
-    """One recipient's copy of a Notification on one channel.
+    # --- Named constructors: one per kind ------------------------------------
 
-    read_at lives here, not on Notification, on purpose: reading is personal,
-    so one admin opening an item must not clear it for the others.
+    @classmethod
+    def could_not_evaluate(
+        cls, *, project, error, execution_id=None, execution_ids=(), trigger=None,
+        triggered_by_user_ids=(),
+    ):
+        """A run could not complete at all. Critical: the project keeps
+        showing its old score, so the workspace looks healthy when it is not.
+        Links to the failed run's details, or the project when there is none."""
+        url = (
+            reverse("standard_execution_detail", args=[execution_id])
+            if execution_id
+            else reverse("project_detail", args=[project.pk])
+        )
+        return cls._new(
+            project,
+            kind=Kind.RUN_FAILED,
+            severity=Severity.CRITICAL,
+            title="GitGrit could not evaluate",
+            body=first_line(error),
+            url=url,
+            context=_run_context(execution_ids, trigger, triggered_by_user_ids),
+        )
+
+    @classmethod
+    def standards_failing(
+        cls, *, project, failed_names, failed_standard_ids, execution_ids=(), score=None,
+        trigger=None, triggered_by_user_ids=(),
+    ):
+        """A run finished with failed standards: one notification per run,
+        naming up to three. ``score`` is the project's overall score."""
+        n = len(failed_names)
+        listing = ", ".join(failed_names[:3])
+        if n > 3:
+            listing += f" and {n - 3} more"
+        context = _run_context(execution_ids, trigger, triggered_by_user_ids)
+        context["failed_standard_ids"] = [str(i) for i in failed_standard_ids]
+        if score is not None:
+            context["score"] = round(score)
+        return cls._new(
+            project,
+            kind=Kind.STANDARDS_FAILING,
+            severity=Severity.WARNING,
+            title=f"{n} standard{'s' if n != 1 else ''} failed",
+            body=first_line(listing),
+            url=reverse("project_detail", args=[project.pk]) + "#compliance",
+            context=context,
+        )
+
+    @classmethod
+    def graph_failed(cls, *, project, error):
+        """A dependency map that used to build failed to rebuild. The map is
+        built by the workspace's AI model, so it links to that setting."""
+        return cls._new(
+            project,
+            kind=Kind.GRAPH_FAILED,
+            severity=Severity.WARNING,
+            title="Dependency graph failed",
+            body=first_line(error),
+            url=reverse("tenant_settings") + "#section-llm",
+            context={},
+        )
+
+    @classmethod
+    def _new(cls, project, *, kind, severity, title, body, url, context):
+        title_max = cls._meta.get_field("title").max_length
+        return cls(
+            tenant_id=project.tenant_id,
+            kind=kind,
+            severity=severity,
+            title=title[:title_max],
+            body=body,
+            url=url,
+            context={"project_id": str(project.pk), "project_name": project.name, **context},
+        )
+
+
+def _run_context(execution_ids, trigger, triggered_by_user_ids):
+    context = {"execution_ids": [str(e) for e in execution_ids]}
+    if trigger:
+        context["trigger"] = trigger
+    if triggered_by_user_ids:
+        context["triggered_by_user_ids"] = [str(u) for u in triggered_by_user_ids]
+    return context
+
+
+class InboxItem(models.Model):
+    """One person's copy of a Notification in their inbox.
+
+    Read state is personal, so it lives here and not on the Notification.
+    Part of the Inbox aggregate (app.application.notifications.inbox), which
+    owns the rules for creating and reading items.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    notification = models.ForeignKey(
+        Notification,
+        on_delete=models.CASCADE,
+        related_name="inbox_items",
+    )
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="inbox_items",
+    )
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "inbox_items"
+        ordering = ["-created_at"]
+        indexes = [
+            # The bell: one user's unread items.
+            models.Index(fields=["recipient", "read_at"], name="idx_inbox_item_unread"),
+        ]
+
+    def __str__(self):
+        return f"{self.notification_id} → {self.recipient_id}"
+
+    @property
+    def is_unread(self) -> bool:
+        return self.read_at is None
+
+
+class DeliveryLog(models.Model):
+    """Did delivering a Notification on one channel work?
+
+    The dispatcher writes one row per channel it tried. It skips channels
+    that already have a SENT row, so a re-run after a crash never delivers
+    twice; a FAILED row is the record of what went wrong.
     """
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
         SENT = "sent", "Sent"
         FAILED = "failed", "Failed"
 
@@ -1022,36 +1161,16 @@ class NotificationDelivery(models.Model):
     notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
-        related_name="deliveries",
+        related_name="delivery_logs",
     )
     channel = models.CharField(max_length=50)
-    recipient = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="notification_deliveries",
-    )
-    status = models.CharField(
-        max_length=10,
-        choices=Status.choices,
-        default=Status.PENDING,
-    )
+    status = models.CharField(max_length=10, choices=Status.choices)
     error = models.TextField(blank=True)
-    sent_at = models.DateTimeField(null=True, blank=True)
-    read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "notification_deliveries"
+        db_table = "notification_delivery_logs"
         ordering = ["-created_at"]
-        indexes = [
-            # The bell: unread inbox items for one user.
-            models.Index(
-                fields=["recipient", "channel", "read_at"],
-                name="idx_notifdelivery_bell",
-            ),
-        ]
 
     def __str__(self):
-        return f"{self.channel} → {self.recipient_id} ({self.status})"
+        return f"{self.notification_id} on {self.channel}: {self.status}"

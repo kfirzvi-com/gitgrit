@@ -87,11 +87,11 @@ def defer_patch(**kwargs):
     return mock.patch("app.application.standard_runs.run_standards.configure", **kwargs)
 
 
-def notify_defer_patch(**kwargs):
+def deliver_defer_patch(**kwargs):
     """Patch the ``deliver_notification`` job's ``defer`` so tests can assert
-    what ``notify()`` queued without a worker. ``notify()`` imports the task
-    lazily, so the patch targets the task object in ``app.tasks``. ``kwargs``
-    go to ``mock.patch``."""
+    what ``raise_notification()`` queued without a worker. The service imports
+    the task lazily, so the patch targets the task object in ``app.tasks``.
+    ``kwargs`` go to ``mock.patch``."""
     return mock.patch("app.tasks.deliver_notification.defer", **kwargs)
 
 

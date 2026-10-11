@@ -18,11 +18,9 @@ BELL = 'aria-label="Notifications"'
 def _inbox(user, tenant, **kw):
     notification = baker.make("app.Notification", tenant=tenant)
     return baker.make(
-        "app.NotificationDelivery",
+        "app.InboxItem",
         notification=notification,
         recipient=user,
-        channel="inbox",
-        status="sent",
         read_at=None,
         **kw,
     )

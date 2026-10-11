@@ -1,6 +1,6 @@
-"""notify() from inside a running sync task, end to end on the REAL worker code.
+"""raise_notification() from inside a running sync task, end to end on the REAL worker code.
 
-Sources will call notify() from inside background jobs (a failed standard
+Policies call raise_notification() from inside background jobs (a failed standard
 run, a failed graph run). Those jobs are sync functions the worker runs on
 another thread via ``sync_to_async``; this checks a defer from there lands a
 ``deliver_notification`` job on the ``notifications`` queue, and that the
@@ -23,9 +23,8 @@ from procrastinate import worker as worker_module
 from procrastinate.contrib.django import app as procrastinate_app
 from procrastinate.job_context import JobContext
 
-from app.application.notifications import notify
-from app.domain.models import NotificationDelivery
-from app.domain.notifications import Notice, Severity
+from app.application.notifications.service import raise_notification
+from app.domain.models import InboxItem, Notification, Project
 from tests.application.test_job_zombie_invariants import CleanProcrastinateTables, _sql
 
 SOURCE_TASK = "test_notification_source"
@@ -72,7 +71,7 @@ def _process(row: dict, queue: str) -> None:
 class DeliveryPriorityTests(TransactionTestCase):
     def test_delivery_outranks_runs_and_graph_jobs(self):
         """One worker serves every queue and fetches by priority, then id; a
-        notice must not wait behind the standard runs queued before it."""
+        notification must not wait behind the standard runs queued before it."""
         from app import tasks
 
         self.assertGreater(tasks.deliver_notification.priority, tasks.run_standards.priority)
@@ -88,25 +87,19 @@ class NotifyFromRunningTaskTests(CleanProcrastinateTables, TransactionTestCase):
         self.admin = baker.make("app.User")
         baker.make("app.Membership", user=self.admin, tenant=self.tenant, role="admin")
 
-        def source(tenant_id: str) -> None:
-            notify(
-                Notice(
-                    kind="run.failed",
-                    tenant_id=tenant_id,
-                    severity=Severity.CRITICAL,
-                    title="Run failed",
-                    body="",
-                    url="/x",
-                )
-            )
+        self.project = baker.make("app.Project", tenant=self.tenant)
+
+        def source(project_id: str) -> None:
+            project = Project.objects.get(pk=project_id)
+            raise_notification(Notification.could_not_evaluate(project=project, error="boom"))
 
         # A stand-in source job, registered for this test only so it never
         # leaks into the app's task list (which other tests iterate).
         self.source = procrastinate_app.task(name=SOURCE_TASK, queue=SOURCE_QUEUE)(source)
         self.addCleanup(procrastinate_app.tasks.pop, SOURCE_TASK, None)
 
-    def test_notify_inside_a_sync_task_defers_a_delivery_job_that_runs(self):
-        self.source.defer(tenant_id=str(self.tenant.pk))
+    def test_raising_inside_a_sync_task_defers_a_delivery_job_that_runs(self):
+        self.source.defer(project_id=str(self.project.pk))
         [source_job] = _jobs(SOURCE_QUEUE)
 
         _process(source_job, SOURCE_QUEUE)
@@ -119,6 +112,6 @@ class NotifyFromRunningTaskTests(CleanProcrastinateTables, TransactionTestCase):
         _process(delivery_job, "notifications")
 
         self.assertEqual(_jobs("notifications")[0]["status"], "succeeded")
-        row = NotificationDelivery.objects.get(channel="inbox")
-        self.assertEqual(row.recipient_id, self.admin.pk)
-        self.assertEqual(row.status, "sent")
+        item = InboxItem.objects.get()
+        self.assertEqual(item.recipient_id, self.admin.pk)
+        self.assertTrue(item.is_unread)
