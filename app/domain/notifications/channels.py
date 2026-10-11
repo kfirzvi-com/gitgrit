@@ -1,8 +1,11 @@
 """Channels: how a notification reaches people.
 
-A channel is anything with a ``name`` and ``deliver(notification,
-recipient_ids)``. Today there is one, the inbox; email or GitHub Checks would
-each be one more class here plus a name in a route.
+``Channel`` is the port: anything with a ``name`` and
+``deliver(notification, recipient_ids)``. Notification routing names the
+channels each kind goes to. ``InboxChannel`` is the one adapter today; it
+only touches the domain's own Inbox, so it lives here. Adapters that talk to
+outside systems (email, GitHub Checks) belong in ``app.infrastructure``, and
+the dispatcher's registry plugs them in.
 """
 
 from __future__ import annotations
@@ -27,15 +30,3 @@ class InboxChannel:
     def deliver(self, notification: Notification, recipient_ids: list[str]) -> None:
         for user_id in recipient_ids:
             Inbox(user_id, notification.tenant_id).receive(notification)
-
-
-CHANNELS: dict[str, Channel] = {c.name: c for c in (InboxChannel(),)}
-
-
-def channel_for(name: str) -> Channel:
-    try:
-        return CHANNELS[name]
-    except KeyError:
-        raise KeyError(
-            f"Unknown notification channel {name!r}; known: {sorted(CHANNELS)}"
-        ) from None

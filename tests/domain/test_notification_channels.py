@@ -1,9 +1,9 @@
 """Channels: the inbox gives each recipient their own new item."""
-from django.test import SimpleTestCase, TestCase
+from django.test import TestCase
 from model_bakery import baker
 
-from app.application.notifications.channels import InboxChannel, channel_for
 from app.domain.models import InboxItem
+from app.domain.notifications.channels import InboxChannel
 
 
 class InboxChannelTests(TestCase):
@@ -28,12 +28,3 @@ class InboxChannelTests(TestCase):
 
         self.assertTrue(InboxItem.objects.filter(pk=old_item.pk).exists())
         self.assertEqual(InboxItem.objects.filter(recipient=self.alice, read_at__isnull=True).count(), 2)
-
-
-class ChannelForTests(SimpleTestCase):
-    def test_known_names_resolve(self):
-        self.assertEqual(channel_for("inbox").name, "inbox")
-
-    def test_unknown_name_raises_key_error(self):
-        with self.assertRaises(KeyError):
-            channel_for("x")

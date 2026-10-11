@@ -1,7 +1,8 @@
 """The notification center: the application side.
 
 The domain concepts (the vocabulary, the notification rules, notification
-routing and the Inbox aggregate) live in ``app.domain.notifications``; the
+routing, the channels and the Inbox aggregate) live in
+``app.domain.notifications``; the
 ``Notification``, ``InboxItem`` and ``DeliveryLog`` models in
 ``app.domain.models``. This package orchestrates them.
 
@@ -14,7 +15,5 @@ How a notification travels, one module per step:
    one transaction (transactional outbox).
 3. ``dispatcher`` — the ``deliver_notification`` job: asks notification
    routing who hears this kind and on which channels, then hands it to each
-   channel and logs the outcome.
-4. ``channels`` — how a notification reaches people. Today only the inbox,
-   which puts it in each recipient's ``Inbox``.
+   plugged-in channel and logs the outcome.
 """

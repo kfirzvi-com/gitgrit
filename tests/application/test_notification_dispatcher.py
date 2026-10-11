@@ -1,11 +1,11 @@
 """dispatch(): every channel on the route runs, outcomes are logged, re-runs never double-post."""
 from unittest import mock
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from model_bakery import baker
 
-from app.application.notifications import channels
-from app.application.notifications.dispatcher import dispatch
+from app.application.notifications import dispatcher
+from app.application.notifications.dispatcher import channel_for, dispatch
 from app.domain.notifications.notification_routing import Admins, Route
 from app.domain.models import DeliveryLog, InboxItem
 
@@ -60,7 +60,7 @@ class DispatchTests(TestCase):
         self.assertEqual({i.recipient_id for i in self._items()}, self.admins | {member.pk})
 
     def test_a_raising_channel_gets_a_failed_log_and_the_other_still_delivers(self):
-        with mock.patch.dict(channels.CHANNELS, {"broken": _BrokenChannel()}), _route(
+        with mock.patch.dict(dispatcher.CHANNELS, {"broken": _BrokenChannel()}), _route(
             "broken", "inbox"
         ), self.assertLogs("app.application.notifications.dispatcher", "ERROR"):
             dispatch(self.id)
@@ -85,3 +85,12 @@ class DispatchTests(TestCase):
             dispatch(self.id)
 
         self.assertFalse(InboxItem.objects.exists())
+
+
+class ChannelForTests(SimpleTestCase):
+    def test_the_inbox_is_plugged_in(self):
+        self.assertEqual(channel_for("inbox").name, "inbox")
+
+    def test_unknown_name_raises_key_error(self):
+        with self.assertRaises(KeyError):
+            channel_for("x")

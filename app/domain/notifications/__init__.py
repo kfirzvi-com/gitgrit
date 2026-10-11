@@ -7,6 +7,7 @@ from anywhere. Alongside it:
 
 * ``notification_rules`` — when something is worth a notification (pure);
 * ``notification_routing`` — who hears each kind, and on which channels;
+* ``channels`` — the ``Channel`` port and the inbox adapter;
 * ``inbox`` — the Inbox aggregate: one person's notifications and the
   reading rules.
 

@@ -11,11 +11,24 @@ import logging
 
 from django.db import transaction
 
-from app.application.notifications.channels import channel_for
 from app.domain.models import DeliveryLog, Notification
+from app.domain.notifications.channels import Channel, InboxChannel
 from app.domain.notifications.notification_routing import route_for
 
 logger = logging.getLogger(__name__)
+
+# The channels plugged in, by the name routes use. An adapter for an outside
+# system (email, GitHub Checks) is added here from app.infrastructure.
+CHANNELS: dict[str, Channel] = {c.name: c for c in (InboxChannel(),)}
+
+
+def channel_for(name: str) -> Channel:
+    try:
+        return CHANNELS[name]
+    except KeyError:
+        raise KeyError(
+            f"Unknown notification channel {name!r}; known: {sorted(CHANNELS)}"
+        ) from None
 
 
 def dispatch(notification_id: str) -> None:
