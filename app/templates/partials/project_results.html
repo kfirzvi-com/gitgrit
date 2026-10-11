@@ -17,9 +17,9 @@
           </button>
         </div>
         {% if attached_standards %}
-          <ul class="divide-y divide-base-200">
+          <ul class="space-y-0.5 -mx-2">
             {% for standard in attached_standards %}
-              <li class="flex items-center gap-2 py-1.5">
+              <li class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-base-200">
                 <div class="flex-1 min-w-0">
                   <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover text-sm truncate block" title="{{ standard.description }}">{{ standard.name }}</a>
                   <div class="flex flex-wrap items-center gap-1">

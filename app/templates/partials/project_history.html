@@ -2,19 +2,20 @@
 branch's health (its score and each standard's latest result there), then its commits newest
 first: a checked commit opens to the latest result of each standard GitGrit ran on it, the others
 say "Not checked". Served by project_history, which the page loads after it renders; re-polls every
-5s while a run on the page is in flight.{% endcomment %}
+5s while a run on the page is in flight. Line-free: rows are separated by spacing and hover
+surfaces, sections by small-caps labels.{% endcomment %}
 {% url 'project_history' project.pk as history_url %}
 {% url 'run_on_branch' project.pk as run_url %}
 <div id="project-history" class="card bg-base-100 shadow-xl scroll-mt-20"
      {% if running %}hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page }}" hx-trigger="every 5s" hx-swap="outerHTML" data-no-loader{% endif %}>
-  <div class="card-body gap-4">
+  <div class="card-body gap-8">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="card-title">Health</h2>
+      <h2 class="text-xl font-bold">Health</h2>
       <div class="flex items-center gap-2">
         <form hx-get="{{ history_url }}" hx-target="#project-history" hx-swap="outerHTML" hx-trigger="change" data-no-loader>
           <label class="flex items-center gap-2 text-sm">
-            <span class="opacity-70">Branch</span>
-            <select name="branch" class="select select-bordered select-sm max-w-xs" aria-label="Branch">
+            <span class="opacity-60">Branch</span>
+            <select name="branch" class="select select-sm max-w-xs" aria-label="Branch">
               {% for name in branches %}
                 <option value="{{ name }}" {% if name == branch %}selected{% endif %}>{{ name }}{% if name == project.default_branch %} (default){% endif %}</option>
               {% endfor %}
@@ -27,144 +28,110 @@ say "Not checked". Served by project_history, which the page loads after it rend
                 title="Run the current standards that apply to {{ branch }} on its latest commit">Run</button>
       </div>
     </div>
-    {% if notice %}<p class="text-sm text-info -mt-2" data-run-notice>{{ notice }}</p>{% endif %}
+    {% if notice %}<p class="text-sm text-info -mt-6" data-run-notice>{{ notice }}</p>{% endif %}
 
-    <div class="flex justify-center py-2" data-branch-status>
+    <div class="flex justify-center" data-branch-status>
       {% if status_score is not None %}
         <div class="relative">
           <div class="radial-progress {% if status_score >= 80 %}text-success{% elif status_score >= 50 %}text-warning{% else %}text-error{% endif %} text-2xl font-bold"
                style="--value:{{ status_score }}; --size:7rem; --thickness:0.6rem;" role="progressbar" aria-label="Score {{ status_score }}%">{{ status_score }}%</div>
-          <span class="tooltip tooltip-left absolute -top-1 -right-5 cursor-help opacity-60 hover:opacity-100"
+          <span class="tooltip tooltip-left absolute -top-1 -right-5 cursor-help opacity-50 hover:opacity-100"
                 data-tip="{% if is_default %}The project's score: the latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}, the default branch.{% else %}The latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}. Only the default branch counts toward the project's score.{% endif %}"
                 data-score-info tabindex="0" aria-label="About this score">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
           </span>
         </div>
       {% else %}
-        <p class="text-sm opacity-70">No results on {{ branch }} yet.</p>
+        <p class="text-sm opacity-60">No results on {{ branch }} yet.</p>
       {% endif %}
     </div>
 
     {% if status %}
-      <div class="overflow-x-auto">
-        <table class="table table-sm" data-branch-results>
-          <thead>
-            <tr><th>Standard</th><th>Status</th><th>Score</th><th>Message</th><th>Commit</th><th>When</th></tr>
-          </thead>
-          <tbody>
-            {% for ex in status %}
-              <tr>
-                <td>
-                  {% if ex.standard %}<a href="{% url 'edit_standard' ex.standard.pk %}" class="link link-hover">{{ ex.standard_name }}</a>{% else %}{{ ex.standard_name }}{% endif %}
-                  {% include "partials/project_history_version.html" %}
-                </td>
-                <td><a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">{% include "partials/execution_status_badge.html" with execution=ex size="badge-sm" %}</a></td>
-                <td>{{ ex.score }}%</td>
-                <td class="text-sm max-w-xs truncate" title="{{ ex.message }}"><a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">{{ ex.message }}</a></td>
-                <td class="font-mono text-xs opacity-70">{% if ex.commit_check and ex.commit_check.commit_sha %}{{ ex.commit_check.commit_sha|slice:":7" }}{% else %}—{% endif %}</td>
-                <td class="text-sm opacity-70 whitespace-nowrap">{{ ex.created_at|timesince }} ago</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      <section class="space-y-2" data-branch-results>
+        <h3 class="text-xs font-semibold uppercase tracking-wider opacity-50 px-3">Latest results</h3>
+        <ul class="space-y-0.5">
+          {% for ex in status %}
+            <li>{% include "partials/project_history_result.html" with show_commit=True %}</li>
+          {% endfor %}
+        </ul>
+      </section>
     {% endif %}
 
-    <h3 class="font-semibold mt-2">Commits on {{ branch }}</h3>
-    {% if rows %}
-      <ul class="divide-y divide-base-200 border-y border-base-200" data-commits>
-        {% for row in rows %}
-          <li data-commit="{{ row.sha }}">
-            {% if row.checked %}
-              <details {% if forloop.first and page == 1 %}open{% endif %}>
-                <summary class="flex items-center gap-3 py-2 cursor-pointer hover:bg-base-200 rounded px-1">
-                  {% include "partials/project_history_commit_line.html" %}
-                  <span class="flex items-center gap-1 shrink-0">
-                    {% if row.running %}<span class="badge badge-info badge-sm">{{ row.running }} running</span>{% endif %}
-                    {% if row.passed %}<span class="badge badge-success badge-sm">{{ row.passed }} passed</span>{% endif %}
-                    {% if row.failed %}<span class="badge badge-error badge-sm">{{ row.failed }} failed</span>{% endif %}
-                    {% if row.errored %}<span class="badge badge-warning badge-sm">{{ row.errored }} error</span>{% endif %}
-                    {% if row.not_run %}<span class="badge badge-ghost badge-sm" title="Current standards that did not run on this commit">{{ row.not_run|length }} not run</span>{% endif %}
-                    {% if row.score is not None %}<span class="text-sm font-bold w-12 text-right">{{ row.score }}%</span>{% endif %}
-                  </span>
-                </summary>
-                <table class="table table-sm mb-3">
-                  <tbody>
+    <section class="space-y-2">
+      <h3 class="text-xs font-semibold uppercase tracking-wider opacity-50 px-3">Commits on {{ branch }}</h3>
+      {% if rows %}
+        <ul class="space-y-1" data-commits>
+          {% for row in rows %}
+            <li data-commit="{{ row.sha }}">
+              {% if row.checked %}
+                <details class="group rounded-xl open:bg-base-200/50" {% if forloop.first and page == 1 %}open{% endif %}>
+                  <summary class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-base-200 list-none">
+                    {% include "partials/project_history_commit_line.html" %}
+                    <span class="flex items-center gap-1.5 shrink-0 text-xs">
+                      {% if row.running %}<span class="badge badge-soft badge-info badge-sm">{{ row.running }} running</span>{% endif %}
+                      {% if row.passed %}<span class="badge badge-soft badge-success badge-sm">{{ row.passed }} passed</span>{% endif %}
+                      {% if row.failed %}<span class="badge badge-soft badge-error badge-sm">{{ row.failed }} failed</span>{% endif %}
+                      {% if row.errored %}<span class="badge badge-soft badge-warning badge-sm">{{ row.errored }} error</span>{% endif %}
+                      {% if row.not_run %}<span class="badge badge-ghost badge-sm" title="Current standards that did not run on this commit">{{ row.not_run|length }} not run</span>{% endif %}
+                    </span>
+                    {% if row.score is not None %}<span class="w-12 text-right font-bold shrink-0">{{ row.score }}%</span>{% endif %}
+                  </summary>
+                  <div class="px-3 pb-3 pl-8 space-y-0.5">
                     {% for ex in row.results %}
-                      <tr>
-                        <td class="w-1/3">
-                          {{ ex.standard_name }}
-                          {% include "partials/project_history_version.html" %}
-                          {% if not ex.still_attached %}<span class="text-xs opacity-60">· no longer attached</span>{% endif %}
-                        </td>
-                        <td>
-                          <a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">
-                            {% include "partials/execution_status_badge.html" with execution=ex size="badge-sm" %}
-                          </a>
-                        </td>
-                        <td>{% if ex.status != "running" %}{{ ex.score }}%{% endif %}</td>
-                        <td class="text-sm max-w-xs truncate opacity-80" title="{{ ex.message }}">{{ ex.message }}</td>
-                        <td class="text-xs opacity-60 whitespace-nowrap">{{ ex.event_type }}</td>
-                      </tr>
+                      {% include "partials/project_history_result.html" with show_event=True %}
                     {% endfor %}
                     {% for standard in row.not_run %}
-                      <tr class="opacity-70">
-                        <td class="w-1/3">{{ standard.name }}</td>
-                        <td colspan="4"><span class="badge badge-ghost badge-sm">Not run on this commit</span></td>
-                      </tr>
+                      <div class="flex items-center gap-3 px-3 py-1.5 opacity-60">
+                        <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
+                        <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
+                        <span class="text-xs">Not run on this commit</span>
+                      </div>
                     {% endfor %}
-                  </tbody>
-                </table>
-                <div class="flex justify-end mb-3">
-                  <button type="button" class="btn btn-ghost btn-xs"
+                    <div class="flex justify-end pt-2">
+                      <button type="button" class="btn btn-ghost btn-xs"
+                              hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'
+                              hx-target="#project-history" hx-swap="outerHTML" data-no-loader
+                              title="Run the current standards on {{ row.short_sha }}">Run current standards on {{ row.short_sha }}</button>
+                    </div>
+                  </div>
+                </details>
+              {% else %}
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                  {% include "partials/project_history_commit_line.html" %}
+                  <span class="text-xs opacity-50 shrink-0">Not checked</span>
+                  <button type="button" class="btn btn-ghost btn-xs shrink-0"
                           hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'
                           hx-target="#project-history" hx-swap="outerHTML" data-no-loader
-                          title="Run the current standards on {{ row.short_sha }}">Run current standards on {{ row.short_sha }}</button>
+                          title="Run the current standards on {{ row.short_sha }}">Run</button>
                 </div>
-              </details>
-            {% else %}
-              <div class="flex items-center gap-3 py-2 px-1">
-                {% include "partials/project_history_commit_line.html" %}
-                <span class="badge badge-ghost badge-sm shrink-0">Not checked</span>
-                <button type="button" class="btn btn-ghost btn-xs shrink-0"
-                        hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'
-                        hx-target="#project-history" hx-swap="outerHTML" data-no-loader
-                        title="Run the current standards on {{ row.short_sha }}">Run</button>
-              </div>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-      {% if page > 1 or has_more %}
-        <div class="flex justify-between">
-          {% if page > 1 %}
-            <button type="button" class="btn btn-ghost btn-sm" hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page|add:'-1' }}" hx-target="#project-history" hx-swap="outerHTML" data-no-loader>← Newer</button>
-          {% else %}<span></span>{% endif %}
-          <span class="text-xs opacity-60 self-center" data-page>Page {{ page }}</span>
-          {% if has_more %}
-            <button type="button" class="btn btn-ghost btn-sm" hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page|add:'1' }}" hx-target="#project-history" hx-swap="outerHTML" data-no-loader>Older →</button>
-          {% else %}<span></span>{% endif %}
-        </div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        {% if page > 1 or has_more %}
+          <div class="flex items-center justify-between px-1 pt-2">
+            {% if page > 1 %}
+              <button type="button" class="btn btn-ghost btn-sm" hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page|add:'-1' }}" hx-target="#project-history" hx-swap="outerHTML" data-no-loader>← Newer</button>
+            {% else %}<span></span>{% endif %}
+            <span class="text-xs opacity-50" data-page>Page {{ page }}</span>
+            {% if has_more %}
+              <button type="button" class="btn btn-ghost btn-sm" hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page|add:'1' }}" hx-target="#project-history" hx-swap="outerHTML" data-no-loader>Older →</button>
+            {% else %}<span></span>{% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="text-sm opacity-60 px-3">No commits to show for {{ branch }}.</p>
       {% endif %}
-    {% else %}
-      <p class="text-sm opacity-70">No commits to show for {{ branch }}.</p>
-    {% endif %}
+    </section>
 
     {% if earlier %}
       <details class="text-sm" data-earlier-runs>
-        <summary class="cursor-pointer opacity-70">Earlier runs on {{ branch }}, from before GitGrit recorded commits ({{ earlier|length }})</summary>
-        <table class="table table-sm mt-2">
-          <tbody>
-            {% for ex in earlier %}
-              <tr>
-                <td class="w-1/3">{{ ex.standard_name }}</td>
-                <td><a href="{% url 'standard_execution_detail' ex.id %}" class="link link-hover">{% include "partials/execution_status_badge.html" with execution=ex size="badge-sm" %}</a></td>
-                <td>{{ ex.score }}%</td>
-                <td class="text-xs opacity-60">{{ ex.created_at|timesince }} ago</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <summary class="cursor-pointer opacity-60 hover:opacity-100 px-3 list-none">Earlier runs on {{ branch }}, from before GitGrit recorded commits ({{ earlier|length }}) ›</summary>
+        <div class="space-y-0.5 pt-2">
+          {% for ex in earlier %}
+            {% include "partials/project_history_result.html" with show_when=True %}
+          {% endfor %}
+        </div>
       </details>
     {% endif %}
   </div>
