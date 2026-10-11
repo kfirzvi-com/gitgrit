@@ -1,46 +1,36 @@
-{% comment %}One inbox row. Expects `delivery`; `when` is when the notice was published.{% endcomment %}
+{% comment %}One inbox row in the notifications pane. Expects `delivery`; `when` is when the
+notice was published.{% endcomment %}
 {% with ctx=delivery.notification.context %}
-<div data-hover-hint="More info" class="flex items-start gap-3 p-4 border-b border-base-200 last:border-b-0 hover:ring-2 hover:ring-inset hover:ring-base-content">
-  <a href="{% url 'notification_open' delivery.pk %}" class="flex items-start gap-3 flex-1 min-w-0">
-    <div class="w-28 shrink-0 min-w-0">
-      {% if ctx.project_name %}
-        <div class="font-bold text-lg truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</div>
-      {% endif %}
-      {% if "score" in ctx %}
-        {% with score=ctx.score %}
-          <div class="text-xs font-bold">Score: {{ score }}%</div>
-        {% endwith %}
-      {% endif %}
+<div data-hover-hint="More info" class="flex items-start gap-2 px-4 py-3 border-b border-base-200 hover:bg-base-200">
+  <a href="{% url 'notification_open' delivery.pk %}" class="flex-1 min-w-0">
+    <div class="flex items-baseline justify-between gap-2">
+      <span class="font-bold truncate" title="{{ ctx.project_name }}">{{ ctx.project_name }}</span>
+      <time datetime="{{ when|date:'c' }}" data-local-time class="text-xs opacity-70 whitespace-nowrap shrink-0">{{ when|date:"j M Y, H:i" }}</time>
     </div>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-baseline gap-2 min-w-0">
-        <span class="font-bold break-words">{{ delivery.notification.title }}</span>
-        {% with trigger=ctx.trigger %}
-          {% if trigger %}
-            <span class="badge badge-ghost badge-sm shrink-0">
-              {% if trigger == "manual" %}Manual
-              {% elif trigger == "push" %}Push
-              {% elif trigger == "pull_request" %}Pull request
-              {% elif trigger == "attached" %}Attached
-              {% elif trigger == "activated" %}Activated
-              {% elif trigger == "saved" %}Saved
-              {% else %}{{ trigger|title }}
-              {% endif %}
-            </span>
-          {% endif %}
-        {% endwith %}
-      </div>
-      <div class="text-sm line-clamp-2">{{ delivery.notification.body }}</div>
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+      <span class="font-semibold break-words">{{ delivery.notification.title }}</span>
+      {% with trigger=ctx.trigger %}
+        {% if trigger %}
+          <span class="badge badge-ghost badge-sm">
+            {% if trigger == "manual" %}Manual
+            {% elif trigger == "push" %}Push
+            {% elif trigger == "pull_request" %}Pull request
+            {% elif trigger == "attached" %}Attached
+            {% elif trigger == "activated" %}Activated
+            {% elif trigger == "saved" %}Saved
+            {% else %}{{ trigger|title }}
+            {% endif %}
+          </span>
+        {% endif %}
+      {% endwith %}
+      {% if "score" in ctx %}<span class="text-xs font-bold">Score: {{ ctx.score }}%</span>{% endif %}
     </div>
-    <time datetime="{{ when|date:'c' }}" data-local-time class="text-sm opacity-70 whitespace-nowrap">{{ when|date:"j M Y, H:i" }}</time>
+    <div class="text-sm opacity-80 line-clamp-2 break-words mt-0.5">{{ delivery.notification.body }}</div>
   </a>
-  <form method="post" action="{% url 'notification_pin' delivery.pk %}">
-    {% csrf_token %}
-    {% if delivery.is_pinned %}
-      <button type="submit" class="btn btn-ghost btn-xs" title="Let this item be marked read again">Unpin</button>
-    {% else %}
-      <button type="submit" class="btn btn-ghost btn-xs" title="Keep this item unread until you unpin it">Pin</button>
-    {% endif %}
-  </form>
+  <button type="button" class="btn btn-ghost btn-xs shrink-0"
+          hx-post="{% url 'notification_pin' delivery.pk %}"
+          hx-target="#notification-panel-body" hx-swap="innerHTML"
+          data-no-loader
+          title="{% if delivery.is_pinned %}Let this item be marked read again{% else %}Keep this item unread until you unpin it{% endif %}">{% if delivery.is_pinned %}Unpin{% else %}Pin{% endif %}</button>
 </div>
 {% endwith %}

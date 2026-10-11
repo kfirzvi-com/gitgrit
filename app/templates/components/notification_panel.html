@@ -1,0 +1,106 @@
+{% comment %}The notifications side pane: slides in from the right over the current page
+when the bell is clicked. Its contents (partials/notifications_panel.html) are fetched when it
+opens and every 30s while it stays open. Closes on the backdrop, the close button, or Escape.
+Included once by base.html for signed-in users with an active workspace.{% endcomment %}
+<div id="notification-panel-backdrop" class="fixed inset-0 z-40 bg-black/40 hidden" data-notification-close></div>
+<aside id="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications" aria-hidden="true"
+       class="fixed top-0 right-0 z-50 h-full w-full sm:w-[28rem] bg-base-100 shadow-2xl flex flex-col translate-x-full transition-transform duration-200">
+  <div id="notification-panel-body" class="flex-1 overflow-y-auto"
+       hx-get="{% url 'notification_panel' %}"
+       hx-trigger="notificationsOpen from:body, every 30s [notificationPanelIsOpen()]"
+       hx-swap="innerHTML"
+       data-no-loader>
+    <div class="p-6 text-sm opacity-70">Loading…</div>
+  </div>
+</aside>
+
+<div id="hover-hint" aria-hidden="true" class="hidden fixed z-[60] rounded bg-neutral text-neutral-content text-xs px-2 py-1 shadow pointer-events-none"></div>
+
+<script>
+  (function () {
+    var panel = document.getElementById("notification-panel");
+    var backdrop = document.getElementById("notification-panel-backdrop");
+
+    window.notificationPanelIsOpen = function () {
+      return panel.dataset.open === "1" && document.visibilityState === "visible";
+    };
+
+    function openPanel() {
+      panel.dataset.open = "1";
+      panel.setAttribute("aria-hidden", "false");
+      panel.classList.remove("translate-x-full");
+      backdrop.classList.remove("hidden");
+      htmx.trigger(document.body, "notificationsOpen");
+    }
+
+    function closePanel() {
+      panel.dataset.open = "";
+      panel.setAttribute("aria-hidden", "true");
+      panel.classList.add("translate-x-full");
+      backdrop.classList.add("hidden");
+      hint.classList.add("hidden");
+    }
+
+    // Delegated: the bell is replaced by its own poll, so a listener bound to
+    // the element itself would be lost after the first swap.
+    document.addEventListener("click", function (e) {
+      if (e.target.closest("[data-notification-open]")) {
+        e.preventDefault();
+        panel.dataset.open === "1" ? closePanel() : openPanel();
+      } else if (e.target.closest("[data-notification-close]")) {
+        closePanel();
+      } else if (e.target.closest("[data-history-more]")) {
+        panel.querySelectorAll("[data-history-row].hidden").forEach(function (row) {
+          row.classList.remove("hidden");
+        });
+        e.target.closest("[data-history-more]").parentElement.remove();
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && panel.dataset.open === "1") closePanel();
+    });
+
+    var DATETIME = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" };
+    var TIME = { hour: "2-digit", minute: "2-digit" };
+    function formatTimes(root) {
+      root.querySelectorAll("[data-local-time]").forEach(function (el) {
+        var scope = el.closest("[data-time-format]");
+        var date = new Date(el.dateTime);
+        el.textContent = scope && scope.dataset.timeFormat === "time"
+          ? date.toLocaleTimeString(undefined, TIME)
+          : date.toLocaleString(undefined, DATETIME);
+      });
+    }
+
+    // Hover hint: after one second over a row, a small bubble follows the mouse.
+    var hint = document.getElementById("hover-hint");
+    var hintTimer = null;
+    function moveHint(e) { hint.style.left = (e.clientX + 14) + "px"; hint.style.top = (e.clientY + 14) + "px"; }
+    function bindHints(root) {
+      root.querySelectorAll("[data-hover-hint]").forEach(function (row) {
+        if (row.dataset.hintBound) return;
+        row.dataset.hintBound = "1";
+        row.addEventListener("mouseenter", function (e) {
+          hint.textContent = row.dataset.hoverHint;
+          moveHint(e);
+          clearTimeout(hintTimer);
+          hintTimer = setTimeout(function () { hint.classList.remove("hidden"); }, 1000);
+        });
+        row.addEventListener("mousemove", moveHint);
+        row.addEventListener("mouseleave", function () {
+          clearTimeout(hintTimer);
+          hint.classList.add("hidden");
+        });
+      });
+    }
+
+    // htmx:load fires on each piece of swapped-in content, so fresh pane
+    // contents get the local time format and hover hints.
+    document.addEventListener("htmx:load", function (e) {
+      if (!panel.contains(e.detail.elt)) return;
+      formatTimes(e.detail.elt);
+      bindHints(e.detail.elt);
+      hint.classList.add("hidden");
+    });
+  })();
+</script>

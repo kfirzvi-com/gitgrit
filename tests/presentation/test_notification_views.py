@@ -1,4 +1,4 @@
-"""View tests for the Notifications page, the open redirect and mark-all-read."""
+"""View tests for the notifications side pane, the open redirect, mark-all-read and pin."""
 from datetime import timedelta
 
 import pytest
@@ -59,7 +59,7 @@ class TestNotificationViews(TestCase):
         self._delivery("elsewhere", tenant=baker.make("app.Tenant"))
         self._delivery("logged", channel="log")
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "mine")
@@ -70,7 +70,7 @@ class TestNotificationViews(TestCase):
         self._delivery("unread-item")
         self._delivery("read-item", read_at=timezone.now())
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertContains(response, "Active")
         self.assertContains(response, "History")
@@ -88,7 +88,7 @@ class TestNotificationViews(TestCase):
         self._created(self._delivery("yesterday-item"), now - timedelta(days=1))
         self._created(self._delivery("older-item"), now - timedelta(days=3))
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         groups = [
             (label, [d.notification.title for d in items])
@@ -104,25 +104,25 @@ class TestNotificationViews(TestCase):
     def test_active_groups_leave_out_empty_days(self):
         self._created(self._delivery("older-item"), timezone.now() - timedelta(days=3))
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertEqual([label for label, _ in response.context["active_groups"]], ["Older"])
 
     def test_history_shows_more_button_only_past_five(self):
         for i in range(5):
             self._delivery(f"read-{i}", read_at=timezone.now())
-        self.assertNotContains(self.client.get(reverse("notification_list")), "Show more")
+        self.assertNotContains(self.client.get(reverse("notification_panel")), "Show more")
 
         for i in range(5, 7):
             self._delivery(f"read-{i}", read_at=timezone.now())
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertContains(response, "Show more")
         self.assertContains(response, "<div data-history-row", count=7)
-        self.assertContains(response, 'last:border-b-0 hidden"', count=2)
+        self.assertContains(response, '<div data-history-row class="hidden">', count=2)
 
     def test_empty_state(self):
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertContains(response, EMPTY_ACTIVE)
         self.assertContains(response, EMPTY_HISTORY)
@@ -143,15 +143,15 @@ class TestNotificationViews(TestCase):
         delivery.refresh_from_db()
         self.assertEqual(delivery.read_at, first_read)
 
-    def test_open_without_url_falls_back_to_list(self):
+    def test_open_without_url_falls_back_to_dashboard(self):
         delivery = self._delivery(url="")
         response = self.client.get(reverse("notification_open", args=[delivery.pk]))
-        self.assertRedirects(response, reverse("notification_list"), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
 
     def test_open_never_redirects_off_site(self):
         delivery = self._delivery(url="https://example.com/")
         response = self.client.get(reverse("notification_open", args=[delivery.pk]))
-        self.assertRedirects(response, reverse("notification_list"), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
         delivery.refresh_from_db()
         self.assertIsNotNone(delivery.read_at)
 
@@ -170,7 +170,8 @@ class TestNotificationViews(TestCase):
 
         response = self.client.post(reverse("notifications_mark_all_read"))
 
-        self.assertRedirects(response, reverse("notification_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Trigger"], "notificationsCountChanged")
         for d in (mine, mine2):
             d.refresh_from_db()
             self.assertIsNotNone(d.read_at)
@@ -183,7 +184,8 @@ class TestNotificationViews(TestCase):
 
         response = self.client.post(reverse("notification_pin", args=[delivery.pk]))
 
-        self.assertRedirects(response, reverse("notification_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Trigger"], "notificationsCountChanged")
         delivery.refresh_from_db()
         self.assertIsNotNone(delivery.pinned_at)
         self.client.get(reverse("notification_open", args=[delivery.pk]))
@@ -218,7 +220,7 @@ class TestNotificationViews(TestCase):
 
         self.client.post(reverse("notification_pin", args=[delivery.pk]))
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
         self.assertEqual([d.notification.title for d in response.context["active"]], ["was-read"])
         self.assertEqual(list(response.context["history"]), [])
 
@@ -227,7 +229,7 @@ class TestNotificationViews(TestCase):
         self._delivery("newer")
         self.client.post(reverse("notification_pin", args=[older.pk]))
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertEqual(
             [d.notification.title for d in response.context["active"]], ["older", "newer"]
@@ -250,7 +252,7 @@ class TestNotificationViews(TestCase):
         user = baker.make("app.User")
         self.client.force_login(user)
 
-        response = self.client.get(reverse("notification_list"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, EMPTY_ACTIVE)
@@ -260,8 +262,8 @@ class TestNotificationViews(TestCase):
 
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
-class TestNotificationPollPartials(TestCase):
-    """The Active card and the navbar bell re-fetch themselves by HTMX poll."""
+class TestNotificationPaneAndBell(TestCase):
+    """The side pane and the navbar bell are fragments fetched by HTMX."""
 
     def setUp(self):
         self.user = baker.make("app.User")
@@ -282,32 +284,44 @@ class TestNotificationPollPartials(TestCase):
             recipient=self.user, channel="inbox", status="sent", read_at=None,
         )
 
-    def test_page_polls_the_active_card_and_the_bell(self):
-        response = self.client.get(reverse("notification_list"))
+    def test_every_page_carries_the_closed_pane_and_the_bell(self):
+        content = self.client.get(reverse("dashboard")).content.decode()
 
-        content = response.content.decode()
-        self.assertIn(f'hx-get="{reverse("notification_active")}"', content)
+        self.assertIn('id="notification-panel"', content)
+        self.assertIn('aria-hidden="true"', content)
+        self.assertIn(f'hx-get="{reverse("notification_panel")}"', content)
+        self.assertIn("every 30s [notificationPanelIsOpen()]", content)
         self.assertIn(f'hx-get="{reverse("notification_bell")}"', content)
-        self.assertEqual(content.count("every 30s [document.visibilityState=='visible']"), 2)
+        self.assertIn("data-notification-open", content)
+        self.assertIn("notificationsCountChanged from:body", content)
 
-    def test_active_partial_is_the_card_alone_scoped_to_the_workspace(self):
+    def test_pane_is_a_fragment_scoped_to_the_workspace(self):
         self._unread("mine")
         self._unread("elsewhere", tenant=baker.make("app.Tenant"))
 
-        response = self.client.get(reverse("notification_active"))
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertIn("mine", content)
         self.assertNotIn("elsewhere", content)
         self.assertNotIn("<html", content)
-        self.assertNotIn("History", content)
         self.assertIn("data-active-section", content)
+        self.assertIn("data-notification-close", content)
 
-    def test_active_partial_shows_the_empty_state(self):
-        response = self.client.get(reverse("notification_active"))
+    def test_pane_shows_the_empty_state(self):
+        response = self.client.get(reverse("notification_panel"))
 
         self.assertContains(response, EMPTY_ACTIVE)
+
+    def test_pane_actions_swap_the_pane_in_place(self):
+        delivery = self._unread("one")
+
+        content = self.client.get(reverse("notification_panel")).content.decode()
+
+        self.assertIn(f'hx-post="{reverse("notification_pin", args=[delivery.pk])}"', content)
+        self.assertIn(f'hx-post="{reverse("notifications_mark_all_read")}"', content)
+        self.assertEqual(content.count('hx-target="#notification-panel-body"'), 2)
 
     def test_bell_partial_carries_the_unread_count(self):
         self._unread("one")
@@ -323,6 +337,6 @@ class TestNotificationPollPartials(TestCase):
 
     def test_partials_require_login(self):
         self.client.logout()
-        for name in ("notification_active", "notification_bell"):
+        for name in ("notification_panel", "notification_bell"):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 302, name)

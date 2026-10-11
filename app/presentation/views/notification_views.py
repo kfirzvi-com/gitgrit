@@ -1,18 +1,24 @@
+"""The notifications side pane: opened from the navbar bell over the current
+page, never a page of its own. Every view here serves the pane's fragment or
+acts on one inbox item; ``open_notification`` is the only one that navigates.
+"""
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
-from django.views.generic import TemplateView
 
 from app.domain.models import NotificationDelivery
 
 HISTORY_LIMIT = 50
 HISTORY_PAGE = 5
+
+# Sent with every response that changes read state, so the navbar bell
+# re-fetches its count without waiting for its 30-second poll.
+COUNT_CHANGED_EVENT = "notificationsCountChanged"
 
 
 def _group_by_day(deliveries):
@@ -44,39 +50,34 @@ def _inbox(request):
     )
 
 
-def _active(request) -> list:
-    """Unread inbox items, pinned first, newest first."""
+def _panel(request):
+    """Render the pane's contents: Active (unread or pinned, pinned first, then
+    newest) grouped by day, and History (read, newest first)."""
     sent = _inbox(request).filter(status=NotificationDelivery.Status.SENT).select_related("notification")
-    return list(
+    active = list(
         sent.filter(read_at__isnull=True).order_by(
             F("pinned_at").desc(nulls_last=True), "-notification__created_at"
         )
     )
-
-
-class NotificationListView(LoginRequiredMixin, TemplateView):
-    template_name = "pages/notifications.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        sent = _inbox(self.request).filter(status=NotificationDelivery.Status.SENT).select_related("notification")
-        active = _active(self.request)
-        context["active"] = active
-        context["active_groups"] = _group_by_day(active)
-        context["history"] = sent.filter(read_at__isnull=False).order_by("-notification__created_at")[:HISTORY_LIMIT]
-        context["history_page"] = HISTORY_PAGE
-        return context
+    history = sent.filter(read_at__isnull=False).order_by("-notification__created_at")[:HISTORY_LIMIT]
+    return render(
+        request,
+        "partials/notifications_panel.html",
+        {
+            "active": active,
+            "active_groups": _group_by_day(active),
+            "history": history,
+            "history_page": HISTORY_PAGE,
+        },
+    )
 
 
 @login_required
 @require_GET
-def notification_active(request):
-    """The Active card on its own, for the HTMX poll on the Notifications page."""
-    return render(
-        request,
-        "partials/notifications_active.html",
-        {"active_groups": _group_by_day(_active(request))},
-    )
+def notification_panel(request):
+    """The pane's contents, fetched when the bell opens it and every 30 seconds
+    while it stays open."""
+    return _panel(request)
 
 
 @login_required
@@ -101,7 +102,7 @@ def open_notification(request, pk):
         url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         return redirect(url)
-    return redirect("notification_list")
+    return redirect("dashboard")
 
 
 @login_required
@@ -110,7 +111,9 @@ def mark_all_read(request):
     _inbox(request).filter(read_at__isnull=True, pinned_at__isnull=True).update(
         read_at=timezone.now()
     )
-    return redirect("notification_list")
+    response = _panel(request)
+    response["HX-Trigger"] = COUNT_CHANGED_EVENT
+    return response
 
 
 @login_required
@@ -125,4 +128,6 @@ def toggle_pin(request, pk):
         delivery.pinned_at = timezone.now()
         delivery.read_at = None
     delivery.save(update_fields=["pinned_at", "read_at"])
-    return redirect("notification_list")
+    response = _panel(request)
+    response["HX-Trigger"] = COUNT_CHANGED_EVENT
+    return response
