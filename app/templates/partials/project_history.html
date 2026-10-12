@@ -8,7 +8,7 @@ surfaces, sections by small-caps labels.{% endcomment %}
 {% url 'run_on_branch' project.pk as run_url %}
 <div id="project-history" class="card bg-base-100 shadow-xl scroll-mt-20"
      {% if running %}hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page }}" hx-trigger="every 5s" hx-swap="outerHTML" data-no-loader{% endif %}>
-  <div class="card-body gap-8">
+  <div class="card-body gap-8 px-4 sm:px-8">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <form hx-get="{{ history_url }}" hx-target="#project-history" hx-swap="outerHTML" hx-trigger="change" data-no-loader class="flex items-center gap-3">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path stroke-linecap="round" d="M6 7v10M18 9c0 5-6 4-11.5 8"/></svg>
@@ -25,7 +25,7 @@ surfaces, sections by small-caps labels.{% endcomment %}
     </div>
     {% if notice %}<p class="text-sm text-info -mt-4" data-run-notice>{{ notice }}</p>{% endif %}
 
-    <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-6 py-5" data-branch-status>
+    <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-5 sm:px-6 py-5" data-branch-status>
       {% if status_score is not None %}
         <div class="flex items-start gap-1">
           <span class="text-5xl font-bold leading-none {% if status_score >= 80 %}text-success{% elif status_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ status_score }}</span>
@@ -57,16 +57,9 @@ surfaces, sections by small-caps labels.{% endcomment %}
                 <details class="group rounded-xl open:bg-base-200/50" {% if row.sha == open_sha %}open{% endif %}>
                   <summary class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-base-200 list-none">
                     {% include "partials/project_history_commit_line.html" %}
-                    <span class="flex items-center gap-1.5 shrink-0 text-xs">
-                      {% if row.running %}<span class="badge badge-soft badge-info badge-sm">{{ row.running }} running</span>{% endif %}
-                      {% if row.passed %}<span class="badge badge-soft badge-success badge-sm">{{ row.passed }} passed</span>{% endif %}
-                      {% if row.failed %}<span class="badge badge-soft badge-error badge-sm">{{ row.failed }} failed</span>{% endif %}
-                      {% if row.errored %}<span class="badge badge-soft badge-warning badge-sm">{{ row.errored }} error</span>{% endif %}
-                      {% if row.not_run %}<span class="badge badge-ghost badge-sm" title="Current standards that did not run on this commit">{{ row.not_run|length }} not run</span>{% endif %}
-                    </span>
-                    {% if row.score is not None %}<span class="w-12 text-right font-bold shrink-0">{{ row.score }}</span>{% endif %}
+                    {% if row.score is not None %}<span class="w-10 text-right font-bold shrink-0">{{ row.score }}</span>{% endif %}
                   </summary>
-                  <div class="px-3 pb-3 pl-8 space-y-0.5">
+                  <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">
                     {% for ex in row.results %}
                       {% include "partials/project_history_result.html" with show_event=True %}
                     {% endfor %}
@@ -88,7 +81,6 @@ surfaces, sections by small-caps labels.{% endcomment %}
               {% else %}
                 <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
                   {% include "partials/project_history_commit_line.html" %}
-                  <span class="text-xs opacity-50 shrink-0">Not checked</span>
                   <button type="button" class="btn btn-ghost btn-xs shrink-0"
                           hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'
                           hx-target="#project-history" hx-swap="outerHTML" data-no-loader

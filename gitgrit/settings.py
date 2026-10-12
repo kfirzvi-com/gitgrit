@@ -117,6 +117,17 @@ WSGI_APPLICATION = "gitgrit.wsgi.application"
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = os.environ.get("DB_PORT", "5432")
 DB_NAME = os.environ.get("DB_NAME", "gitgrit")
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    # What the project page reads from the Git platform (branches, commits).
+    # In Postgres so the web workers and the job worker share it: a push
+    # webhook clears it for every process.
+    "platform": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "platform_cache",
+    },
+}
+
 DB_USER = os.environ.get("DB_USER", "gitgrit")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "gitgritpassword")
 

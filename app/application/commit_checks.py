@@ -5,14 +5,21 @@ The project page reads a branch's commits from the Git platform (every
 commit, checked or not) and lays the checks over them. Platform calls are
 best-effort: when the platform cannot be reached, the history falls back to
 what GitGrit recorded itself.
+
+The page re-renders every few seconds while runs are in flight, so the
+platform's branch and commit lists are cached for a minute (only what the
+platform answered; never a fallback). A push webhook clears a project's
+cache, so a new commit shows up at once.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from django.core.cache import caches
 from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
@@ -23,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 Status = StandardExecution.Status
 COMMITS_PER_PAGE = 5
+PLATFORM_LISTS_TTL = 60  # seconds
 
 
 # --- Talking to the Git platform --------------------------------------------------
@@ -32,6 +40,35 @@ def _client(project):
     from app.infrastructure.platform_client import get_platform_client
 
     return get_platform_client(project.platform_connection)
+
+
+def _generation_key(project) -> str:
+    return f"platform-lists:{project.pk}:generation"
+
+
+def _cached(project, name: str, fetch):
+    """``fetch()``'s answer, cached per project for PLATFORM_LISTS_TTL.
+    ``fetch`` raising is not cached: the caller falls back and the next
+    render asks the platform again."""
+    cache = caches["platform"]
+    generation = cache.get_or_set(_generation_key(project), 0, timeout=None)
+    key = f"platform-lists:{project.pk}:{generation}:{hashlib.sha256(name.encode()).hexdigest()[:24]}"
+    value = cache.get(key)
+    if value is None:
+        value = fetch()
+        cache.set(key, value, PLATFORM_LISTS_TTL)
+    return value
+
+
+def forget_platform_lists(projects) -> None:
+    """Drop what the project page cached from the platform for these
+    projects (a push moved a branch, or added or deleted one)."""
+    cache = caches["platform"]
+    for project in projects:
+        try:
+            cache.incr(_generation_key(project))
+        except ValueError:
+            cache.set(_generation_key(project), 1, timeout=None)
 
 
 def resolve_head_commit(project, branch: str) -> dict:
@@ -118,7 +155,10 @@ def branches(project) -> list[str]:
     Falls back to the branches GitGrit has checked when the platform cannot
     be reached."""
     try:
-        names = _client(project).list_branches(project.external_id, project.full_path)
+        names = _cached(
+            project, "branches",
+            lambda: _client(project).list_branches(project.external_id, project.full_path),
+        )
     except Exception:
         logger.warning("Could not list branches of %s", project.name, exc_info=True)
         names = list(
@@ -134,8 +174,11 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
     Falls back to the commits GitGrit checked on the branch when the platform
     cannot be reached."""
     try:
-        listed = _client(project).list_commits(
-            project.external_id, project.full_path, branch, page=page, per_page=COMMITS_PER_PAGE
+        listed = _cached(
+            project, f"commits:{page}:{branch}",
+            lambda: _client(project).list_commits(
+                project.external_id, project.full_path, branch, page=page, per_page=COMMITS_PER_PAGE
+            ),
         )
         rows = [
             CommitRow(

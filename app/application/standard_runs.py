@@ -22,6 +22,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from app.application.commit_checks import forget_platform_lists
 from app.application.event_bus import publish
 from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
 from app.application.standard_service import version_to_run
@@ -265,6 +266,12 @@ def enqueue_for_event(
     # Deleting a branch (after a merge, say) arrives as a push to it. There is
     # nothing left at that ref: every standard would fail reading it, and a
     # graph rebuild would be wasted. Nothing changed that a run could check.
+    engine = StandardEngine()
+    projects = engine.resolve_projects(event, installation_id=installation_id)
+    # The push moved, added or deleted a branch: the project page must not
+    # keep showing the branch and commit lists it cached before it.
+    forget_platform_lists(projects)
+
     if event.deleted:
         logger.info(
             "Ignoring branch deletion: platform=%s external_id=%s ref=%s",
@@ -273,9 +280,6 @@ def enqueue_for_event(
             event.ref,
         )
         return []
-
-    engine = StandardEngine()
-    projects = engine.resolve_projects(event, installation_id=installation_id)
 
     if not projects.exists():
         logger.info(

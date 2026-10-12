@@ -12,6 +12,6 @@ the score. Expects `ex` (a StandardExecution); `show_event` adds the event colum
     </span>
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}
   </span>
-  {% if show_event %}<span class="text-xs opacity-40 shrink-0">{{ ex.event_type }}</span>{% endif %}
+  {% if show_event %}<span class="text-xs opacity-40 shrink-0 hidden sm:inline">{{ ex.event_type }}</span>{% endif %}
   <span class="w-12 text-right text-sm font-semibold shrink-0">{% if ex.status != "running" %}{{ ex.score }}{% else %}<span class="text-xs font-normal opacity-60">running</span>{% endif %}</span>
 </a>
