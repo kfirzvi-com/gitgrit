@@ -43,10 +43,12 @@ else
   fail "unknown GITGRIT_CHANNEL '$GITGRIT_CHANNEL' (stable or edge)"
 fi
 
+# Retry, and never hang on a stalled connection: GitHub's download CDN
+# occasionally stalls mid-transfer.
 if command -v curl >/dev/null 2>&1; then
-  fetch() { curl -fsSL -o "$2" "$1"; }
+  fetch() { curl -fsSL --retry 3 --connect-timeout 15 --max-time 120 -o "$2" "$1"; }
 elif command -v wget >/dev/null 2>&1; then
-  fetch() { wget -q -O "$2" "$1"; }
+  fetch() { wget -q --tries=3 --timeout=30 -O "$2" "$1"; }
 else
   fail "needs curl or wget"
 fi
