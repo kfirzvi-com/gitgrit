@@ -138,6 +138,12 @@ def _history(request, project, branch, page=1, notice=""):
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
     status = branch_status(project, branch)
+    # The score's results can come from several commits (a standard that did
+    # not run on the newest one keeps its earlier result); the header says so.
+    status_commits = list(dict.fromkeys(
+        ex.commit_check.commit_sha[:7] for ex in status if ex.commit_check and ex.commit_check.commit_sha
+    ))
+    open_sha = next((row.sha for row in rows if row.checked), "") if page == 1 else ""
     return render(
         request,
         "partials/project_history.html",
@@ -152,6 +158,8 @@ def _history(request, project, branch, page=1, notice=""):
             "status": status,
             "status_score": project_score(status),
             "status_breakdown": breakdown(status),
+            "status_commits": status_commits,
+            "open_sha": open_sha,
             "earlier": earlier_runs(project, branch) if page == 1 else [],
             "running": any(row.running for row in rows),
             "notice": notice,

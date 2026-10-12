@@ -53,9 +53,11 @@ class ProjectHistoryViewTests(TestCase):
         self.assertEqual(response.context["branch"], "main")
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
-        self.assertIn("Results", content)
         self.assertNotIn("%</span>", content)
-        self.assertIn("The project's score", content)
+        self.assertIn("The project's health score", content)
+        self.assertNotIn("Latest results", content)
+        self.assertIn("Health score", content)
+        self.assertIn("from aaaaaaa", content)
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
         self._check("a" * 40)
@@ -65,6 +67,30 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn(f'data-commit="{"a" * 40}"', content)
         self.assertIn("1 failed", content)
         self.assertIn("Not checked", content)
+
+    def test_the_newest_checked_commit_starts_open(self):
+        self._check("b" * 40)
+
+        response = self._get()
+
+        self.assertEqual(response.context["open_sha"], "b" * 40)
+        content = response.content.decode()
+        self.assertRegex(content, r'data-commit="b{40}">\s*<details[^>]*\bopen\b')
+        self.assertNotIn("<details", content.split('data-commit="b')[0])
+
+    def test_a_score_from_several_commits_says_so(self):
+        self._check("b" * 40)
+        other = baker.make("app.Standard", tenant=self.tenant, name="Other")
+        self.project.standards.add(other)
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
+        baker.make(
+            "app.StandardExecution", project=self.project, standard=other, standard_name="Other",
+            status=Status.PASSED, score=100, commit_check=check,
+        )
+
+        content = self._get().content.decode()
+
+        self.assertIn("from 2 commits", content)
 
     def test_another_branch_shows_its_own_results_and_does_not_count(self):
         self._check("c" * 40, branch="feature/x", status=Status.PASSED, score=100, ref="refs/heads/feature/x")

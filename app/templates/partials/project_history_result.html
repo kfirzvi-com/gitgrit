@@ -1,7 +1,7 @@
 {% comment %}One standard's result as a line-free row linking to the run: a status dot, the
-standard's name (and version), its message muted underneath, then optional commit / event / age
-columns and the score. Expects `ex` (a StandardExecution); `show_commit`, `show_event` and
-`show_when` pick the optional columns.{% endcomment %}
+standard's name (and version), its message muted underneath, then optional event / age columns
+and the score. Expects `ex` (a StandardExecution); `show_event` and `show_when` pick the
+optional columns.{% endcomment %}
 <a href="{% url 'standard_execution_detail' ex.id %}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200">
   <span class="h-2 w-2 rounded-full shrink-0 {% if ex.status == 'passed' %}bg-success{% elif ex.status == 'failed' %}bg-error{% elif ex.status == 'running' %}bg-info animate-pulse{% else %}bg-warning{% endif %}"
         title="{{ ex.get_status_display }}" aria-label="{{ ex.get_status_display }}" role="img"></span>
@@ -13,7 +13,6 @@ columns and the score. Expects `ex` (a StandardExecution); `show_commit`, `show_
     </span>
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}
   </span>
-  {% if show_commit %}<span class="font-mono text-xs opacity-40 shrink-0">{% if ex.commit_check and ex.commit_check.commit_sha %}{{ ex.commit_check.commit_sha|slice:":7" }}{% endif %}</span>{% endif %}
   {% if show_event %}<span class="text-xs opacity-40 shrink-0">{{ ex.event_type }}</span>{% endif %}
   {% if show_when %}<span class="text-xs opacity-40 shrink-0">{{ ex.created_at|timesince }} ago</span>{% endif %}
   <span class="w-12 text-right text-sm font-semibold shrink-0">{% if ex.status != "running" %}{{ ex.score }}{% else %}<span class="text-xs font-normal opacity-60">running</span>{% endif %}</span>
