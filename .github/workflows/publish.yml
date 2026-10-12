@@ -24,6 +24,7 @@ jobs:
     outputs:
       app: ${{ steps.changes.outputs.app }}
       docs: ${{ steps.changes.outputs.docs }}
+      cli: ${{ steps.changes.outputs.cli }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -43,9 +44,14 @@ jobs:
           if echo "$CHANGED" | grep -q '^site/'; then
             DOCS=true
           fi
+          CLI=false
+          if echo "$CHANGED" | grep -q '^cli/'; then
+            CLI=true
+          fi
           echo "app=$APP" >> "$GITHUB_OUTPUT"
           echo "docs=$DOCS" >> "$GITHUB_OUTPUT"
-          echo "App changed: $APP, Docs changed: $DOCS"
+          echo "cli=$CLI" >> "$GITHUB_OUTPUT"
+          echo "App changed: $APP, Docs changed: $DOCS, CLI changed: $CLI"
 
   publish:
     needs: detect
@@ -255,3 +261,82 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             ./release-assets/*.tgz \
             ./release-assets/*.tgz.sha256
+
+  # CLI releases. Both build every platform with goreleaser (cli/.goreleaser.yaml)
+  # and attach the archives + checksums.txt to a GitHub release, which is where
+  # install.sh and `gitgrit update` download from.
+  #
+  # Edge: every push to main that touches cli/ replaces the rolling "edge"
+  # prerelease (version vX.Y.Z-edge.<sha>). Its tag doesn't match v*, so it
+  # never triggers this workflow, and as a prerelease it is never "latest".
+  cli-edge:
+    needs: detect
+    if: always() && needs.detect.outputs.cli == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # goreleaser derives the next version from the last tag
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean
+          workdir: cli
+        env:
+          GITGRIT_CHANNEL: edge
+
+      - name: Replace the edge release
+        working-directory: cli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(jq -r .version dist/metadata.json)
+          gh release delete edge --yes --cleanup-tag || true
+          gh release create edge \
+            --prerelease --latest=false \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --notes "Edge build of $GITHUB_SHA (main). Install: \`curl -fsSL https://gitgrit.dev/install.sh | GITGRIT_CHANNEL=edge sh\`" \
+            dist/*.tar.gz dist/*.zip dist/checksums.txt
+
+  # Stable: a vX.Y.Z tag attaches the CLI to the release `airgap-release`
+  # creates for that tag, so the CLI and the server share a version.
+  cli-release:
+    needs: airgap-release
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean --skip=publish
+          workdir: cli
+        env:
+          GITGRIT_CHANNEL: stable
+
+      - name: Attach to the release
+        working-directory: cli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz dist/*.zip dist/checksums.txt --clobber

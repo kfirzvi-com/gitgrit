@@ -1,0 +1,7 @@
+# Generates the typed API client from ../../openapi.yaml (the server's spec,
+# exported by `manage.py spectacular`). Regenerate with `go generate ./...`.
+package: api
+output: client.gen.go
+generate:
+  models: true
+  client: true
