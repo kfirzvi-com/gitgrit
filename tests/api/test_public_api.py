@@ -217,20 +217,6 @@ class TestProjects(PublicAPITestCase):
         assert [s["id"] for s in r.json()] == [str(standard.id)]
         assert "rules" in r.json()[0]
 
-    def test_validate_edit(self):
-        r = self.send(
-            "post",
-            f"{self.ws}/projects/{self.project.id}/validate-edit/",
-            {"file_path": "README.md", "new_content": "hello"},
-        )
-        assert r.status_code == 200
-        assert r.json()["allowed"] is True
-
-    def test_validate_edit_requires_fields(self):
-        r = self.send("post", f"{self.ws}/projects/{self.project.id}/validate-edit/", {})
-        assert r.status_code == 400
-        assert "file_path" in r.json()
-
 
 class TestStandards(PublicAPITestCase):
     def test_create_get_update_delete(self):

@@ -24,7 +24,6 @@ cd ~/src/acme/api                       # project commands default to this repo
 gitgrit health                          # project health; --branch for a branch's
 gitgrit commits --branch feature/x      # commits with their checks
 gitgrit check --wait                    # check the branch's latest commit; exit 1 on failures
-gitgrit validate src/app.py             # does my uncommitted edit break a standard?
 gitgrit standard list
 gitgrit api workspaces/{workspace}/projects/   # anything else in /api/v1
 ```

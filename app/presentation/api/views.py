@@ -7,7 +7,6 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.application.edit_validator import EditValidator
 from app.application.project_health_service import ProjectHealthService
 from app.application.errors import NotFoundError
 from app.application.project_service import ProjectService, SandboxService
@@ -20,7 +19,6 @@ from app.presentation.api.authentication import APITokenAuthentication, HasToken
 _projects = ProjectService()
 _status = ProjectStatusService()
 _standards = StandardService()
-_validator = EditValidator()
 _sandbox = SandboxService()
 _health = ProjectHealthService()
 
@@ -207,22 +205,6 @@ class ProjectStandardsView(WorkspaceAPIView):
     )
     def get(self, request, project_id, **_):
         return Response(_standards.list_active_for_project(self.tenant, str(project_id)))
-
-
-class ValidateEditView(WorkspaceAPIView):
-    @extend_schema(
-        operation_id="validate_edit",
-        tags=["projects"],
-        summary="Check a proposed file edit against the project's standards",
-        request=s.ValidateEditSerializer,
-        responses=s.ValidateEditResultSerializer,
-    )
-    def post(self, request, project_id, **_):
-        body = s.ValidateEditSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        return Response(
-            _validator.validate_edit(self.tenant, str(project_id), **body.validated_data)
-        )
 
 
 class StandardListView(WorkspaceAPIView):

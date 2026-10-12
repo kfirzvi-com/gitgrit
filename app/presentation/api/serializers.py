@@ -63,19 +63,6 @@ class StandardTestSerializer(serializers.Serializer):
     )
 
 
-class ValidateEditSerializer(serializers.Serializer):
-    file_path = serializers.CharField()
-    new_content = serializers.CharField(trim_whitespace=False, allow_blank=True)
-    prior_content = serializers.CharField(
-        trim_whitespace=False,
-        allow_blank=True,
-        allow_null=True,
-        required=False,
-        default=None,
-        help_text="Current file content; omit or null for a new file.",
-    )
-
-
 # --- Responses ------------------------------------------------------------
 
 class ProjectSerializer(serializers.Serializer):
@@ -144,24 +131,6 @@ class ActiveStandardSerializer(serializers.Serializer):
     labels = serializers.ListField(child=serializers.CharField())
     languages = serializers.ListField(child=serializers.CharField())
     last_execution = LastExecutionSerializer(allow_null=True)
-
-
-class ViolationSerializer(serializers.Serializer):
-    standard = serializers.CharField()
-    standard_id = serializers.UUIDField()
-    kind = serializers.CharField()
-    value = serializers.CharField()
-    matched_substring = serializers.CharField()
-    snippet = serializers.CharField()
-
-
-class ValidateEditResultSerializer(serializers.Serializer):
-    allowed = serializers.BooleanField()
-    introduced_violations = ViolationSerializer(many=True)
-    pre_existing_violations_count = serializers.IntegerField()
-    checked = serializers.IntegerField()
-    skipped = serializers.IntegerField()
-    notes = serializers.ListField(child=serializers.CharField())
 
 
 class StandardSummarySerializer(serializers.Serializer):

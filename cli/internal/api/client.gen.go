@@ -481,35 +481,6 @@ type UserRef struct {
 	Username string `json:"username"`
 }
 
-// ValidateEditRequest defines model for ValidateEditRequest.
-type ValidateEditRequest struct {
-	FilePath   string `json:"file_path"`
-	NewContent string `json:"new_content"`
-
-	// PriorContent Current file content; omit or null for a new file.
-	PriorContent *string `json:"prior_content,omitempty"`
-}
-
-// ValidateEditResult defines model for ValidateEditResult.
-type ValidateEditResult struct {
-	Allowed                    bool        `json:"allowed"`
-	Checked                    int         `json:"checked"`
-	IntroducedViolations       []Violation `json:"introduced_violations"`
-	Notes                      []string    `json:"notes"`
-	PreExistingViolationsCount int         `json:"pre_existing_violations_count"`
-	Skipped                    int         `json:"skipped"`
-}
-
-// Violation defines model for Violation.
-type Violation struct {
-	Kind             string             `json:"kind"`
-	MatchedSubstring string             `json:"matched_substring"`
-	Snippet          string             `json:"snippet"`
-	Standard         string             `json:"standard"`
-	StandardId       openapi_types.UUID `json:"standard_id"`
-	Value            string             `json:"value"`
-}
-
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Id   openapi_types.UUID `json:"id"`
@@ -544,9 +515,6 @@ type GetProjectHealthParams struct {
 
 // RunProjectCheckJSONRequestBody defines body for RunProjectCheck for application/json ContentType.
 type RunProjectCheckJSONRequestBody = RunCheckRequest
-
-// ValidateEditJSONRequestBody defines body for ValidateEdit for application/json ContentType.
-type ValidateEditJSONRequestBody = ValidateEditRequest
 
 // CreateStandardJSONRequestBody defines body for CreateStandard for application/json ContentType.
 type CreateStandardJSONRequestBody = StandardCreateRequest
@@ -661,11 +629,6 @@ type ClientInterface interface {
 
 	// GetProjectStatus request
 	GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ValidateEditWithBody request with any body
-	ValidateEditWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ValidateEdit(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body ValidateEditJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStandards request
 	ListStandards(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -814,30 +777,6 @@ func (c *Client) ListProjectStandards(ctx context.Context, workspaceId openapi_t
 
 func (c *Client) GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectStatusRequest(c.Server, workspaceId, projectId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ValidateEditWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewValidateEditRequestWithBody(c.Server, workspaceId, projectId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ValidateEdit(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body ValidateEditJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewValidateEditRequest(c.Server, workspaceId, projectId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1463,60 +1402,6 @@ func NewGetProjectStatusRequest(server string, workspaceId openapi_types.UUID, p
 	return req, nil
 }
 
-// NewValidateEditRequest calls the generic ValidateEdit builder with application/json body
-func NewValidateEditRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body ValidateEditJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewValidateEditRequestWithBody(server, workspaceId, projectId, "application/json", bodyReader)
-}
-
-// NewValidateEditRequestWithBody generates requests for ValidateEdit with any type of body
-func NewValidateEditRequestWithBody(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/validate-edit/", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListStandardsRequest generates requests for ListStandards
 func NewListStandardsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -1856,11 +1741,6 @@ type ClientWithResponsesInterface interface {
 	// GetProjectStatusWithResponse request
 	GetProjectStatusWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectStatusResponse, error)
 
-	// ValidateEditWithBodyWithResponse request with any body
-	ValidateEditWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidateEditResponse, error)
-
-	ValidateEditWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body ValidateEditJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidateEditResponse, error)
-
 	// ListStandardsWithResponse request
 	ListStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStandardsResponse, error)
 
@@ -2187,36 +2067,6 @@ func (r GetProjectStatusResponse) ContentType() string {
 	return ""
 }
 
-type ValidateEditResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ValidateEditResult
-}
-
-// Status returns HTTPResponse.Status
-func (r ValidateEditResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ValidateEditResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ValidateEditResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type ListStandardsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2492,23 +2342,6 @@ func (c *ClientWithResponses) GetProjectStatusWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetProjectStatusResponse(rsp)
-}
-
-// ValidateEditWithBodyWithResponse request with arbitrary body returning *ValidateEditResponse
-func (c *ClientWithResponses) ValidateEditWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidateEditResponse, error) {
-	rsp, err := c.ValidateEditWithBody(ctx, workspaceId, projectId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseValidateEditResponse(rsp)
-}
-
-func (c *ClientWithResponses) ValidateEditWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body ValidateEditJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidateEditResponse, error) {
-	rsp, err := c.ValidateEdit(ctx, workspaceId, projectId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseValidateEditResponse(rsp)
 }
 
 // ListStandardsWithResponse request returning *ListStandardsResponse
@@ -2846,32 +2679,6 @@ func ParseGetProjectStatusResponse(rsp *http.Response) (*GetProjectStatusRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ProjectStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseValidateEditResponse parses an HTTP response from a ValidateEditWithResponse call
-func ParseValidateEditResponse(rsp *http.Response) (*ValidateEditResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ValidateEditResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ValidateEditResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

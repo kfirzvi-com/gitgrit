@@ -17,11 +17,6 @@ workspace_patterns = [
         name="api_project_standards",
     ),
     path(
-        "projects/<uuid:project_id>/validate-edit/",
-        views.ValidateEditView.as_view(),
-        name="api_validate_edit",
-    ),
-    path(
         "projects/<uuid:project_id>/branches/",
         views.ProjectBranchesView.as_view(),
         name="api_project_branches",
