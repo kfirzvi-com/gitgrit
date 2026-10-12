@@ -158,11 +158,14 @@ func Login(ctx context.Context, hc *http.Client, md *Metadata, opts LoginOptions
 	go srv.Serve(ln) //nolint:errcheck // Serve returns when the listener closes.
 	defer srv.Close()
 
+	opened := opts.OpenBrowser != nil && opts.OpenBrowser(authURL) == nil
 	if opts.Out != nil {
-		fmt.Fprintf(opts.Out, "Opening your browser to sign in. If it doesn't open, visit:\n\n  %s\n\n", authURL)
-	}
-	if opts.OpenBrowser != nil {
-		_ = opts.OpenBrowser(authURL)
+		if opened {
+			fmt.Fprintf(opts.Out, "Opened your browser to sign in. If it didn't open, visit:\n\n  %s\n\n", authURL)
+		} else {
+			fmt.Fprintf(opts.Out, "Open this URL in your browser to sign in:\n\n  %s\n\n", authURL)
+		}
+		fmt.Fprintf(opts.Out, "Waiting up to %s…\n", opts.Timeout.Round(time.Minute))
 	}
 
 	var res callback
