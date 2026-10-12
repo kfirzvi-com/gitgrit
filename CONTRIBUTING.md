@@ -7,7 +7,7 @@ Thanks for taking the time to look at GitGrit. This document covers what you nee
 - **Bug reports.** Open a [GitHub issue](https://github.com/kfirzvi-com/gitgrit/issues/new) with reproduction steps, your environment (hosted vs self-hosted, Docker version, OS), and what you expected vs what you saw. If the bug touches the sandbox, include the standard code and the input data — without those it is very hard to reproduce.
 - **Feature requests.** Open an issue describing the use case before writing code. We would rather discuss the shape early than ask you to refactor a finished PR.
 - **New marketplace standards.** Standards live under `app/marketplace/` (seed data) and execute inside the sandbox. Each standard must ship with at least one passing and one failing test case. See the [standard guide](https://gitgrit.dev/getting-started/standards/) and [`ProjectContext` API](https://gitgrit.dev/api/project-context/).
-- **Sandbox or platform capabilities.** Anything that changes the runner, the provider clients, or the MCP surface is a larger conversation — open an issue first so we can talk about isolation, scope, and migration impact before you build.
+- **Sandbox or platform capabilities.** Anything that changes the runner, the provider clients, or the public API is a larger conversation — open an issue first so we can talk about isolation, scope, and migration impact before you build.
 - **Documentation.** Docs live under `site/` (MkDocs). PRs that fix typos, clarify steps, or fill gaps are very welcome and do not need a prior issue.
 
 ## Reporting security vulnerabilities

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Authorize {{ application.name }} — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      {% if not error %}
+        <form id="authorizationForm" method="post">
+          {% csrf_token %}
+          {% for field in form %}
+            {% if field.is_hidden %}{{ field }}{% endif %}
+          {% endfor %}
+
+          <h1 class="card-title">Authorize {{ application.name }}</h1>
+          <p class="text-sm opacity-70 mt-1">
+            {{ application.name }} will act as
+            <span class="font-semibold">{{ request.user.email|default:request.user.username }}</span>
+            in every workspace you belong to. It will be able to:
+          </p>
+
+          <ul class="list-disc list-inside my-4 space-y-1 text-sm">
+            {% for scope in scopes_descriptions %}
+              <li>{{ scope }}</li>
+            {% endfor %}
+          </ul>
+
+          {% if form.errors or form.non_field_errors %}
+            <div class="alert alert-error block mb-4 text-sm">
+              {{ form.errors }}{{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <p class="text-sm opacity-70">
+            Only approve this if you just ran <code>gitgrit auth login</code> yourself.
+          </p>
+
+          <div class="card-actions justify-end mt-4">
+            <input type="submit" class="btn" value="Cancel">
+            <input type="submit" class="btn btn-primary" name="allow" value="Authorize">
+          </div>
+        </form>
+      {% else %}
+        <h1 class="card-title">Authorization failed</h1>
+        <p class="text-sm">{{ error.description }}</p>
+        <p class="text-xs opacity-60"><code>{{ error.error }}</code></p>
+        <p class="text-sm opacity-70 mt-2">
+          Run <code>gitgrit auth login</code> again to start a new sign-in.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

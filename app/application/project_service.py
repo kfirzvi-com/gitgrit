@@ -169,9 +169,7 @@ class ProjectService:
         ``{"error": "no_match", "candidates": [...]}`` on miss — up to 5
         closest ``full_path`` matches to help the caller suggest alternatives.
 
-        The Claude plugin pre-normalizes its remote URL client-side; the same
-        normalization runs here so non-plugin MCP clients (Cursor, Cline, raw
-        JSON-RPC) get the same hit rate when they pass raw output of
+        Remote URLs are normalized here, so callers can pass the raw output of
         ``git remote get-url origin``.
         """
         web_url = _normalize_web_url(web_url)

@@ -96,6 +96,51 @@ def pin_head_commits(project, executions) -> None:
             )
 
 
+@dataclass
+class BranchRun:
+    """What ``run_on_branch`` queued: the commit it pinned ("" when the job
+    will pin the branch's head), the enqueue summary (None when no standard
+    applies to the branch) and a sentence saying so."""
+
+    branch: str
+    commit_sha: str
+    summary: dict | None
+    notice: str
+
+
+def run_on_branch(project, branch: str, *, sha: str = "", committed_at=None, user=None) -> BranchRun:
+    """Run the project's current standards that apply to ``branch``: on one
+    commit (``sha``), or on the branch's latest commit, pinned now so the
+    commit shows its runs at once. If the platform cannot say what the head
+    is, the job pins it."""
+    from app.application.standard_runs import enqueue_run
+
+    target = sha[:7] if sha else f"the latest commit on {branch}"
+    if not sha:
+        head = resolve_head_commit(project, branch)
+        sha = head.get("sha", "")
+        committed_at = parse_datetime(head["date"]) if head.get("date") else None
+        if sha:
+            target = f"{sha[:7]}, the latest commit on {branch}"
+    standards = StandardEngine().standards_for_branch(project, branch)
+    summary = enqueue_run(
+        project,
+        standards,
+        triggered_by="manual",
+        user=user,
+        ref=branch,
+        commit_sha=sha,
+        committed_at=committed_at,
+    )
+    if summary is None:
+        notice = f"No standards apply to {branch}."
+    elif summary["queued"]:
+        notice = f"Running {summary['queued']} standard{'s' if summary['queued'] != 1 else ''} on {target}."
+    else:
+        notice = "Those standards are already running."
+    return BranchRun(branch=branch, commit_sha=sha, summary=summary, notice=notice)
+
+
 # --- A branch's history -------------------------------------------------------------
 
 
@@ -201,6 +246,14 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
 def branch_status(project, branch: str) -> list:
     """The latest finished result of each attached standard on ``branch``."""
     return current_results([project], branch=branch)
+
+
+def commit_results(project, sha: str) -> CommitRow:
+    """One commit's checks from what GitGrit recorded (no platform call): the
+    latest result of each standard run on it, still RUNNING ones included."""
+    row = CommitRow(sha=sha)
+    _attach_results(project, [row])
+    return row
 
 
 def waiting_for_commit(project, branch: str) -> bool:

@@ -1,8 +1,7 @@
 """The save choke point: every mutation through ``create_standard_version``
 queues a runnable standard to re-run on its linked projects.
 
-This is the seam the MCP tools (``update_standard``/``set_standard_code``)
-and the web forms share — proving it here proves the 18 July scenario
+This is the seam the API (create/update standard) and the web forms share — proving it here proves the 18 July scenario
 (standards seeded through ``StandardService``, nothing ever ran) can't recur.
 """
 

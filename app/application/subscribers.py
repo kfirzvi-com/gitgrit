@@ -75,7 +75,7 @@ def _queue_on_project(project, standards, triggered_by) -> dict | None:
 
 def _summarize(per_project: list[dict]) -> dict | None:
     """Fold per-project enqueue counts into the feedback summary publish sites
-    flash to the user and MCP tools return."""
+    flash to the user and the API returns."""
     per_project = [c for c in per_project if c]
     if not per_project:
         return None

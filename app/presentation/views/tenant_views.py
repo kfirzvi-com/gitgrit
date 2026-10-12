@@ -16,6 +16,7 @@ from django_htmx.http import HttpResponseClientRedirect
 from app.application.event_bus import publish
 from app.domain.events import MemberJoined, MemberRemoved
 from app.domain.models import (
+    APIToken,
     LLMProvider,
     LLMProviderType,
     LLMRole,
@@ -205,6 +206,12 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             }
 
             context["is_admin"] = is_workspace_admin(self.request)
+            if context["is_admin"]:
+                context["workspace_tokens"] = APIToken.objects.filter(
+                    kind=APIToken.Kind.WORKSPACE, tenant=tenant
+                ).select_related("created_by")
+                context["new_token_value"] = self.request.session.pop("new_token_value", None)
+                context["new_token_name"] = self.request.session.pop("new_token_name", None)
             # Drives the minimal "Install GitHub App" entry point (Phase 2).
             context["github_app_enabled"] = settings.GITHUB_APP_ENABLED
         return context

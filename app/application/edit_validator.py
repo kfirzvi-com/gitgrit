@@ -3,6 +3,7 @@ from collections import Counter
 
 from django.core.exceptions import ValidationError
 
+from app.application.errors import NotFoundError
 from app.application.standard_service import StandardService
 from app.domain.models import Project, Tenant
 
@@ -76,7 +77,7 @@ class EditValidator:
         try:
             Project.objects.get(tenant=tenant, id=project_id)
         except (Project.DoesNotExist, ValidationError):
-            raise ValueError(f"Project {project_id} not found")
+            raise NotFoundError(f"Project {project_id} not found")
 
         normalized_path = _normalize_file_path(file_path)
         active_standards = self._standards.list_active_for_project(tenant, project_id)

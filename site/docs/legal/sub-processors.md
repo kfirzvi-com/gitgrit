@@ -26,7 +26,7 @@ The following sub-processors are engaged only if the corresponding feature is us
 
 | Sub-processor | Engaged when |
 | --- | --- |
-| Anthropic PBC (Claude API) | A user connects an MCP client (e.g. Claude Code) and that client sends prompts containing GitGrit data to Anthropic. GitGrit itself does not transmit data to Anthropic. |
+| Anthropic PBC (Claude API) | A user has an AI client (e.g. Claude Code) read GitGrit data through the API or CLI, and that client sends prompts containing it to Anthropic. GitGrit itself does not transmit data to Anthropic. |
 
 ## Notice of new sub-processors
 
