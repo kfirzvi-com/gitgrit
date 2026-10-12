@@ -113,16 +113,5 @@ surfaces, sections by small-caps labels.{% endcomment %}
         <p class="text-sm opacity-60 px-3">No commits to show for {{ branch }}.</p>
       {% endif %}
     </section>
-
-    {% if earlier %}
-      <details class="text-sm" data-earlier-runs>
-        <summary class="cursor-pointer opacity-60 hover:opacity-100 px-3 list-none">Earlier runs on {{ branch }}, from before GitGrit recorded commits ({{ earlier|length }}) ›</summary>
-        <div class="space-y-0.5 pt-2">
-          {% for ex in earlier %}
-            {% include "partials/project_history_result.html" with show_when=True %}
-          {% endfor %}
-        </div>
-      </details>
-    {% endif %}
   </div>
 </div>

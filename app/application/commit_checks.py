@@ -160,17 +160,6 @@ def branch_status(project, branch: str) -> list:
     return current_results([project], branch=branch)
 
 
-def earlier_runs(project, branch: str, limit: int = 20) -> list:
-    """Runs on ``branch`` recorded before commit checks existed (no commit)."""
-    refs = {branch, f"refs/heads/{branch}"}
-    if branch == project.default_branch:
-        refs.add("")
-    return list(
-        StandardExecution.objects.filter(project=project, commit_check__isnull=True, ref__in=refs)
-        .order_by("-created_at")[:limit]
-    )
-
-
 def _checked_commits(project, branch, page):
     shas = list(
         dict.fromkeys(

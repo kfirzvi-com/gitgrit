@@ -14,7 +14,7 @@ from django.utils.dateparse import parse_datetime
 
 from app.application import stack_service
 from app.application.event_bus import publish
-from app.application.commit_checks import branch_commits, branch_status, branches, earlier_runs
+from app.application.commit_checks import branch_commits, branch_status, branches
 from app.application.standard_engine import StandardEngine
 from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
@@ -160,7 +160,6 @@ def _history(request, project, branch, page=1, notice=""):
             "status_breakdown": breakdown(status),
             "status_commits": status_commits,
             "open_sha": open_sha,
-            "earlier": earlier_runs(project, branch) if page == 1 else [],
             "running": any(row.running for row in rows),
             "notice": notice,
         },

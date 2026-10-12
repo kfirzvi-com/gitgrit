@@ -12,7 +12,6 @@ from app.application.commit_checks import (
     CommitRow,
     branch_commits,
     branches,
-    earlier_runs,
     pin_head_commits,
 )
 from app.application.standard_engine import StandardEngine
@@ -204,14 +203,6 @@ class BranchHistoryTests(TestCase):
 
         self.assertEqual([r.sha for r in rows], ["3" * 40])
         self.assertTrue(rows[0].checked)
-
-    def test_earlier_runs_are_the_branchs_runs_without_a_commit(self):
-        a = _standard(self.project, "A")
-        legacy = baker.make("app.StandardExecution", project=self.project, standard=a, ref="")
-        baker.make("app.StandardExecution", project=self.project, standard=a, ref="refs/heads/other")
-        self._result("4" * 40, a, Status.PASSED, 100)
-
-        self.assertEqual([e.pk for e in earlier_runs(self.project, "main")], [legacy.pk])
 
 
 class CommitRowTests(SimpleTestCase):
