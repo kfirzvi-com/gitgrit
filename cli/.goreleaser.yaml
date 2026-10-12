@@ -1,0 +1,43 @@
+# Builds the gitgrit CLI for every platform. CI only builds and archives
+# (`goreleaser release --skip=publish`); the publish workflow attaches the
+# archives to the GitHub release itself:
+#   - a vX.Y.Z tag → the release the air-gap job creates (channel "stable");
+#   - a push to main → the rolling "edge" prerelease (channel "edge").
+# GITGRIT_CHANNEL is set by the workflow.
+version: 2
+project_name: gitgrit
+
+builds:
+  - id: gitgrit
+    binary: gitgrit
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/kfirzvi-com/gitgrit/cli/internal/version.Version={{ .Version }}
+      - -X github.com/kfirzvi-com/gitgrit/cli/internal/version.Channel={{ .Env.GITGRIT_CHANNEL }}
+
+archives:
+  - name_template: "gitgrit_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [README.md]
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  # Edge builds: the next patch after the last tag, plus the commit.
+  version_template: "v{{ incpatch .Version }}-edge.{{ .ShortCommit }}"
+
+release:
+  disable: true
+changelog:
+  disable: true

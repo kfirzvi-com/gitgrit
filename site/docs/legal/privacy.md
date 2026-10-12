@@ -31,7 +31,7 @@ We process personal data for the following purposes and on the following legal b
 
 | Purpose | Legal basis |
 | --- | --- |
-| Provide the Service (account creation, standard execution, badges, MCP, plugin). | Performance of a contract with you or your organization. |
+| Provide the Service (account creation, standard execution, badges, API, CLI). | Performance of a contract with you or your organization. |
 | Secure the Service (rate limiting, abuse detection, fraud prevention, audit logging). | Legitimate interests in keeping the Service available and trustworthy. |
 | Operate, maintain, and improve the Service (debugging, performance tuning, aggregate usage analysis). | Legitimate interests in operating and improving the Service. |
 | Respond to support, security, or privacy requests. | Performance of a contract; legitimate interests; legal obligation where applicable. |
@@ -82,7 +82,7 @@ The Service evaluates repositories against standards you have enabled and produc
 
 ## 14. AI integrations
 
-The Service offers MCP and a Claude Code plugin so third-party large-language-model clients can read GitGrit data and propose standard edits. When you connect such a client, the prompts and the data it reads are transmitted to the model provider you have configured under that provider's terms and privacy policy. GitGrit itself does not send user data to any AI provider for training.
+The Service offers a public API and command-line tool that third-party large-language-model clients can use to read GitGrit data and propose standard edits. When you connect such a client, the prompts and the data it reads are transmitted to the model provider you have configured under that provider's terms and privacy policy. GitGrit itself does not send user data to any AI provider for training.
 
 ## 15. Changes to this notice
 

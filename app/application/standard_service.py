@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 
+from app.application.errors import NotFoundError
 from app.application.event_bus import publish
 from app.domain.events import StandardSaved
 from app.domain.models import (
@@ -21,7 +22,7 @@ _DEFAULT_CODE = 'def evaluate(project):\n    return {"passed": True, "score": 10
 def create_standard_version(standard: Standard, user: User, summary: str) -> dict | None:
     """Snapshot the standard's current state as an immutable version.
 
-    Every definition mutation (web forms, MCP tools, revert) funnels through
+    Every definition mutation (web forms, the API, revert) funnels through
     here, which makes it the coverage-change choke point: after the snapshot, a
     runnable standard is *queued* to run again on its linked projects via
     ``StandardSaved`` — the background worker executes it and the results
@@ -102,7 +103,7 @@ class StandardService:
         try:
             p = Standard.objects.prefetch_related("labels").get(id=standard_id, tenant=tenant)
         except (Standard.DoesNotExist, ValidationError):
-            raise ValueError(f"Standard {standard_id} not found")
+            raise NotFoundError(f"Standard {standard_id} not found")
 
         recent_executions = list(
             p.executions.order_by("-created_at")[:5].select_related("project")
@@ -164,7 +165,7 @@ class StandardService:
         try:
             standard = Standard.objects.prefetch_related("labels").get(id=standard_id, tenant=tenant)
         except (Standard.DoesNotExist, ValidationError):
-            raise ValueError(f"Standard {standard_id} not found")
+            raise NotFoundError(f"Standard {standard_id} not found")
 
         change_summary = data.get("change_summary", "Updated")
         update_fields = ["updated_at"]
@@ -225,7 +226,7 @@ class StandardService:
         try:
             standard = Standard.objects.get(id=standard_id, tenant=tenant)
         except (Standard.DoesNotExist, ValidationError):
-            raise ValueError(f"Standard {standard_id} not found")
+            raise NotFoundError(f"Standard {standard_id} not found")
         standard.delete()
 
     def list_active_for_project(
@@ -248,7 +249,7 @@ class StandardService:
         try:
             project = Project.objects.get(tenant=tenant, id=project_id)
         except (Project.DoesNotExist, ValidationError):
-            raise ValueError(f"Project {project_id} not found")
+            raise NotFoundError(f"Project {project_id} not found")
 
         standards = project.standards.filter(
             enabled=True, draft=False

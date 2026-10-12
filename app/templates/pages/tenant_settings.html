@@ -5,6 +5,7 @@
 {% block content %}
 {% if current_tenant %}
   <h1 class="text-3xl font-bold mb-6">{{ current_tenant.name }}</h1>
+  {% include "partials/new_token_banner.html" %}
 
   <div class="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6 lg:items-start">
     <nav id="settings-nav" aria-label="Settings sections"
@@ -14,13 +15,14 @@
         <li><a href="#section-members" data-settings-link>Members &amp; Permissions</a></li>
         <li><a href="#section-connections" data-settings-link>Git Platform Connections</a></li>
         <li><a href="#section-llm" data-settings-link>LLM Providers</a></li>
+        {% if is_admin %}<li><a href="#section-api-tokens" data-settings-link>API Tokens</a></li>{% endif %}
       </ul>
     </nav>
 
     <div class="min-w-0">
       <section id="section-members" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6"
                data-settings-section>
-        <input type="radio" name="settings-section" checked aria-label="Toggle Members &amp; Permissions">
+        <input type="radio" name="settings-section" {% if not new_token_value %}checked{% endif %} aria-label="Toggle Members &amp; Permissions">
         <h2 class="collapse-title text-xl font-semibold">Members &amp; Permissions</h2>
         <div class="collapse-content space-y-4">
       <div class="card bg-base-100">
@@ -403,6 +405,78 @@
       {% endif %}
         </div>
       </section>
+
+      {% if is_admin %}
+      <section id="section-api-tokens" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6"
+               data-settings-section>
+        <input type="radio" name="settings-section" {% if new_token_value %}checked{% endif %} aria-label="Toggle API Tokens">
+        <h2 class="collapse-title text-xl font-semibold">API Tokens</h2>
+        <div class="collapse-content space-y-4">
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">Workspace tokens</h2>
+          <p class="text-sm opacity-70 -mt-1">For CI/CD and other automation.</p>
+          <ul class="list-disc list-inside text-sm opacity-70 space-y-1 mb-2">
+            <li>Reaches only <strong>{{ current_tenant.name }}</strong>.</li>
+            <li>Not tied to a person, so it keeps working when people come and go.</li>
+            <li>Can read projects and health, run checks, and manage standards.</li>
+            <li>Only admins can create or revoke them.</li>
+          </ul>
+
+          {% if workspace_tokens %}
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Prefix</th>
+                    <th>Created by</th>
+                    <th>Last used</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for token in workspace_tokens %}
+                    <tr>
+                      <td>{{ token.name }}</td>
+                      <td><code class="font-mono text-sm">{{ token.prefix }}…</code></td>
+                      <td class="text-sm opacity-70">
+                        {{ token.created_by.email|default:"—" }}<br>
+                        <span class="text-xs">{{ token.created_at|date:"M j, Y" }}</span>
+                      </td>
+                      <td class="text-sm opacity-70">
+                        {% if token.last_used_at %}{{ token.last_used_at|timesince }} ago{% else %}Never{% endif %}
+                      </td>
+                      <td>
+                        <form method="post" action="{% url 'revoke_workspace_token' token.id %}">
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs text-error"
+                                  onclick="return confirm('Revoke token \'{{ token.name|escapejs }}\'? Pipelines using it will lose access.')">
+                            Revoke
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+
+          <form method="post" action="{% url 'create_workspace_token' %}" class="flex gap-3 items-end">
+            {% csrf_token %}
+            <div class="flex-1">
+              <label class="label"><span class="label-text text-sm">Token name</span></label>
+              <input type="text" name="token_name" required maxlength="100"
+                     placeholder="e.g. GitHub Actions — backend" class="input input-bordered w-full">
+            </div>
+            <button type="submit" class="btn btn-primary">Create token</button>
+          </form>
+        </div>
+      </div>
+        </div>
+      </section>
+      {% endif %}
 
     </div>
   </div>

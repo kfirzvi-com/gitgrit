@@ -1,7 +1,7 @@
 """Workspace settings is organised into navigable, collapsible sections.
 
-Three areas — members, git platform connections, LLM providers — each a
-collapsible section reachable from a side nav. Modals stay outside the
+Four areas — members, git platform connections, LLM providers and (admins
+only) API tokens — each a collapsible section reachable from a side nav. Modals stay outside the
 collapsibles: a collapsed section hides its whole subtree, which would take a
 <dialog> down with it.
 """
@@ -18,7 +18,7 @@ NON_MANIFEST_STORAGES = {
     },
 }
 
-SECTIONS = ["section-members", "section-connections", "section-llm"]
+SECTIONS = ["section-members", "section-connections", "section-llm", "section-api-tokens"]
 SECTION_INPUT = '<input type="radio" name="settings-section"'
 
 
@@ -36,7 +36,7 @@ def _login(client, role="owner"):
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class TestSettingsSections(TestCase):
-    def test_all_three_sections_render(self):
+    def test_all_sections_render(self):
         _login(self.client)
         body = self.client.get(reverse("tenant_settings")).content.decode()
         for section in SECTIONS:
@@ -142,5 +142,25 @@ class TestSettingsSections(TestCase):
         _login(self.client, role="member")
         body = self.client.get(reverse("tenant_settings")).content.decode()
         for section in SECTIONS:
-            assert f'id="{section}"' in body, section
+            if section != "section-api-tokens":  # admin-only
+                assert f'id="{section}"' in body, section
         assert 'id="add-connection-card"' not in body
+
+
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestApiTokensSectionIsAdminOnly(TestCase):
+    def test_member_does_not_get_the_api_tokens_section(self):
+        _login(self.client, role="member")
+        body = self.client.get(reverse("tenant_settings")).content.decode()
+        assert 'id="section-api-tokens"' not in body
+        assert body.count(SECTION_INPUT) == len(SECTIONS) - 1
+
+    def test_a_new_token_opens_the_api_tokens_section_instead(self):
+        _login(self.client)
+        self.client.post(reverse("create_workspace_token"), {"token_name": "ci"})
+        body = self.client.get(reverse("tenant_settings")).content.decode()
+        open_inputs = [
+            line for line in body.splitlines() if SECTION_INPUT in line and "checked" in line
+        ]
+        assert len(open_inputs) == 1
+        assert "API Tokens" in open_inputs[0]

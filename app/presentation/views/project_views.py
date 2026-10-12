@@ -12,16 +12,14 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
 
-from app.application import stack_service
+from app.application import commit_checks, stack_service
 from app.application.event_bus import publish
 from app.application.commit_checks import (
     branch_commits,
     branch_status,
     branches,
-    resolve_head_commit,
     waiting_for_commit,
 )
-from app.application.standard_engine import StandardEngine
 from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
@@ -201,32 +199,14 @@ def run_on_branch(request, pk):
     project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
     branch = request.POST.get("branch") or project.default_branch
     sha = request.POST.get("sha", "")
-    committed_at = parse_datetime(request.POST.get("committed_at") or "") if sha else None
-    target = sha[:7] if sha else f"the latest commit on {branch}"
-    if not sha:
-        # Pin the run to the branch's head now, so its commit shows it
-        # running at once. If the platform cannot say, the job pins it.
-        head = resolve_head_commit(project, branch)
-        sha = head.get("sha", "")
-        committed_at = parse_datetime(head["date"]) if head.get("date") else None
-        if sha:
-            target = f"{sha[:7]}, the latest commit on {branch}"
-    standards = StandardEngine().standards_for_branch(project, branch)
-    summary = enqueue_run(
+    run = commit_checks.run_on_branch(
         project,
-        standards,
-        triggered_by="manual",
+        branch,
+        sha=sha,
+        committed_at=parse_datetime(request.POST.get("committed_at") or "") if sha else None,
         user=request.user,
-        ref=branch,
-        commit_sha=sha,
-        committed_at=committed_at,
     )
-    if summary is None:
-        notice = f"No standards apply to {branch}."
-    elif summary["queued"]:
-        notice = f"Running {summary['queued']} standard{'s' if summary['queued'] != 1 else ''} on {target}."
-    else:
-        notice = "Those standards are already running."
+    notice, sha = run.notice, run.commit_sha
     return _history(request, project, branch, _page(request.POST.get("page")), notice=notice, open_sha=sha)
 
 

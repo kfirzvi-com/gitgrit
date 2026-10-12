@@ -82,7 +82,12 @@ from app.presentation.views.notification_views import (
 )
 from app.presentation.views.web_views import DashboardView, HomeView
 from app.presentation.views.workspace_switcher_views import workspace_switcher_list
-from app.presentation.views.token_views import create_api_token, revoke_api_token
+from app.presentation.views.token_views import (
+    create_personal_token,
+    create_workspace_token,
+    revoke_personal_token,
+    revoke_workspace_token,
+)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
@@ -255,8 +260,18 @@ urlpatterns = [
         name="revert_standard_version",
     ),
     # API Tokens
-    path("tenants/tokens/create/", create_api_token, name="create_api_token"),
-    path("tenants/tokens/<uuid:token_id>/revoke/", revoke_api_token, name="revoke_api_token"),
+    path("profile/tokens/create/", create_personal_token, name="create_personal_token"),
+    path(
+        "profile/tokens/<uuid:token_id>/revoke/",
+        revoke_personal_token,
+        name="revoke_personal_token",
+    ),
+    path("tenants/tokens/create/", create_workspace_token, name="create_workspace_token"),
+    path(
+        "tenants/tokens/<uuid:token_id>/revoke/",
+        revoke_workspace_token,
+        name="revoke_workspace_token",
+    ),
     # Badges (public, unauthenticated)
     path("badge/<uuid:pk>.svg", project_badge, name="project_badge"),
     # Feedback

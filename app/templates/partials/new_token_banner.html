@@ -1,0 +1,25 @@
+{% if new_token_value %}
+  <div class="alert alert-success mb-6" id="new-token-alert">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <div class="flex-1">
+      <p class="font-bold">Token "{{ new_token_name }}" created. Copy it now — it won't be shown again.</p>
+      <div class="flex items-center gap-2 mt-2">
+        <input type="text" id="new-token-input" value="{{ new_token_value }}" readonly
+               class="input input-bordered input-sm font-mono flex-1 bg-base-200">
+        <button class="btn btn-sm btn-ghost" onclick="copyNewToken()">Copy</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    function copyNewToken() {
+      var input = document.getElementById('new-token-input');
+      navigator.clipboard.writeText(input.value).then(function() {
+        var btn = input.nextElementSibling;
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+{% endif %}

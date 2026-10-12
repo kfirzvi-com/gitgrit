@@ -1,0 +1,3 @@
+# The Go CLI is released separately; the server image doesn't need it.
+cli/
+bin/

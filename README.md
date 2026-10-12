@@ -9,7 +9,7 @@
 
 GitGrit is a developer-experience platform that gives engineering leaders visibility into how their teams build, and gives developers actionable guidance to improve. Define organization-wide standards as version-controlled Python code, and GitGrit evaluates every repository against them automatically on each push, pull request, and tag — rolling the results into a per-project score and a live badge.
 
-A hosted version runs at **[app.gitgrit.dev](https://app.gitgrit.dev)**, and the full documentation lives at **[gitgrit.dev](https://gitgrit.dev)**. This repository is the source for the platform, the standard sandbox, the marketplace content, the MCP server, and the Claude Code authoring plugin.
+A hosted version runs at **[app.gitgrit.dev](https://app.gitgrit.dev)**, and the full documentation lives at **[gitgrit.dev](https://gitgrit.dev)**. This repository is the source for the platform, the standard sandbox, the marketplace content, and the public API.
 
 ---
 
@@ -19,7 +19,7 @@ A hosted version runs at **[app.gitgrit.dev](https://app.gitgrit.dev)**, and the
 - **Automatic evaluation.** Webhooks run matching standards on every push, pull request, and tag, across GitHub and GitLab in one workspace.
 - **Visible scores.** Each project gets a score and an embeddable [badge](https://gitgrit.dev/features/badges/) so teams can see where they stand and where to improve.
 - **Marketplace.** Install curated [standard packs](https://gitgrit.dev/features/marketplace/) in one click, then customize.
-- **AI-native authoring.** A Claude Code plugin and an MCP server help LLMs draft, test, and refactor standards — with every standard running in an isolated sandbox.
+- **Public API.** A REST API (OpenAPI at `/api/v1/schema/`) for scripts, CI/CD and AI agents — projects, health, commit checks and standards, with every standard running in an isolated sandbox.
 
 The full feature tour is on the [docs home](https://gitgrit.dev).
 
@@ -40,9 +40,9 @@ def evaluate(project):
 
 Standards receive a typed `ProjectContext`, run sandboxed, and ship with mock-data test cases. See the [standard guide](https://gitgrit.dev/getting-started/standards/) and the [`ProjectContext` API reference](https://gitgrit.dev/api/project-context/).
 
-## Claude Code plugin & MCP server
+## Public API
 
-The [`plugin/`](plugin/) directory is a Claude Code plugin that makes your editing session aware of the workspace's active standards and adds `/gitgrit-status`, `/gitgrit-refresh`, and `/gitgrit-check`. GitGrit also ships an MCP server that exposes project context and standard data to LLM clients ([Cursor](https://gitgrit.dev/getting-started/setup-cursor/), [Cline](https://gitgrit.dev/getting-started/setup-cline/), [generic MCP clients](https://gitgrit.dev/getting-started/setup-generic/)).
+`/api/v1/` exposes projects, health per branch, commit checks and standards — the same data as the web app. Authenticate with OAuth (`gitgrit auth login` in the upcoming CLI), a personal token from your profile page, or a workspace token from the workspace settings (for CI/CD). Interactive docs live at `/api/v1/docs/`.
 
 > Standards drafted or edited by an LLM must be reviewed by a human and run against their test cases before you trust them in production.
 

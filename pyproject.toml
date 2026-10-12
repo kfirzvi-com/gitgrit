@@ -17,11 +17,6 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.2.1",
     "whitenoise>=6.0",
-    # Pinned: mcp 2.0 moved FastMCP out of `mcp.server.fastmcp`, so an unbounded
-    # spec breaks every import of our MCP server. Belt-and-braces now that the
-    # Dockerfile and CI install from uv.lock (`uv sync --locked`) — the pin
-    # documents the incompatibility even where a lockfile isn't in play.
-    "mcp==1.27.0",
     "uvicorn>=0.30",
     "procrastinate[django]>=3.8.1",
     # Pinned: litellm 1.89+ lazily imports litellm.responses.mcp -> litellm.proxy
@@ -32,6 +27,8 @@ dependencies = [
     # installs with plain pip and has no lockfile of its own.
     "litellm==1.88.1",
     "pyjwt>=2.11.0",
+    "drf-spectacular>=0.28",
+    "django-oauth-toolkit>=3.0",
 ]
 
 [dependency-groups]

@@ -1,0 +1,1360 @@
+openapi: 3.0.3
+info:
+  title: GitGrit API
+  version: 1.0.0
+  description: 'Public REST API for GitGrit: projects, compliance status and standards.
+    Every workspace-scoped call names its workspace in the URL; `GET /api/v1/me/`
+    lists the workspaces the caller can use. Authenticate with an OAuth 2.0 access
+    token (`gitgrit auth login`: authorization code + PKCE, discovery at `/.well-known/oauth-authorization-server`)
+    or a `grit_` token from your profile page, which is fixed to one workspace.'
+paths:
+  /api/v1/me/:
+    get:
+      operationId: get_me
+      description: 'What the token acts as and the workspaces it can reach: every
+        workspace the user belongs to for an OAuth or personal token; just its own,
+        with no user, for a workspace token.'
+      summary: Who am I
+      tags:
+      - auth
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/:
+    get:
+      operationId: list_projects
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: List projects
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/branches/:
+    get:
+      operationId: list_project_branches
+      description: The default branch first. Read from the Git platform.
+      summary: List a project's branches
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Branch'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/checks/:
+    post:
+      operationId: run_project_check
+      description: Runs the standards that apply to the branch, in the background,
+        on one commit or on the branch's latest commit. Standards already running
+        are left alone.
+      summary: Check a commit now
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - health
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunCheckRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunCheckResult'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/commits/:
+    get:
+      operationId: list_project_commits
+      description: Newest first, 5 per page, from the Git platform (falls back to
+        the commits GitGrit checked). Unchecked commits have empty `results`.
+      summary: A branch's commits with their checks
+      parameters:
+      - in: query
+        name: branch
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitPage'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/commits/{sha}/:
+    get:
+      operationId: get_project_commit
+      description: From what GitGrit recorded; 404 when the commit was never checked.
+        Poll this after `run_project_check` until `running` is 0.
+      summary: One commit's checks
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sha
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commit'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/health/:
+    get:
+      operationId: get_project_health
+      description: 'Without `branch`: the project''s health — each attached standard''s
+        latest result on its home branch (the default branch unless the standard''s
+        filter names one). With `branch`: that branch''s health. Levels: healthy ≥
+        80, warning ≥ 50, critical below.'
+      summary: Project or branch health
+      parameters:
+      - in: query
+        name: branch
+        schema:
+          type: string
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectHealth'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/:
+    get:
+      operationId: list_project_standards
+      description: Each carries the extracted `rules` used for local enforcement.
+      summary: Active standards attached to a project
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveStandard'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/status/:
+    get:
+      operationId: get_project_status
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Compliance grade and top offenders
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStatus'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/resolve/:
+    get:
+      operationId: resolve_project
+      description: Pass `repo_full_path` (e.g. `acme/backend`) and/or `web_url` —
+        raw `git remote get-url origin` output is accepted. A miss returns 404 with
+        up to 5 close candidates.
+      summary: Resolve a git remote to a project
+      parameters:
+      - in: query
+        name: repo_full_path
+        schema:
+          type: string
+      - in: query
+        name: web_url
+        schema:
+          type: string
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvedProject'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectNotFound'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/standards/:
+    get:
+      operationId: list_standards
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: List standards
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StandardSummary'
+          description: ''
+    post:
+      operationId: create_standard
+      description: An active standard attached to projects is queued to run on save.
+      summary: Create a standard
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardCreateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardMutation'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/standards/{standard_id}/:
+    get:
+      operationId: get_standard
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Get a standard with its code and recent executions
+      parameters:
+      - in: path
+        name: standard_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardDetail'
+          description: ''
+    patch:
+      operationId: update_standard
+      description: 'Only the fields sent change; every save is versioned. Drafts are
+        always disabled — to publish, send `draft: false, enabled: true`.'
+      summary: Update a standard
+      parameters:
+      - in: path
+        name: standard_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStandardUpdateRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardMutation'
+          description: ''
+    delete:
+      operationId: delete_standard
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Delete a standard
+      parameters:
+      - in: path
+        name: standard_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_id}/standards/test/:
+    post:
+      operationId: test_standard
+      description: Runs in the gVisor sandbox; nothing is saved.
+      summary: Dry-run standard code against mock project data
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardTestRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardTestResult'
+          description: ''
+components:
+  schemas:
+    ActiveStandard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        rules:
+          type: object
+          additionalProperties: {}
+          description: 'Extracted enforcement rules: watched files, forbidden patterns,
+            flags.'
+        enabled:
+          type: boolean
+        draft:
+          type: boolean
+        labels:
+          type: array
+          items:
+            type: string
+        languages:
+          type: array
+          items:
+            type: string
+        last_execution:
+          allOf:
+          - $ref: '#/components/schemas/LastExecution'
+          nullable: true
+      required:
+      - description
+      - draft
+      - enabled
+      - id
+      - labels
+      - languages
+      - last_execution
+      - name
+      - rules
+    Branch:
+      type: object
+      properties:
+        name:
+          type: string
+        is_default:
+          type: boolean
+      required:
+      - is_default
+      - name
+    CheckResult:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        standard_id:
+          type: string
+          format: uuid
+          nullable: true
+        standard_name:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        score:
+          type: integer
+          nullable: true
+          description: Null while running.
+        message:
+          type: string
+        branch:
+          type: string
+        commit_sha:
+          type: string
+          description: Empty until the run is pinned to a commit.
+        ran_at:
+          type: string
+          format: date-time
+        still_attached:
+          type: boolean
+          description: 'Commit views only: whether the standard is still attached.'
+      required:
+      - branch
+      - commit_sha
+      - execution_id
+      - message
+      - ran_at
+      - score
+      - standard_id
+      - standard_name
+      - status
+    Commit:
+      type: object
+      properties:
+        score:
+          type: integer
+          nullable: true
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        passed:
+          type: integer
+        failed:
+          type: integer
+        errored:
+          type: integer
+        sha:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+          nullable: true
+        url:
+          type: string
+        checked:
+          type: boolean
+        running:
+          type: integer
+          description: Checks still running on this commit.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckResult'
+        not_run:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardRef'
+          description: Standards that apply now but did not run on this commit.
+      required:
+      - author
+      - checked
+      - date
+      - errored
+      - failed
+      - level
+      - not_run
+      - passed
+      - results
+      - running
+      - score
+      - sha
+      - title
+      - url
+    CommitPage:
+      type: object
+      properties:
+        branch:
+          type: string
+        page:
+          type: integer
+        has_more:
+          type: boolean
+        commits:
+          type: array
+          items:
+            $ref: '#/components/schemas/Commit'
+      required:
+      - branch
+      - commits
+      - has_more
+      - page
+    EventsEnum:
+      enum:
+      - push
+      - pull_request
+      - tag
+      type: string
+      description: |-
+        * `push` - push
+        * `pull_request` - pull_request
+        * `tag` - tag
+    Execution:
+      type: object
+      properties:
+        status:
+          type: string
+        score:
+          type: integer
+          nullable: true
+        message:
+          type: string
+        project:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - message
+      - project
+      - score
+      - status
+    LastExecution:
+      type: object
+      properties:
+        score:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - message
+      - score
+      - status
+    LevelEnum:
+      enum:
+      - healthy
+      - warning
+      - critical
+      - unknown
+      type: string
+      description: |-
+        * `healthy` - healthy
+        * `warning` - warning
+        * `critical` - critical
+        * `unknown` - unknown
+    MatchedByEnum:
+      enum:
+      - full_path
+      - web_url
+      type: string
+      description: |-
+        * `full_path` - full_path
+        * `web_url` - web_url
+    Me:
+      type: object
+      properties:
+        token_type:
+          $ref: '#/components/schemas/TokenTypeEnum'
+        user:
+          allOf:
+          - $ref: '#/components/schemas/UserRef'
+          nullable: true
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+      required:
+      - token_type
+      - user
+      - workspaces
+    Offender:
+      type: object
+      properties:
+        standard_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        score:
+          type: integer
+          nullable: true
+        message:
+          type: string
+        last_run:
+          type: string
+          format: date-time
+      required:
+      - last_run
+      - message
+      - name
+      - score
+      - standard_id
+    PatchedStandardUpdateRequest:
+      type: object
+      description: PATCH body — only the fields sent are changed.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventsEnum'
+        ref_pattern:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        labels:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        draft:
+          type: boolean
+        enabled:
+          type: boolean
+        change_summary:
+          type: string
+          minLength: 1
+          default: Updated via API
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        platform:
+          type: string
+        full_path:
+          type: string
+        web_url:
+          type: string
+        default_branch:
+          type: string
+        lifecycle:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+      - default_branch
+      - description
+      - full_path
+      - id
+      - languages
+      - lifecycle
+      - name
+      - platform
+      - tags
+      - web_url
+    ProjectHealth:
+      type: object
+      properties:
+        score:
+          type: integer
+          nullable: true
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        passed:
+          type: integer
+        failed:
+          type: integer
+        errored:
+          type: integer
+        project:
+          $ref: '#/components/schemas/ProjectRef'
+        branch:
+          type: string
+          nullable: true
+          description: Null for the project's health (each standard's home branch).
+        default_branch:
+          type: string
+        running:
+          type: boolean
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckResult'
+      required:
+      - branch
+      - default_branch
+      - errored
+      - failed
+      - level
+      - passed
+      - project
+      - results
+      - running
+      - score
+    ProjectNotFound:
+      type: object
+      properties:
+        detail:
+          type: string
+        candidates:
+          type: array
+          items:
+            type: string
+          description: Up to 5 close full_path matches.
+      required:
+      - candidates
+      - detail
+    ProjectRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    ProjectStatus:
+      type: object
+      properties:
+        project:
+          $ref: '#/components/schemas/ProjectRef'
+        overall_score:
+          type: number
+          format: double
+          nullable: true
+        grade:
+          type: string
+          nullable: true
+        total_standards:
+          type: integer
+        passed:
+          type: integer
+        failed:
+          type: integer
+        top_offenders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offender'
+      required:
+      - failed
+      - grade
+      - overall_score
+      - passed
+      - project
+      - top_offenders
+      - total_standards
+    ResolvedProject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        platform:
+          type: string
+        full_path:
+          type: string
+        web_url:
+          type: string
+        default_branch:
+          type: string
+        lifecycle:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        matched_by:
+          $ref: '#/components/schemas/MatchedByEnum'
+      required:
+      - default_branch
+      - description
+      - full_path
+      - id
+      - languages
+      - lifecycle
+      - matched_by
+      - name
+      - platform
+      - tags
+      - web_url
+    RunCheckRequest:
+      type: object
+      properties:
+        branch:
+          type: string
+          minLength: 1
+          description: Defaults to the project's default branch.
+        sha:
+          type: string
+          minLength: 1
+          default: ''
+          description: Check this commit; omit to check the branch's latest commit.
+          pattern: ^[0-9a-f]{40}$
+    RunCheckResult:
+      type: object
+      properties:
+        branch:
+          type: string
+        commit_sha:
+          type: string
+          nullable: true
+          description: Null when the platform could not resolve the head yet.
+        queued:
+          type: integer
+        already_running:
+          type: integer
+        message:
+          type: string
+      required:
+      - already_running
+      - branch
+      - commit_sha
+      - message
+      - queued
+    RunsSummary:
+      type: object
+      properties:
+        projects:
+          type: integer
+        queued:
+          type: integer
+        already_running:
+          type: integer
+        message:
+          type: string
+      required:
+      - already_running
+      - message
+      - projects
+      - queued
+    StandardCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type: string
+          minLength: 1
+          description: Python source defining evaluate(project).
+        description:
+          type: string
+          default: ''
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventsEnum'
+        ref_pattern:
+          type: string
+          default: ''
+          description: Regex matched against the branch or tag. Empty matches all.
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        labels:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        draft:
+          type: boolean
+          default: false
+      required:
+      - code
+      - name
+    StandardDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        code:
+          type: string
+        enabled:
+          type: boolean
+        draft:
+          type: boolean
+        labels:
+          type: array
+          items:
+            type: string
+        criteria:
+          type: object
+          additionalProperties: {}
+        test_cases: {}
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        recent_executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Execution'
+      required:
+      - code
+      - created_at
+      - criteria
+      - description
+      - draft
+      - enabled
+      - id
+      - labels
+      - name
+      - recent_executions
+      - test_cases
+      - updated_at
+    StandardMutation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        runs:
+          allOf:
+          - $ref: '#/components/schemas/RunsSummary'
+          description: Present when saving queued background runs on attached projects.
+      required:
+      - id
+      - name
+    StandardRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    StandardSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        draft:
+          type: boolean
+        labels:
+          type: array
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+        ref_pattern:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - description
+      - draft
+      - enabled
+      - events
+      - id
+      - labels
+      - languages
+      - name
+      - ref_pattern
+      - updated_at
+    StandardTestRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+        mock_input:
+          type: object
+          additionalProperties: {}
+          description: 'Mock project data: files [{path, content}], languages {name:
+            pct}, members, contributors, default_branch, topics, metadata.'
+      required:
+      - code
+    StandardTestResult:
+      type: object
+      properties:
+        passed:
+          type: boolean
+        score:
+          type: integer
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: {}
+      required:
+      - details
+      - message
+      - passed
+      - score
+    StatusEnum:
+      enum:
+      - running
+      - passed
+      - failed
+      - error
+      - skipped
+      type: string
+      description: |-
+        * `running` - running
+        * `passed` - passed
+        * `failed` - failed
+        * `error` - error
+        * `skipped` - skipped
+    TokenTypeEnum:
+      enum:
+      - oauth
+      - personal_token
+      - workspace_token
+      type: string
+      description: |-
+        * `oauth` - oauth
+        * `personal_token` - personal_token
+        * `workspace_token` - workspace_token
+    UserRef:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+      required:
+      - email
+      - id
+      - username
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          nullable: true
+          description: owner, admin or member; null for a workspace token, which has
+            no user.
+      required:
+      - id
+      - name
+      - role
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: A `grit_pat_` personal token (profile page; acts as you in all
+        your workspaces) or a `grit_ws_` workspace token (workspace settings; reaches
+        only that workspace, for CI/CD).
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth/authorize/
+          tokenUrl: /oauth/token/
+          refreshUrl: /oauth/token/
+          scopes:
+            read: Read your projects, compliance status and standards
+            write: Create, edit and delete standards

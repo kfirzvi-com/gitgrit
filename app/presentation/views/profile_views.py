@@ -1,7 +1,4 @@
-import json
-
 from allauth.socialaccount.models import SocialAccount
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -38,34 +35,11 @@ class ProfileView(LoginRequiredMixin, TemplateView):
 
         ctx["providers"] = providers
 
-        tenant = self.request.tenant
-        ctx["tenant"] = tenant
-        if tenant:
-            ctx["api_tokens"] = APIToken.objects.filter(
-                user=self.request.user, tenant=tenant
-            ).order_by("-created_at")
-
+        ctx["api_tokens"] = APIToken.objects.filter(
+            kind=APIToken.Kind.PERSONAL, user=self.request.user
+        )
         ctx["new_token_value"] = self.request.session.pop("new_token_value", None)
         ctx["new_token_name"] = self.request.session.pop("new_token_name", None)
-        ctx["new_token_kind"] = self.request.session.pop("new_token_kind", None)
-
-        site_url = settings.SITE_URL.rstrip("/")
-        mcp_url = f"{site_url}/mcp"
-        mcp_config = json.dumps(
-            {
-                "mcpServers": {
-                    "GitGrit": {
-                        "type": "http",
-                        "url": mcp_url,
-                        "headers": {"Authorization": "Bearer YOUR_TOKEN"},
-                    }
-                }
-            },
-            indent=2,
-        )
-        ctx["mcp_config_desktop"] = mcp_config
-        ctx["mcp_config_code"] = mcp_config
-        ctx["mcp_config_generic"] = mcp_config
         return ctx
 
 

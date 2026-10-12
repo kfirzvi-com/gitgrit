@@ -1,6 +1,6 @@
 # Security Policy
 
-GitGrit's threat surface is unusually wide for an open-source web app: it executes user-supplied code in a sandbox, holds OAuth tokens for GitHub and GitLab, exposes webhook endpoints, and ships an MCP server that LLM clients drive. This document describes what is in place today, what is explicitly *not*, and how to report vulnerabilities.
+GitGrit's threat surface is unusually wide for an open-source web app: it executes user-supplied code in a sandbox, holds OAuth tokens for GitHub and GitLab, exposes webhook endpoints, and serves a public REST API that scripts, CI pipelines and AI agents drive. This document describes what is in place today, what is explicitly *not*, and how to report vulnerabilities.
 
 ## Reporting a vulnerability
 
@@ -30,9 +30,9 @@ GitGrit is pre-1.0 and ships from a single `main` branch. We currently support s
 - Webhook signature bypass on `/api/webhooks/github/` and `/api/webhooks/gitlab/`
 - Sandbox escape from a malicious standard (`sandbox_image/`, `app/infrastructure/sandbox/`)
 - OAuth token leakage from `PlatformConnection` (database, logs, error pages, admin views)
-- Tenancy isolation bypass in the MCP server (`app/infrastructure/mcp/`) or the web app
+- Tenancy isolation bypass in the public API (`app/presentation/api/`) or the web app
 - Authentication bypass on any non-public endpoint
-- Stored XSS or SSRF reachable via standard code, MCP tool input, or webhook payloads
+- Stored XSS or SSRF reachable via standard code, API input, or webhook payloads
 - Privilege escalation within a workspace (member → admin → owner)
 
 ### Out of scope
@@ -90,33 +90,43 @@ GitGrit stores GitHub and GitLab personal access tokens on `PlatformConnection.a
 - Google OAuth tokens stored by `django-allauth` in `socialaccount_socialtoken` are **not** encrypted — they are subject to allauth's defaults. The Google scopes we request (`profile`, `email`) are sign-in only, but you should still treat that table as sensitive in your DB backup posture.
 - The sandbox provider receives the **plaintext** token via the `/input.json` mount. A sandbox escape is therefore equivalent to OAuth token disclosure for that connection. Sandbox-side token exposure is mitigated by gVisor (see above) but not eliminated.
 
-### MCP server
+### Public API
 
-`app/infrastructure/mcp/` exposes an authenticated MCP endpoint at `/mcp/`. LLM clients (Claude Code, Cline, Cursor, generic MCP-aware tools) call its tools to read project state and, with the right token, mutate standards.
+`app/presentation/api/` serves the REST API at `/api/v1/` (OpenAPI document at `/api/v1/schema/`). Every workspace-scoped call names its workspace in the URL: `/api/v1/workspaces/{id}/...`.
 
 **Defenses:**
-- All tools require `Authorization: Bearer <token>` via `app/infrastructure/mcp/middleware.py`. Tokens are SHA-256 hashed at rest in `APIToken.token_hash` (raw token never stored).
-- Each token belongs to a (user, tenant) pair via FKs on the `APIToken` model. Tool calls are scoped to that tenant.
-- Read-only tools: `validate_edit`, `validate_action`, `list_standards`, `get_standard`, `list_projects`, `resolve_project`, `get_project_status`, `get_active_standards_for_project`, `session_bootstrap`, `run_standard_test`, `export_setup_files`, `get_project_context_api`.
-- Write-capable tools: `create_standard`, `update_standard`, `delete_standard`, `set_standard_code`. These mutate workspace state and should only be granted to tokens issued for trusted clients.
+- Every endpoint requires `Authorization: Bearer <token>`; browser sessions are not accepted, so the API needs no CSRF exemption.
+- The workspace in the URL is checked on every call: a user (OAuth or personal token) must be a member; a workspace token must belong to it. Anything else is a 404, so workspace ids can't be probed.
+- Write endpoints (create/update/delete standards, run checks) need the `write` OAuth scope; reads need `read`.
 
 **Known limitations:**
-- **All tools are accessible from any valid token.** There is no per-tool scope (no read-only token kind). If an LLM client receives a token, it can create or delete standards in that user's tenant. Treat MCP tokens as workspace-write-capable until per-token scopes ship.
-- Tool inputs may contain text from PR diffs. **An LLM driving the MCP server is exposed to prompt injection from untrusted PR content.** Mitigations: do not let the LLM auto-merge or auto-deploy based on tool outputs; require human review for any write tool the LLM chains into.
-- `run_standard_test` executes user-supplied standard code in the sandbox with mock data. The same sandbox defenses and limitations described above apply.
+- Any member can manage standards through the API, as in the web app; there is no role check beyond membership.
+- `POST .../standards/test/` executes user-supplied standard code in the sandbox with mock data. The sandbox defenses and limitations above apply.
+- API responses may contain text from PR diffs and repository files. **An LLM agent driving the API is exposed to prompt injection from that content.** Don't let it auto-merge or auto-deploy based on API output; require human review for any write it chains into.
+
+### OAuth (CLI sign-in)
+
+The `gitgrit` CLI signs in with OAuth 2.0 via [django-oauth-toolkit](https://github.com/jazzband/django-oauth-toolkit): authorization code + PKCE (S256 only) with an RFC 8252 loopback redirect, for the public client `gitgrit-cli` (registered by migration; no client secret). Only `/oauth/authorize/`, `/oauth/token/`, `/oauth/revoke_token/` and `/.well-known/oauth-authorization-server` are mounted — DOT's application-management views are not.
+
+**Defenses:** access tokens expire after an hour; refresh tokens rotate and a reused refresh token is rejected; tokens are stored hashed (RFC 9700); the implicit and password grants are refused; the authorization response carries `iss` (RFC 9207). Tokens belong to a user and can reach every workspace that user is a member of.
+
+**Known limitations:** there is no page yet to list or revoke OAuth sign-ins; `gitgrit auth logout` revokes its own. Expired tokens are not purged until `manage.py cleartokens` runs.
 
 ### API tokens
 
-User-issued API tokens (`APIToken` model) authenticate the MCP server and external HTTP API.
+Long-lived `APIToken`s, for scripts and CI/CD. Two kinds:
+
+- **Personal** (`grit_pat_…`, profile page): acts as its user, in every workspace they're a member of. Dies with the user's membership or account; refused once the user is deactivated.
+- **Workspace** (`grit_ws_…`, workspace settings, admins only): reaches one workspace and has no user behind it, so it survives its creator leaving. Changes it makes are recorded with no user.
 
 **Defenses:**
-- Generated via `secrets.token_urlsafe(32)` with a `grit_` prefix (~48 raw chars total).
-- Stored as **SHA-256 hash** (`token_hash`); only the first 12 chars are kept verbatim as a `prefix` for UI display. Compromising the database does not yield raw tokens.
+- Generated via `secrets.token_urlsafe(32)` behind the kind's prefix.
+- Stored as **SHA-256 hash** (`token_hash`); only the first 16 chars are kept as a `prefix` for UI display. Compromising the database does not yield raw tokens.
 - Lookup is by hash equality; rate-limiting is handled by the upstream proxy.
 
 **Known limitations:**
-- No expiry, no rotation reminder. Tokens are valid until manually revoked.
-- No per-tool scope (see MCP section).
+- No expiry, no rotation reminder. Tokens are valid until revoked.
+- No scopes: an API token has its owner's full access.
 
 ## Follow-ups tracked against this document
 
@@ -129,5 +139,5 @@ These are known gaps the project intends to close. Filing an issue or PR for any
 - Add a `GITGRIT_ENCRYPTION_STRICT=1` flag that disables the lenient legacy-plaintext read path on `EncryptedCharField`, plus a management command that asserts every row is ciphertext before flipping the flag.
 - Implement key rotation via `cryptography.fernet.MultiFernet`.
 - Encrypt `socialaccount_socialtoken` rows (Google OAuth) the same way `PlatformConnection.access_token` is encrypted.
-- Add per-token scopes (read-only vs write) for MCP tokens.
+- Add scopes (read-only vs write) for API tokens, as OAuth tokens already have.
 - Add a token-expiry field and surface "stale token" warnings in the UI.

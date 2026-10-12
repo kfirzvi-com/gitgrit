@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 
+from app.application.errors import NotFoundError
 from app.application.standard_results import current_results
 from app.domain.models import StandardExecution, Project, Tenant
 from app.domain.standard_criteria import score_to_grade
@@ -21,7 +22,7 @@ class ProjectStatusService:
         try:
             project = Project.objects.get(tenant=tenant, id=project_id)
         except (Project.DoesNotExist, ValidationError):
-            raise ValueError(f"Project {project_id} not found")
+            raise NotFoundError(f"Project {project_id} not found")
 
         latest = current_results(
             [project],

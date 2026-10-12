@@ -52,3 +52,48 @@ jobs:
           DEBUG: "True"
         run: uv run --no-sync python manage.py test --settings=gitgrit.settings_test
 
+      # The CLI's API client is generated from cli/openapi.yaml. If the API
+      # changed without re-exporting it, the CLI would silently drift from
+      # the server: `make -C cli spec` fixes this failure.
+      - name: CLI's copy of the OpenAPI spec is current
+        env:
+          SECRET_KEY: test-secret-key
+          GITGRIT_ENCRYPTION_KEY: w258ShlYJUj9-j8a4e7-O_Nnsq8Wgd6LWP-6-ZBFFFQ=
+          DEBUG: "True"
+        run: |
+          uv run --no-sync python manage.py spectacular --file /tmp/openapi.yaml --validate --fail-on-warn
+          diff -u cli/openapi.yaml /tmp/openapi.yaml
+
+  cli:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Generated client matches openapi.yaml
+        run: |
+          go generate ./...
+          git diff --exit-code -- internal/api/
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Builds for every release platform
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean
+          workdir: cli
+        env:
+          GITGRIT_CHANNEL: dev
+

@@ -62,6 +62,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
+    "oauth2_provider",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -373,6 +375,65 @@ TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
 # worker log group: the periodic jobs report "ended with status: Success"
 # every few minutes, so their absence means the worker is down or wedged
 # (alarmed on in infra modules/monitoring).
+# Public REST API (/api/v1/). Only the schema class is set globally so the
+# webhook receivers (also DRF views) keep DRF's defaults; auth is declared on
+# the API views themselves.
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "GitGrit API",
+    "DESCRIPTION": (
+        "Public REST API for GitGrit: projects, compliance status and standards. "
+        "Every workspace-scoped call names its workspace in the URL; `GET /api/v1/me/` "
+        "lists the workspaces the caller can use. Authenticate with an OAuth 2.0 "
+        "access token (`gitgrit auth login`: authorization code + PKCE, discovery at "
+        "`/.well-known/oauth-authorization-server`) or a `grit_` token from your "
+        "profile page, which is fixed to one workspace."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "PREPROCESSING_HOOKS": ["app.presentation.api.schema.public_api_only"],
+    "OAUTH2_FLOWS": ["authorizationCode"],
+    "OAUTH2_AUTHORIZATION_URL": "/oauth/authorize/",
+    "OAUTH2_TOKEN_URL": "/oauth/token/",
+    "OAUTH2_REFRESH_URL": "/oauth/token/",
+    "OAUTH2_SCOPES": None,  # taken from OAUTH2_PROVIDER["SCOPES"]
+}
+
+# OAuth 2.0 authorization server (django-oauth-toolkit). Clients are public
+# native apps — today only the GitGrit CLI (`gitgrit-cli`, registered by a data
+# migration) — using authorization code + PKCE with an RFC 8252 loopback
+# redirect. Tokens belong to a user; the API checks workspace membership on
+# every call. All RFC 9700 (OAuth security BCP) gates are on except the
+# redirect-scheme one: loopback redirects are plain http by definition.
+OAUTH2_PROVIDER = {
+    "SCOPES": {
+        "read": "Read your projects, compliance status and standards",
+        "write": "Create, edit and delete standards",
+    },
+    "DEFAULT_SCOPES": ["read", "write"],
+    "PKCE_REQUIRED": True,
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 60 * 60,
+    "REFRESH_TOKEN_EXPIRE_SECONDS": 60 * 60 * 24 * 30,
+    "ROTATE_REFRESH_TOKEN": True,
+    "REFRESH_TOKEN_REUSE_PROTECTION": True,
+    "ALLOWED_REDIRECT_URI_SCHEMES": ["http", "https"],
+    "OAUTH2_RESPONSE_TYPES_SUPPORTED": ["code"],
+    "OAUTH2_GRANT_TYPES_SUPPORTED": ["authorization_code", "refresh_token"],
+    "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
+    "COMPLIANT_BCP_RFC9700_ACCESS_TOKEN_TRANSPORT": True,
+    "COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS": True,
+    "COMPLIANT_BCP_RFC9700_TOKEN_STORAGE": True,
+    "COMPLIANT_BCP_RFC9700_REFRESH_TOKEN": True,
+    "COMPLIANT_BCP_RFC9700_REDIRECT_URI_MATCHING": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_REQUIRED": True,
+}
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

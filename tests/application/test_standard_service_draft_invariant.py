@@ -1,6 +1,6 @@
 """Drafts never run, so a draft can only be disabled — service layer.
 
-The MCP tools go through ``StandardService``, so the invariant has to hold
+The API goes through ``StandardService``, so the invariant has to hold
 here too, not just in the web forms.
 """
 import pytest

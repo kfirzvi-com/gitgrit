@@ -317,7 +317,7 @@ async def recover_stalled_jobs(timestamp: int) -> int:
             # driver error with ``raise exc.__cause__``, which makes the
             # exception chain cyclic (psycopg error -> Django IntegrityError
             # -> psycopg error). Stdlib logging copes; rich's traceback
-            # renderer, installed on the root logger by FastMCP, loops forever
+            # renderer (FastMCP used to install it on the root logger) loops forever
             # on it and hung the CI test job (PR #113).
             logger.warning(
                 "stalled job %s (task=%s) collided with a newly queued twin; "
