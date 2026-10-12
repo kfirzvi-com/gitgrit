@@ -2,9 +2,9 @@
 //
 // Two channels, both GitHub releases of kfirzvi-com/gitgrit:
 //   - stable: the latest vX.Y.Z release (GitHub's /releases/latest never
-//     returns a prerelease), cut by the same tag that deploys production;
-//   - edge: one prerelease tagged "edge", rebuilt on every push to main
-//     (what staging runs). Its name is the build's version.
+//     returns a prerelease), cut by the same tag as the server release;
+//   - edge: one prerelease tagged "edge", rebuilt on every push to main.
+//     Its name is the build's version.
 //
 // Every release carries gitgrit_<os>_<arch>.tar.gz (.zip on Windows) and
 // checksums.txt; downloads are verified against it before installing.

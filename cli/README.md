@@ -8,7 +8,7 @@ commit checks, standards, and any API call.
 ```sh
 curl -fsSL https://gitgrit.dev/install.sh | sh                        # latest stable
 curl -fsSL https://gitgrit.dev/install.sh | GITGRIT_VERSION=v0.9.0 sh  # a specific release
-curl -fsSL https://gitgrit.dev/install.sh | GITGRIT_CHANNEL=edge sh    # main (what staging runs)
+curl -fsSL https://gitgrit.dev/install.sh | GITGRIT_CHANNEL=edge sh    # built from main (prerelease)
 ```
 
 One static binary, no runtime, installed as `gitgrit` with `ggr` as a short
@@ -31,10 +31,10 @@ gitgrit api workspaces/{workspace}/projects/   # anything else in /api/v1
 
 Every command takes `--json` for the raw API response.
 
-### Other instances (staging, local dev, self-hosted)
+### Other instances (self-hosted, local dev)
 
 ```sh
-gitgrit auth login --host app-staging.gitgrit.dev
+gitgrit auth login --host gitgrit.example.com
 gitgrit auth login --host localhost:8000
 gitgrit health --host localhost:8000    # or GITGRIT_HOST=localhost:8000
 gitgrit auth status                     # every instance you're logged in to

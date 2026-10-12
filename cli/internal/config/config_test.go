@@ -17,7 +17,7 @@ func TestNormalizeHost(t *testing.T) {
 		"[::1]:8000":                  "http://[::1]:8000",
 		"http://localhost:8001":       "http://localhost:8001",
 		"https://localhost:8443":      "https://localhost:8443",
-		"app-staging.gitgrit.dev":     "https://app-staging.gitgrit.dev",
+		"gitgrit.example.com":         "https://gitgrit.example.com",
 		"gitgrit.acme.internal:8443":  "https://gitgrit.acme.internal:8443",
 	}
 	for in, want := range ok {

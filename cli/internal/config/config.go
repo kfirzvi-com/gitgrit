@@ -1,6 +1,6 @@
 // Package config stores the CLI's per-server state in hosts.yml: credentials
-// and the default workspace for each GitGrit instance (production, staging,
-// a local dev server), plus which one is the default.
+// and the default workspace for each GitGrit instance (app.gitgrit.dev, a
+// self-hosted one, a local dev server), plus which one is the default.
 package config
 
 import (
@@ -128,7 +128,7 @@ func IsLoopback(hostname string) bool {
 }
 
 // NormalizeHost turns what a user types ("localhost:8001",
-// "app-staging.gitgrit.dev", "https://app.gitgrit.dev/") into a base URL.
+// "gitgrit.example.com", "https://app.gitgrit.dev/") into a base URL.
 // Without a scheme, local hosts get http and everything else https. Plain
 // http to a non-local host is refused: tokens would cross the network in
 // the clear.

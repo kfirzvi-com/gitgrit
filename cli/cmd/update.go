@@ -20,8 +20,8 @@ func newUpdateCmd() *cobra.Command {
 		Long: `Download the newest gitgrit for this machine from GitHub releases, verify its
 checksum and replace this binary.
 
-Channels: stable (default; what production runs) and edge (built from main;
-what staging runs). An edge build stays on edge unless you pass --channel.
+Channels: stable (default; the latest release) and edge (a prerelease built
+from main). An edge build stays on edge unless you pass --channel.
 Installed with Homebrew? Use ` + "`brew upgrade gitgrit`" + ` instead.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

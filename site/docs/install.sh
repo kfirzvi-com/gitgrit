@@ -5,7 +5,7 @@
 #
 # Options (environment variables):
 #   GITGRIT_VERSION=v1.2.3   install that release instead of the latest stable one
-#   GITGRIT_CHANNEL=edge     install the edge build (main; what staging runs)
+#   GITGRIT_CHANNEL=edge     install the edge build (a prerelease built from main)
 #   GITGRIT_INSTALL_DIR=dir  where to put the binary (default: ~/.local/bin)
 #   GITGRIT_DOWNLOAD_BASE=url  download from this mirror of a release's files
 #

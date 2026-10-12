@@ -34,12 +34,12 @@ func TestCheck(t *testing.T) {
 }
 
 func TestResolveHostOrder(t *testing.T) {
-	cfg := &config.Config{DefaultHost: "app-staging.gitgrit.dev"}
+	cfg := &config.Config{DefaultHost: "gitgrit.example.com"}
 	t.Setenv("GITGRIT_HOST", "")
 	if h, _ := ResolveHost("", &config.Config{}); h != config.DefaultHost {
 		t.Errorf("no settings: %s", h)
 	}
-	if h, _ := ResolveHost("", cfg); h != "https://app-staging.gitgrit.dev" {
+	if h, _ := ResolveHost("", cfg); h != "https://gitgrit.example.com" {
 		t.Errorf("saved default: %s", h)
 	}
 	t.Setenv("GITGRIT_HOST", "localhost:8001")

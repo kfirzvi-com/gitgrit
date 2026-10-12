@@ -41,10 +41,10 @@ func newAuthLoginCmd() *cobra.Command {
 		Long: `Log in to a GitGrit instance with your browser (OAuth 2.0 with PKCE).
 
 The instance becomes the default for later commands. Log in to several
-(production, staging, a local dev server) and switch with --host:
+(app.gitgrit.dev, a self-hosted one, a local dev server) and switch with --host:
 
   gitgrit auth login                                # app.gitgrit.dev
-  gitgrit auth login --host app-staging.gitgrit.dev
+  gitgrit auth login --host gitgrit.example.com
   gitgrit auth login --host localhost:8000`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
