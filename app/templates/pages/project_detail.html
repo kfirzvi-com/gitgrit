@@ -121,6 +121,28 @@
         if (t.checked) history.replaceState(null, "", "#" + t.dataset.tab);
       });
     });
+    // The Results tab re-renders while runs are in flight; keep the commits
+    // the viewer opened or closed as they were. Commits new to the list (or
+    // just checked) take the server's choice.
+    var openState = null;
+    document.body.addEventListener("htmx:beforeSwap", function (e) {
+      if (!e.detail.target || e.detail.target.id !== "project-history") return;
+      openState = {};
+      e.detail.target.querySelectorAll("[data-commit] > details").forEach(function (d) {
+        openState[d.parentElement.dataset.commit] = d.open;
+      });
+    });
+    document.body.addEventListener("htmx:afterSwap", function () {
+      if (!openState) return;
+      var history = document.getElementById("project-history");
+      if (history) {
+        history.querySelectorAll("[data-commit] > details").forEach(function (d) {
+          var was = openState[d.parentElement.dataset.commit];
+          if (was !== undefined) d.open = was;
+        });
+      }
+      openState = null;
+    });
     document.addEventListener("click", function (e) {
       var link = e.target.closest("[data-open-tab]");
       if (!link) return;

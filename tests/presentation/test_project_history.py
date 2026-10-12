@@ -68,6 +68,17 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn("1 failed", content)
         self.assertIn("Not checked", content)
 
+    def test_a_result_row_holds_no_nested_link(self):
+        ex = self._check("a" * 40)
+        ex.standard_version = baker.make("app.StandardVersion", standard=self.standard, version=3)
+        ex.save()
+
+        content = self._get().content.decode()
+
+        self.assertIn(">v3</span>", content)
+        row = content.split(f'href="{reverse("standard_execution_detail", args=[ex.id])}"', 1)[1].split("</a>", 1)[0]
+        self.assertNotIn("<a ", row)
+
     def test_the_newest_checked_commit_starts_open(self):
         self._check("b" * 40)
 
@@ -165,6 +176,7 @@ class RunOnBranchViewTests(TestCase):
         self.assertEqual(check.committed_at.isoformat(), "2026-10-01T10:00:00+00:00")
         self.assertEqual(check.executions.get().standard_name, "Pinned CI")
         self.assertIn("Running 1 standard on aaaaaaa.", response.content.decode())
+        self.assertEqual(response.context["open_sha"], "a" * 40)
 
     def test_running_a_branch_waits_for_the_job_to_pin_its_head(self):
         response = self._post(branch="main")

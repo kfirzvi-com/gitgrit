@@ -1,7 +1,8 @@
 {% comment %}The standard version a result ran, and whether the standard changed since.
-Expects `ex` (a StandardExecution); prints nothing for runs from before versions were recorded.{% endcomment %}
+Expects `ex` (a StandardExecution); prints nothing for runs from before versions were recorded.
+Plain text, not a link: it sits inside the result row's link, and nested links break the row.{% endcomment %}
 {% with version=ex.standard_version %}
   {% if version %}
-    <a href="{% url 'standard_execution_detail' ex.id %}#standard-code" class="text-xs opacity-60 link link-hover" title="The version of the standard this run used">v{{ version.version }}</a>{% if ex.standard and ex.standard.code != version.code %}<span class="text-xs text-warning" title="The standard has changed since this run"> · changed since</span>{% endif %}
+    <span class="text-xs opacity-60" title="The version of the standard this run used">v{{ version.version }}</span>{% if ex.standard and ex.standard.code != version.code %}<span class="text-xs text-warning" title="The standard has changed since this run"> · changed since</span>{% endif %}
   {% endif %}
 {% endwith %}

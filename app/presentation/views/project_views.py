@@ -132,7 +132,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-def _history(request, project, branch, page=1, notice=""):
+def _history(request, project, branch, page=1, notice="", open_sha=""):
     branch_names = branches(project)
     if branch not in branch_names:
         branch_names.append(branch)
@@ -143,7 +143,9 @@ def _history(request, project, branch, page=1, notice=""):
     status_commits = list(dict.fromkeys(
         ex.commit_check.commit_sha[:7] for ex in status if ex.commit_check and ex.commit_check.commit_sha
     ))
-    open_sha = next((row.sha for row in rows if row.checked), "") if page == 1 else ""
+    # The commit that starts open: the one just run, else the newest checked.
+    if not open_sha and page == 1:
+        open_sha = next((row.sha for row in rows if row.checked), "")
     return render(
         request,
         "partials/project_history.html",
@@ -211,7 +213,7 @@ def run_on_branch(request, pk):
         notice = f"Running {summary['queued']} standard{'s' if summary['queued'] != 1 else ''} on {target}."
     else:
         notice = "Those standards are already running."
-    return _history(request, project, branch, _page(request.POST.get("page")), notice=notice)
+    return _history(request, project, branch, _page(request.POST.get("page")), notice=notice, open_sha=sha)
 
 
 class EditProjectView(LoginRequiredMixin, UpdateView):
