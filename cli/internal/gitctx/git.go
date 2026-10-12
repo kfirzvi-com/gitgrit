@@ -5,8 +5,6 @@ package gitctx
 import (
 	"net/url"
 	"os/exec"
-	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -28,18 +26,6 @@ func CurrentBranch() string {
 		return ""
 	}
 	return b
-}
-
-// HeadSHA is the checked-out commit, or "".
-func HeadSHA() string { return git("rev-parse", "HEAD") }
-
-// FileAtHead is a file's content at HEAD, and whether it exists there.
-func FileAtHead(path string) (string, bool) {
-	out, err := exec.Command("git", "show", "HEAD:./"+path).Output()
-	if err != nil {
-		return "", false
-	}
-	return string(out), true
 }
 
 // FullPath turns a remote URL into "org/repo" (GitLab subgroups kept):
@@ -72,14 +58,6 @@ func SafeRemote(remote string) string {
 		u.User = nil
 	}
 	return u.String()
-}
-
-// RepoPath turns a path relative to the current directory into one relative
-// to the repository root (how standards name files). Outside a repo it's the
-// cleaned path.
-func RepoPath(p string) string {
-	prefix := git("rev-parse", "--show-prefix")
-	return path.Clean(filepath.ToSlash(filepath.Join(prefix, p)))
 }
 
 // FullSHA expands an abbreviated commit SHA using the local repository; it
