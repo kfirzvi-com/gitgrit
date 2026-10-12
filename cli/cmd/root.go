@@ -37,6 +37,7 @@ func newRoot() *cobra.Command {
 		Use:   "gitgrit",
 		Short: "GitGrit from the command line",
 		Long: `Work with GitGrit from your terminal, scripts, CI and AI agents.
+(Installed by install.sh as gitgrit, and as ggr for short.)
 
 Commands act on the GitGrit instance from --host, $GITGRIT_HOST or the one you
 last logged in to (default: app.gitgrit.dev), and on the workspace from

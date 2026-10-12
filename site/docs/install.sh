@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install the GitGrit CLI.
+# Install the GitGrit CLI as `gitgrit`, plus `ggr` as a short name for it.
 #
 #   curl -fsSL https://gitgrit.dev/install.sh | sh
 #
@@ -75,6 +75,14 @@ mv "$tmp/gitgrit" "$INSTALL_DIR/gitgrit"
 chmod 755 "$INSTALL_DIR/gitgrit"
 
 echo "Installed $("$INSTALL_DIR/gitgrit" --version) to $INSTALL_DIR/gitgrit"
+
+# `ggr`: a short name, as a symlink. Never replace a ggr that isn't ours.
+if [ ! -e "$INSTALL_DIR/ggr" ] && [ ! -L "$INSTALL_DIR/ggr" ] || [ "$(readlink "$INSTALL_DIR/ggr" 2>/dev/null)" = "gitgrit" ]; then
+  ln -sf gitgrit "$INSTALL_DIR/ggr"
+  echo "Short name: ggr"
+else
+  echo "Not creating ggr: $INSTALL_DIR/ggr already exists and isn't gitgrit"
+fi
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
   *) echo "Add it to your PATH:  export PATH=\"$INSTALL_DIR:\$PATH\"" ;;

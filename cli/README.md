@@ -11,14 +11,15 @@ curl -fsSL https://gitgrit.dev/install.sh | GITGRIT_VERSION=v0.9.0 sh  # a speci
 curl -fsSL https://gitgrit.dev/install.sh | GITGRIT_CHANNEL=edge sh    # main (what staging runs)
 ```
 
-One static binary, no runtime. `gitgrit update` moves to the newest release on
+One static binary, no runtime, installed as `gitgrit` with `ggr` as a short
+name (a symlink; skipped if you already have a different `ggr`). `gitgrit update` moves to the newest release on
 your channel; at most once a day the CLI mentions when one is out
 (`GITGRIT_NO_UPDATE_NOTIFIER=1`, or `CI`, turns that off).
 
 ## Use
 
 ```sh
-gitgrit auth login                      # browser sign-in to app.gitgrit.dev
+gitgrit auth login                      # browser sign-in to app.gitgrit.dev (or: ggr auth login)
 gitgrit workspace use "Acme"            # if you're in several
 cd ~/src/acme/api                       # project commands default to this repo
 gitgrit health                          # project health; --branch for a branch's
