@@ -189,7 +189,11 @@ func newCommitCmd() *cobra.Command {
 }
 
 func printCommit(w io.Writer, c *api.Commit) {
-	fmt.Fprintf(w, "%s %s\n%s\n", output.Short(c.Sha), c.Title, summary(c.Score, c.Level, c.Passed, c.Failed, c.Errored))
+	header := output.Short(c.Sha)
+	if c.Title != "" {
+		header += " " + c.Title
+	}
+	fmt.Fprintf(w, "%s\n%s\n", header, summary(c.Score, c.Level, c.Passed, c.Failed, c.Errored))
 	if c.Running > 0 {
 		fmt.Fprintf(w, "%d still running…\n", c.Running)
 	}
