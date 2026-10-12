@@ -135,7 +135,7 @@ class ProjectHistoryViewTests(TestCase):
     def test_the_project_page_loads_the_tab_when_first_opened(self):
         content = self.client.get(reverse("project_detail", args=[self.project.pk])).content.decode()
         self.assertIn(f'hx-get="{reverse("project_history", args=[self.project.pk])}"', content)
-        self.assertIn('hx-trigger="intersect once"', content)
+        self.assertIn('hx-trigger="tab-open once"', content)
         self.platform.list_commits.assert_not_called()
 
 

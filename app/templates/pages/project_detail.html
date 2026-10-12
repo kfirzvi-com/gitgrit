@@ -63,7 +63,8 @@
 
 {# Three tabs, picked by the URL hash so links can open one: #overview (and   #}
 {# #components), #results (and #compliance, where notifications link) and     #}
-{# #standards. Results and Standards load their content when first opened.    #}
+{# #standards. Results and Standards load their content when first opened     #}
+{# (the script sends their loaders "tab-open").                               #}
 <div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
   <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
   <div class="tab-content pt-6" id="overview">
@@ -76,7 +77,7 @@
   <input type="radio" name="project_tab" class="tab" aria-label="Results" data-tab="results">
   <div class="tab-content pt-6 scroll-mt-20" id="compliance">
     <div id="project-history" class="card bg-base-100 shadow-xl"
-         hx-get="{% url 'project_history' project.pk %}" hx-trigger="intersect once" hx-swap="outerHTML" data-no-loader>
+         hx-get="{% url 'project_history' project.pk %}" hx-trigger="tab-open once" hx-swap="outerHTML" data-tab-load data-no-loader>
       <div class="card-body"><p class="text-sm opacity-60">Loading branches and commits…</p></div>
     </div>
   </div>
@@ -95,7 +96,7 @@
             <a href="{% url 'create_standard' %}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">New standard</a>
           </div>
         </div>
-        <div id="project-standards" hx-get="{% url 'project_standards' project.pk %}?embed=tab" hx-trigger="intersect once" hx-swap="innerHTML" data-no-loader>
+        <div id="project-standards" hx-get="{% url 'project_standards' project.pk %}?embed=tab" hx-trigger="tab-open once" hx-swap="innerHTML" data-tab-load data-no-loader>
           <p class="text-sm opacity-60">Loading standards…</p>
         </div>
       </div>
@@ -107,18 +108,33 @@
   (function () {
     var byHash = {overview: "overview", components: "overview", results: "results", compliance: "results", standards: "standards"};
     var tabs = document.querySelectorAll("[data-project-tabs] input[data-tab]");
-    function pick(name) {
-      tabs.forEach(function (t) { t.checked = t.dataset.tab === name; });
+    // A tab's panel is the element right after its radio input.
+    function load(tab) {
+      var panel = tab.nextElementSibling;
+      if (panel) panel.querySelectorAll("[data-tab-load]").forEach(function (el) { htmx.trigger(el, "tab-open"); });
+    }
+    function pick(name, andLoad) {
+      tabs.forEach(function (t) {
+        t.checked = t.dataset.tab === name;
+        if (t.checked && andLoad) load(t);
+      });
     }
     function fromHash() {
       var wanted = byHash[(location.hash || "").slice(1)];
-      if (wanted) pick(wanted);
+      if (wanted) pick(wanted, document.readyState !== "loading");
     }
     fromHash();
+    // htmx wires the loaders on DOMContentLoaded (its listener was added
+    // first, so it runs first); load the opening tab after that.
+    document.addEventListener("DOMContentLoaded", function () {
+      tabs.forEach(function (t) { if (t.checked) load(t); });
+    });
     window.addEventListener("hashchange", fromHash);
     tabs.forEach(function (t) {
       t.addEventListener("change", function () {
-        if (t.checked) history.replaceState(null, "", "#" + t.dataset.tab);
+        if (!t.checked) return;
+        history.replaceState(null, "", "#" + t.dataset.tab);
+        load(t);
       });
     });
     // The Results tab re-renders while runs are in flight; keep the commits
@@ -134,9 +150,9 @@
     });
     document.body.addEventListener("htmx:afterSwap", function () {
       if (!openState) return;
-      var history = document.getElementById("project-history");
-      if (history) {
-        history.querySelectorAll("[data-commit] > details").forEach(function (d) {
+      var list = document.getElementById("project-history");
+      if (list) {
+        list.querySelectorAll("[data-commit] > details").forEach(function (d) {
           var was = openState[d.parentElement.dataset.commit];
           if (was !== undefined) d.open = was;
         });
@@ -147,7 +163,7 @@
       var link = e.target.closest("[data-open-tab]");
       if (!link) return;
       e.preventDefault();
-      pick(link.dataset.openTab);
+      pick(link.dataset.openTab, true);
       history.replaceState(null, "", "#" + link.dataset.openTab);
     });
   })();

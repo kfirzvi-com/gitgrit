@@ -74,6 +74,7 @@ class ProjectTabsTests(TestCase):
         body = self._page().content.decode()
         self.assertIn(f'hx-get="{reverse("project_history", args=[self.project.pk])}"', body)
         self.assertIn(f'hx-get="{reverse("project_standards", args=[self.project.pk])}?embed=tab"', body)
+        self.assertEqual(body.count('hx-trigger="tab-open once"'), 2)
 
     def test_saving_standards_returns_to_the_standards_tab(self):
         standard = baker.make("app.Standard", tenant=self.tenant, enabled=True, draft=False)
