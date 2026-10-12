@@ -19,7 +19,8 @@ from app.presentation.views.project_views import (
     add_project_search,
     add_project_select,
     delete_project,
-    project_results,
+    project_history,
+    run_on_branch,
     project_standards,
     retry_webhook,
     run_project_standards,
@@ -204,9 +205,14 @@ urlpatterns = [
         name="project_standards",
     ),
     path(
-        "projects/<uuid:pk>/results/",
-        project_results,
-        name="project_results",
+        "projects/<uuid:pk>/history/",
+        project_history,
+        name="project_history",
+    ),
+    path(
+        "projects/<uuid:pk>/history/run/",
+        run_on_branch,
+        name="run_on_branch",
     ),
     path(
         "projects/<uuid:pk>/retry-webhook/",

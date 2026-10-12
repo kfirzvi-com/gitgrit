@@ -1,0 +1,25 @@
+{% comment %}The Overview tab's health card: the project's score (its default branch), the
+passed / failed / error breakdown behind it, and a way into the Results tab.{% endcomment %}
+<div class="card bg-base-100 shadow-xl h-full" data-overview-health>
+  <div class="card-body items-center justify-center gap-6 py-10">
+    {% if compliance_score is not None %}
+      <div class="relative">
+        <div class="radial-progress {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %} text-4xl font-bold"
+             style="--value:{{ compliance_score }}; --size:10rem; --thickness:0.75rem;" role="progressbar" aria-label="Health score {{ compliance_score }}">{{ compliance_score }}</div>
+        <span class="tooltip tooltip-left absolute -top-1 -right-6 cursor-help opacity-50 hover:opacity-100"
+              data-tip="The project's health score: the average of each standard's latest result on {{ project.default_branch }}, the default branch, out of 100."
+              tabindex="0" aria-label="About this score">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
+        </span>
+      </div>
+      {% include "partials/health_breakdown.html" with counts=health_breakdown %}
+      <a href="#results" class="link link-hover text-sm opacity-70" data-open-tab="results">See the results by commit →</a>
+    {% elif attached_standards %}
+      <p class="text-sm opacity-60">No results on {{ project.default_branch }} yet.</p>
+      <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
+    {% else %}
+      <p class="text-sm opacity-60">No standards attached. Pick the standards that apply to this project.</p>
+      <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
+    {% endif %}
+  </div>
+</div>

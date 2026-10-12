@@ -58,6 +58,27 @@ def create_standard_version(standard: Standard, user: User, summary: str) -> dic
     return results[0] if results else None
 
 
+def version_to_run(standard: Standard) -> StandardVersion:
+    """The snapshot a run of ``standard`` records: its latest saved version,
+    or a new snapshot when there is none or the standard's code or criteria
+    have moved on since (a change saved without a version). Unlike
+    ``create_standard_version`` this queues nothing: it is called while a
+    run is being queued."""
+    latest = standard.versions.order_by("-version").first()
+    if latest and latest.code == standard.code and latest.criteria == standard.criteria:
+        return latest
+    return StandardVersion.objects.create(
+        standard=standard,
+        version=(latest.version if latest else 0) + 1,
+        code=standard.code,
+        description=standard.description,
+        criteria=standard.criteria,
+        test_cases=standard.test_cases,
+        labels_snapshot=list(standard.labels.values_list("name", flat=True)),
+        change_summary="Snapshot taken when it ran",
+    )
+
+
 class StandardService:
     def list_standards(self, tenant: Tenant) -> list[dict]:
         return [

@@ -1,0 +1,7 @@
+{% comment %}A score's breakdown: how many standards passed, failed and errored. Expects
+`counts` ({passed, failed, errored}).{% endcomment %}
+<span class="inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-health-breakdown>
+  <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-success"></span><b>{{ counts.passed }}</b> <span class="opacity-60">passed</span></span>
+  <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-error"></span><b>{{ counts.failed }}</b> <span class="opacity-60">failed</span></span>
+  <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-warning"></span><b>{{ counts.errored }}</b> <span class="opacity-60">error</span></span>
+</span>

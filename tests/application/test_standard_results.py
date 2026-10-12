@@ -6,7 +6,12 @@ from django.test import TestCase
 from django.utils import timezone
 from model_bakery import baker
 
-from app.application.standard_results import AttentionItem, attention_items
+from app.application.standard_results import (
+    AttentionItem,
+    attention_items,
+    current_results,
+    project_score,
+)
 from app.domain.health import CRITICAL, WARNING
 from app.domain.models import StandardExecution
 
@@ -106,3 +111,102 @@ class AttentionItemsTests(TestCase):
         self._result(self._standard("Elsewhere", project=other), 10, project=other)
 
         self.assertEqual(attention_items(self.tenant), [])
+
+
+class HomeBranchTests(TestCase):
+    """Health reads each standard's home branch only: the default branch, or
+    the branch its Branch/Tag Filter names literally."""
+
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        self.project = baker.make("app.Project", tenant=self.tenant, default_branch="main")
+
+    def _standard(self, name="Pinned CI", ref_filter=None):
+        criteria = {"ref": ref_filter} if ref_filter is not None else {}
+        standard = baker.make("app.Standard", tenant=self.tenant, name=name, criteria=criteria)
+        self.project.standards.add(standard)
+        return standard
+
+    def _run(self, standard, score, ref="", status=Status.FAILED, ago=None, event_type="push"):
+        execution = baker.make(
+            "app.StandardExecution", project=self.project, standard=standard,
+            standard_name=standard.name, score=score, status=status, ref=ref,
+            event_type=event_type,
+        )
+        if ago is not None:
+            StandardExecution.objects.filter(pk=execution.pk).update(created_at=timezone.now() - ago)
+        return execution
+
+    def test_a_failing_feature_branch_does_not_override_a_passing_default_branch(self):
+        standard = self._standard()
+        self._run(standard, 100, ref="refs/heads/main", status=Status.PASSED, ago=timedelta(hours=1))
+        self._run(standard, 0, ref="refs/heads/feature/wip")
+
+        self.assertEqual(attention_items(self.tenant), [])
+
+    def test_a_fix_on_a_feature_branch_does_not_hide_the_default_branch_failure(self):
+        standard = self._standard()
+        self._run(standard, 10, ref="", ago=timedelta(hours=1))
+        self._run(standard, 100, ref="refs/heads/feature/fix", status=Status.PASSED)
+
+        [item] = attention_items(self.tenant)
+        self.assertEqual(item.score, 10)
+
+    def test_pull_request_runs_do_not_count(self):
+        standard = self._standard()
+        self._run(standard, 0, ref="feature/x", event_type="pull_request")
+
+        self.assertEqual(current_results([self.project]), [])
+
+    def test_every_spelling_of_the_default_branch_counts(self):
+        for ref in ("", "main", "refs/heads/main"):
+            with self.subTest(ref=ref):
+                StandardExecution.objects.all().delete()
+                standard = self._standard(name=f"S {ref}")
+                self._run(standard, 10, ref=ref)
+                self.assertEqual(len(current_results([self.project])), 1)
+
+    def test_a_project_with_another_default_branch(self):
+        self.project.default_branch = "trunk"
+        self.project.save()
+        standard = self._standard()
+        self._run(standard, 10, ref="refs/heads/main", ago=timedelta(hours=1))
+        trunk = self._run(standard, 20, ref="refs/heads/trunk")
+
+        self.assertEqual([r.pk for r in current_results([self.project])], [trunk.pk])
+
+    def test_a_standard_filtered_to_one_branch_counts_on_that_branch(self):
+        standard = self._standard(ref_filter="^develop$")
+        self._run(standard, 100, ref="", status=Status.PASSED, ago=timedelta(hours=1))
+        develop = self._run(standard, 10, ref="refs/heads/develop")
+
+        self.assertEqual([r.pk for r in current_results([self.project])], [develop.pk])
+
+    def test_a_regex_filter_counts_on_the_default_branch(self):
+        standard = self._standard(ref_filter="^release/.*")
+        default = self._run(standard, 10, ref="", ago=timedelta(hours=1))
+        self._run(standard, 100, ref="refs/heads/release/1.0", status=Status.PASSED)
+
+        self.assertEqual([r.pk for r in current_results([self.project])], [default.pk])
+
+    def test_statuses_and_exclusions(self):
+        standard = self._standard()
+        passed = self._run(standard, 100, status=Status.PASSED, ago=timedelta(hours=2))
+        errored = self._run(standard, 0, status=Status.ERROR, ago=timedelta(hours=1))
+        newest = self._run(standard, 50)
+
+        self.assertEqual([r.pk for r in current_results([self.project])], [newest.pk])
+        self.assertEqual(
+            [r.pk for r in current_results([self.project], statuses=(Status.PASSED,))], [passed.pk]
+        )
+        self.assertEqual(
+            [r.pk for r in current_results([self.project], exclude_execution_ids=[newest.pk])],
+            [errored.pk],
+        )
+
+    def test_project_score_averages_and_handles_nothing(self):
+        self.assertIsNone(project_score([]))
+        a, b = self._standard("A"), self._standard("B")
+        self._run(a, 100, status=Status.PASSED)
+        self._run(b, 51)
+        self.assertEqual(project_score(current_results([self.project])), 76)

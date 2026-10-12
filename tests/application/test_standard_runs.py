@@ -17,7 +17,7 @@ from model_bakery import baker
 from app import tasks
 from app.application.standard_runs import enqueue_run, expire_stale_runs
 from app.domain.models import StandardExecution
-from tests.support import defer_patch
+from tests.support import NoPlatformLookupsMixin, defer_patch
 
 PASSED = {"passed": True, "score": 100, "message": "OK", "details": {}}
 FAILED = {"passed": False, "score": 10, "message": "nope", "details": {}}
@@ -39,7 +39,7 @@ def _mocked_runner(run_side_effect):
 
 
 @pytest.mark.django_db
-class RunStandardsTaskTests(TestCase):
+class RunStandardsTaskTests(NoPlatformLookupsMixin, TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=self.tenant)

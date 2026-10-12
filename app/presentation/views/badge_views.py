@@ -4,7 +4,8 @@ from pathlib import Path
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
-from app.domain.models import StandardExecution, Project
+from app.application.standard_results import current_results, project_score
+from app.domain.models import Project
 
 _LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "app" / "images" / "logo.svg"
 
@@ -18,28 +19,11 @@ def project_badge(request, pk):
     """Serve an SVG compliance badge for a project. Unauthenticated."""
     project = get_object_or_404(Project, pk=pk)
 
-    # Calculate compliance score from the latest *finished* execution per
-    # attached standard — detached standards' history must not move the badge,
-    # and a run still in flight (score 0 until it finishes) must not either.
-    executions = (
-        StandardExecution.objects.filter(
-            project=project, standard__in=project.standards.all()
-        )
-        .exclude(status=StandardExecution.Status.RUNNING)
-        .order_by("-created_at")[:200]
-    )
-    seen = {}
-    for ex in executions:
-        if ex.standard_id not in seen:
-            seen[ex.standard_id] = ex
-
-    latest = list(seen.values())
-    if latest:
-        score = round(sum(ex.score for ex in latest) / len(latest))
-        all_passed = all(ex.status == "passed" for ex in latest)
-    else:
-        score = None
-        all_passed = False
+    # The project's current results (each attached standard's latest finished
+    # result on its home branch), the same ones the dashboard scores.
+    latest = current_results([project])
+    score = project_score(latest)
+    all_passed = bool(latest) and all(ex.status == "passed" for ex in latest)
 
     svg = _render_badge(score, all_passed)
 

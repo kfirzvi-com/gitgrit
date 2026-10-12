@@ -19,6 +19,7 @@ from model_bakery import baker
 from app import tasks
 from app.domain.models import StandardExecution
 from tests.application.test_standard_runs import PASSED, _mocked_runner
+from tests.support import NoPlatformLookupsMixin
 
 
 def _drop_connection():
@@ -30,7 +31,7 @@ def _holds_connection():
     return connection.connection is not None
 
 
-class WorkerDbConnectionTests(TransactionTestCase):
+class WorkerDbConnectionTests(NoPlatformLookupsMixin, TransactionTestCase):
     def setUp(self):
         self.pool = ThreadPoolExecutor(max_workers=1)
         self.addCleanup(self.pool.shutdown)

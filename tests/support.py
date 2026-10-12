@@ -43,6 +43,24 @@ class TmpPathMixin:
         self.tmp_path = Path(tmp.name)
 
 
+def head_commit_patch(head: dict | None = None):
+    """Stub the Git platform lookup the run job makes to pin a check queued
+    without a commit (a manual run) to its branch's head. Tests that run the
+    job must never reach the network; ``head`` ({sha, date}) is what the
+    "platform" says, nothing by default."""
+    return mock.patch("app.application.commit_checks.resolve_head_commit", return_value=head or {})
+
+
+class NoPlatformLookupsMixin:
+    """Runs the job without asking the Git platform for head commits."""
+
+    def setUp(self):
+        super().setUp()
+        patch = head_commit_patch()
+        patch.start()
+        self.addCleanup(patch.stop)
+
+
 @contextmanager
 def queued_standards_run_inline():
     """Execute background standard runs synchronously, inside the test.
@@ -75,7 +93,7 @@ def queued_standards_run_inline():
     with mock.patch(
         "app.application.standard_runs.run_standards.configure",
         side_effect=_configure,
-    ) as configure:
+    ) as configure, head_commit_patch():
         yield configure
 
 

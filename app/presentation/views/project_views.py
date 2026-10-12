@@ -7,11 +7,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
+from django.utils.dateparse import parse_datetime
 
 from app.application import stack_service
 from app.application.event_bus import publish
+from app.application.commit_checks import (
+    branch_commits,
+    branch_status,
+    branches,
+    resolve_head_commit,
+    waiting_for_commit,
+)
+from app.application.standard_engine import StandardEngine
+from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
@@ -67,12 +78,9 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
 
 def results_context(project) -> dict:
-    """Everything the results cards render (``partials/project_results.html``).
-
-    Shared by the project page and the ``project_results`` poll endpoint, so
-    the cards look identical however they are reached. ``running_count`` /
-    ``running_standard_ids`` drive the poll and the per-standard spinners.
-    """
+    """What the project page's Overview and Standards tabs render: the
+    attached standards, the project's current results, its health score and
+    that score's breakdown."""
     context = {}
     attached_standards = list(project.standards.order_by("ordinal", "name"))
     context["attached_standards"] = attached_standards
@@ -101,25 +109,15 @@ def results_context(project) -> dict:
         ).values_list("standard_id", flat=True)
     )
 
-    # Deduplicate: latest finished execution per standard. RUNNING rows
-    # still show under "Recent Activity", but they score 0 until the
-    # worker finishes them, so they must not move the score.
-    seen_standards = {}
-    for ex in recent_executions:
-        if ex.status == StandardExecution.Status.RUNNING:
-            continue
-        if ex.standard_id not in seen_standards:
-            seen_standards[ex.standard_id] = ex
-    latest_executions = list(seen_standards.values())
+    # Each standard's current result on its home branch. Every run, on any
+    # branch and still RUNNING, shows under "Recent Activity" above; only
+    # these move the score.
+    latest_executions = sorted(
+        current_results([project]), key=lambda ex: ex.created_at, reverse=True
+    )
     context["latest_executions"] = latest_executions
-
-    # Compliance score: average of latest-per-standard scores
-    if latest_executions:
-        context["compliance_score"] = round(
-            sum(ex.score for ex in latest_executions) / len(latest_executions)
-        )
-    else:
-        context["compliance_score"] = None
+    context["compliance_score"] = project_score(latest_executions)
+    context["health_breakdown"] = breakdown(latest_executions)
 
     return context
 
@@ -140,16 +138,96 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-@login_required
-def project_results(request, pk):
-    """The results cards on their own, for the HTMX poll that refreshes them
-    while a background standard run is in flight."""
-    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+def _history(request, project, branch, page=1, notice="", open_sha=""):
+    branch_names = branches(project)
+    if branch not in branch_names:
+        branch_names.append(branch)
+    rows, has_more = branch_commits(project, branch, page)
+    status = branch_status(project, branch)
+    # The score's results can come from several commits (a standard that did
+    # not run on the newest one keeps its earlier result); the header says so.
+    status_commits = list(dict.fromkeys(
+        ex.commit_check.commit_sha[:7] for ex in status if ex.commit_check and ex.commit_check.commit_sha
+    ))
+    # The commit that starts open: the one just run, else the newest checked.
+    if not open_sha and page == 1:
+        open_sha = next((row.sha for row in rows if row.checked), "")
     return render(
         request,
-        "partials/project_results.html",
-        {"project": project, **results_context(project)},
+        "partials/project_history.html",
+        {
+            "project": project,
+            "branches": branch_names,
+            "branch": branch,
+            "is_default": branch == project.default_branch,
+            "rows": rows,
+            "page": page,
+            "has_more": has_more,
+            "status": status,
+            "status_score": project_score(status),
+            "status_breakdown": breakdown(status),
+            "status_commits": status_commits,
+            "open_sha": open_sha,
+            "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
+            "notice": notice,
+        },
     )
+
+
+def _page(value) -> int:
+    try:
+        return max(1, int(value or 1))
+    except ValueError:
+        return 1
+
+
+@login_required
+def project_history(request, pk):
+    """The project page's Health card: a branch picker (the default branch
+    first), that branch's results, and its commits, each with the standards
+    GitGrit ran on it. Loaded after the page, since it asks the Git platform
+    for the branches and commits."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    branch = request.GET.get("branch") or project.default_branch
+    return _history(request, project, branch, _page(request.GET.get("page")))
+
+
+@login_required
+@require_POST
+def run_on_branch(request, pk):
+    """Run the project's current standards that apply to a branch: on the
+    branch's latest commit, or on one commit (``sha``). Answers with the
+    refreshed Results tab, which then follows the run."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    branch = request.POST.get("branch") or project.default_branch
+    sha = request.POST.get("sha", "")
+    committed_at = parse_datetime(request.POST.get("committed_at") or "") if sha else None
+    target = sha[:7] if sha else f"the latest commit on {branch}"
+    if not sha:
+        # Pin the run to the branch's head now, so its commit shows it
+        # running at once. If the platform cannot say, the job pins it.
+        head = resolve_head_commit(project, branch)
+        sha = head.get("sha", "")
+        committed_at = parse_datetime(head["date"]) if head.get("date") else None
+        if sha:
+            target = f"{sha[:7]}, the latest commit on {branch}"
+    standards = StandardEngine().standards_for_branch(project, branch)
+    summary = enqueue_run(
+        project,
+        standards,
+        triggered_by="manual",
+        user=request.user,
+        ref=branch,
+        commit_sha=sha,
+        committed_at=committed_at,
+    )
+    if summary is None:
+        notice = f"No standards apply to {branch}."
+    elif summary["queued"]:
+        notice = f"Running {summary['queued']} standard{'s' if summary['queued'] != 1 else ''} on {target}."
+    else:
+        notice = "Those standards are already running."
+    return _history(request, project, branch, _page(request.POST.get("page")), notice=notice, open_sha=sha)
 
 
 class EditProjectView(LoginRequiredMixin, UpdateView):
@@ -475,8 +553,8 @@ def run_project_standards(request, pk):
 def project_standards(request, pk):
     """Manage which workspace standards are attached to a project.
 
-    GET returns the searchable picker partial (for the HTMX modal on the
-    project page); POST replaces the attachment set and redirects back.
+    GET returns the searchable picker partial, embedded in the project page's
+    Standards tab; POST replaces the attachment set and returns to that tab.
     """
     tenant = request.tenant
     if not tenant:
@@ -519,7 +597,7 @@ def project_standards(request, pk):
         else:
             messages.success(request, f'All standards detached from "{project.name}".')
         _run_newly_attached(request, project, standards, previously_attached_ids)
-        return redirect("project_detail", pk=pk)
+        return redirect(reverse("project_detail", args=[pk]) + "#standards")
 
     if not request.headers.get("HX-Request"):
         return redirect("project_detail", pk=pk)

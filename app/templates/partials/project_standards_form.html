@@ -1,16 +1,11 @@
-{# Body of the "Manage standards" modal on the project page (fetched via HTMX). #}
-{# Newly attached standards are queued to run in the background, so there is #}
-{# nothing to wait for here — just close the dialog as the form submits. #}
-<form method="post" action="{% url 'project_standards' project.pk %}"
-      onsubmit="document.getElementById('standards_modal').close()">
+{# The project page's Standards tab body (fetched via HTMX): pick the workspace #}
+{# standards that apply to this project. Newly attached standards are queued #}
+{# to run in the background; saving returns to this tab.                      #}
+<form method="post" action="{% url 'project_standards' project.pk %}">
   {% csrf_token %}
   {% include "partials/standard_picker.html" with hide_bulk_actions=True %}
-  <div class="modal-action justify-between">
+  <div class="flex flex-wrap items-center justify-between gap-3 pt-4">
     {% include "partials/standard_picker_bulk_actions.html" with size="btn-sm" %}
-    <div class="flex gap-2">
-      <button type="button" class="btn btn-ghost"
-              onclick="document.getElementById('standards_modal').close()">Cancel</button>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
   </div>
 </form>

@@ -15,6 +15,7 @@ from app import tasks
 from app.application import event_bus, subscribers
 from app.domain.events import StandardRunFinished
 from app.domain.models import StandardExecution
+from tests.support import NoPlatformLookupsMixin
 
 PASSED = {"passed": True, "score": 100, "message": "OK", "details": {}}
 FAILED = {"passed": False, "score": 10, "message": "nope", "details": {}}
@@ -35,7 +36,7 @@ def _mocked_runner(run_side_effect, input_config=None):
 
 
 @pytest.mark.django_db
-class RunStandardsPublishesTests(TestCase):
+class RunStandardsPublishesTests(NoPlatformLookupsMixin, TestCase):
     def setUp(self):
         event_bus.clear()
         self.addCleanup(subscribers.register)

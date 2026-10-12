@@ -20,12 +20,15 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
+from app.application.commit_checks import forget_platform_lists
 from app.application.event_bus import publish
-from app.application.standard_engine import StandardEngine, literal_ref
+from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
+from app.application.standard_service import version_to_run
 from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsTimedOut
 from app.domain.identity import resolve_user
-from app.domain.models import Project, Standard, StandardExecution
+from app.domain.models import CommitCheck, Project, Standard, StandardExecution
 from app.tasks import run_standards
 
 logger = logging.getLogger(__name__)
@@ -110,6 +113,12 @@ def queue_summary_message(
 # --- Enqueueing ----------------------------------------------------------------
 
 
+def _branch(project: Project, ref: str) -> str:
+    """The branch a run reads: its ref without the refs/heads/ prefix, or the
+    project's default branch when it has none."""
+    return bare_ref(ref) or project.default_branch
+
+
 def enqueue_run(
     project: Project,
     standards,
@@ -118,6 +127,8 @@ def enqueue_run(
     triggered_by: str = "manual",
     user=None,
     ref: str | None = None,
+    commit_sha: str = "",
+    committed_at=None,
     skip_running: bool = True,
 ) -> dict | None:
     """Queue ``standards`` to run on ``project`` in the background.
@@ -126,6 +137,11 @@ def enqueue_run(
     on each execution. Webhook runs pass the event's ref; ``None`` (manual and
     coverage-change runs, which have no event) reads at the branch each
     standard's Branch/Tag Filter names literally, else the default branch.
+
+    The runs are grouped into one ``CommitCheck`` per branch they read.
+    ``commit_sha`` (a webhook event's commit, or one picked on the project
+    page) pins that check to its commit, and ``committed_at`` records when it
+    was made; without a commit the job pins the branch's head before it runs.
 
     With ``skip_running`` (manual and coverage-change runs), standards that
     already have an in-flight execution on this project are left alone and
@@ -166,6 +182,17 @@ def enqueue_run(
         # poison every later write in it). The job lock serializes runs of
         # the same project so two never overlap.
         with transaction.atomic():
+            checks = {}
+            for branch in dict.fromkeys(_branch(project, _ref(s)) for s in to_run):
+                checks[branch] = CommitCheck.objects.create(
+                    project=project,
+                    branch=branch,
+                    commit_sha=commit_sha,
+                    committed_at=committed_at,
+                    event_type=event_type,
+                    triggered_by=triggered_by,
+                    triggered_by_user=user,
+                )
             executions = StandardExecution.objects.bulk_create(
                 [
                     StandardExecution(
@@ -177,6 +204,8 @@ def enqueue_run(
                         triggered_by=triggered_by,
                         triggered_by_user=user,
                         ref=_ref(standard),
+                        commit_check=checks[_branch(project, _ref(standard))],
+                        standard_version=version_to_run(standard),
                     )
                     for standard in to_run
                 ]
@@ -237,6 +266,12 @@ def enqueue_for_event(
     # Deleting a branch (after a merge, say) arrives as a push to it. There is
     # nothing left at that ref: every standard would fail reading it, and a
     # graph rebuild would be wasted. Nothing changed that a run could check.
+    engine = StandardEngine()
+    projects = engine.resolve_projects(event, installation_id=installation_id)
+    # The push moved, added or deleted a branch: the project page must not
+    # keep showing the branch and commit lists it cached before it.
+    forget_platform_lists(projects)
+
     if event.deleted:
         logger.info(
             "Ignoring branch deletion: platform=%s external_id=%s ref=%s",
@@ -245,9 +280,6 @@ def enqueue_for_event(
             event.ref,
         )
         return []
-
-    engine = StandardEngine()
-    projects = engine.resolve_projects(event, installation_id=installation_id)
 
     if not projects.exists():
         logger.info(
@@ -308,6 +340,8 @@ def enqueue_for_event(
             triggered_by=event.actor or "",
             user=actor_user,
             ref=event.ref or "",
+            commit_sha=event.commit_sha,
+            committed_at=parse_datetime(event.committed_at) if event.committed_at else None,
             skip_running=False,
         )
         if summary:

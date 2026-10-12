@@ -886,6 +886,49 @@ class MarketplacePack(models.Model):
         return self.name
 
 
+class CommitCheck(models.Model):
+    """One check of one commit: the standards GitGrit ran on a project at a
+    commit, grouped. Created when runs are queued; each of the check's
+    ``StandardExecution`` rows links to it. Webhook runs know their commit up
+    front; manual runs record the branch and the job pins the branch's head
+    commit before it runs, so every standard in a check reads the same code.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        "Project", on_delete=models.CASCADE, related_name="commit_checks"
+    )
+    # The branch (or tag) the commit was checked on. A pull request's checks
+    # sit on its source branch.
+    branch = models.CharField(max_length=255)
+    commit_sha = models.CharField(max_length=40, blank=True, default="")
+    # When the commit was made, when known. A branch's current results come
+    # from its newest commit, not its newest run: checking an old commit again
+    # must not change the branch's (or the project's) health.
+    committed_at = models.DateTimeField(null=True, blank=True)
+    event_type = models.CharField(max_length=50)
+    triggered_by = models.CharField(max_length=255, blank=True, default="")
+    triggered_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="commit_checks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "commit_checks"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["project", "commit_sha"], name="idx_commit_check_sha"),
+            models.Index(fields=["project", "branch", "created_at"], name="idx_commit_check_branch"),
+        ]
+
+    def __str__(self):
+        return f"{self.branch}@{self.commit_sha[:7] or '?'}"
+
+
 class StandardExecution(models.Model):
     class Status(models.TextChoices):
         RUNNING = "running", "Running"
@@ -929,6 +972,25 @@ class StandardExecution(models.Model):
         related_name="standard_executions",
     )
     ref = models.CharField(max_length=255, blank=True, default="")
+    # The snapshot of the standard that ran (its code and criteria at the
+    # time), so a result can always be explained even after the standard
+    # changes. Empty for runs recorded before snapshots were kept.
+    standard_version = models.ForeignKey(
+        "StandardVersion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="executions",
+    )
+    # The commit check this result belongs to; empty for runs recorded before
+    # checks existed.
+    commit_check = models.ForeignKey(
+        CommitCheck,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="executions",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

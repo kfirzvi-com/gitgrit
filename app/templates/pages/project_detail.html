@@ -1,14 +1,19 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ project.name }} — GitGrit{% endblock %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
   <div>
     <a href="{% url 'project_list' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Projects</a>
     <h1 class="text-3xl font-bold">{{ project.name }}</h1>
   </div>
-  <div class="flex gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" class="btn btn-sm btn-outline btn-primary gap-2" onclick="document.getElementById('badge_modal').showModal()">
+      <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-4 w-auto">
+      Get your Badge(r)
+    </button>
     <a href="{{ project.web_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
       Open in {{ project.get_platform_display }} &nearr;
     </a>
@@ -23,96 +28,14 @@
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-6">
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Details</h2>
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span class="opacity-70">Platform</span>
-            <p>
-              <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
-                {{ project.get_platform_display }}
-              </span>
-            </p>
-          </div>
-          <div>
-            <span class="opacity-70">Lifecycle</span>
-            <p><span class="badge badge-outline">{{ project.get_lifecycle_display }}</span></p>
-          </div>
-          <div>
-            <span class="opacity-70">Path</span>
-            <p class="break-all">{{ project.full_path }}</p>
-          </div>
-          <div>
-            <span class="opacity-70">Default Branch</span>
-            <p><code>{{ project.default_branch }}</code></p>
-          </div>
-          <div>
-            <span class="opacity-70">Owner</span>
-            <p>{{ project.owner|default:"—" }}</p>
-          </div>
-          <div class="col-span-2">
-            <span class="opacity-70">Connection</span>
-            <p>{{ project.platform_connection.display_name }}</p>
-          </div>
-          <div class="col-span-2">
-            <span class="opacity-70">Webhook</span>
-            <p class="flex items-center gap-2">
-              {% if project.platform_connection.auth_method == "github_app" %}
-                <span class="badge badge-success badge-sm">Active</span>
-                <span class="text-xs opacity-50">via GitHub App</span>
-              {% elif project.webhook_id %}
-                <span class="badge badge-success badge-sm">Active</span>
-                <span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
-              {% else %}
-                <span class="badge badge-warning badge-sm">Not registered</span>
-                <form method="post" action="{% url 'retry_webhook' project.pk %}" class="inline">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-xs btn-ghost">Register now</button>
-                </form>
-              {% endif %}
-            </p>
-          </div>
-        </div>
-        {% if project.description %}
-          <div class="mt-4">
-            <span class="text-sm opacity-70">Description</span>
-            <p class="text-sm break-words">{{ project.description }}</p>
-          </div>
-        {% endif %}
-      </div>
-    </div>
-
-    {% include "partials/project_results.html" %}
-
-    <dialog id="standards_modal" class="modal">
-      <div class="modal-box max-w-5xl">
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <h3 class="font-bold text-lg">Manage standards</h3>
-          <div class="flex gap-2">
-            <a href="{% url 'marketplace_browse' %}" target="_blank" rel="noopener"
-               class="btn btn-outline btn-sm">Marketplace</a>
-            <a href="{% url 'create_standard' %}" target="_blank" rel="noopener"
-               class="btn btn-primary btn-sm">New Standard</a>
-          </div>
-        </div>
-        <div id="standards-modal-body">
-          <p class="text-sm opacity-70">Loading standards...</p>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop"><button>close</button></form>
-    </dialog>
-  </div>
-
-  <div class="space-y-6">
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title text-base">Badge</h2>
-        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show compliance status.</p>
+<dialog id="badge_modal" class="modal">
+  <div class="modal-box max-w-xl">
+    <h3 class="font-bold text-lg flex items-center gap-2 mb-2">
+      <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-5 w-auto"> Your GitGrit badge
+    </h3>
+        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show the project's health score.</p>
         <div class="mb-3">
-          <img src="{% url 'project_badge' project.pk %}" alt="compliance badge">
+          <img src="{% url 'project_badge' project.pk %}" alt="health score badge">
         </div>
         <div class="form-control">
           <label class="label"><span class="label-text text-xs opacity-70">Markdown</span></label>
@@ -134,60 +57,115 @@
             <button class="btn btn-sm btn-square join-item" onclick="navigator.clipboard.writeText(document.getElementById('badge-html').value);this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>';setTimeout(()=>this.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;/></svg>',1500)" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           </div>
         </div>
-      </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{# Three tabs, picked by the URL hash so links can open one: #overview (and   #}
+{# #components), #results (and #compliance, where notifications link) and     #}
+{# #standards. Results and Standards load their content when first opened     #}
+{# (the script sends their loaders "tab-open").                               #}
+<div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
+  <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
+  <div class="tab-content pt-6" id="overview">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2">{% include "partials/project_overview_health.html" %}</div>
+      <div>{% include "partials/project_about.html" %}</div>
     </div>
+  </div>
 
-    {% if project.tags %}
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">Tags</h2>
-          <div class="flex flex-wrap gap-2">
-            {% for tag in project.tags %}
-              <span class="badge badge-sm">{{ tag }}</span>
-            {% endfor %}
+  <input type="radio" name="project_tab" class="tab" aria-label="Results" data-tab="results">
+  <div class="tab-content pt-6 scroll-mt-20" id="compliance">
+    <div id="project-history" class="card bg-base-100 shadow-xl"
+         hx-get="{% url 'project_history' project.pk %}" hx-trigger="tab-open once" hx-swap="outerHTML" data-tab-load data-no-loader>
+      <div class="card-body"><p class="text-sm opacity-60">Loading branches and commits…</p></div>
+    </div>
+  </div>
+
+  <input type="radio" name="project_tab" class="tab" aria-label="Standards" data-tab="standards">
+  <div class="tab-content pt-6" id="standards">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold">Standards</h2>
+            <p class="text-sm opacity-60">{{ active_standards_count }} of {{ attached_standards|length }} attached standard{{ attached_standards|length|pluralize }} active. Pick the ones that apply to this project.</p>
+          </div>
+          <div class="flex gap-2">
+            <a href="{% url 'marketplace_browse' %}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Marketplace</a>
+            <a href="{% url 'create_standard' %}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">New standard</a>
           </div>
         </div>
-      </div>
-    {% endif %}
-
-    {% if project.languages %}
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">Languages</h2>
-          <div class="flex flex-wrap gap-2">
-            {% for lang in project.languages %}
-              <span class="badge badge-outline badge-sm">{{ lang }}</span>
-            {% endfor %}
-          </div>
+        <div id="project-standards" hx-get="{% url 'project_standards' project.pk %}?embed=tab" hx-trigger="tab-open once" hx-swap="innerHTML" data-tab-load data-no-loader>
+          <p class="text-sm opacity-60">Loading standards…</p>
         </div>
-      </div>
-    {% endif %}
-
-    <div class="card bg-base-100 shadow-xl scroll-mt-20" id="components">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          Components
-          {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
-        </h2>
-        <ul class="space-y-3">
-          {% for component in project.components.all %}
-            <li>
-              <div class="flex items-baseline gap-2">
-                <span class="font-medium">{{ component.name }}</span>
-                <span class="text-xs opacity-50 font-mono">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
-              </div>
-              <div class="flex flex-wrap gap-1 mt-1">
-                {% for stack in component.stacks.all %}
-                  <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
-                {% empty %}
-                  <span class="text-xs opacity-50">Not in any stack</span>
-                {% endfor %}
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    var byHash = {overview: "overview", components: "overview", results: "results", compliance: "results", standards: "standards"};
+    var tabs = document.querySelectorAll("[data-project-tabs] input[data-tab]");
+    // A tab's panel is the element right after its radio input.
+    function load(tab) {
+      var panel = tab.nextElementSibling;
+      if (panel) panel.querySelectorAll("[data-tab-load]").forEach(function (el) { htmx.trigger(el, "tab-open"); });
+    }
+    function pick(name, andLoad) {
+      tabs.forEach(function (t) {
+        t.checked = t.dataset.tab === name;
+        if (t.checked && andLoad) load(t);
+      });
+    }
+    function fromHash() {
+      var wanted = byHash[(location.hash || "").slice(1)];
+      if (wanted) pick(wanted, document.readyState !== "loading");
+    }
+    fromHash();
+    // htmx wires the loaders on DOMContentLoaded (its listener was added
+    // first, so it runs first); load the opening tab after that.
+    document.addEventListener("DOMContentLoaded", function () {
+      tabs.forEach(function (t) { if (t.checked) load(t); });
+    });
+    window.addEventListener("hashchange", fromHash);
+    tabs.forEach(function (t) {
+      t.addEventListener("change", function () {
+        if (!t.checked) return;
+        history.replaceState(null, "", "#" + t.dataset.tab);
+        load(t);
+      });
+    });
+    // The Results tab re-renders while runs are in flight; keep the commits
+    // the viewer opened or closed as they were. Commits new to the list (or
+    // just checked) take the server's choice.
+    var openState = null;
+    document.body.addEventListener("htmx:beforeSwap", function (e) {
+      if (!e.detail.target || e.detail.target.id !== "project-history") return;
+      openState = {};
+      e.detail.target.querySelectorAll("[data-commit] > details").forEach(function (d) {
+        openState[d.parentElement.dataset.commit] = d.open;
+      });
+    });
+    document.body.addEventListener("htmx:afterSwap", function () {
+      if (!openState) return;
+      var list = document.getElementById("project-history");
+      if (list) {
+        list.querySelectorAll("[data-commit] > details").forEach(function (d) {
+          var was = openState[d.parentElement.dataset.commit];
+          if (was !== undefined) d.open = was;
+        });
+      }
+      openState = null;
+    });
+    document.addEventListener("click", function (e) {
+      var link = e.target.closest("[data-open-tab]");
+      if (!link) return;
+      e.preventDefault();
+      pick(link.dataset.openTab, true);
+      history.replaceState(null, "", "#" + link.dataset.openTab);
+    });
+  })();
+</script>
 {% endblock %}
