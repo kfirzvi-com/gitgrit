@@ -65,7 +65,7 @@ In CI, set GITGRIT_TOKEN to a workspace token (workspace settings → API Tokens
 	}
 	root.SetVersionTemplate("gitgrit {{.Version}} (" + version.Channel + ")\n")
 	pf := root.PersistentFlags()
-	pf.StringVar(&hostFlag, "host", "", "GitGrit instance, e.g. localhost:8001 or app-staging.gitgrit.dev ($GITGRIT_HOST)")
+	pf.StringVar(&hostFlag, "host", "", "GitGrit instance for this command, e.g. localhost:8000 or app-staging.gitgrit.dev ($GITGRIT_HOST); `gitgrit auth switch` changes the default")
 	pf.StringVarP(&workspaceFlag, "workspace", "w", "", "workspace name or id ($GITGRIT_WORKSPACE)")
 	pf.BoolVar(&jsonFlag, "json", false, "print the API's JSON response")
 

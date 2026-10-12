@@ -29,7 +29,7 @@ func openBrowser(url string) error {
 
 func newAuthCmd() *cobra.Command {
 	c := &cobra.Command{Use: "auth", Short: "Log in to and out of GitGrit instances"}
-	c.AddCommand(newAuthLoginCmd(), newAuthLogoutCmd(), newAuthStatusCmd(), newAuthTokenCmd())
+	c.AddCommand(newAuthLoginCmd(), newAuthLogoutCmd(), newAuthStatusCmd(), newAuthSwitchCmd(), newAuthTokenCmd())
 	return c
 }
 
@@ -180,6 +180,36 @@ func newAuthStatusCmd() *cobra.Command {
 				t.Row(mark, host, h.User, ws, session)
 			}
 			t.Flush()
+			return nil
+		},
+	}
+}
+
+func newAuthSwitchCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "switch",
+		Short: "Make another instance you're logged in to the default",
+		Long: `Make another instance the default for commands without --host:
+
+  gitgrit auth switch --host localhost:8000
+  gitgrit auth switch --host app.gitgrit.dev`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if hostFlag == "" {
+				return fmt.Errorf("which instance? pass --host (see `gitgrit auth status`)")
+			}
+			s, err := open()
+			if err != nil {
+				return err
+			}
+			if h := s.HostConfig(); h == nil || h.AccessToken == "" {
+				return fmt.Errorf("not logged in to %s; run `gitgrit auth login --host %s`", s.Host, hostFlag)
+			}
+			s.Config.DefaultHost = s.Host
+			if err := s.Config.Save(); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Default instance: %s\n", s.Host)
 			return nil
 		},
 	}

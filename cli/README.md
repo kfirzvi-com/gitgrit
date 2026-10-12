@@ -38,6 +38,7 @@ gitgrit auth login --host app-staging.gitgrit.dev
 gitgrit auth login --host localhost:8000
 gitgrit health --host localhost:8000    # or GITGRIT_HOST=localhost:8000
 gitgrit auth status                     # every instance you're logged in to
+gitgrit auth switch --host localhost:8000   # change the default
 ```
 
 Each instance keeps its own login and default workspace in
