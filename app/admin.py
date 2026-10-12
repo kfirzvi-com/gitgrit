@@ -118,9 +118,12 @@ class ComponentStackAdmin(admin.ModelAdmin):
 
 @admin.register(Standard)
 class StandardAdmin(admin.ModelAdmin):
-    list_display = ("name", "tenant", "enabled", "draft", "ordinal", "created_at")
-    list_filter = ("tenant", "enabled", "draft")
+    list_display = ("name", "tenant", "enabled", "draft", "ordinal", "archived_at", "created_at")
+    list_filter = ("tenant", "enabled", "draft", ("archived_at", admin.EmptyFieldListFilter))
     search_fields = ("name",)
+
+    def get_queryset(self, request):
+        return Standard.all_objects.all()
 
 
 class MarketplaceStandardInline(admin.TabularInline):

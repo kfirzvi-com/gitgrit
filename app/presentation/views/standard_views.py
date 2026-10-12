@@ -277,7 +277,7 @@ def delete_standard(request, pk):
 
     standard = get_object_or_404(Standard, pk=pk, tenant=tenant)
     name = standard.name
-    standard.delete()
+    standard.archive()
     messages.success(request, f'Standard "{name}" deleted.')
     return redirect("standard_list")
 

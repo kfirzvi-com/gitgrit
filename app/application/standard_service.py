@@ -227,7 +227,7 @@ class StandardService:
             standard = Standard.objects.get(id=standard_id, tenant=tenant)
         except (Standard.DoesNotExist, ValidationError):
             raise NotFoundError(f"Standard {standard_id} not found")
-        standard.delete()
+        standard.archive()
 
     def list_active_for_project(
         self, tenant: Tenant, project_id: str

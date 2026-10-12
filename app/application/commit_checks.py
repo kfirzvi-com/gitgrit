@@ -291,11 +291,13 @@ def _attach_results(project, rows, applicable=()) -> None:
     seen = set()
     executions = (
         StandardExecution.objects.filter(project=project, commit_check__commit_sha__in=by_sha)
-        .select_related("commit_check", "standard_version")
+        .select_related("commit_check", "standard", "standard_version")
         .order_by("-created_at")
     )
     for ex in executions:
-        key = (ex.commit_check.commit_sha, ex.standard_id)
+        # Runs of standards deleted before archiving existed have no standard
+        # left; tell them apart by name.
+        key = (ex.commit_check.commit_sha, ex.standard_id or ex.standard_name)
         if key in seen:
             continue
         seen.add(key)

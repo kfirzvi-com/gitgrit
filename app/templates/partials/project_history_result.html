@@ -8,7 +8,7 @@ the score. Expects `ex` (a StandardExecution); `show_event` adds the event colum
     <span class="flex items-baseline gap-2 min-w-0">
       <span class="text-sm font-medium truncate">{{ ex.standard_name }}</span>
       {% include "partials/project_history_version.html" %}
-      {% if ex.still_attached == False %}<span class="text-xs opacity-50">· no longer attached</span>{% endif %}
+      {% if ex.standard is None or ex.standard.archived_at %}<span class="text-xs opacity-50">· deleted</span>{% elif ex.still_attached == False %}<span class="text-xs opacity-50">· no longer attached</span>{% endif %}
     </span>
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}
   </span>
