@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
@@ -15,7 +16,7 @@ from app.application import stack_service
 from app.application.event_bus import publish
 from app.application.commit_checks import branch_commits, branch_status, branches, earlier_runs
 from app.application.standard_engine import StandardEngine
-from app.application.standard_results import current_results, project_score
+from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
@@ -71,12 +72,9 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
 
 def results_context(project) -> dict:
-    """Everything the results cards render (``partials/project_results.html``).
-
-    Shared by the project page and the ``project_results`` poll endpoint, so
-    the cards look identical however they are reached. ``running_count`` /
-    ``running_standard_ids`` drive the poll and the per-standard spinners.
-    """
+    """What the project page's Overview and Standards tabs render: the
+    attached standards, the project's current results, its health score and
+    that score's breakdown."""
     context = {}
     attached_standards = list(project.standards.order_by("ordinal", "name"))
     context["attached_standards"] = attached_standards
@@ -113,6 +111,7 @@ def results_context(project) -> dict:
     )
     context["latest_executions"] = latest_executions
     context["compliance_score"] = project_score(latest_executions)
+    context["health_breakdown"] = breakdown(latest_executions)
 
     return context
 
@@ -131,18 +130,6 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context.update(results_context(self.object))
         return context
-
-
-@login_required
-def project_results(request, pk):
-    """The results cards on their own, for the HTMX poll that refreshes them
-    while a background standard run is in flight."""
-    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
-    return render(
-        request,
-        "partials/project_results.html",
-        {"project": project, **results_context(project)},
-    )
 
 
 def _history(request, project, branch, page=1, notice=""):
@@ -164,6 +151,7 @@ def _history(request, project, branch, page=1, notice=""):
             "has_more": has_more,
             "status": status,
             "status_score": project_score(status),
+            "status_breakdown": breakdown(status),
             "earlier": earlier_runs(project, branch) if page == 1 else [],
             "running": any(row.running for row in rows),
             "notice": notice,
@@ -542,8 +530,8 @@ def run_project_standards(request, pk):
 def project_standards(request, pk):
     """Manage which workspace standards are attached to a project.
 
-    GET returns the searchable picker partial (for the HTMX modal on the
-    project page); POST replaces the attachment set and redirects back.
+    GET returns the searchable picker partial, embedded in the project page's
+    Standards tab; POST replaces the attachment set and returns to that tab.
     """
     tenant = request.tenant
     if not tenant:
@@ -586,7 +574,7 @@ def project_standards(request, pk):
         else:
             messages.success(request, f'All standards detached from "{project.name}".')
         _run_newly_attached(request, project, standards, previously_attached_ids)
-        return redirect("project_detail", pk=pk)
+        return redirect(reverse("project_detail", args=[pk]) + "#standards")
 
     if not request.headers.get("HX-Request"):
         return redirect("project_detail", pk=pk)

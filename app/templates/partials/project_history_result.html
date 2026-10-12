@@ -16,5 +16,5 @@ columns and the score. Expects `ex` (a StandardExecution); `show_commit`, `show_
   {% if show_commit %}<span class="font-mono text-xs opacity-40 shrink-0">{% if ex.commit_check and ex.commit_check.commit_sha %}{{ ex.commit_check.commit_sha|slice:":7" }}{% endif %}</span>{% endif %}
   {% if show_event %}<span class="text-xs opacity-40 shrink-0">{{ ex.event_type }}</span>{% endif %}
   {% if show_when %}<span class="text-xs opacity-40 shrink-0">{{ ex.created_at|timesince }} ago</span>{% endif %}
-  <span class="w-12 text-right text-sm font-semibold shrink-0">{% if ex.status != "running" %}{{ ex.score }}%{% else %}<span class="text-xs font-normal opacity-60">running</span>{% endif %}</span>
+  <span class="w-12 text-right text-sm font-semibold shrink-0">{% if ex.status != "running" %}{{ ex.score }}{% else %}<span class="text-xs font-normal opacity-60">running</span>{% endif %}</span>
 </a>

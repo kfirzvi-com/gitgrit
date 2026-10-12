@@ -61,108 +61,73 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-6">
-    {# The main card: a branch's health (the default branch first) and its       #}
-    {# commits. Loaded after the page, since it asks the Git platform. The       #}
-    {# wrapper holds the #compliance anchor that notifications link to, so the   #}
-    {# link lands even before the card has loaded.                               #}
-    <section id="compliance" class="scroll-mt-20">
-      <div id="project-history" class="card bg-base-100 shadow-xl"
-           hx-get="{% url 'project_history' project.pk %}" hx-trigger="load" hx-swap="outerHTML" data-no-loader>
-        <div class="card-body">
-          <h2 class="card-title">Health</h2>
-          <p class="text-sm opacity-70">Loading branches and commits…</p>
-        </div>
-      </div>
-    </section>
-
-
-    <dialog id="standards_modal" class="modal">
-      <div class="modal-box max-w-5xl">
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <h3 class="font-bold text-lg">Manage standards</h3>
-          <div class="flex gap-2">
-            <a href="{% url 'marketplace_browse' %}" target="_blank" rel="noopener"
-               class="btn btn-outline btn-sm">Marketplace</a>
-            <a href="{% url 'create_standard' %}" target="_blank" rel="noopener"
-               class="btn btn-primary btn-sm">New Standard</a>
-          </div>
-        </div>
-        <div id="standards-modal-body">
-          <p class="text-sm opacity-70">Loading standards...</p>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop"><button>close</button></form>
-    </dialog>
+{# Three tabs, picked by the URL hash so links can open one: #overview (and   #}
+{# #components), #results (and #compliance, where notifications link) and     #}
+{# #standards. Results and Standards load their content when first opened.    #}
+<div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
+  <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
+  <div class="tab-content pt-6" id="overview">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2">{% include "partials/project_overview_health.html" %}</div>
+      <div>{% include "partials/project_about.html" %}</div>
+    </div>
   </div>
 
-  <div class="space-y-6">
+  <input type="radio" name="project_tab" class="tab" aria-label="Results" data-tab="results">
+  <div class="tab-content pt-6 scroll-mt-20" id="compliance">
+    <div id="project-history" class="card bg-base-100 shadow-xl"
+         hx-get="{% url 'project_history' project.pk %}" hx-trigger="intersect once" hx-swap="outerHTML" data-no-loader>
+      <div class="card-body"><p class="text-sm opacity-60">Loading branches and commits…</p></div>
+    </div>
+  </div>
+
+  <input type="radio" name="project_tab" class="tab" aria-label="Standards" data-tab="standards">
+  <div class="tab-content pt-6" id="standards">
     <div class="card bg-base-100 shadow-xl">
-      <div class="card-body p-5 gap-4 text-sm">
-        <h2 class="card-title text-base">About</h2>
-        {% if project.description %}<p class="break-words opacity-80">{{ project.description }}</p>{% endif %}
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-          <dt class="opacity-60">Platform</dt>
-          <dd>{{ project.get_platform_display }} · <span class="break-all">{{ project.full_path }}</span></dd>
-          <dt class="opacity-60">Default branch</dt>
-          <dd><code>{{ project.default_branch }}</code></dd>
-          <dt class="opacity-60">Lifecycle</dt>
-          <dd>{{ project.get_lifecycle_display }}</dd>
-          <dt class="opacity-60">Owner</dt>
-          <dd>{{ project.owner|default:"—" }}</dd>
-          <dt class="opacity-60">Connection</dt>
-          <dd>{{ project.platform_connection.display_name }}</dd>
-          <dt class="opacity-60">Webhook</dt>
-          <dd class="flex flex-wrap items-center gap-2">
-            {% if project.platform_connection.auth_method == "github_app" %}
-              <span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-50">via GitHub App</span>
-            {% elif project.webhook_id %}
-              <span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
-            {% else %}
-              <span class="badge badge-warning badge-sm">Not registered</span>
-              <form method="post" action="{% url 'retry_webhook' project.pk %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-xs btn-ghost">Register now</button>
-              </form>
-            {% endif %}
-          </dd>
-        </dl>
-
-        {% if project.languages or project.tags %}
-          <div class="flex flex-wrap gap-1">
-            {% for lang in project.languages %}<span class="badge badge-outline badge-sm">{{ lang }}</span>{% endfor %}
-            {% for tag in project.tags %}<span class="badge badge-sm">{{ tag }}</span>{% endfor %}
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold">Standards</h2>
+            <p class="text-sm opacity-60">{{ active_standards_count }} of {{ attached_standards|length }} attached standard{{ attached_standards|length|pluralize }} active. Pick the ones that apply to this project.</p>
           </div>
-        {% endif %}
-
-        <div class="scroll-mt-20" id="components">
-          <h3 class="font-semibold mb-1 flex items-center gap-2">
-            Components
-            {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
-          </h3>
-          <ul class="space-y-2">
-            {% for component in project.components.all %}
-              <li>
-                <div class="flex items-baseline gap-2">
-                  <span class="font-medium">{{ component.name }}</span>
-                  <span class="text-xs opacity-50 font-mono">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
-                </div>
-                <div class="flex flex-wrap gap-1 mt-0.5">
-                  {% for stack in component.stacks.all %}
-                    <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
-                  {% empty %}
-                    <span class="text-xs opacity-50">Not in any stack</span>
-                  {% endfor %}
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
+          <div class="flex gap-2">
+            <a href="{% url 'marketplace_browse' %}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Marketplace</a>
+            <a href="{% url 'create_standard' %}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">New standard</a>
+          </div>
+        </div>
+        <div id="project-standards" hx-get="{% url 'project_standards' project.pk %}?embed=tab" hx-trigger="intersect once" hx-swap="innerHTML" data-no-loader>
+          <p class="text-sm opacity-60">Loading standards…</p>
         </div>
       </div>
     </div>
-
-    {% include "partials/project_results.html" %}
   </div>
 </div>
+
+<script>
+  (function () {
+    var byHash = {overview: "overview", components: "overview", results: "results", compliance: "results", standards: "standards"};
+    var tabs = document.querySelectorAll("[data-project-tabs] input[data-tab]");
+    function pick(name) {
+      tabs.forEach(function (t) { t.checked = t.dataset.tab === name; });
+    }
+    function fromHash() {
+      var wanted = byHash[(location.hash || "").slice(1)];
+      if (wanted) pick(wanted);
+    }
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    tabs.forEach(function (t) {
+      t.addEventListener("change", function () {
+        if (t.checked) history.replaceState(null, "", "#" + t.dataset.tab);
+      });
+    });
+    document.addEventListener("click", function (e) {
+      var link = e.target.closest("[data-open-tab]");
+      if (!link) return;
+      e.preventDefault();
+      pick(link.dataset.openTab);
+      history.replaceState(null, "", "#" + link.dataset.openTab);
+    });
+  })();
+</script>
 {% endblock %}

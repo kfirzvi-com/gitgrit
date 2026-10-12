@@ -69,6 +69,16 @@ def current_results(projects, statuses=FINISHED, exclude_execution_ids=(), branc
     )
 
 
+def breakdown(results) -> dict:
+    """How many of a set of results passed, failed and errored."""
+    statuses = [r.status for r in results]
+    return {
+        "passed": statuses.count(Status.PASSED),
+        "failed": statuses.count(Status.FAILED),
+        "errored": statuses.count(Status.ERROR),
+    }
+
+
 def project_score(results) -> int | None:
     """The average score of a set of current results, rounded; None when
     there are none."""

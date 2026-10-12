@@ -1,5 +1,5 @@
-"""The project page's Health card: branch picker, the branch's results, and
-its commits with the standards run on each."""
+"""The project page's Results tab: branch picker, the branch's score and
+results, and its commits with the standards run on each."""
 from unittest import mock
 
 from django.test import TestCase
@@ -53,7 +53,8 @@ class ProjectHistoryViewTests(TestCase):
         self.assertEqual(response.context["branch"], "main")
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
-        self.assertIn("Health", content)
+        self.assertIn("Results", content)
+        self.assertNotIn("%</span>", content)
         self.assertIn("The project's score", content)
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
@@ -94,10 +95,10 @@ class ProjectHistoryViewTests(TestCase):
         response = self.client.get(reverse("project_history", args=[other.pk]))
         self.assertEqual(response.status_code, 404)
 
-    def test_the_project_page_loads_the_card_after_rendering(self):
+    def test_the_project_page_loads_the_tab_when_first_opened(self):
         content = self.client.get(reverse("project_detail", args=[self.project.pk])).content.decode()
         self.assertIn(f'hx-get="{reverse("project_history", args=[self.project.pk])}"', content)
-        self.assertIn('hx-trigger="load"', content)
+        self.assertIn('hx-trigger="intersect once"', content)
         self.platform.list_commits.assert_not_called()
 
 

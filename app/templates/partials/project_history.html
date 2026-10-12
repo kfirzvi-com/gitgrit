@@ -1,5 +1,5 @@
-{% comment %}The project page's main card. A branch picker (the default branch first), that
-branch's health (its score and each standard's latest result there), then its commits newest
+{% comment %}The project page's Results tab. A branch picker (the default branch first), that
+branch's score and breakdown, each standard's latest result there, then its commits newest
 first: a checked commit opens to the latest result of each standard GitGrit ran on it, the others
 say "Not checked". Served by project_history, which the page loads after it renders; re-polls every
 5s while a run on the page is in flight. Line-free: rows are separated by spacing and hover
@@ -9,8 +9,25 @@ surfaces, sections by small-caps labels.{% endcomment %}
 <div id="project-history" class="card bg-base-100 shadow-xl scroll-mt-20"
      {% if running %}hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page }}" hx-trigger="every 5s" hx-swap="outerHTML" data-no-loader{% endif %}>
   <div class="card-body gap-8">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-xl font-bold">Health</h2>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="space-y-1" data-branch-status>
+        <h2 class="text-xl font-bold flex items-baseline gap-2">
+          Results
+          {% if status_score is not None %}
+            <span class="text-base font-semibold {% if status_score >= 80 %}text-success{% elif status_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ status_score }}</span>
+            <span class="tooltip tooltip-right cursor-help opacity-50 hover:opacity-100 self-center"
+                  data-tip="{% if is_default %}The project's score: the latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}, the default branch.{% else %}The latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}. Only the default branch counts toward the project's score.{% endif %}"
+                  data-score-info tabindex="0" aria-label="About this score">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
+            </span>
+          {% endif %}
+        </h2>
+        {% if status_score is not None %}
+          {% include "partials/health_breakdown.html" with counts=status_breakdown %}
+        {% else %}
+          <p class="text-sm opacity-60">No results on {{ branch }} yet.</p>
+        {% endif %}
+      </div>
       <div class="flex items-center gap-2">
         <form hx-get="{{ history_url }}" hx-target="#project-history" hx-swap="outerHTML" hx-trigger="change" data-no-loader>
           <label class="flex items-center gap-2 text-sm">
@@ -29,22 +46,6 @@ surfaces, sections by small-caps labels.{% endcomment %}
       </div>
     </div>
     {% if notice %}<p class="text-sm text-info -mt-6" data-run-notice>{{ notice }}</p>{% endif %}
-
-    <div class="flex justify-center" data-branch-status>
-      {% if status_score is not None %}
-        <div class="relative">
-          <div class="radial-progress {% if status_score >= 80 %}text-success{% elif status_score >= 50 %}text-warning{% else %}text-error{% endif %} text-2xl font-bold"
-               style="--value:{{ status_score }}; --size:7rem; --thickness:0.6rem;" role="progressbar" aria-label="Score {{ status_score }}%">{{ status_score }}%</div>
-          <span class="tooltip tooltip-left absolute -top-1 -right-5 cursor-help opacity-50 hover:opacity-100"
-                data-tip="{% if is_default %}The project's score: the latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}, the default branch.{% else %}The latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}. Only the default branch counts toward the project's score.{% endif %}"
-                data-score-info tabindex="0" aria-label="About this score">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
-          </span>
-        </div>
-      {% else %}
-        <p class="text-sm opacity-60">No results on {{ branch }} yet.</p>
-      {% endif %}
-    </div>
 
     {% if status %}
       <section class="space-y-2" data-branch-results>
@@ -74,7 +75,7 @@ surfaces, sections by small-caps labels.{% endcomment %}
                       {% if row.errored %}<span class="badge badge-soft badge-warning badge-sm">{{ row.errored }} error</span>{% endif %}
                       {% if row.not_run %}<span class="badge badge-ghost badge-sm" title="Current standards that did not run on this commit">{{ row.not_run|length }} not run</span>{% endif %}
                     </span>
-                    {% if row.score is not None %}<span class="w-12 text-right font-bold shrink-0">{{ row.score }}%</span>{% endif %}
+                    {% if row.score is not None %}<span class="w-12 text-right font-bold shrink-0">{{ row.score }}</span>{% endif %}
                   </summary>
                   <div class="px-3 pb-3 pl-8 space-y-0.5">
                     {% for ex in row.results %}
