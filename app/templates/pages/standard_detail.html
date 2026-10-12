@@ -14,7 +14,7 @@
     <form method="post" action="{% url 'delete_standard' standard.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-ghost btn-sm text-error"
-              onclick="return confirm('Delete standard &quot;{{ standard.name }}&quot;?')">
+              onclick="return confirm('Delete standard &quot;{{ standard.name }}&quot;? It is removed from every project. Past results keep the code they ran.')">
         Delete
       </button>
     </form>

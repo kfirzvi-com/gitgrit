@@ -175,6 +175,18 @@ class RunStandardsTaskTests(NoPlatformLookupsMixin, TestCase):
         assert gone.details == {"error": "standard no longer exists"}
         assert ok.status == StandardExecution.Status.PASSED
 
+    def test_archived_standard_errors_its_row(self):
+        gone = self._execution(self._standard("A"))
+        gone.standard.archive()
+
+        with _mocked_runner([PASSED]) as runner:
+            self._run([gone])
+
+        assert runner.run.call_count == 0
+        gone.refresh_from_db()
+        assert gone.status == StandardExecution.Status.ERROR
+        assert gone.message == "standard no longer exists"
+
 
 @pytest.mark.django_db
 class StaleRunTests(TestCase):

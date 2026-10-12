@@ -207,7 +207,7 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
         for execution in executions:
             if execution.status != StandardExecution.Status.RUNNING:
                 continue  # already finished by an earlier attempt
-            if execution.standard is None:
+            if execution.standard is None or execution.standard.archived_at:
                 # Deleted between enqueue and run — nothing left to execute.
                 _fail(
                     StandardExecution.objects.filter(pk=execution.pk),

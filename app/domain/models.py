@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
@@ -810,6 +811,13 @@ class StandardLabel(models.Model):
         return self.name
 
 
+class LiveStandardManager(models.Manager):
+    """Archived standards are kept for history but hidden everywhere else."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
 class Standard(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
@@ -836,8 +844,14 @@ class Standard(models.Model):
     enabled = models.BooleanField(default=True)
     draft = models.BooleanField(default=False)
     ordinal = models.IntegerField(default=1000)
+    # Deleting a standard archives it: past runs keep pointing at it and at
+    # the versions they ran. Set means hidden and never run again.
+    archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = LiveStandardManager()
+    all_objects = models.Manager()
 
     class Meta:
         db_table = "standards"
@@ -845,6 +859,13 @@ class Standard(models.Model):
 
     def __str__(self):
         return self.name
+
+    def archive(self) -> None:
+        """Hide the standard and detach it from every project. Its versions
+        and results stay, so past runs can still be explained."""
+        self.archived_at = timezone.now()
+        self.save(update_fields=["archived_at", "updated_at"])
+        self.projects.clear()
 
 
 class StandardVersion(models.Model):
