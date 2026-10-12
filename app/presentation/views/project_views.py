@@ -14,7 +14,13 @@ from django.utils.dateparse import parse_datetime
 
 from app.application import stack_service
 from app.application.event_bus import publish
-from app.application.commit_checks import branch_commits, branch_status, branches
+from app.application.commit_checks import (
+    branch_commits,
+    branch_status,
+    branches,
+    resolve_head_commit,
+    waiting_for_commit,
+)
 from app.application.standard_engine import StandardEngine
 from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
@@ -162,7 +168,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "status_breakdown": breakdown(status),
             "status_commits": status_commits,
             "open_sha": open_sha,
-            "running": any(row.running for row in rows),
+            "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
             "notice": notice,
         },
     )
@@ -191,11 +197,20 @@ def project_history(request, pk):
 def run_on_branch(request, pk):
     """Run the project's current standards that apply to a branch: on the
     branch's latest commit, or on one commit (``sha``). Answers with the
-    refreshed Health card, which then follows the run."""
+    refreshed Results tab, which then follows the run."""
     project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
     branch = request.POST.get("branch") or project.default_branch
     sha = request.POST.get("sha", "")
     committed_at = parse_datetime(request.POST.get("committed_at") or "") if sha else None
+    target = sha[:7] if sha else f"the latest commit on {branch}"
+    if not sha:
+        # Pin the run to the branch's head now, so its commit shows it
+        # running at once. If the platform cannot say, the job pins it.
+        head = resolve_head_commit(project, branch)
+        sha = head.get("sha", "")
+        committed_at = parse_datetime(head["date"]) if head.get("date") else None
+        if sha:
+            target = f"{sha[:7]}, the latest commit on {branch}"
     standards = StandardEngine().standards_for_branch(project, branch)
     summary = enqueue_run(
         project,
@@ -206,7 +221,6 @@ def run_on_branch(request, pk):
         commit_sha=sha,
         committed_at=committed_at,
     )
-    target = sha[:7] if sha else f"the latest commit on {branch}"
     if summary is None:
         notice = f"No standards apply to {branch}."
     elif summary["queued"]:

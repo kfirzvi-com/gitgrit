@@ -154,9 +154,10 @@ class RunOnBranchViewTests(TestCase):
             criteria={"events": ["push"], "languages": []},
         )
         self.project.standards.add(self.standard)
-        platform = mock.Mock()
+        platform = self.platform = mock.Mock()
         platform.list_branches.return_value = ["main"]
         platform.list_commits.return_value = []
+        platform.head_commit.return_value = {}
         for patch in (
             mock.patch.object(commit_checks, "_client", return_value=platform),
             mock.patch("app.application.standard_runs.run_standards.configure"),
@@ -178,12 +179,32 @@ class RunOnBranchViewTests(TestCase):
         self.assertIn("Running 1 standard on aaaaaaa.", response.content.decode())
         self.assertEqual(response.context["open_sha"], "a" * 40)
 
-    def test_running_a_branch_waits_for_the_job_to_pin_its_head(self):
+    def test_running_a_branch_pins_its_head_at_once(self):
+        self.platform.head_commit.return_value = {"sha": "c" * 40, "date": "2026-10-02T10:00:00Z"}
+        self.platform.list_commits.return_value = [
+            {"sha": "c" * 40, "message": "Head", "author": "Dana", "date": "2026-10-02T10:00:00Z", "url": ""},
+        ]
+
+        response = self._post(branch="main")
+
+        from app.domain.models import CommitCheck
+        check = CommitCheck.objects.get()
+        self.assertEqual(check.commit_sha, "c" * 40)
+        self.assertEqual(check.committed_at.isoformat(), "2026-10-02T10:00:00+00:00")
+        content = response.content.decode()
+        self.assertIn("Running 1 standard on ccccccc, the latest commit on main.", content)
+        self.assertIn("1 running", content)
+        self.assertIn('hx-trigger="every 5s"', content)
+        self.assertEqual(response.context["open_sha"], "c" * 40)
+
+    def test_running_a_branch_the_platform_cannot_resolve_waits_for_the_job_and_keeps_polling(self):
         response = self._post(branch="main")
 
         from app.domain.models import CommitCheck
         self.assertEqual(CommitCheck.objects.get().commit_sha, "")
-        self.assertIn("the latest commit on main", response.content.decode())
+        content = response.content.decode()
+        self.assertIn("the latest commit on main", content)
+        self.assertIn('hx-trigger="every 5s"', content)
 
     def test_a_branch_no_standard_applies_to_runs_nothing(self):
         self.standard.criteria = {"events": ["push"], "languages": [], "ref": "^develop$"}

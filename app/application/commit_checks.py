@@ -203,6 +203,14 @@ def branch_status(project, branch: str) -> list:
     return current_results([project], branch=branch)
 
 
+def waiting_for_commit(project, branch: str) -> bool:
+    """Whether runs on ``branch`` are in flight before their job has pinned
+    their commit (they belong to no commit row yet)."""
+    return StandardExecution.objects.filter(
+        project=project, status=Status.RUNNING, commit_check__branch=branch, commit_check__commit_sha=""
+    ).exists()
+
+
 def _checked_commits(project, branch, page):
     shas = list(
         dict.fromkeys(
