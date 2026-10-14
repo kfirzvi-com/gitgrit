@@ -1095,6 +1095,81 @@ class FeedbackReport(models.Model):
         return f"Feedback from {self.user_email or self.user_id or 'anonymous'} @ {self.created_at:%Y-%m-%d}"
 
 
+class AccessRequest(models.Model):
+    """A person who signed up on a gated deployment and is waiting for a
+    superuser to let them in.
+
+    Their ``User`` exists from signup but stays inactive (``is_active=False``)
+    until the request is approved, so every way in — web login, API tokens,
+    CLI OAuth — refuses them without any gate of its own. Approval is the one
+    place a pending user becomes active; rejection leaves them inactive.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="access_request",
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING
+    )
+    # The onboarding form's answers (name, company, role, goals). Empty until
+    # submitted; deployments that skip the form approve on the email alone.
+    answers = models.JSONField(default=dict, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "access_requests"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Access request from {self.user.email} ({self.status})"
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == self.Status.PENDING
+
+    @property
+    def is_submitted(self) -> bool:
+        return self.submitted_at is not None
+
+    def submit(self, answers: dict) -> None:
+        if not self.is_pending:
+            raise ValueError("Only a pending request can be submitted.")
+        self.answers = answers
+        self.submitted_at = timezone.now()
+
+    def approve(self, reviewer) -> None:
+        self._review(self.Status.APPROVED, reviewer)
+        self.user.is_active = True
+
+    def reject(self, reviewer) -> None:
+        self._review(self.Status.REJECTED, reviewer)
+        self.user.is_active = False
+
+    def _review(self, status, reviewer) -> None:
+        if not self.is_pending:
+            raise ValueError(f"This request was already {self.status}.")
+        self.status = status
+        self.reviewed_by = reviewer
+        self.reviewed_at = timezone.now()
+
+
 class Notification(models.Model):
     """Aggregate root: one thing that happened in a workspace that people should
     hear about. It is a fact, not a message to anyone: who hears it is decided

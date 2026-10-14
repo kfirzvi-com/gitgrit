@@ -15,6 +15,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from django.core.exceptions import ImproperlyConfigured
+
 from gitgrit.feature_flags import github_app_enabled, missing_github_app_settings
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -84,6 +86,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "app.middleware.FirstRunSetupMiddleware",
     "app.middleware.TenantMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -212,6 +215,48 @@ LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
+ACCOUNT_ADAPTER = "app.presentation.auth_adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "app.presentation.auth_adapters.SocialAccountAdapter"
+
+# Who may get in after signing up.
+#   open        anyone who signs up is in (the old behaviour)
+#   approval    signups wait, inactive, until a superuser approves them
+#   onboarding  as approval, but the person first fills in a short
+#               request-access form whose answers the approver sees
+# Gated by default so a fresh deployment is never open to the internet by
+# accident. Signup happens through a provider or through the sign-in page's
+# email + password box (an unknown email signs up); allauth's own signup form
+# is not used.
+SIGNUP_MODES = ("open", "approval", "onboarding")
+SIGNUP_MODE = os.environ.get("GITGRIT_SIGNUP_MODE", "approval")
+if SIGNUP_MODE not in SIGNUP_MODES:
+    raise ImproperlyConfigured(
+        f"GITGRIT_SIGNUP_MODE={SIGNUP_MODE!r}; expected one of {', '.join(SIGNUP_MODES)}"
+    )
+
+# First-run setup (creating the first superuser) is guarded by a token so
+# whoever reaches a fresh deployment first cannot claim it. Derived from
+# SECRET_KEY unless set explicitly; `manage.py setup_token` prints it.
+GITGRIT_SETUP_TOKEN = os.environ.get("GITGRIT_SETUP_TOKEN", "")
+# Off only in tests, where most cases start from an empty user table.
+FIRST_RUN_SETUP_ENABLED = True
+
+# Outgoing email. SMTP when EMAIL_HOST is set (e.g. SES:
+# email-smtp.<region>.amazonaws.com:587 with TLS); otherwise emails are
+# written to the log, so nothing breaks before mail is configured.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+EMAIL_TIMEOUT = 10
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "GitGrit <noreply@gitgrit.dev>")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Per-provider auth flags. Default True so cloud deployments are unchanged;
 # air-gap operators flip Google/GitHub off when no internet egress is available.
@@ -452,6 +497,13 @@ LOGGING = {
     },
     "loggers": {
         "app.support_view": {
+            "handlers": ["console_timestamped"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # First-run setup and access-request reviews: who became admin, who
+        # was let in or turned away, and by whom.
+        "app.access": {
             "handlers": ["console_timestamped"],
             "level": "INFO",
             "propagate": False,

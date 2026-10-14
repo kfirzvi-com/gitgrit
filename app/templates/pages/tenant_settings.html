@@ -16,6 +16,7 @@
         <li><a href="#section-connections" data-settings-link>Git Platform Connections</a></li>
         <li><a href="#section-llm" data-settings-link>LLM Providers</a></li>
         {% if is_admin %}<li><a href="#section-api-tokens" data-settings-link>API Tokens</a></li>{% endif %}
+        {% if can_delete_workspace %}<li><a href="#section-danger" data-settings-link class="text-error">Danger Zone</a></li>{% endif %}
       </ul>
     </nav>
 
@@ -57,17 +58,31 @@
                     </td>
                     <td>{{ member.user.email }}</td>
                     <td>
-                      <span class="badge {% if member.role == 'owner' %}badge-primary{% elif member.role == 'admin' %}badge-secondary{% else %}badge-ghost{% endif %}">
-                        {{ member.get_role_display }}
-                      </span>
+                      {% if member.role_choices %}
+                        <form method="post" action="{% url 'change_member_role' member.id %}">
+                          {% csrf_token %}
+                          <select name="role" aria-label="Role of {{ member.user.email }}"
+                                  class="select select-bordered select-xs"
+                                  onchange="this.form.requestSubmit()">
+                            {% for value, label in member.role_choices %}
+                              <option value="{{ value }}" {% if value == member.role %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                          </select>
+                        </form>
+                      {% else %}
+                        <span class="badge {% if member.role == 'owner' %}badge-primary{% elif member.role == 'admin' %}badge-secondary{% else %}badge-ghost{% endif %}"
+                              {% if member.last_owner %}title="The only owner. Make someone else an owner before changing this."{% endif %}>
+                          {{ member.get_role_display }}
+                        </span>
+                      {% endif %}
                     </td>
                     {% if is_admin %}
                       <td>
-                        {% if member.role != 'owner' %}
+                        {% if member.removable %}
                           <form method="post" action="{% url 'remove_member' member.id %}">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-ghost btn-xs text-error"
-                                    onclick="return confirm('Remove {{ member.user.username }}?')">
+                                    onclick="return confirm('Remove {{ member.user.email|escapejs }}?')">
                               Remove
                             </button>
                           </form>
@@ -88,7 +103,7 @@
                   Leave workspace
                 </button>
               </form>
-            {% else %}
+            {% elif is_last_owner %}
               <span class="text-xs opacity-60">You're the only owner, so you can't leave this workspace.</span>
             {% endif %}
           </div>
@@ -476,6 +491,71 @@
       </div>
         </div>
       </section>
+      {% endif %}
+
+      {% if can_delete_workspace %}
+      <section id="section-danger" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6 border border-error/40"
+               data-settings-section>
+        <input type="radio" name="settings-section" aria-label="Toggle Danger Zone">
+        <h2 class="collapse-title text-xl font-semibold text-error">Danger Zone</h2>
+        <div class="collapse-content">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 class="font-semibold">Delete this workspace</h3>
+              <p class="text-sm opacity-70">
+                Removes <strong>{{ current_tenant.name }}</strong> and everything in it for every member.
+                This can't be undone.
+              </p>
+            </div>
+            <button type="button" class="btn btn-error btn-outline btn-sm"
+                    onclick="document.getElementById('delete-workspace-modal').showModal()">
+              Delete workspace…
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <dialog id="delete-workspace-modal" class="modal">
+        <form method="post" action="{% url 'delete_workspace' %}" class="modal-box flex flex-col gap-4">
+          {% csrf_token %}
+          <h3 class="font-bold text-lg text-error">Delete {{ current_tenant.name }}?</h3>
+          <div role="alert" class="alert alert-error text-sm">
+            <span><strong>This is permanent and irreversible.</strong> There is no undo and no backup to restore from.</span>
+          </div>
+          <p class="text-sm">Deleting the workspace permanently removes, for every member:</p>
+          <ul class="list-disc list-inside text-sm opacity-80 -mt-2">
+            <li>its projects, stacks, standards and their run history</li>
+            <li>its git platform connections, LLM providers and API tokens</li>
+            <li>its members' access (their accounts stay; they lose this workspace)</li>
+          </ul>
+          <p class="text-sm opacity-80 -mt-1">GitGrit also removes the webhooks it added to your repositories.</p>
+          <label class="form-control w-full">
+            <div class="label">
+              <span class="label-text">Type <strong class="font-mono select-all">{{ current_tenant.name }}</strong> to confirm</span>
+            </div>
+            <input type="text" name="confirm_name" autocomplete="off" spellcheck="false" required
+                   class="input input-bordered w-full font-mono" id="delete-workspace-confirm"
+                   data-expected="{{ current_tenant.name }}">
+          </label>
+          <div class="modal-action mt-0">
+            <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn btn-error" id="delete-workspace-submit" disabled>
+              Permanently delete workspace
+            </button>
+          </div>
+        </form>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+      </dialog>
+      <script>
+        (function () {
+          var input = document.getElementById('delete-workspace-confirm');
+          var submit = document.getElementById('delete-workspace-submit');
+          // The server checks the name again; this only keeps the button honest.
+          input.addEventListener('input', function () {
+            submit.disabled = input.value !== input.dataset.expected;
+          });
+        })();
+      </script>
       {% endif %}
 
     </div>
@@ -946,7 +1026,7 @@
   <div class="text-center py-12">
     <h1 class="text-3xl font-bold mb-4">No Workspace</h1>
     <p class="mb-6 opacity-70">You don't belong to any workspace yet.</p>
-    <a href="{% url 'create_tenant' %}" class="btn btn-primary">Create Workspace</a>
+    {% if user.is_superuser %}<a href="{% url 'create_tenant' %}" class="btn btn-primary">Create Workspace</a>{% endif %}
   </div>
 {% endif %}
 {% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Set Up GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-center min-h-[60vh]">
+  <form method="post" class="card bg-base-100 shadow-xl w-full max-w-md">
+    {% csrf_token %}
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Set up GitGrit</h1>
+      <p class="text-sm text-base-content/70 mb-2">
+        This deployment has no users yet. Create the admin account: it can let
+        other people in and help in every workspace.
+      </p>
+
+      <label class="form-control w-full">
+        <div class="label"><span class="label-text">Setup token</span></div>
+        <input type="text" name="token" value="{{ form.token.value|default:'' }}" required
+               class="input input-bordered w-full font-mono" autocomplete="off">
+        <div class="label">
+          {% if form.token.errors %}
+            <span class="label-text-alt text-error">{{ form.token.errors.0 }}</span>
+          {% else %}
+            <span class="label-text-alt text-base-content/60">In the app log, or run <code>manage.py setup_token</code>.</span>
+          {% endif %}
+        </div>
+      </label>
+
+      <label class="form-control w-full">
+        <div class="label"><span class="label-text">Email</span></div>
+        <input type="email" name="email" value="{{ form.email.value|default:'' }}" required
+               class="input input-bordered w-full" autocomplete="email">
+        {% if form.email.errors %}
+        <div class="label"><span class="label-text-alt text-error">{{ form.email.errors.0 }}</span></div>
+        {% endif %}
+      </label>
+
+      <label class="form-control w-full">
+        <div class="label"><span class="label-text">Password</span></div>
+        <input type="password" name="password1" required
+               class="input input-bordered w-full" autocomplete="new-password">
+        {% if form.password1.errors %}
+        <div class="label"><span class="label-text-alt text-error">{{ form.password1.errors|join:" " }}</span></div>
+        {% endif %}
+      </label>
+
+      <label class="form-control w-full">
+        <div class="label"><span class="label-text">Confirm password</span></div>
+        <input type="password" name="password2" required
+               class="input input-bordered w-full" autocomplete="new-password">
+        {% if form.password2.errors %}
+        <div class="label"><span class="label-text-alt text-error">{{ form.password2.errors.0 }}</span></div>
+        {% endif %}
+      </label>
+
+      <div class="card-actions justify-end mt-4">
+        <button type="submit" class="btn btn-primary">Create admin</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

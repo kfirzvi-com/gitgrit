@@ -1,5 +1,13 @@
 from django.urls import path
 
+from app.presentation.views.access_views import (
+    access_request_list,
+    access_request_status,
+    first_run_setup,
+    no_workspace,
+    review_access_request,
+)
+
 from app.presentation.views.standard_views import (
     CreateStandardView,
     EditStandardView,
@@ -39,6 +47,8 @@ from app.presentation.views.tenant_views import (
     TenantSettingsView,
     add_connection,
     add_llm_provider,
+    change_member_role,
+    delete_workspace_view,
     edit_connection_token,
     edit_llm_provider,
     fetch_llm_models,
@@ -91,6 +101,21 @@ from app.presentation.views.token_views import (
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("setup/", first_run_setup, name="first_run_setup"),
+    path("access/", access_request_status, name="access_request_status"),
+    path("staff/access-requests/", access_request_list, name="access_request_list"),
+    path(
+        "staff/access-requests/<uuid:pk>/approve/",
+        review_access_request,
+        {"decision": "approve"},
+        name="approve_access_request",
+    ),
+    path(
+        "staff/access-requests/<uuid:pk>/reject/",
+        review_access_request,
+        {"decision": "reject"},
+        name="reject_access_request",
+    ),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("dashboard/refresh-map/", refresh_map, name="refresh_map"),
     path("notifications/panel/", notification_panel, name="notification_panel"),
@@ -112,11 +137,18 @@ urlpatterns = [
     ),
     path("tenants/new/", CreateTenantView.as_view(), name="create_tenant"),
     path("tenants/settings/", TenantSettingsView.as_view(), name="tenant_settings"),
+    path("tenants/delete/", delete_workspace_view, name="delete_workspace"),
+    path("no-workspace/", no_workspace, name="no_workspace"),
     path("tenants/invite/", invite_member, name="invite_member"),
     path(
         "tenants/members/<uuid:membership_id>/remove/",
         remove_member,
         name="remove_member",
+    ),
+    path(
+        "tenants/members/<uuid:membership_id>/role/",
+        change_member_role,
+        name="change_member_role",
     ),
     # Platform connections
     path("tenants/connections/add/", add_connection, name="add_connection"),

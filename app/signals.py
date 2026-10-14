@@ -1,27 +1,12 @@
-from django.utils.text import slugify
-
-from allauth.account.signals import user_signed_up
 from django.contrib.auth.signals import user_logged_in
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete, pre_save
 
-from app.domain.models import Component, Membership, Project, Tenant
+from app.application.membership_service import (
+    guard_last_owner_delete,
+    guard_last_owner_save,
+)
+from app.domain.models import Component, Membership, Project
 from app.workspace_access import leave_support_view
-
-
-def create_default_tenant(request, user, **kwargs):
-    name = f"{user.username}'s workspace"
-    base_slug = slugify(user.username) or slugify(user.email.split("@")[0])
-
-    # Ensure slug uniqueness
-    slug = base_slug
-    counter = 1
-    while Tenant.objects.filter(slug=slug).exists():
-        slug = f"{base_slug}-{counter}"
-        counter += 1
-
-    tenant = Tenant.objects.create(name=name, slug=slug)
-    Membership.objects.create(user=user, tenant=tenant, role=Membership.Role.OWNER)
-    request.session["active_tenant_id"] = str(tenant.id)
 
 
 def reset_support_view(request, user, **kwargs):
@@ -50,6 +35,7 @@ def create_root_component(sender, instance, created, raw=False, **kwargs):
     )
 
 
-user_signed_up.connect(create_default_tenant)
 user_logged_in.connect(reset_support_view)
 post_save.connect(create_root_component, sender=Project, dispatch_uid="project_root_component")
+pre_delete.connect(guard_last_owner_delete, sender=Membership, dispatch_uid="membership_last_owner_delete")
+pre_save.connect(guard_last_owner_save, sender=Membership, dispatch_uid="membership_last_owner_save")

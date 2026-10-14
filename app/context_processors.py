@@ -1,5 +1,6 @@
 from django.conf import settings
 
+from app.application.access import pending_access_request_count
 from app.domain.notifications.inbox import Inbox
 from app.domain.models import Membership, Tenant
 
@@ -26,6 +27,7 @@ def tenant_context(request):
         "auth_provider_github_enabled": settings.AUTH_PROVIDER_GITHUB_ENABLED,
         "auth_provider_gitlab_enabled": settings.AUTH_PROVIDER_GITLAB_ENABLED,
         "auth_provider_google_enabled": settings.AUTH_PROVIDER_GOOGLE_ENABLED,
+        "signup_gated": settings.SIGNUP_MODE != "open",
     }
 
     if not hasattr(request, "user") or not request.user.is_authenticated:
@@ -44,6 +46,8 @@ def tenant_context(request):
         "show_workspace_search": workspace_count > WORKSPACE_SEARCH_THRESHOLD,
         "support_view": getattr(request, "tenant_is_support_view", False),
     })
+    if request.user.is_superuser:
+        ctx["pending_access_requests"] = pending_access_request_count()
     return ctx
 
 

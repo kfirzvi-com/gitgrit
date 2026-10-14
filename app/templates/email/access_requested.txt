@@ -1,0 +1,10 @@
+{{ email }} is asking for access to GitGrit.
+{% if answers %}
+{% if answers.name %}Name: {{ answers.name }}
+{% endif %}{% if answers.company %}Company: {{ answers.company }}
+{% endif %}{% if answers.role %}Role: {{ answers.role }}
+{% endif %}{% if answers.goals %}
+What they want from GitGrit:
+{{ answers.goals }}
+{% endif %}{% endif %}
+Review it: {{ site_url }}{{ review_path }}
