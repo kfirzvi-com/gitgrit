@@ -230,6 +230,8 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
         _fail(executions, message)
         _publish_finished(error=message)
         raise
+    finally:
+        engine.close()
     _publish_finished()
 
 

@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import requests
 
-from app.domain.models import AuthMethod, Platform, PlatformConnection
+from app.domain.models import AuthMethod, Platform, PlatformConnection, ProjectVersion
 
 logger = logging.getLogger(__name__)
 
@@ -439,9 +439,59 @@ class GitLabClient(PlatformClient):
         )
 
 
+class UploadClient(PlatformClient):
+    """The upload connection's "platform": GitGrit itself. An upload
+    project's versions play its commits and their channels its branches
+    (see ``ProjectVersion``), so the project page's history reads them
+    through the same interface as a Git platform's."""
+
+    def search_projects(self, query: str = "") -> list[dict]:
+        return []
+
+    def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
+        raise ValueError("Upload projects receive no webhooks.")
+
+    def delete_webhook(self, external_id: str, webhook_id: str) -> None:
+        pass
+
+    def test_token(self) -> bool:
+        return True
+
+    def _versions(self, external_id: str):
+        return ProjectVersion.objects.filter(
+            project__platform_connection=self.connection,
+            project__external_id=external_id,
+        ).order_by("-created_at")
+
+    def list_branches(self, external_id: str, full_path: str) -> list[str]:
+        return sorted(set(self._versions(external_id).values_list("channel", flat=True)))
+
+    def list_commits(
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+    ) -> list[dict]:
+        start = (page - 1) * per_page
+        versions = self._versions(external_id).filter(channel=branch)[start : start + per_page]
+        return [
+            {
+                "sha": v.digest,
+                "message": v.label or f"Upload of {v.file_count} files",
+                "author": v.uploaded_by,
+                "date": v.created_at.isoformat(),
+                "url": "",
+            }
+            for v in versions
+        ]
+
+    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+        version = self._versions(external_id).filter(channel=branch).first()
+        return {"sha": version.digest, "date": version.created_at.isoformat()} if version else {}
+
+
 def get_platform_client(connection: PlatformConnection) -> PlatformClient:
     if connection.platform == Platform.GITHUB:
         return GitHubClient(connection)
     elif connection.platform == Platform.GITLAB:
         return GitLabClient(connection)
+    elif connection.platform == Platform.UPLOAD:
+        return UploadClient(connection)
     raise ValueError(f"Unknown platform: {connection.platform}")

@@ -27,6 +27,13 @@ class ProjectContext:
         return self._provider.get_file_content(path)
 
     @tool
+    def get_file_size(
+        self, path: Annotated[str, "Repository-relative file path."]
+    ) -> int | None:
+        """Return a file's size in bytes, or null if it does not exist or the size is unknown."""
+        return self._provider.get_file_size(path)
+
+    @tool
     def list_files(self) -> list[str]:
         """List every file path in the repository."""
         return self._provider.list_files()

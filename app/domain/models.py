@@ -286,6 +286,14 @@ class PlatformConnection(models.Model):
 
     class Meta:
         db_table = "platform_connections"
+        constraints = [
+            # Upload projects all hang off one credential-less connection.
+            models.UniqueConstraint(
+                fields=["tenant"],
+                condition=models.Q(platform="upload"),
+                name="one_upload_connection_per_tenant",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.display_name} ({self.platform})"

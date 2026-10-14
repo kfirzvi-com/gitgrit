@@ -133,6 +133,7 @@ class SandboxLLMTests(SimpleTestCase):
             "get_default_branch",
             "get_topics",
             "get_file_last_commit_date",
+            "get_file_size",
         }
         assert set(dispatch) == set(by_name)
         # Description comes from the method docstring; params from type hints.

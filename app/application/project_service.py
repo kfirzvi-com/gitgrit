@@ -61,6 +61,16 @@ if content is None:
     return {"passed": False, "score": 0, "message": "CODEOWNERS not found", "details": {}}
 ```
 
+### `project.get_file_size(path: str) -> int | None`
+Returns a file's size in bytes, or `None` if it doesn't exist or the size is
+unknown. Works for binary files (images, audio, wasm) that `get_file_content`
+cannot return. Known for upload projects; `None` on Git repositories.
+
+**Example:**
+```python
+too_big = [f for f in project.list_files() if (project.get_file_size(f) or 0) > 5_000_000]
+```
+
 ### `project.get_languages() -> dict[str, float]`
 Returns a dict mapping language names to their percentage in the repo.
 
