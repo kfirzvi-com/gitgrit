@@ -301,23 +301,43 @@ class LLMAgent:
             if tool_calls_made >= MAX_TOOL_CALLS:
                 break
 
-        return self._final_answer(messages, response_model)
+        return self._final_answer(messages, response_model, tool_schemas)
 
-    def _final_answer(self, messages, response_model):
+    def _final_answer(self, messages, response_model, tool_schemas):
         """Ask for the answer as plain JSON text and validate it.
 
-        No ``tools`` and no ``response_format`` on these calls. A reply that is
-        cut off (``finish_reason == "length"``), empty, or fails validation
-        gets one repair turn quoting the problem; after that it raises
-        ``FinalAnswerError`` so the caller's retry logic takes over quickly.
+        No ``response_format`` on these calls. The loop's ``tools`` stay on
+        the request, with ``tool_choice="none"``, because the conversation
+        already holds the model's tool calls and (on Anthropic) its thinking
+        blocks. Anthropic signs each thinking block against the ``tools`` list
+        it was created with and rejects the request with a 400 when that list
+        changes — and dropping ``tools`` changes it, since LiteLLM then adds a
+        dummy tool for the tool calls in the history. Seen on prod 2026-10-14:
+        every map in a workspace on a newer Anthropic account failed at this
+        step while older accounts, where the check is off by default, passed.
+
+        A reply that is cut off (``finish_reason == "length"``), empty, or
+        fails validation gets one repair turn quoting the problem; after that
+        it raises ``FinalAnswerError`` so the caller's retry logic takes over
+        quickly.
         """
         messages.append({"role": "user", "content": _final_answer_prompt(response_model)})
         problem = ""
         for attempt in range(1, FINAL_ANSWER_ATTEMPTS + 1):
-            final = self._complete(messages, max_tokens=FINAL_MAX_TOKENS)
+            # drop_params: Bedrock has no tool_choice="none" and Ollama hangs on
+            # any tool_choice; LiteLLM drops it there instead of raising.
+            final = self._complete(
+                messages,
+                tools=tool_schemas,
+                tool_choice="none",
+                max_tokens=FINAL_MAX_TOKENS,
+                drop_params=True,
+            )
             choice = final.choices[0]
             content = getattr(choice.message, "content", None) or ""
-            if getattr(choice, "finish_reason", None) == "length":
+            if getattr(choice.message, "tool_calls", None):
+                problem = "the reply called a tool instead of answering"
+            elif getattr(choice, "finish_reason", None) == "length":
                 problem = f"the answer hit the {FINAL_MAX_TOKENS}-token limit and was cut off"
             else:
                 try:

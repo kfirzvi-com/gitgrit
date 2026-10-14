@@ -52,7 +52,6 @@ def test_final_answer_is_plain_json_without_response_format():
     assert result == Answer(name="api", kind="service")
     final = calls[-1]
     assert "response_format" not in final
-    assert "tools" not in final
     assert final["max_tokens"] == FINAL_MAX_TOKENS
     prompt = final["messages"][-1]["content"]
     assert "JSON Schema" in prompt and '"name"' in prompt
@@ -83,6 +82,32 @@ def test_cut_off_answer_is_retried_then_fails_fast():
 def test_empty_content_is_treated_as_invalid():
     result, _ = _run([_reply("done"), _reply(None), _reply('{"name": "x"}')])
     assert result.name == "x"
+
+
+def test_final_answer_keeps_the_loop_tools_but_forbids_calling_them():
+    """Real capture, prod 2026-10-14: Anthropic signs each thinking block
+    against the ``tools`` list of the request that produced it. The final
+    call used to drop ``tools`` (LiteLLM then adds a dummy tool), so every
+    map on a newer Anthropic account died with a 400 "Invalid `signature` in
+    `thinking` block ... The `tools` list differs"."""
+    call = SimpleNamespace(id="c1", function=SimpleNamespace(name="read", arguments='{"path": "a.txt"}'))
+    _, calls = _run([_reply(None, tool_calls=[call]), _reply("done"), _reply('{"name": "n"}')])
+    loop, final = calls[0], calls[-1]
+    assert final["tools"] == loop["tools"]
+    assert final["tool_choice"] == "none"
+    assert loop["tool_choice"] == "auto"
+    # Bedrock rejects tool_choice="none" unless LiteLLM may drop it.
+    assert final["drop_params"] is True
+
+
+def test_final_reply_that_calls_a_tool_gets_the_repair_turn():
+    """Providers where tool_choice was dropped (Bedrock, Ollama) may still
+    call a tool; that is a rejected answer, never a return to the loop."""
+    call = SimpleNamespace(id="c2", function=SimpleNamespace(name="read", arguments="{}"))
+    result, calls = _run([_reply("done"), _reply(None, tool_calls=[call]), _reply('{"name": "n"}')])
+    assert result.name == "n"
+    assert len(calls) == 3
+    assert "called a tool" in calls[-1]["messages"][-1]["content"]
 
 
 def test_tool_loop_still_runs_before_the_final_answer():
