@@ -29,12 +29,15 @@ class TestDashboard(TestCase):
         assert self.client.get(self.url).status_code == 403
         assert self.client.get(reverse("access_request_tab")).status_code == 403
 
-    def test_sections(self):
+    def test_one_section_at_a_time_from_the_menu(self):
         html = self.client.get(self.url).content.decode()
 
         for section in ("section-access-requests", "section-superusers"):
-            assert f'id="{section}"' in html
-            assert f'href="#{section}" data-settings-link' in html
+            assert f'href="#{section}" data-tab-link' in html
+        # Tabs, not collapsible sections: the first shows, the rest wait.
+        assert 'id="section-access-requests" class="card bg-base-100 shadow-xl" data-tab-panel>' in html
+        assert 'id="section-superusers" class="card bg-base-100 shadow-xl" data-tab-panel hidden>' in html
+        assert "collapse" not in html.split('id="admin-nav"', 1)[1].split("</main>", 1)[0]
 
     def test_the_old_queue_address_opens_its_tab(self):
         response = self.client.get(reverse("access_request_list") + "?status=rejected")
