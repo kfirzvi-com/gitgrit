@@ -15,13 +15,12 @@ from django.views.generic import FormView, TemplateView
 from django_htmx.http import HttpResponseClientRedirect
 
 from app.application import membership_service
-from app.application.event_bus import publish
 from app.application.workspace_service import (
     can_delete_workspace,
     create_workspace,
     delete_workspace,
 )
-from app.domain.events import MemberJoined, MemberRemoved
+from app.domain.workspace_roles import ROLE_LABELS, LastOwner, MembershipRuleError
 from app.domain.models import (
     APIToken,
     LLMProvider,
@@ -102,7 +101,7 @@ def leave_workspace(request):
 
     try:
         membership_service.remove_member(membership, request.user)
-    except membership_service.LastOwnerError:
+    except LastOwner:
         messages.error(
             request,
             "You're the only owner of this workspace, so you can't leave it. "
@@ -139,6 +138,32 @@ def delete_workspace_view(request):
     leave_support_view(request)
     messages.success(request, f'Workspace "{name}" was permanently deleted.')
     return redirect("dashboard")
+
+
+def members_context(user, tenant):
+    """The member list as ``user`` sees it: each row carries what they may
+    do to it, as the workspace rules (``app.domain.workspace_roles``) say.
+    The service asks the rules again when they act."""
+    members = list(
+        Membership.objects.filter(tenant=tenant)
+        .select_related("user")
+        .order_by("created_at")
+    )
+    roster = membership_service.roster_of(tenant, members)
+    actor = membership_service.actor_in(roster, user)
+    for m in members:
+        m.last_owner = roster.is_last_owner(m.user_id)
+        m.role_choices = [
+            (r, ROLE_LABELS[r]) for r in roster.assignable_roles(actor, m.user_id)
+        ]
+        m.removable = m.user_id != user.pk and roster.can_remove(actor, m.user_id)
+    own = roster.seat_of(user.pk)
+    return {
+        "members": members,
+        "invite_roles": [(r, ROLE_LABELS[r]) for r in roster.assignable_roles(actor)],
+        "can_leave": own is not None and not roster.is_last_owner(user.pk),
+        "is_last_owner": roster.is_last_owner(user.pk),
+    }
 
 
 class CreateWorkspaceForm(forms.Form):
@@ -192,16 +217,9 @@ class CreateTenantView(LoginRequiredMixin, FormView):
 
     def form_valid(self, form):
         owner = form.cleaned_data["owner_email"]
-        tenant = create_workspace(form.cleaned_data["name"].strip(), owner)
-        if owner != self.request.user:
-            publish(
-                MemberJoined(
-                    tenant_id=str(tenant.pk),
-                    user_id=str(owner.pk),
-                    role=Membership.Role.OWNER,
-                    added_by_user_id=str(self.request.user.pk),
-                )
-            )
+        tenant = create_workspace(
+            form.cleaned_data["name"].strip(), owner, by=self.request.user
+        )
         if owner == self.request.user:
             leave_support_view(self.request)
             self.request.session["active_tenant_id"] = str(tenant.id)
@@ -220,38 +238,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         tenant = self.request.tenant
         if tenant:
-            members = list(
-                Membership.objects.filter(tenant=tenant)
-                .select_related("user")
-                .order_by("created_at")
-            )
-            user = self.request.user
-            can_manage = membership_service.can_manage_members(user, tenant)
-            can_manage_owners = membership_service.can_manage_owners(user, tenant)
-            owner_count = sum(m.role == Membership.Role.OWNER for m in members)
-            for m in members:
-                is_owner = m.role == Membership.Role.OWNER
-                m.last_owner = is_owner and owner_count == 1
-                # What this viewer may do to the row. The service checks again.
-                m.role_choices = (
-                    []
-                    if not can_manage or m.last_owner or (is_owner and not can_manage_owners)
-                    else [
-                        (value, label)
-                        for value, label in Membership.Role.choices
-                        if value != Membership.Role.OWNER or can_manage_owners
-                    ]
-                )
-                m.removable = (
-                    m.user_id != user.pk
-                    and can_manage
-                    and not m.last_owner
-                    and (not is_owner or can_manage_owners)
-                )
-            context["members"] = members
-            own = next((m for m in members if m.user_id == user.pk), None)
-            context["can_leave"] = own is not None and not own.last_owner
-            context["is_last_owner"] = own is not None and own.last_owner
+            context.update(members_context(self.request.user, tenant))
             context["can_delete_workspace"] = can_delete_workspace(
                 self.request.user, tenant
             )
@@ -312,33 +299,18 @@ def invite_member(request):
         messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
-    if not is_workspace_admin(request):
-        messages.error(request, "You don't have permission to invite members.")
-        return redirect("tenant_settings")
-
     email = request.POST.get("email", "").strip()
     role = request.POST.get("role", Membership.Role.MEMBER)
-    if role not in (Membership.Role.ADMIN, Membership.Role.MEMBER):
-        role = Membership.Role.MEMBER
-
-    invitee = User.objects.filter(email=email).first()
+    invitee = User.objects.filter(email__iexact=email).first() if email else None
     if not invitee:
         messages.error(request, f"No user found with email {email}.")
         return redirect("tenant_settings")
 
-    if Membership.objects.filter(user=invitee, tenant=tenant).exists():
-        messages.warning(request, f"{email} is already a member.")
+    try:
+        membership_service.add_member(tenant, invitee, role, by=request.user)
+    except MembershipRuleError as e:
+        messages.error(request, str(e))
         return redirect("tenant_settings")
-
-    Membership.objects.create(user=invitee, tenant=tenant, role=role)
-    publish(
-        MemberJoined(
-            tenant_id=str(tenant.pk),
-            user_id=str(invitee.pk),
-            role=role,
-            added_by_user_id=str(request.user.pk),
-        )
-    )
     messages.success(request, f"{email} added as {role}.")
     return redirect("tenant_settings")
 
@@ -354,9 +326,7 @@ def remove_member(request, membership_id):
     target = get_object_or_404(Membership, id=membership_id, tenant=tenant)
     try:
         membership_service.remove_member(target, request.user)
-    except membership_service.NotAllowed as e:
-        messages.error(request, str(e))
-    except membership_service.LastOwnerError as e:
+    except MembershipRuleError as e:
         messages.error(request, str(e))
     else:
         messages.success(request, f"{target.user.email} removed.")
@@ -374,7 +344,7 @@ def change_member_role(request, membership_id):
     target = get_object_or_404(Membership, id=membership_id, tenant=tenant)
     try:
         membership_service.change_role(target, request.POST.get("role", ""), request.user)
-    except (membership_service.NotAllowed, ValueError) as e:
+    except MembershipRuleError as e:
         messages.error(request, str(e))
     else:
         messages.success(

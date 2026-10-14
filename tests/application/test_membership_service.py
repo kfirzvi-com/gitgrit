@@ -1,5 +1,7 @@
-"""A workspace always has an owner: roles change and people leave only in
-ways that keep one, and only owners make or unmake owners."""
+"""The membership service applies the roster's decisions to storage and
+publishes them. The rules themselves are tested in
+tests/domain/test_workspace_roles.py; here: rows change only when the domain
+says yes, events go out, and the backstop holds outside the service."""
 from unittest import mock
 
 import pytest
@@ -8,95 +10,77 @@ from django.test import TestCase
 from model_bakery import baker
 
 from app.application import membership_service as ms
+from app.domain.events import MemberJoined, MemberRemoved, MemberRoleChanged
 from app.domain.models import Membership, Tenant
+from app.domain.workspace_roles import LastOwner, NotAllowed
 
 
 def _member(tenant, role):
     return baker.make("app.Membership", tenant=tenant, role=role)
 
 
+def _publish():
+    return mock.patch("app.application.membership_service.publish")
+
+
 @pytest.mark.django_db
-class TestChangeRole(TestCase):
+class TestService(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant", name="Acme")
         self.owner = _member(self.tenant, "owner")
-        self.admin = _member(self.tenant, "admin")
         self.member = _member(self.tenant, "member")
 
-    def test_owner_makes_another_owner_and_it_is_announced(self):
-        with mock.patch("app.application.membership_service.publish") as publish:
-            ms.change_role(self.member, "owner", self.owner.user)
+    def test_change_role_stores_and_publishes(self):
+        with _publish() as publish:
+            ms.change_role(self.member, "admin", self.owner.user)
 
-        self.member.refresh_from_db()
-        assert self.member.role == "owner"
-        event = publish.call_args.args[0]
-        assert (event.old_role, event.new_role) == ("member", "owner")
-        assert event.changed_by_user_id == str(self.owner.user_id)
-
-    def test_admin_manages_admins_and_members_but_not_owners(self):
-        ms.change_role(self.member, "admin", self.admin.user)
         assert Membership.objects.get(pk=self.member.pk).role == "admin"
+        assert isinstance(publish.call_args.args[0], MemberRoleChanged)
 
-        with pytest.raises(ms.NotAllowed):
-            ms.change_role(self.member, "owner", self.admin.user)
-        with pytest.raises(ms.NotAllowed):
-            ms.change_role(self.owner, "member", self.admin.user)
+    def test_a_refusal_stores_and_publishes_nothing(self):
+        with _publish() as publish, pytest.raises(NotAllowed):
+            ms.change_role(self.owner, "member", self.member.user)
 
-    def test_member_changes_nothing(self):
-        with pytest.raises(ms.NotAllowed):
-            ms.change_role(self.admin, "member", self.member.user)
-
-    def test_superuser_counts_as_owner(self):
-        root = baker.make("app.User", is_superuser=True)
-        ms.change_role(self.member, "owner", root)
-        assert Membership.objects.get(pk=self.member.pk).role == "owner"
-
-    def test_last_owner_cannot_step_down(self):
-        with pytest.raises(ms.LastOwnerError):
-            ms.change_role(self.owner, "admin", self.owner.user)
         assert Membership.objects.get(pk=self.owner.pk).role == "owner"
+        publish.assert_not_called()
 
-    def test_an_owner_steps_down_once_another_exists(self):
-        ms.change_role(self.admin, "owner", self.owner.user)
-        ms.change_role(self.owner, "member", self.owner.user)
-        assert Membership.objects.get(pk=self.owner.pk).role == "member"
+    def test_the_same_role_publishes_nothing(self):
+        with _publish() as publish:
+            ms.change_role(self.member, "member", self.owner.user)
+        publish.assert_not_called()
 
-    def test_unknown_role(self):
-        with pytest.raises(ValueError):
-            ms.change_role(self.member, "god", self.owner.user)
-
-
-@pytest.mark.django_db
-class TestRemoveMember(TestCase):
-    def setUp(self):
-        self.tenant = baker.make("app.Tenant")
-        self.owner = _member(self.tenant, "owner")
-        self.admin = _member(self.tenant, "admin")
-
-    def test_admin_removes_members_but_not_owners(self):
-        member = _member(self.tenant, "member")
-        ms.remove_member(member, self.admin.user)
-        assert not Membership.objects.filter(pk=member.pk).exists()
-
-        _member(self.tenant, "owner")
-        with pytest.raises(ms.NotAllowed):
-            ms.remove_member(self.owner, self.admin.user)
-
-    def test_owner_removes_another_owner_but_never_the_last(self):
+    def test_decides_on_the_stored_role_not_a_stale_copy(self):
+        stale = Membership.objects.get(pk=self.owner.pk)
         second = _member(self.tenant, "owner")
-        ms.remove_member(second, self.owner.user)
-        assert not Membership.objects.filter(pk=second.pk).exists()
+        ms.change_role(second, "member", self.owner.user)
 
-        with pytest.raises(ms.LastOwnerError):
+        stale.role = "owner"
+        with pytest.raises(LastOwner):
+            ms.change_role(stale, "member", self.owner.user)
+
+    def test_add_member(self):
+        newcomer = baker.make("app.User")
+        with _publish() as publish:
+            ms.add_member(self.tenant, newcomer, "admin", by=self.owner.user)
+
+        assert Membership.objects.get(user=newcomer, tenant=self.tenant).role == "admin"
+        assert isinstance(publish.call_args.args[0], MemberJoined)
+
+    def test_remove_member(self):
+        with _publish() as publish:
+            ms.remove_member(self.member, self.owner.user)
+
+        assert not Membership.objects.filter(pk=self.member.pk).exists()
+        assert isinstance(publish.call_args.args[0], MemberRemoved)
+
+    def test_the_last_owner_stays(self):
+        with pytest.raises(LastOwner):
             ms.remove_member(self.owner, self.owner.user)
-
-    def test_anyone_but_the_last_owner_can_leave(self):
-        ms.remove_member(self.admin, self.admin.user)
-        assert not Membership.objects.filter(pk=self.admin.pk).exists()
+        assert Membership.objects.filter(pk=self.owner.pk).exists()
 
 
 @pytest.mark.django_db
-class TestGuardOutsideTheService(TestCase):
+class TestBackstop(TestCase):
     """The Django admin and user deletion don't go through the service."""
 
     def setUp(self):
@@ -105,19 +89,19 @@ class TestGuardOutsideTheService(TestCase):
 
     def test_deleting_the_last_owner_directly_is_refused(self):
         # A refused delete poisons its transaction, as any failed write does.
-        with pytest.raises(ms.LastOwnerError), transaction.atomic():
+        with pytest.raises(LastOwner), transaction.atomic():
             self.owner.delete()
-        with pytest.raises(ms.LastOwnerError), transaction.atomic():
+        with pytest.raises(LastOwner), transaction.atomic():
             Membership.objects.filter(pk=self.owner.pk).delete()
         assert Membership.objects.filter(pk=self.owner.pk).exists()
 
     def test_demoting_the_last_owner_directly_is_refused(self):
         self.owner.role = "member"
-        with pytest.raises(ms.LastOwnerError):
+        with pytest.raises(LastOwner):
             self.owner.save()
 
     def test_deleting_a_user_who_is_the_last_owner_is_refused(self):
-        with pytest.raises(ms.LastOwnerError):
+        with pytest.raises(LastOwner):
             self.owner.user.delete()
 
     def test_deleting_the_workspace_takes_its_owners_with_it(self):

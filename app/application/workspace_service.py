@@ -9,15 +9,19 @@ import logging
 from django.db import transaction
 from django.utils.text import slugify
 
+from app.application.event_bus import publish
+from app.application.membership_service import actor_in, roster_of
+from app.domain import workspace_roles
 from app.domain.models import Membership, Project, Tenant
 from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger("app.access")
 
 
-def create_workspace(name: str, owner) -> Tenant:
-    """A new workspace with a unique slug derived from ``name``, owned by
-    ``owner``. A workspace always has an owner, from birth."""
+def create_workspace(name: str, owner, *, by=None, role: str = workspace_roles.OWNER) -> Tenant:
+    """A new workspace with a unique slug derived from ``name``, founded by
+    ``owner`` (the domain insists the founder is its owner). ``by`` is who
+    set it up, when that's someone else; ``owner`` hears about it then."""
     base_slug = slugify(name) or "workspace"
     slug = base_slug
     counter = 1
@@ -26,15 +30,19 @@ def create_workspace(name: str, owner) -> Tenant:
         counter += 1
     with transaction.atomic():
         tenant = Tenant.objects.create(name=name, slug=slug)
-        Membership.objects.create(user=owner, tenant=tenant, role=Membership.Role.OWNER)
+        _, joined = workspace_roles.found(
+            tenant.pk, owner.pk, role=role, by_user_id=by.pk if by else None,
+            workspace_name=name,
+        )
+        Membership.objects.create(user=owner, tenant=tenant, role=joined.role)
+    if by is not None and by != owner:
+        publish(joined)
     return tenant
 
 
 def can_delete_workspace(user, tenant: Tenant) -> bool:
-    """Owners, through a real membership, and superusers."""
-    if user.is_superuser:
-        return True
-    return tenant.memberships.filter(user=user, role="owner").exists()
+    roster = roster_of(tenant)
+    return roster.can_delete_workspace(actor_in(roster, user))
 
 
 def delete_workspace(tenant: Tenant, actor) -> None:

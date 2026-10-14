@@ -14,6 +14,7 @@ from model_bakery import baker
 
 from app.application import access
 from app.domain.models import AccessRequest, Membership
+from app.domain.workspace_roles import MembershipRuleError
 from app.infrastructure.mailer import send_templated
 
 
@@ -171,7 +172,7 @@ class TestReview(TestCase):
         assert self.access_request.is_pending
 
     def test_first_person_in_a_new_workspace_is_its_owner(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(MembershipRuleError):
             access.approve_access_request(
                 self.access_request, self.reviewer, role="member", new_workspace_name="Acme"
             )
@@ -179,10 +180,14 @@ class TestReview(TestCase):
         assert self.access_request.is_pending
 
     def test_approve_refuses_an_unknown_role(self):
-        with pytest.raises(ValueError):
+        existing = baker.make("app.Tenant")
+        baker.make("app.Membership", tenant=existing, role="owner")
+        with pytest.raises(MembershipRuleError):
             access.approve_access_request(
-                self.access_request, self.reviewer, role="god", new_workspace_name="Acme"
+                self.access_request, self.reviewer, role="god", workspace=existing
             )
+        self.access_request.refresh_from_db()
+        assert self.access_request.is_pending
 
     def test_reject_leaves_the_person_out(self):
         with _send_email_patch() as defer, self.captureOnCommitCallbacks(execute=True):

@@ -24,8 +24,9 @@ from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from django.urls import reverse
 
+from app.application.membership_service import add_member
 from app.application.workspace_service import create_workspace
-from app.domain.models import AccessRequest, Membership, Tenant
+from app.domain.models import AccessRequest, Tenant
 
 logger = logging.getLogger("app.access")
 
@@ -147,24 +148,22 @@ def approve_access_request(
     new_workspace_name: str = "",
 ) -> Tenant:
     """Let the person in, as ``role`` in ``workspace`` — or in a new workspace
-    called ``new_workspace_name``. Exactly one of the two."""
+    called ``new_workspace_name``. Exactly one of the two. The workspace rules
+    (``app.domain.workspace_roles``) may still refuse the role; nothing is
+    approved then."""
     if bool(workspace) == bool(new_workspace_name.strip()):
         raise ValueError("Pick an existing workspace or name a new one, not both.")
-    if role not in Membership.Role.values:
-        raise ValueError(f"Unknown role {role!r}.")
-    if workspace is None and role != Membership.Role.OWNER:
-        raise ValueError("The first person in a new workspace is its owner.")
 
     with transaction.atomic():
         access_request.approve(reviewer)
         access_request.user.save(update_fields=["is_active"])
         access_request.save(update_fields=["status", "reviewed_by", "reviewed_at"])
         if workspace is None:
-            workspace = create_workspace(new_workspace_name.strip(), access_request.user)
-        else:
-            Membership.objects.get_or_create(
-                user=access_request.user, tenant=workspace, defaults={"role": role}
+            workspace = create_workspace(
+                new_workspace_name.strip(), access_request.user, role=role
             )
+        else:
+            add_member(workspace, access_request.user, role, by=reviewer)
         _send_email(
             "access_approved",
             [access_request.user.email],

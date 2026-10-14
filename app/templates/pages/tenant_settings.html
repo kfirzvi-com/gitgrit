@@ -119,8 +119,7 @@
               <input type="email" name="email" required placeholder="user@example.com"
                      class="input input-bordered flex-1">
               <select name="role" class="select select-bordered">
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
+                {% for value, label in invite_roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
               </select>
               <button type="submit" class="btn btn-primary">Invite</button>
             </form>

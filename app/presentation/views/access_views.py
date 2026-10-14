@@ -25,6 +25,7 @@ from app.application.access import (
     submit_access_request,
 )
 from app.domain.models import AccessRequest, Membership, Tenant
+from app.domain.workspace_roles import MembershipRuleError
 from app.workspace_access import parse_tenant_id
 from app.presentation.auth_adapters import PENDING_USER_SESSION_KEY
 
@@ -286,13 +287,17 @@ def review_access_request(request, pk, decision):
         messages.error(request, "Pick a role.")
         return redirect("access_request_list")
 
-    workspace = approve_access_request(
-        access_request,
-        request.user,
-        role=role,
-        workspace=workspace,
-        new_workspace_name=new_name,
-    )
+    try:
+        workspace = approve_access_request(
+            access_request,
+            request.user,
+            role=role,
+            workspace=workspace,
+            new_workspace_name=new_name,
+        )
+    except MembershipRuleError as e:
+        messages.error(request, str(e))
+        return redirect("access_request_list")
     messages.success(
         request, f"Approved {email} into {workspace.name} as {role}."
     )
