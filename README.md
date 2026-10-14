@@ -25,7 +25,7 @@ The full feature tour is on the [docs home](https://gitgrit.dev).
 
 ## Quick start
 
-Sign in at [app.gitgrit.dev](https://app.gitgrit.dev), connect a GitHub or GitLab instance, add a project, then install or write a standard. The full 5-minute walkthrough is in the [Quickstart guide](https://gitgrit.dev/getting-started/quickstart/).
+Request access at [app.gitgrit.dev](https://app.gitgrit.dev); once approved, connect a GitHub or GitLab instance, add a project, then install or write a standard. The full 5-minute walkthrough is in the [Quickstart guide](https://gitgrit.dev/getting-started/quickstart/).
 
 ## Writing a standard
 

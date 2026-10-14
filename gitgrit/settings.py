@@ -255,7 +255,7 @@ EMAIL_BACKEND = (
     if EMAIL_HOST
     else "django.core.mail.backends.console.EmailBackend"
 )
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "GitGrit <noreply@gitgrit.dev>")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "GitGrit <noreply@gitgrit.dev>"
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Per-provider auth flags. Default True so cloud deployments are unchanged;

@@ -197,6 +197,21 @@ AUTH_PROVIDER_GITHUB_ENABLED=False
 AUTH_PROVIDER_GOOGLE_ENABLED=False
 ```
 
+Decide who can get in, and how you hear about it:
+
+```ini
+# approval (default): new sign-ins wait for a superuser to approve them.
+# onboarding: the same, after a short form about the person and their team.
+# open: anyone who can sign in gets in (they still need adding to a workspace).
+GITGRIT_SIGNUP_MODE=approval
+
+# Optional: your SMTP relay. Superusers are emailed about new access
+# requests and people about their approval. Left empty, the emails only
+# appear in the app log and you check Admin → Access requests yourself.
+EMAIL_HOST=smtp.acme.internal
+DEFAULT_FROM_EMAIL=GitGrit <gitgrit@acme.internal>
+```
+
 The full environment variable reference lives in
 [Operations → Environment reference](operations.md#environment-variable-reference).
 
@@ -258,19 +273,35 @@ message to the step where you correct it.
     TCP probe sidesteps TLS entirely and only succeeds if the L4 path
     really works.
 
-### 7. Create the first admin user
+### 7. Create the first superuser
+
+A fresh install has no users, so every page sends you to
+`${SITE_URL}/setup/`. It asks for an email, a password and a **setup
+token**, which proves you operate this install rather than just being the
+first to reach it. Print the token on the host:
 
 ```bash
 docker compose -f docker-compose.full.yaml exec app \
-    python manage.py createsuperuser
+    python manage.py setup_token
 ```
 
-Follow the prompts. This account can manage Django admin and bootstrap
-the first workspace; day-to-day operators sign in via GitLab OAuth.
+The app also logs it once at startup. Once the first account exists,
+`/setup/` is gone for good.
 
-### 8. First login
+This first account is a **superuser**: it approves access requests,
+creates workspaces, and can open any workspace to help (the support view).
+It signs in with its email and password; day-to-day operators sign in with
+GitLab.
 
-Open `${SITE_URL}/accounts/login/` in a browser.
+!!! note "Prefer the command line?"
+    `python manage.py createsuperuser` works too, and skips `/setup/`.
+
+### 8. First workspace and first login
+
+After setup you land on **Create Workspace**. Name it after your team and
+make yourself its owner (or name another active account as owner).
+
+Then open `${SITE_URL}/accounts/login/` in a browser as an operator.
 
 !!! warning "Browser must trust your operator CA"
     The browser's trust store must contain your operator CA — otherwise
@@ -278,12 +309,16 @@ Open `${SITE_URL}/accounts/login/` in a browser.
     connection is not private" warning. Import the CA into the
     operator's system or browser trust store before this step.
 
-Click **Sign in with GitLab** → consent in GitLab → land on the GitGrit
-dashboard.
+Click **Sign in with GitLab** → consent in GitLab. The first time, that
+creates an access request (with `GITGRIT_SIGNUP_MODE=onboarding`, after a
+short form). As the superuser, open **Admin → Access requests** from the
+avatar menu and **Approve** it into your workspace with a role. The operator
+signs in again and lands on the GitGrit dashboard.
 
 From there:
 
-1. Create a workspace.
+1. **Settings → Members & Permissions** — invite the rest of the team once
+   they've been approved, or make a fellow operator an owner.
 2. **Settings → Connections** → connect to your internal GitLab (uses
    `GITLAB_URL` from `.env` and the OAuth token just minted).
 3. Import a project — listed via `${GITLAB_URL}/api/v4/projects`.
