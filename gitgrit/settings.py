@@ -410,7 +410,7 @@ GITHUB_APP_ENABLED = github_app_enabled(
 # SSL_CERT_FILE — keeping mount target and env value in a single source of truth.
 _custom_ca_path = os.environ.get("GITGRIT_CUSTOM_CA_FILE_PATH") or None
 SANDBOX = {
-    "IMAGE": "gitgrit-sandbox:latest",
+    "IMAGE": os.environ.get("SANDBOX_IMAGE", "gitgrit-sandbox:latest"),
     "RUNTIME": "runsc",
     "MEMORY_LIMIT": "128m",
     "CPU_LIMIT": 0.5,
