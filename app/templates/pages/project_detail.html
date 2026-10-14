@@ -14,9 +14,11 @@
       <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-4 w-auto">
       Get your Badge(r)
     </button>
+    {% if project.web_url %}
     <a href="{{ project.web_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
       Open in {{ project.get_platform_display }} &nearr;
     </a>
+    {% endif %}
     <a href="{% url 'edit_project' project.pk %}" class="btn btn-ghost btn-sm">Edit</a>
     <form method="post" action="{% url 'delete_project' project.pk %}">
       {% csrf_token %}

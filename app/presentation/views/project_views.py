@@ -25,6 +25,7 @@ from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_fl
 from app.domain import importance
 from app.presentation import importance_text
 from app.domain.models import (
+    Platform,
     PlatformConnection,
     Project,
     ProjectStandard,
@@ -299,8 +300,11 @@ def add_project_select(request):
         messages.error(request, "No active workspace.")
         return redirect("project_list")
 
-    connections = PlatformConnection.objects.filter(tenant=tenant).order_by(
-        "created_at"
+    # Upload projects are created through the API, never picked from a list.
+    connections = (
+        PlatformConnection.objects.filter(tenant=tenant)
+        .exclude(platform=Platform.UPLOAD)
+        .order_by("created_at")
     )
     if not connections.exists():
         messages.warning(
@@ -588,6 +592,9 @@ def retry_webhook(request, pk):
         return redirect("project_list")
 
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
+    if project.is_upload:
+        messages.error(request, "Upload projects receive no webhooks.")
+        return redirect("project_detail", pk=project.pk)
 
     if project_management.register_webhook(project):
         messages.success(request, "Webhook registered successfully.")

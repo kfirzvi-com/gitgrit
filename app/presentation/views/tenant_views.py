@@ -259,9 +259,13 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             context["can_delete_workspace"] = can_delete_workspace(
                 self.request.user, tenant
             )
-            context["connections"] = PlatformConnection.objects.filter(
-                tenant=tenant
-            ).order_by("created_at")
+            # The upload connection holds no credentials and owns every
+            # upload project: nothing to edit, and removing it would delete them.
+            context["connections"] = (
+                PlatformConnection.objects.filter(tenant=tenant)
+                .exclude(platform=Platform.UPLOAD)
+                .order_by("created_at")
+            )
             context["platform_choices"] = Platform.git_choices()
 
             # LLM configuration
