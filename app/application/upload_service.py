@@ -210,3 +210,34 @@ def upload_version(
         )
     return UploadedVersion(version=version, created=created, run=run)
 
+
+
+def version_dict(version: ProjectVersion) -> dict:
+    return {
+        "id": str(version.id),
+        "digest": version.digest,
+        "label": version.label,
+        "channel": version.channel,
+        "size": version.size,
+        "file_count": version.file_count,
+        "uploaded_by": version.uploaded_by,
+        "created_at": version.created_at.isoformat(),
+    }
+
+
+def list_versions(project: Project) -> list[dict]:
+    """Every version of the project, newest first (versions are kept forever)."""
+    return [version_dict(v) for v in project.versions.order_by("-created_at")]
+
+
+def upload_result_dict(result: UploadedVersion) -> dict:
+    """What the upload call answers: the version, and what was queued on it.
+    Poll the version's checks at ``.../commits/<digest>/`` until ``running``
+    is 0."""
+    run = result.run or {"queued": 0, "already_running": 0, "executions": []}
+    return {
+        "version": version_dict(result.version),
+        "created": result.created,
+        "queued": run["queued"],
+        "message": run.get("message") or "No standard runs on uploads to this channel.",
+    }

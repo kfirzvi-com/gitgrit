@@ -3,10 +3,11 @@ from django.conf import settings
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from oauth2_provider.contrib.rest_framework import OAuth2Authentication
 from rest_framework import exceptions, status
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app.application import upload_service
 from app.application.project_health_service import ProjectHealthService
 from app.application.errors import NotFoundError
 from app.application.project_management import AlreadyAdded, PlatformError
@@ -54,6 +55,14 @@ class PublicAPIView(APIView):
         workspace token."""
         user = self.request.user
         return user if user.is_authenticated else None
+
+    @property
+    def actor_name(self) -> str:
+        """Who to credit in history: the user, else the workspace token's name."""
+        if self.actor is not None:
+            return self.actor.username
+        token = self.workspace_token
+        return token.name if token else ""
 
     @property
     def workspace_token(self) -> APIToken | None:
@@ -424,3 +433,84 @@ class ProjectCheckView(WorkspaceAPIView):
             body.validated_data["sha"],
         )
         return Response(result, status=status.HTTP_202_ACCEPTED)
+
+
+class UploadProjectCreateView(WorkspaceAPIView):
+    @extend_schema(
+        operation_id="create_upload_project",
+        tags=["uploads"],
+        summary="Create an upload project",
+        description=(
+            "A project whose files arrive as uploaded archives instead of from Git "
+            "(e.g. a game's built dist). Idempotent on `external_id`: a repeat "
+            "returns the existing project with 200."
+        ),
+        request=s.UploadProjectCreateSerializer,
+        responses={201: s.ProjectSerializer, 200: s.ProjectSerializer},
+    )
+    def post(self, request, **_):
+        body = s.UploadProjectCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        result = upload_service.create_upload_project(
+            self.tenant,
+            name=data["name"],
+            external_id=data["external_id"],
+            stack=data["stack"],
+            description=data["description"],
+            standard_ids=data["standard_ids"],
+        )
+        return Response(
+            _projects.serialize(result.project),
+            status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
+        )
+
+
+class ProjectVersionsView(WorkspaceAPIView):
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(
+        operation_id="list_project_versions",
+        tags=["uploads"],
+        summary="List an upload project's versions",
+        description="Newest first. Versions are kept forever.",
+        responses=s.VersionSerializer(many=True),
+    )
+    def get(self, request, project_id, **_):
+        project = upload_service.get_upload_project(self.tenant, project_id)
+        return Response(upload_service.list_versions(project))
+
+    @extend_schema(
+        operation_id="upload_project_version",
+        tags=["uploads"],
+        summary="Upload a version and check it",
+        description=(
+            "Stores the archive as a version and queues the standards whose events "
+            "include `upload` and whose Branch/Tag Filter matches the channel. Poll "
+            "`commits/<version.digest>/` until `running` is 0 for the results. A "
+            "rejected archive (path outside the archive, links, too large) is a 400."
+        ),
+        request={"multipart/form-data": s.VersionUploadSerializer},
+        responses={202: s.VersionUploadResultSerializer},
+    )
+    def post(self, request, project_id, **_):
+        project = upload_service.get_upload_project(self.tenant, project_id)
+        body = s.VersionUploadSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        archive = body.validated_data["archive"]
+        limit = upload_service.DEFAULT_LIMITS.max_archive_bytes
+        if archive.size > limit:
+            raise exceptions.ValidationError(
+                {"archive": f"Archive is larger than {limit // (1024 * 1024)} MB."}
+            )
+        result = upload_service.upload_version(
+            project,
+            archive.read(),
+            label=body.validated_data["label"],
+            channel=body.validated_data["channel"],
+            user=self.actor,
+            uploaded_by=self.actor_name,
+        )
+        return Response(
+            upload_service.upload_result_dict(result), status=status.HTTP_202_ACCEPTED
+        )

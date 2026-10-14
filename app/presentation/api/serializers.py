@@ -11,7 +11,7 @@ from app.domain.scoring import CommitScoreOutcome
 from app.domain.score_representation import ScoreTone
 from app.presentation import importance_text
 
-EVENT_CHOICES = ["push", "pull_request", "tag"]
+EVENT_CHOICES = ["push", "pull_request", "tag", "upload"]
 
 
 # --- Requests -------------------------------------------------------------
@@ -74,7 +74,10 @@ class ProjectSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
     description = serializers.CharField()
-    platform = serializers.CharField()
+    platform = serializers.CharField(help_text="github, gitlab, or upload.")
+    external_id = serializers.CharField(
+        help_text="The platform's id for the repository; for an upload project, the caller's own."
+    )
     full_path = serializers.CharField()
     web_url = serializers.CharField()
     default_branch = serializers.CharField()
@@ -530,3 +533,63 @@ class MarketplaceUpdateSerializer(serializers.Serializer):
     name = serializers.CharField()
     version = serializers.IntegerField()
     runs = RunsSummarySerializer(allow_null=True)
+# --- Upload projects --------------------------------------------------------
+
+class UploadProjectCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    external_id = serializers.CharField(
+        max_length=255,
+        help_text="Your own id for the project (e.g. the game's id). Creating twice "
+        "with the same id returns the existing project.",
+    )
+    stack = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Stack to put the project in, found by name or created (e.g. the studio).",
+    )
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    standard_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text="Standards to attach. Omit to attach every published standard "
+        "whose events include `upload`.",
+    )
+
+
+class VersionUploadSerializer(serializers.Serializer):
+    archive = serializers.FileField(help_text="The project's files as a .zip or .tar.gz.")
+    label = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default="",
+        help_text="Your name for the version, e.g. 1.4.2.",
+    )
+    channel = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default="",
+        help_text="Plays the branch: standards' Branch/Tag Filter matches it. "
+        "Defaults to the project's default branch.",
+    )
+
+
+class VersionSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    digest = serializers.CharField(
+        help_text="Content hash; poll `commits/<digest>/` for the version's checks."
+    )
+    label = serializers.CharField()
+    channel = serializers.CharField()
+    size = serializers.IntegerField()
+    file_count = serializers.IntegerField()
+    uploaded_by = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+
+class VersionUploadResultSerializer(serializers.Serializer):
+    version = VersionSerializer()
+    created = serializers.BooleanField(
+        help_text="False when the same archive was uploaded before (it is checked again)."
+    )
+    queued = serializers.IntegerField()
+    message = serializers.CharField()

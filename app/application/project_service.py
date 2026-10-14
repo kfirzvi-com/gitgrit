@@ -163,7 +163,7 @@ def evaluate(project):
 class ProjectService:
     def list_projects(self, tenant: Tenant) -> list[dict]:
         return [
-            self._serialize(p)
+            self.serialize(p)
             for p in Project.objects.filter(tenant=tenant).order_by("name")
         ]
 
@@ -190,12 +190,12 @@ class ProjectService:
                 tenant=tenant, full_path=repo_full_path
             ).first()
             if project:
-                return {**self._serialize(project), "matched_by": "full_path"}
+                return {**self.serialize(project), "matched_by": "full_path"}
 
         if web_url:
             project = Project.objects.filter(tenant=tenant, web_url=web_url).first()
             if project:
-                return {**self._serialize(project), "matched_by": "web_url"}
+                return {**self.serialize(project), "matched_by": "web_url"}
 
         all_paths = list(
             Project.objects.filter(tenant=tenant).values_list("full_path", flat=True)
@@ -209,12 +209,13 @@ class ProjectService:
         return _PROJECT_CONTEXT_API
 
     @staticmethod
-    def _serialize(p: Project) -> dict:
+    def serialize(p: Project) -> dict:
         return {
             "id": str(p.id),
             "name": p.name,
             "description": p.description,
             "platform": p.platform,
+            "external_id": p.external_id,
             "full_path": p.full_path,
             "web_url": p.web_url,
             "default_branch": p.default_branch,
