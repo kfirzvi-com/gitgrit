@@ -263,6 +263,13 @@ class VersionHistoryTests(TestCase):
         self.assertEqual(rows[0].author, "platform")
         self.assertFalse(has_more)
 
+    def test_a_new_upload_shows_at_once_despite_the_cached_list(self):
+        branch_commits(self.project, "main")  # cached
+        with defer_patch():
+            v3 = upload_service.upload_version(self.project, make_zip({"y.js": b"y"}), label="1.2").version
+        rows, _ = branch_commits(self.project, "main")
+        self.assertEqual(rows[0].sha, v3.digest)
+
     def test_a_version_check_reports_through_the_commit_lookup(self):
         row = commit_results(self.project, self.v2.digest)
         self.assertTrue(row.checked)

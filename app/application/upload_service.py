@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from django.db import IntegrityError, transaction
 
 from app.application import stack_service
+from app.application.commit_checks import forget_platform_lists
 from app.application.errors import NotFoundError
 from app.application.standard_engine import StandardEngine
 from app.application.standard_runs import enqueue_run
@@ -208,6 +209,9 @@ def upload_version(
             committed_at=version.created_at,
             skip_running=False,
         )
+    # Like a push: the project page must not keep showing the version list
+    # it cached before this upload.
+    forget_platform_lists([project])
     return UploadedVersion(version=version, created=created, run=run)
 
 
