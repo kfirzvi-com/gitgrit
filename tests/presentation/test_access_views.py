@@ -1,5 +1,6 @@
 """Gated access in the web layer: first-run setup, the signup hooks, the
 pending person's page and the superuser review queue."""
+import json
 from types import SimpleNamespace
 from unittest import mock
 
@@ -286,6 +287,54 @@ class TestReviewQueue(TestCase):
         self.client.force_login(self.admin)
         url = reverse("approve_access_request", args=[self.access_request.pk])
         assert self.client.get(url).status_code == 405
+
+    # --- Over HTMX: the page stays, the card goes -------------------------
+
+    HTMX = {"HTTP_HX_REQUEST": "true"}
+
+    def _htmx(self, decision, **data):
+        self.client.force_login(self.admin)
+        url = reverse(f"{decision}_access_request", args=[self.access_request.pk])
+        with mock.patch("app.tasks.send_email.defer"):
+            return self.client.post(url, data, **self.HTMX)
+
+    def test_htmx_approve_takes_the_card_off_the_pending_tab(self):
+        response = self._htmx(
+            "approve", tab="pending", workspace_mode="new", workspace_name="Acme", role="owner"
+        )
+
+        html = response.content.decode()
+        assert f'id="access-request-{self.access_request.pk}"' not in html
+        # Counts and the empty state update out of band; nothing else moves.
+        assert 'id="access-request-tabs" role="tablist" class="tabs tabs-bordered mb-6" hx-swap-oob="true"' in html
+        assert '<span id="access-requests-badge" hx-swap-oob="true"></span>' in html
+        assert "No one is waiting" in html
+        assert json.loads(response["HX-Trigger"])["toast"] == {
+            "level": "success",
+            "text": "Approved new@example.com into Acme as owner.",
+        }
+
+    def test_htmx_reject_on_the_all_tab_redraws_the_card(self):
+        response = self._htmx("reject", tab="all")
+
+        html = response.content.decode()
+        assert f'id="access-request-{self.access_request.pk}"' in html
+        assert "Rejected" in html
+
+    def test_htmx_refusal_leaves_the_page_alone(self):
+        response = self._htmx(
+            "approve", tab="pending", workspace_mode="new", workspace_name="Acme", role="member"
+        )
+
+        assert response["HX-Reswap"] == "none"
+        assert json.loads(response["HX-Trigger"])["toast"]["level"] == "error"
+        self.access_request.refresh_from_db()
+        assert self.access_request.is_pending
+
+    def test_reject_asks_for_confirmation(self):
+        self.client.force_login(self.admin)
+        html = self.client.get(self.url).content.decode()
+        assert 'hx-confirm="Reject new@example.com?"' in html
 
 
 @pytest.mark.django_db

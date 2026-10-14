@@ -1,0 +1,96 @@
+<div id="access-request-{{ ar.pk }}" class="card bg-base-100 shadow">
+      <div class="card-body py-5">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="font-semibold text-lg truncate">{{ ar.answers.name|default:ar.user.email }}</h2>
+              {% if ar.status == "pending" %}<span class="badge badge-warning badge-sm">Pending</span>
+              {% elif ar.status == "approved" %}<span class="badge badge-success badge-sm">Approved</span>
+              {% else %}<span class="badge badge-ghost badge-sm">Rejected</span>{% endif %}
+            </div>
+            <div class="text-sm text-base-content/70">
+              {{ ar.user.email }}
+              {% with accounts=ar.user.socialaccount_set.all %}
+              {% if accounts %}
+                <span class="badge badge-ghost badge-sm" title="The provider vouches for this email">via {{ accounts.0.get_provider.name }}</span>
+              {% else %}
+                <span class="badge badge-outline badge-warning badge-sm" title="Signed up with email and password; nothing has confirmed they own this address">email not verified</span>
+              {% endif %}
+              {% endwith %}
+              {% if ar.answers.company %} · {{ ar.answers.company }}{% endif %}
+              {% if ar.answers.role %} · {{ ar.answers.role }}{% endif %}
+            </div>
+            <div class="text-xs text-base-content/50 mt-1">
+              Signed up {{ ar.created_at|timesince }} ago
+              {% if ar.reviewed_at %} · {{ ar.status }} by {{ ar.reviewed_by.email|default:"a former admin" }} {{ ar.reviewed_at|timesince }} ago{% endif %}
+            </div>
+          </div>
+          {% if ar.status == "pending" %}
+          <div class="flex gap-2 shrink-0">
+            <form method="post" action="{% url 'reject_access_request' ar.pk %}"
+                  hx-post="{% url 'reject_access_request' ar.pk %}"
+                  hx-target="#access-request-{{ ar.pk }}" hx-swap="outerHTML"
+                  hx-vals='{"tab": "{{ status }}"}'
+                  hx-confirm="Reject {{ ar.user.email }}?"
+                  data-confirm-body="They stay signed out, and see that their request was declined. You can't approve them later from here."
+                  data-confirm-action="Reject" data-confirm-danger>
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-sm">Reject</button>
+            </form>
+            <button type="button" class="btn btn-primary btn-sm"
+                    onclick="document.getElementById('approve-{{ ar.pk }}').showModal()">Approve…</button>
+          </div>
+          {% endif %}
+        </div>
+        {% if ar.status == "pending" %}
+        <dialog id="approve-{{ ar.pk }}" class="modal">
+          <form method="post" action="{% url 'approve_access_request' ar.pk %}"
+                hx-post="{% url 'approve_access_request' ar.pk %}"
+                hx-target="#access-request-{{ ar.pk }}" hx-swap="outerHTML"
+                hx-vals='{"tab": "{{ status }}"}'
+                class="modal-box flex flex-col gap-3" data-approve-form>
+            {% csrf_token %}
+            <h3 class="font-bold text-lg">Approve {{ ar.answers.name|default:ar.user.email }}</h3>
+            <p class="text-sm text-base-content/70">Every approved person joins a workspace. Put them in their company's.</p>
+
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="radio" name="workspace_mode" value="new" class="radio radio-sm"
+                     {% if ar.answers.company or not workspaces %}checked{% endif %}>
+              <span>New workspace</span>
+            </label>
+            <input type="text" name="workspace_name" maxlength="255"
+                   class="input input-bordered input-sm w-full ml-7 max-w-[calc(100%-1.75rem)]"
+                   placeholder="Company name" value="{{ ar.answers.company|default:'' }}">
+
+            <label class="flex items-center gap-3 cursor-pointer {% if not workspaces %}opacity-50{% endif %}">
+              <input type="radio" name="workspace_mode" value="existing" class="radio radio-sm"
+                     {% if not workspaces %}disabled{% elif not ar.answers.company %}checked{% endif %}>
+              <span>Existing workspace</span>
+            </label>
+            <select name="workspace_id" class="select select-bordered select-sm w-full ml-7 max-w-[calc(100%-1.75rem)]"
+                    {% if not workspaces %}disabled{% endif %}>
+              {% for ws in workspaces %}<option value="{{ ws.pk }}">{{ ws.name }}</option>{% empty %}<option>No workspaces yet</option>{% endfor %}
+            </select>
+
+            <label class="form-control w-full">
+              <div class="label"><span class="label-text">Role</span></div>
+              <select name="role" class="select select-bordered select-sm w-full">
+                {% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              </select>
+            </label>
+
+            <div class="modal-action">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm">Approve</button>
+            </div>
+          </form>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+        {% endif %}
+        {% if ar.answers.goals %}
+        <p class="mt-3 text-sm whitespace-pre-line bg-base-200 rounded-box p-3">{{ ar.answers.goals }}</p>
+        {% elif ar.status == "pending" and not ar.is_submitted and onboarding_form_required %}
+        <p class="mt-3 text-sm text-base-content/50">Hasn't filled in the request form yet.</p>
+        {% endif %}
+      </div>
+    </div>

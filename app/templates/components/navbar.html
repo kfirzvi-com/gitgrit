@@ -98,7 +98,7 @@
           <li>
             <a href="{% url 'access_request_list' %}" class="justify-between">
               Access requests
-              {% if pending_access_requests %}<span class="badge badge-primary badge-sm">{{ pending_access_requests }}</span>{% endif %}
+              {% include "components/access_requests_badge.html" %}
             </a>
           </li>
           {% endif %}

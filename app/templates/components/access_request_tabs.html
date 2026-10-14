@@ -1,0 +1,7 @@
+<div id="access-request-tabs" role="tablist" class="tabs tabs-bordered mb-6"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for tab, count in tabs %}
+  <a role="tab" href="?status={{ tab }}" class="tab {% if tab == status %}tab-active{% endif %}">
+    {{ tab|capfirst }}{% if count %}<span class="badge badge-primary badge-sm ml-2">{{ count }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>

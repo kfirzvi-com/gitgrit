@@ -9,8 +9,9 @@ from django.contrib import messages
 from django.contrib.auth import login, password_validation
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 
 from app.application.access import (
@@ -28,6 +29,7 @@ from app.domain.models import AccessRequest, Membership, Tenant
 from app.domain.workspace_roles import MembershipRuleError
 from app.workspace_access import parse_tenant_id
 from app.presentation.auth_adapters import PENDING_USER_SESSION_KEY
+from app.presentation.htmx import toast
 
 
 # --- first-run setup -------------------------------------------------------
@@ -261,13 +263,11 @@ def review_access_request(request, pk, decision):
     )
     email = access_request.user.email
     if not access_request.is_pending:
-        messages.info(request, f"{email} was already {access_request.status}.")
-        return redirect("access_request_list")
+        return _reviewed(request, access_request, f"{email} was already {access_request.status}.", "info")
 
     if decision == "reject":
         reject_access_request(access_request, request.user)
-        messages.success(request, f"Rejected {email}.")
-        return redirect("access_request_list")
+        return _reviewed(request, access_request, f"Rejected {email}.")
 
     # Approving puts the person in a workspace: an existing one, or a new one
     # for their company. There is no approving into nothing.
@@ -276,16 +276,11 @@ def review_access_request(request, pk, decision):
     if request.POST.get("workspace_mode") == "existing":
         workspace = Tenant.objects.filter(pk=parse_tenant_id(request.POST.get("workspace_id"))).first()
         if workspace is None:
-            messages.error(request, f"Pick the workspace {email} should join.")
-            return redirect("access_request_list")
+            return _not_reviewed(request, f"Pick the workspace {email} should join.")
     else:
         new_name = request.POST.get("workspace_name", "").strip()[:255]
         if not new_name:
-            messages.error(request, f"Name the new workspace for {email}.")
-            return redirect("access_request_list")
-    if role not in Membership.Role.values:
-        messages.error(request, "Pick a role.")
-        return redirect("access_request_list")
+            return _not_reviewed(request, f"Name the new workspace for {email}.")
 
     try:
         workspace = approve_access_request(
@@ -296,9 +291,47 @@ def review_access_request(request, pk, decision):
             new_workspace_name=new_name,
         )
     except MembershipRuleError as e:
-        messages.error(request, str(e))
-        return redirect("access_request_list")
-    messages.success(
-        request, f"Approved {email} into {workspace.name} as {role}."
+        return _not_reviewed(request, str(e))
+    return _reviewed(
+        request, access_request, f"Approved {email} into {workspace.name} as {role}."
     )
-    return redirect("access_request_list")
+
+
+def _reviewed(request, access_request, text, level="success"):
+    """Answer a review. Over HTMX: the card leaves the pending tab (or is
+    drawn again, reviewed, on the others) and the pending counts update.
+    Without JS: a flash message and the list again."""
+    if not request.htmx:
+        getattr(messages, level)(request, text)
+        return redirect("access_request_list")
+    tab = request.POST.get("tab", "pending")
+    access_request.refresh_from_db()
+    pending = AccessRequest.objects.filter(status=AccessRequest.Status.PENDING).count()
+    context = {
+        "ar": access_request,
+        "status": tab,
+        "oob": True,
+        "tabs": [(t, pending if t == "pending" else None) for t in STATUS_TABS],
+        "pending_access_requests": pending,
+    }
+    html = "" if tab == "pending" else render_to_string(
+        "components/access_request_card.html", context, request
+    )
+    if tab == "pending" and not pending:
+        html += (
+            '<div id="access-request-cards" hx-swap-oob="true" class="text-center py-16 '
+            'text-base-content/60">No one is waiting. New signups land here.</div>'
+        )
+    html += render_to_string("components/access_request_tabs.html", context, request)
+    html += render_to_string("components/access_requests_badge.html", context, request)
+    return toast(HttpResponse(html), text, level)
+
+
+def _not_reviewed(request, text):
+    """The review didn't happen: say why, and leave the page as it is."""
+    if not request.htmx:
+        messages.error(request, text)
+        return redirect("access_request_list")
+    response = toast(HttpResponse(""), text, "error")
+    response["HX-Reswap"] = "none"
+    return response
