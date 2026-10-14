@@ -23,7 +23,7 @@ is reserved for future manual stack-level labels and is not read here).
 
 from collections import Counter, defaultdict
 
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application.naming import canonical_key
@@ -119,6 +119,18 @@ def _analyzing(project):
 
 
 # --- Workspace (dashboard) graph -------------------------------------------
+
+
+def workspace_map_status(tenant):
+    """When the map was last rebuilt — the newest successful refresh among the
+    workspace's projects — and whether a refresh is queued or running now."""
+    projects = Project.objects.filter(tenant=tenant)
+    return {
+        "updated_at": projects.aggregate(latest=Max("deps_analyzed_at"))["latest"],
+        "analyzing": projects.filter(
+            deps_status__in=(Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING)
+        ).exists(),
+    }
 
 
 def workspace_graph(tenant, latest):
