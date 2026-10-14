@@ -1,6 +1,7 @@
 """Workspaces are gated: only superusers create them, owners and superusers
 delete them (typing the name back), and a signed-in user in no workspace is
 sent to the no-workspace page."""
+import json
 from unittest import mock
 
 import pytest
@@ -286,3 +287,88 @@ class TestMemberRoles(TestCase):
 
         assert "Access granted" in html
         assert "by granter@example.com" in html
+
+
+@pytest.mark.django_db
+class TestMemberActionsInPlace(TestCase):
+    """Over HTMX, member actions redraw the member panel and toast; the page
+    reloads only when the change takes it away or changes what you may do."""
+
+    HTMX = {"HTTP_HX_REQUEST": "true"}
+
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant", name="Acme")
+        self.owner = baker.make("app.Membership", tenant=self.tenant, role="owner")
+        self.member = baker.make(
+            "app.Membership", tenant=self.tenant, role="member", user__email="mia@acme.example"
+        )
+        _login(self.client, self.owner.user, self.tenant)
+
+    def _toast(self, response):
+        return json.loads(response["HX-Trigger"])["toast"]
+
+    def test_role_change_redraws_the_panel(self):
+        response = self.client.post(
+            reverse("change_member_role", args=[self.member.pk]), {"role": "admin"}, **self.HTMX
+        )
+
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert 'id="members-panel"' in html
+        assert "<html" not in html
+        assert self._toast(response) == {"level": "success", "text": "mia@acme.example is now admin."}
+
+    def test_a_refusal_toasts_the_reason(self):
+        response = self.client.post(
+            reverse("change_member_role", args=[self.owner.pk]), {"role": "member"}, **self.HTMX
+        )
+
+        assert self._toast(response)["level"] == "error"
+        assert "without an owner" in self._toast(response)["text"]
+
+    def test_changing_your_own_role_reloads_the_page(self):
+        baker.make("app.Membership", tenant=self.tenant, role="owner")
+
+        response = self.client.post(
+            reverse("change_member_role", args=[self.owner.pk]), {"role": "admin"}, **self.HTMX
+        )
+
+        assert response["HX-Refresh"] == "true"
+
+    def test_remove(self):
+        response = self.client.post(reverse("remove_member", args=[self.member.pk]), **self.HTMX)
+
+        assert "mia@acme.example" not in response.content.decode()
+        assert self._toast(response)["text"] == "mia@acme.example removed."
+
+    def test_invite_keeps_what_was_typed_when_it_fails(self):
+        response = self.client.post(
+            reverse("invite_member"), {"email": "ghost@acme.example", "role": "admin"}, **self.HTMX
+        )
+
+        assert self._toast(response)["level"] == "error"
+        assert 'value="ghost@acme.example"' in response.content.decode()
+
+    def test_invite(self):
+        baker.make("app.User", email="new@acme.example")
+
+        response = self.client.post(
+            reverse("invite_member"), {"email": "new@acme.example", "role": "member"}, **self.HTMX
+        )
+
+        assert "new@acme.example" in response.content.decode()
+        assert self._toast(response)["text"] == "new@acme.example added as member."
+
+    def test_leaving_navigates_away(self):
+        _login(self.client, self.member.user, self.tenant)
+
+        response = self.client.post(reverse("leave_workspace"), **self.HTMX)
+
+        assert response["HX-Redirect"] == reverse("dashboard")
+
+    def test_actions_ask_for_confirmation(self):
+        html = self.client.get(reverse("tenant_settings")).content.decode()
+
+        assert 'hx-confirm="role"' in html
+        assert 'hx-confirm="Remove mia@acme.example?"' in html
+        assert 'id="confirm-dialog"' in html

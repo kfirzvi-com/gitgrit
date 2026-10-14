@@ -7,12 +7,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import escape
 from django.views.decorators.http import require_POST
 from django.views.generic import FormView, TemplateView
-from django_htmx.http import HttpResponseClientRedirect
+from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
 from app.application import membership_service
 from app.application.workspace_service import (
@@ -33,6 +33,7 @@ from app.domain.models import (
 )
 from app.infrastructure.llm_models import discover, test_provider
 from app.infrastructure.platform_client import get_platform_client
+from app.presentation.htmx import toast
 from app.workspace_access import (
     enter_support_view,
     has_admin_membership,
@@ -102,15 +103,19 @@ def leave_workspace(request):
     try:
         membership_service.remove_member(membership, request.user)
     except LastOwner:
-        messages.error(
+        return _member_action_done(
             request,
+            tenant,
             "You're the only owner of this workspace, so you can't leave it. "
             "Make another member an owner first.",
+            "error",
         )
-        return redirect("tenant_settings")
 
+    # Leaving takes this page away, so this one is a real navigation.
     request.session.pop("active_tenant_id", None)
     messages.success(request, f'You left "{tenant.name}".')
+    if request.htmx:
+        return HttpResponseClientRedirect(reverse("dashboard"))
     return redirect("dashboard")
 
 
@@ -160,6 +165,7 @@ def members_context(user, tenant):
     own = roster.seat_of(user.pk)
     return {
         "members": members,
+        "manages_members": actor.manages_members,
         "invite_roles": [(r, ROLE_LABELS[r]) for r in roster.assignable_roles(actor)],
         "can_leave": own is not None and not roster.is_last_owner(user.pk),
         "is_last_owner": roster.is_last_owner(user.pk),
@@ -296,23 +302,25 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
 def invite_member(request):
     tenant = request.tenant
     if not tenant:
-        messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
     email = request.POST.get("email", "").strip()
     role = request.POST.get("role", Membership.Role.MEMBER)
     invitee = User.objects.filter(email__iexact=email).first() if email else None
     if not invitee:
-        messages.error(request, f"No user found with email {email}.")
-        return redirect("tenant_settings")
-
+        return _member_action_done(
+            request, tenant, f"No user found with email {email}.", "error",
+            invite_email=email, invite_role=role,
+        )
     try:
         membership_service.add_member(tenant, invitee, role, by=request.user)
     except MembershipRuleError as e:
-        messages.error(request, str(e))
-        return redirect("tenant_settings")
-    messages.success(request, f"{email} added as {role}.")
-    return redirect("tenant_settings")
+        return _member_action_done(
+            request, tenant, str(e), "error", invite_email=email, invite_role=role
+        )
+    return _member_action_done(
+        request, tenant, f"{invitee.email} added as {ROLE_LABELS[role].lower()}."
+    )
 
 
 @login_required
@@ -320,17 +328,14 @@ def invite_member(request):
 def remove_member(request, membership_id):
     tenant = request.tenant
     if not tenant:
-        messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
     target = get_object_or_404(Membership, id=membership_id, tenant=tenant)
     try:
         membership_service.remove_member(target, request.user)
     except MembershipRuleError as e:
-        messages.error(request, str(e))
-    else:
-        messages.success(request, f"{target.user.email} removed.")
-    return redirect(f"{reverse('tenant_settings')}#section-members")
+        return _member_action_done(request, tenant, str(e), "error")
+    return _member_action_done(request, tenant, f"{target.user.email} removed.")
 
 
 @login_required
@@ -338,19 +343,36 @@ def remove_member(request, membership_id):
 def change_member_role(request, membership_id):
     tenant = request.tenant
     if not tenant:
-        messages.error(request, "No active workspace.")
         return redirect("tenant_settings")
 
     target = get_object_or_404(Membership, id=membership_id, tenant=tenant)
+    old_role = target.role
     try:
-        membership_service.change_role(target, request.POST.get("role", ""), request.user)
-    except MembershipRuleError as e:
-        messages.error(request, str(e))
-    else:
-        messages.success(
-            request, f"{target.user.email} is now {target.get_role_display().lower()}."
+        target = membership_service.change_role(
+            target, request.POST.get("role", ""), request.user
         )
-    return redirect(f"{reverse('tenant_settings')}#section-members")
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    text = f"{target.user.email} is now {target.get_role_display().lower()}."
+    if target.user_id == request.user.pk and target.role != old_role and request.htmx:
+        # Your own role decides what the whole settings page lets you do, so
+        # this is the one change that needs the page drawn again.
+        messages.success(request, text)
+        return HttpResponseClientRefresh()
+    return _member_action_done(request, tenant, text)
+
+
+def _member_action_done(request, tenant, text, level="success", **form_state):
+    """Answer a member action. Over HTMX: the member panel drawn again in
+    place, with ``text`` as a toast. Without JS: a flash message and back to
+    the settings page."""
+    if not request.htmx:
+        getattr(messages, level)(request, text)
+        return redirect(f"{reverse('tenant_settings')}#section-members")
+    context = members_context(request.user, tenant)
+    context.update(form_state, current_tenant=tenant)
+    response = render(request, "components/members_panel.html", context)
+    return toast(response, text, level)
 
 
 @login_required
