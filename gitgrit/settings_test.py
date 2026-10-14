@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 os.environ["DEBUG"] = "True"
 os.environ.setdefault("SECRET_KEY", "test-insecure-key-not-for-production")
@@ -31,6 +32,11 @@ BAKER_CUSTOM_FIELDS_GEN = {
 STORAGES = {
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    # Uploaded archives go to a throwaway directory, never the dev one.
+    "uploads": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": tempfile.mkdtemp(prefix="gitgrit-test-uploads-")},
     },
 }
 

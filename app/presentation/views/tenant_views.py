@@ -262,7 +262,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             context["connections"] = PlatformConnection.objects.filter(
                 tenant=tenant
             ).order_by("created_at")
-            context["platform_choices"] = Platform.choices
+            context["platform_choices"] = Platform.git_choices()
 
             # LLM configuration
             llm_providers = list(

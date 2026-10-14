@@ -185,9 +185,18 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Upload projects' archives, one per ProjectVersion, kept forever. A local
+# directory by default; a deploy must point it at a volume that both the web
+# (which stores uploads) and the worker (which reads them) mount.
+UPLOADS_ROOT = os.environ.get("GITGRIT_UPLOADS_ROOT", str(BASE_DIR / "var" / "uploads"))
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+    "uploads": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": UPLOADS_ROOT},
     },
 }
 

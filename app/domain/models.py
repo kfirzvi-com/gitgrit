@@ -237,6 +237,15 @@ class WorkspaceInvitation(models.Model):
 class Platform(models.TextChoices):
     GITHUB = "github", "GitHub"
     GITLAB = "gitlab", "GitLab"
+    # Not a Git platform: projects whose files arrive as uploaded archives
+    # (e.g. a game's built dist) rather than from a repository. Each upload is
+    # a ``ProjectVersion``; see ``app.domain.uploads``.
+    UPLOAD = "upload", "Upload"
+
+    @classmethod
+    def git_choices(cls):
+        """The platforms a user can connect a Git account on."""
+        return [(v, label) for v, label in cls.choices if v != cls.UPLOAD]
 
 
 class AuthMethod(models.TextChoices):
@@ -251,7 +260,11 @@ class PlatformConnection(models.Model):
         on_delete=models.CASCADE,
         related_name="platform_connections",
     )
-    platform = models.CharField(max_length=10, choices=Platform.choices)
+    # Every creation path names the platform. The default only keeps rows
+    # built without one (test factories) on a Git platform, never on UPLOAD.
+    platform = models.CharField(
+        max_length=10, choices=Platform.choices, default=Platform.GITHUB
+    )
     display_name = models.CharField(max_length=255)
     base_url = models.URLField(max_length=2048)
     # PAT connections store the encrypted token here; GitHub App connections
@@ -310,8 +323,12 @@ class PlatformConnection(models.Model):
             )
         return self.access_token
 
+    @property
+    def is_upload(self) -> bool:
+        return self.platform == Platform.UPLOAD
+
     def save(self, *args, **kwargs):
-        if not self.base_url:
+        if not self.base_url and not self.is_upload:
             self.base_url = (
                 "https://api.github.com"
                 if self.platform == Platform.GITHUB
@@ -438,7 +455,11 @@ class Project(models.Model):
         on_delete=models.CASCADE,
         related_name="projects",
     )
-    platform = models.CharField(max_length=10, choices=Platform.choices)
+    # Mirrors the connection's platform (see PlatformConnection.platform for
+    # why there is a default).
+    platform = models.CharField(
+        max_length=10, choices=Platform.choices, default=Platform.GITHUB
+    )
     external_id = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
@@ -488,6 +509,12 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_upload(self) -> bool:
+        """True when the project's files arrive as uploaded archives (one
+        ``ProjectVersion`` each) instead of from a Git repository."""
+        return self.platform == Platform.UPLOAD
 
     # --- Components -----------------------------------------------------------
     # A project is one git repository. Its *components* are the deployable
@@ -1155,6 +1182,57 @@ class MarketplacePack(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ProjectVersion(models.Model):
+    """One uploaded archive of an upload project's files (e.g. a game's dist).
+
+    An upload project has no repository, so a version plays the commit's part:
+    its ``digest`` (a 40-hex content hash, the width of a Git SHA) is what a
+    ``CommitCheck`` pins as its ``commit_sha``, and its ``channel`` is the
+    check's ``branch``. Branch health, commit history and polling a check
+    then work for uploads unchanged. Versions are kept forever; the archive
+    lives in the uploads storage under ``archive_key``.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        "Project", on_delete=models.CASCADE, related_name="versions"
+    )
+    digest = models.CharField(max_length=40)
+    # The uploader's own name for the version (e.g. "1.4.2"); may be empty.
+    label = models.CharField(max_length=255, blank=True, default="")
+    channel = models.CharField(max_length=255)
+    archive_key = models.CharField(max_length=1024)
+    size = models.BigIntegerField()
+    file_count = models.IntegerField()
+    uploaded_by = models.CharField(max_length=255, blank=True, default="")
+    uploaded_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_versions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "project_versions"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "digest"], name="unique_project_version_digest"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["project", "channel", "-created_at"],
+                name="idx_project_version_channel",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project} @ {self.label or self.digest[:7]}"
 
 
 class CommitCheck(models.Model):
