@@ -184,12 +184,29 @@ class MemberRemoved:
 
 @dataclass(frozen=True)
 class MemberRoleChanged:
-    """A member's role changed. Nothing publishes this yet: the app has no
-    way to change a role. It is here so the notification is ready when one
-    lands."""
+    """A member's role changed, from the member list."""
 
     tenant_id: str
     user_id: str
     old_role: str
     new_role: str
     changed_by_user_id: str | None = None
+
+
+# --- Superuser events ------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SuperuserGranted:
+    """Someone became a GitGrit superuser."""
+
+    user_id: str
+    granted_by_user_id: str
+
+
+@dataclass(frozen=True)
+class SuperuserRevoked:
+    """Someone stopped being a GitGrit superuser (possibly by their own hand)."""
+
+    user_id: str
+    revoked_by_user_id: str

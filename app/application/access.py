@@ -23,6 +23,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from django.urls import reverse
+from django.utils import timezone
 
 from app.application.membership_service import add_member
 from app.application.workspace_service import create_workspace
@@ -73,7 +74,7 @@ def setup_token_matches(candidate: str) -> bool:
 
 
 def create_first_admin(email: str, password: str):
-    """Create the first superuser and their workspace.
+    """Create the first superuser (no workspace: they create the first one).
 
     Two people submitting setup at once must not both become admin, so the
     emptiness check and the insert run under one transaction-scoped advisory
@@ -89,7 +90,9 @@ def create_first_admin(email: str, password: str):
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_SETUP_LOCK_KEY])
         if User.objects.exists():
             raise SetupAlreadyDone()
-        user = User(email=email, is_staff=True, is_superuser=True)
+        user = User(
+            email=email, is_staff=True, is_superuser=True, superuser_granted_at=timezone.now()
+        )
         get_adapter().populate_username(None, user)
         user.set_password(password)
         user.save()
@@ -214,7 +217,7 @@ def _notify_reviewers(access_request: AccessRequest) -> None:
         {
             "email": access_request.user.email,
             "answers": access_request.answers,
-            "review_path": reverse("access_request_list"),
+            "review_path": reverse("admin_dashboard") + "#section-access-requests",
         },
     )
 

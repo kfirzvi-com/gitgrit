@@ -96,8 +96,8 @@
           <li><a href="{% url 'profile' %}">Profile</a></li>
           {% if user.is_superuser %}
           <li>
-            <a href="{% url 'access_request_list' %}" class="justify-between">
-              Access requests
+            <a href="{% url 'admin_dashboard' %}" class="justify-between">
+              Admin
               {% include "components/access_requests_badge.html" %}
             </a>
           </li>

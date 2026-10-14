@@ -1,11 +1,17 @@
 from django.urls import path
 
 from app.presentation.views.access_views import (
-    access_request_list,
     access_request_status,
     first_run_setup,
     no_workspace,
+)
+from app.presentation.views.staff_views import (
+    access_request_list,
+    access_request_tab,
+    admin_dashboard,
+    grant_superuser,
     review_access_request,
+    revoke_superuser,
 )
 
 from app.presentation.views.standard_views import (
@@ -103,7 +109,15 @@ urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("setup/", first_run_setup, name="first_run_setup"),
     path("access/", access_request_status, name="access_request_status"),
+    path("staff/", admin_dashboard, name="admin_dashboard"),
     path("staff/access-requests/", access_request_list, name="access_request_list"),
+    path("staff/access-requests/tab/", access_request_tab, name="access_request_tab"),
+    path("staff/superusers/grant/", grant_superuser, name="grant_superuser"),
+    path(
+        "staff/superusers/<uuid:user_id>/revoke/",
+        revoke_superuser,
+        name="revoke_superuser",
+    ),
     path(
         "staff/access-requests/<uuid:pk>/approve/",
         review_access_request,

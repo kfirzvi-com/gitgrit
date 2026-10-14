@@ -14,6 +14,12 @@ from app.infrastructure.model_fields import EncryptedCharField
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     avatar_url = models.URLField(max_length=2048, blank=True, default="")
+    # Who made this account a superuser, and when (app.domain.superusers).
+    # Empty for superusers from before it was recorded, and for everyone else.
+    superuser_granted_by = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    superuser_granted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "users"

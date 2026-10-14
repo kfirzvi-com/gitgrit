@@ -2,6 +2,7 @@
 {# browser's confirm(). The element asking sets the wording:                 #}
 {#   hx-confirm="Title?"  data-confirm-body="…"  data-confirm-action="Remove"  #}
 {#   data-confirm-danger  (red confirm button)                               #}
+{# On a form, {field} in the wording is replaced by that field's value.    #}
 {# A member-role form (data-role-change) gets wording built from the change, #}
 {# and its dropdown goes back to the current role on Cancel.                 #}
 <dialog id="confirm-dialog" class="modal">
@@ -66,9 +67,15 @@
       if (!evt.detail.question) return;
       evt.preventDefault();
       var isRole = elt.hasAttribute("data-role-change");
+      var fill = function (text) {
+        return (text || "").replace(/\{(\w+)\}/g, function (m, name) {
+          var field = elt.elements && elt.elements[name];
+          return field && field.value ? field.value : m;
+        });
+      };
       var opts = isRole ? roleChange(elt) : {
-        title: evt.detail.question,
-        body: elt.dataset.confirmBody,
+        title: fill(evt.detail.question),
+        body: fill(elt.dataset.confirmBody),
         action: elt.dataset.confirmAction,
         danger: elt.hasAttribute("data-confirm-danger")
       };

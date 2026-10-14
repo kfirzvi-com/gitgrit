@@ -189,7 +189,7 @@ class TestAccessRequestStatus(TestCase):
 
 @pytest.mark.django_db
 class TestReviewQueue(TestCase):
-    url = reverse("access_request_list")
+    url = reverse("admin_dashboard")
 
     def setUp(self):
         self.admin = baker.make("app.User", is_superuser=True)
@@ -223,7 +223,7 @@ class TestReviewQueue(TestCase):
     def test_approve_into_a_new_workspace(self):
         response = self._approve(workspace_mode="new", workspace_name="Acme", role="owner")
 
-        assert response.headers["Location"] == self.url
+        assert response.headers["Location"] == self.url + "#section-access-requests"
         self.pending_user.refresh_from_db()
         assert self.pending_user.is_active
         membership = self.pending_user.memberships.get()

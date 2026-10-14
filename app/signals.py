@@ -3,8 +3,9 @@ from django.db.models.signals import post_save, pre_delete, pre_save
 
 from django.db.models import QuerySet
 
+from app.application import superuser_service
 from app.application.membership_service import roster_of
-from app.domain.models import Component, Membership, Project, Tenant
+from app.domain.models import Component, Membership, Project, Tenant, User
 from app.domain.workspace_roles import OWNER
 from app.workspace_access import leave_support_view
 
@@ -64,5 +65,24 @@ def guard_last_owner_save(sender, instance, raw=False, update_fields=None, **kwa
         roster_of(instance.tenant).ensure_can_lose(instance.user_id)
 
 
+def guard_last_superuser_save(sender, instance, raw=False, update_fields=None, **kwargs):
+    """Backstop for the superuser rules (``app.domain.superusers``) when an
+    account stops being an active superuser outside the superuser service:
+    unticked or deactivated in the Django admin."""
+    if raw or instance._state.adding or (instance.is_superuser and instance.is_active):
+        return
+    if update_fields is not None and not {"is_superuser", "is_active"} & set(update_fields):
+        return
+    if User.objects.filter(pk=instance.pk, is_superuser=True, is_active=True).exists():
+        superuser_service.current().ensure_can_lose(instance.pk)
+
+
+def guard_last_superuser_delete(sender, instance, **kwargs):
+    if instance.is_superuser and instance.is_active:
+        superuser_service.current().ensure_can_lose(instance.pk)
+
+
 pre_delete.connect(guard_last_owner_delete, sender=Membership, dispatch_uid="membership_last_owner_delete")
 pre_save.connect(guard_last_owner_save, sender=Membership, dispatch_uid="membership_last_owner_save")
+pre_save.connect(guard_last_superuser_save, sender=User, dispatch_uid="user_last_superuser_save")
+pre_delete.connect(guard_last_superuser_delete, sender=User, dispatch_uid="user_last_superuser_delete")
