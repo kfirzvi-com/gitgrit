@@ -52,6 +52,16 @@ class Membership(models.Model):
         related_name="memberships",
     )
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.MEMBER)
+    # Who gave the current role, and when: set on joining and on every role
+    # change. Empty ``granted_by`` on rows from before it was recorded.
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    granted_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -64,6 +74,12 @@ class Membership(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.tenant} ({self.role})"
+
+    def grant(self, role: str, by) -> None:
+        """Give this member ``role``, recording who gave it and when."""
+        self.role = role
+        self.granted_by = by
+        self.granted_at = timezone.now()
 
 
 class Platform(models.TextChoices):

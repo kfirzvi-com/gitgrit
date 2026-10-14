@@ -10,6 +10,7 @@ from django.test import TestCase
 from model_bakery import baker
 
 from app.application import membership_service as ms
+from app.application.workspace_service import create_workspace
 from app.domain.events import MemberJoined, MemberRemoved, MemberRoleChanged
 from app.domain.models import Membership, Tenant
 from app.domain.workspace_roles import LastOwner, NotAllowed
@@ -112,3 +113,34 @@ class TestBackstop(TestCase):
         _member(other, "owner")
         Tenant.objects.filter(pk=other.pk).delete()
         assert not Tenant.objects.filter(pk=other.pk).exists()
+
+
+@pytest.mark.django_db
+class TestGrantedBy(TestCase):
+    """Each member's row says who gave their current role, and when."""
+
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        self.owner = _member(self.tenant, "owner")
+
+    def test_joining_records_who_added_them(self):
+        newcomer = baker.make("app.User")
+        membership = ms.add_member(self.tenant, newcomer, "member", by=self.owner.user)
+        assert membership.granted_by == self.owner.user
+
+    def test_a_role_change_records_who_and_when(self):
+        member = _member(self.tenant, "member")
+        before = member.granted_at
+
+        ms.change_role(member, "admin", self.owner.user)
+
+        member.refresh_from_db()
+        assert member.granted_by == self.owner.user
+        assert member.granted_at > before
+
+    def test_founding_records_who_set_it_up(self):
+        root = baker.make("app.User", is_superuser=True)
+        owner = baker.make("app.User")
+        tenant = create_workspace("Acme", owner, by=root)
+
+        assert Membership.objects.get(tenant=tenant).granted_by == root

@@ -146,7 +146,7 @@ def members_context(user, tenant):
     The service asks the rules again when they act."""
     members = list(
         Membership.objects.filter(tenant=tenant)
-        .select_related("user")
+        .select_related("user", "granted_by")
         .order_by("created_at")
     )
     roster = membership_service.roster_of(tenant, members)

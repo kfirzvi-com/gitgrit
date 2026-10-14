@@ -277,3 +277,12 @@ class TestMemberRoles(TestCase):
         _login(self.client, root)
         self.client.post(reverse("switch_tenant"), {"tenant_id": str(self.tenant.pk)})
         assert message not in self.client.get(reverse("tenant_settings")).content.decode()
+
+    def test_rows_say_who_granted_the_role(self):
+        granter = baker.make("app.User", email="granter@example.com")
+        Membership.objects.filter(pk=self.member.pk).update(granted_by=granter)
+
+        html = self._settings_html(self.owner)
+
+        assert "Access granted" in html
+        assert "by granter@example.com" in html

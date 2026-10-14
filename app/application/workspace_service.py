@@ -34,7 +34,9 @@ def create_workspace(name: str, owner, *, by=None, role: str = workspace_roles.O
             tenant.pk, owner.pk, role=role, by_user_id=by.pk if by else None,
             workspace_name=name,
         )
-        Membership.objects.create(user=owner, tenant=tenant, role=joined.role)
+        Membership.objects.create(
+            user=owner, tenant=tenant, role=joined.role, granted_by=by
+        )
     if by is not None and by != owner:
         publish(joined)
     return tenant

@@ -36,6 +36,7 @@
                   <th>User</th>
                   <th>Email</th>
                   <th>Role</th>
+                  <th>Access granted</th>
                   {% if is_admin %}<th></th>{% endif %}
                 </tr>
               </thead>
@@ -74,6 +75,12 @@
                               {% if member.last_owner %}title="The only owner. Make someone else an owner before changing this."{% endif %}>
                           {{ member.get_role_display }}
                         </span>
+                      {% endif %}
+                    </td>
+                    <td class="text-sm" data-granted>
+                      <div title="{{ member.granted_at|date:'DATETIME_FORMAT' }}">{{ member.granted_at|timesince }} ago</div>
+                      {% if member.granted_by %}
+                        <div class="text-xs text-base-content/60">by {% if member.granted_by_id == user.pk %}you{% else %}{{ member.granted_by.email|default:member.granted_by.username }}{% endif %}</div>
                       {% endif %}
                     </td>
                     {% if is_admin %}

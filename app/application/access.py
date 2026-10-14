@@ -160,7 +160,7 @@ def approve_access_request(
         access_request.save(update_fields=["status", "reviewed_by", "reviewed_at"])
         if workspace is None:
             workspace = create_workspace(
-                new_workspace_name.strip(), access_request.user, role=role
+                new_workspace_name.strip(), access_request.user, by=reviewer, role=role
             )
         else:
             add_member(workspace, access_request.user, role, by=reviewer)

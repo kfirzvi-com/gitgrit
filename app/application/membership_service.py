@@ -38,7 +38,9 @@ def add_member(tenant: Tenant, user, role: str, by) -> Membership:
     with transaction.atomic():
         tenant, roster, _ = _locked_roster(tenant.pk)
         event = roster.add(actor_in(roster, by), user.pk, role)
-        membership = Membership.objects.create(user=user, tenant=tenant, role=role)
+        membership = Membership.objects.create(
+            user=user, tenant=tenant, role=role, granted_by=by
+        )
     publish(event)
     return membership
 
@@ -50,8 +52,8 @@ def change_role(membership: Membership, new_role: str, by) -> Membership:
         membership = rows[str(membership.user_id)]
         if event is None:
             return membership
-        membership.role = new_role
-        membership.save(update_fields=["role"])
+        membership.grant(new_role, by)
+        membership.save(update_fields=["role", "granted_by", "granted_at"])
     publish(event)
     return membership
 
