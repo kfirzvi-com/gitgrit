@@ -33,6 +33,17 @@ def _enqueue_refresh(project_id: str) -> None:
     _enqueue_dependency_refresh(project_id)
 
 
+def refresh_workspace_map(tenant) -> int:
+    """Queue a dependency refresh for every project in the workspace. Each run
+    reads the project's default branch (see ``snapshot_for_project``), so this
+    rebuilds the whole map from the main branches. Projects with a refresh
+    already queued are coalesced. Returns how many projects were queued."""
+    project_ids = list(Project.objects.filter(tenant=tenant).values_list("pk", flat=True))
+    for project_id in project_ids:
+        _enqueue_refresh(str(project_id))
+    return len(project_ids)
+
+
 def infer_and_store(
     project: Project,
     *,

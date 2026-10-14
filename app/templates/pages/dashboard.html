@@ -69,11 +69,26 @@
           {% if compliance_score is not None %}
             <span class="{% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}"><b>{{ compliance_score }}%</b> compliance</span>
           {% endif %}
+          <span id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
         </div>
-        <button id="dashboard-expand" type="button" class="btn btn-ghost btn-xs btn-square" title="Expand" aria-label="Expand diagram" aria-pressed="false">
-          <svg class="gg-expand-icon w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" /></svg>
-          <svg class="gg-collapse-icon w-4 h-4 stroke-current hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3" /></svg>
-        </button>
+        <div class="flex items-center gap-1">
+          {% if user.is_superuser %}
+          <form method="post" action="{% url 'refresh_map' %}">
+            {% csrf_token %}
+            <button id="map-refresh" type="submit" class="btn btn-ghost btn-xs btn-square" title="{% if map_analyzing %}Refreshing map…{% else %}Refresh map from the main branches{% endif %}" aria-label="Refresh map from the main branches"{% if map_analyzing %} disabled{% endif %}>
+              {% if map_analyzing %}
+                <span class="loading loading-spinner loading-xs"></span>
+              {% else %}
+                <svg class="w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5.6 15A7 7 0 0 0 18.4 13M18.4 9A7 7 0 0 0 5.6 11" /></svg>
+              {% endif %}
+            </button>
+          </form>
+          {% endif %}
+          <button id="dashboard-expand" type="button" class="btn btn-ghost btn-xs btn-square" title="Expand" aria-label="Expand diagram" aria-pressed="false">
+            <svg class="gg-expand-icon w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" /></svg>
+            <svg class="gg-collapse-icon w-4 h-4 stroke-current hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3" /></svg>
+          </button>
+        </div>
       </div>
       <div id="architecture-flow"></div>
     </div>

@@ -60,10 +60,7 @@
         d.component_count + (d.component_count === 1 ? " component" : " components") +
           (d.project_count !== d.component_count
             ? " · " + d.project_count + (d.project_count === 1 ? " repo" : " repos")
-            : ""),
-        d.analyzing
-          ? h("span", { className: "gg-regenerating" }, " · regenerating…")
-          : null
+            : "")
       ),
       techs.length
         ? h(
