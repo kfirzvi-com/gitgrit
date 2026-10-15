@@ -343,21 +343,24 @@ class TestMemberActionsInPlace(TestCase):
 
     def test_invite_keeps_what_was_typed_when_it_fails(self):
         response = self.client.post(
-            reverse("invite_member"), {"email": "ghost@acme.example", "role": "admin"}, **self.HTMX
+            reverse("invite_member"), {"email": "not-an-address", "role": "admin"}, **self.HTMX
         )
 
         assert self._toast(response)["level"] == "error"
-        assert 'value="ghost@acme.example"' in response.content.decode()
+        assert 'value="not-an-address"' in response.content.decode()
 
-    def test_invite(self):
-        baker.make("app.User", email="new@acme.example")
+    def test_invite_sends_an_invitation_and_adds_nobody(self):
+        newcomer = baker.make("app.User", email="new@acme.example")
 
-        response = self.client.post(
-            reverse("invite_member"), {"email": "new@acme.example", "role": "member"}, **self.HTMX
-        )
+        with mock.patch("app.tasks.send_email.defer"):
+            response = self.client.post(
+                reverse("invite_member"), {"email": "New@Acme.example", "role": "member"}, **self.HTMX
+            )
 
-        assert "new@acme.example" in response.content.decode()
-        assert self._toast(response)["text"] == "new@acme.example added as member."
+        html = response.content.decode()
+        assert 'data-invitation="new@acme.example"' in html
+        assert self._toast(response)["text"].startswith("Invitation sent to new@acme.example")
+        assert not Membership.objects.filter(user=newcomer, tenant=self.tenant).exists()
 
     def test_leaving_navigates_away(self):
         _login(self.client, self.member.user, self.tenant)

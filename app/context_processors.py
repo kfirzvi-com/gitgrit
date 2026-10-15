@@ -1,5 +1,6 @@
 from django.conf import settings
 
+from app.application import invitations
 from app.application.access import pending_access_request_count
 from app.domain.notifications.inbox import Inbox
 from app.domain.models import Membership, Tenant
@@ -32,6 +33,10 @@ def tenant_context(request):
 
     if not hasattr(request, "user") or not request.user.is_authenticated:
         return ctx
+
+    # Accepting happens on a full page load, so a lazy query is enough: the
+    # banner only renders it.
+    ctx["open_invitations"] = invitations.open_for(request.user)
 
     # The switcher's rows are lazy-loaded by workspace_switcher_list when the
     # dropdown opens, so pages only pay for a count here. A superuser can

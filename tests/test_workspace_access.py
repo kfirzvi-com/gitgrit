@@ -5,6 +5,8 @@ every workspace, which is what makes the support view useful. Members and
 non-members do not. The one place superuser status does not count is
 revealing a connection's stored access token.
 """
+from unittest import mock
+
 import pytest
 from django.contrib import admin
 from django.test import RequestFactory, TestCase
@@ -84,12 +86,15 @@ class TestSupportViewAccess(TestCase):
         _, _, foreign = _login_support(self.client)
         invitee = baker.make("app.User", email="new@example.com")
 
-        response = self.client.post(
-            reverse("invite_member"), {"email": invitee.email, "role": "member"}
-        )
+        with mock.patch("app.tasks.send_email.defer"):
+            response = self.client.post(
+                reverse("invite_member"), {"email": invitee.email, "role": "member"}
+            )
 
+        # Invited, not added: they join once they accept.
         assert response.status_code == 302
-        assert foreign.memberships.filter(user=invitee).exists()
+        assert foreign.invitations.filter(email="new@example.com", status="pending").exists()
+        assert not foreign.memberships.filter(user=invitee).exists()
 
     def test_settings_page_treats_superuser_as_admin(self):
         _login_support(self.client)

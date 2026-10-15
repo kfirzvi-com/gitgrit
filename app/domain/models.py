@@ -1,5 +1,7 @@
+import hashlib
 import secrets
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
@@ -86,6 +88,135 @@ class Membership(models.Model):
         self.role = role
         self.granted_by = by
         self.granted_at = timezone.now()
+
+
+class InvitationError(Exception):
+    """An invitation that can't be used as asked. The message is for people."""
+
+
+class WorkspaceInvitation(models.Model):
+    """An offer to join a workspace, sent to an email address.
+
+    Nobody is put in a workspace by someone else: an owner or admin invites,
+    and the person accepts. The invitation goes to the address by email; the
+    link carries a secret token (only its hash is stored), so following it
+    proves the address is theirs. It is good for ``LIFETIME`` and only for an
+    account with that address. Whether the inviter may invite for this role
+    is ``Roster.check_invite``'s call, made when it is sent.
+    """
+
+    LIFETIME = timedelta(days=14)
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        REVOKED = "revoked", "Revoked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="invitations")
+    email = models.EmailField()
+    role = models.CharField(max_length=10, choices=Membership.Role.choices)
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "workspace_invitations"
+        ordering = ["-sent_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "email"],
+                condition=models.Q(status="pending"),
+                name="one_pending_invitation_per_email",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Invitation for {self.email} to {self.tenant_id} ({self.status})"
+
+    @staticmethod
+    def normalise(email: str) -> str:
+        return email.strip().lower()
+
+    @staticmethod
+    def hash_token(token: str) -> str:
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    @classmethod
+    def issue(cls, tenant, email: str, role: str, invited_by) -> tuple["WorkspaceInvitation", str]:
+        """A new, unsaved invitation and the token for its link."""
+        invitation = cls(tenant=tenant, email=cls.normalise(email), role=role, invited_by=invited_by)
+        return invitation, invitation.renew()
+
+    def renew(self, role: str | None = None, invited_by=None) -> str:
+        """A fresh link and lifetime (sending it again); the old link stops
+        working. Returns the new token."""
+        if self.pk and not self.is_pending:
+            raise InvitationError(f"This invitation was already {self.status}.")
+        token = secrets.token_urlsafe(32)
+        self.token_hash = self.hash_token(token)
+        self.sent_at = timezone.now()
+        self.expires_at = self.sent_at + self.LIFETIME
+        if role:
+            self.role = role
+        if invited_by is not None:
+            self.invited_by = invited_by
+        return token
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == self.Status.PENDING
+
+    def is_open(self, now=None) -> bool:
+        return self.is_pending and (now or timezone.now()) < self.expires_at
+
+    def is_for(self, emails) -> bool:
+        return self.email in {self.normalise(e) for e in emails if e}
+
+    def accept(self, user, emails) -> None:
+        """``user`` (whose addresses are ``emails``) takes the invitation."""
+        self._require_open()
+        if not self.is_for(emails):
+            raise InvitationError(
+                f"This invitation is for {self.email}. Sign in with that address to accept it."
+            )
+        self._close(self.Status.ACCEPTED)
+        self.accepted_by = user
+
+    def decline(self, emails) -> None:
+        self._require_open()
+        if not self.is_for(emails):
+            raise InvitationError(f"This invitation is for {self.email}.")
+        self._close(self.Status.DECLINED)
+
+    def revoke(self) -> None:
+        if not self.is_pending:
+            raise InvitationError(f"This invitation was already {self.status}.")
+        self._close(self.Status.REVOKED)
+
+    def _require_open(self) -> None:
+        if not self.is_pending:
+            raise InvitationError(f"This invitation was already {self.status}.")
+        if not self.is_open():
+            raise InvitationError("This invitation has expired. Ask for a new one.")
+
+    def _close(self, status) -> None:
+        self.status = status
+        self.closed_at = timezone.now()
 
 
 class Platform(models.TextChoices):

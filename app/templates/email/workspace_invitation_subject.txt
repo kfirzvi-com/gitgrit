@@ -1,0 +1,1 @@
+{% if inviter_name %}{{ inviter_name }}{% else %}{{ inviter_email|default:"Someone" }}{% endif %} invited you to join {{ workspace }} on GitGrit

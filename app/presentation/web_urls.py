@@ -6,6 +6,13 @@ from app.presentation.views.access_views import (
     no_workspace,
     resend_confirmation,
 )
+from app.presentation.views.invitation_views import (
+    accept_invitation,
+    accept_invitation_in_app,
+    decline_invitation,
+    decline_invitation_in_app,
+    invitation,
+)
 from app.presentation.views.staff_views import (
     access_request_list,
     access_request_tab,
@@ -65,7 +72,9 @@ from app.presentation.views.tenant_views import (
     remove_connection,
     remove_llm_provider,
     remove_member,
+    resend_invitation,
     reveal_connection_token,
+    revoke_invitation,
     set_llm_role,
     switch_tenant,
     test_connection,
@@ -156,6 +165,21 @@ urlpatterns = [
     path("tenants/delete/", delete_workspace_view, name="delete_workspace"),
     path("no-workspace/", no_workspace, name="no_workspace"),
     path("tenants/invite/", invite_member, name="invite_member"),
+    path(
+        "tenants/invitations/<uuid:invitation_id>/resend/",
+        resend_invitation,
+        name="resend_invitation",
+    ),
+    path(
+        "tenants/invitations/<uuid:invitation_id>/revoke/",
+        revoke_invitation,
+        name="revoke_invitation",
+    ),
+    path("invitations/id/<uuid:pk>/accept/", accept_invitation_in_app, name="accept_invitation_in_app"),
+    path("invitations/id/<uuid:pk>/decline/", decline_invitation_in_app, name="decline_invitation_in_app"),
+    path("invitations/<str:token>/", invitation, name="invitation"),
+    path("invitations/<str:token>/accept/", accept_invitation, name="accept_invitation"),
+    path("invitations/<str:token>/decline/", decline_invitation, name="decline_invitation"),
     path(
         "tenants/members/<uuid:membership_id>/remove/",
         remove_member,

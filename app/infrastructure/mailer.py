@@ -18,7 +18,8 @@ Which backend sends it is settings' business: SMTP when ``EMAIL_HOST`` is set
 import css_inline
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
+from django.template import Context
+from django.template.loader import get_template, render_to_string
 
 _inliner = css_inline.CSSInliner(keep_style_tags=False, load_remote_stylesheets=False)
 
@@ -26,13 +27,16 @@ _inliner = css_inline.CSSInliner(keep_style_tags=False, load_remote_stylesheets=
 def render(template: str, context: dict) -> tuple[str, str, str]:
     """``(subject, text, html)`` for ``template`` — also used to preview."""
     context = {"site_url": settings.SITE_URL.rstrip("/"), **context}
-    subject = " ".join(
-        render_to_string(f"email/{template}_subject.txt", context).split()
-    )
+    subject = " ".join(_render_text(f"email/{template}_subject.txt", context).split())
     context["subject"] = subject
-    text = render_to_string(f"email/{template}.txt", context)
+    text = _render_text(f"email/{template}.txt", context)
     html = _inliner.inline(render_to_string(f"email/{template}.html", context))
     return subject, text, html
+
+
+def _render_text(name: str, context: dict) -> str:
+    """Plain text isn't HTML: no escaping, so "O'Brien" stays O'Brien."""
+    return get_template(name).template.render(Context(context, autoescape=False))
 
 
 def send_templated(template: str, to: list[str], context: dict) -> None:

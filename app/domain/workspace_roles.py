@@ -11,6 +11,9 @@ The rules:
   workspace is the only way out.
 - Owners and admins manage members and admins.
 - Only owners make someone an owner, or change or remove an owner.
+- Members join by accepting an invitation; owners and admins send them
+  (only owners invite an owner). The exceptions are a superuser's: approving
+  an access request, and naming a new workspace's owner.
 - Anyone may leave, except the last owner.
 - Only owners delete the workspace.
 - A superuser acts as an owner in every workspace (the support view).
@@ -150,6 +153,36 @@ class Roster:
             user_id=str(user_id),
             role=role,
             added_by_user_id=actor.user_id,
+        )
+
+    # --- Invitations ------------------------------------------------------
+    # Nobody is added by someone else: a member invites, the person accepts
+    # (app.domain.models.WorkspaceInvitation). The roster decides who may
+    # invite whom, and admits whoever accepts.
+
+    def check_invite(self, actor: Actor, role: str) -> None:
+        """``actor`` may invite someone in as ``role``, or this raises."""
+        self._check_role(role)
+        if role not in self.assignable_roles(actor):
+            raise self._why_not(actor, role)
+
+    def can_manage_invitation(self, actor: Actor, role: str) -> bool:
+        """Resend or revoke an invitation for ``role``: the same people who
+        could have sent it."""
+        return role in self.assignable_roles(actor)
+
+    def admit(self, user_id, role: str, invited_by_user_id=None) -> MemberJoined:
+        """Someone accepted an invitation. Whoever invited them had the right
+        to when they did; the invitation carries it."""
+        self._check_role(role)
+        if self.seat_of(user_id) is not None:
+            raise AlreadyMember()
+        self._seats[str(user_id)] = Seat(str(user_id), role)
+        return MemberJoined(
+            tenant_id=self.workspace_id,
+            user_id=str(user_id),
+            role=role,
+            added_by_user_id=str(invited_by_user_id) if invited_by_user_id else None,
         )
 
     def change_role(self, actor: Actor, user_id, new_role: str) -> MemberRoleChanged | None:

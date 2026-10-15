@@ -26,6 +26,7 @@ NO_WORKSPACE_PREFIXES = (
     "/no-workspace/",
     "/notifications/",
     "/feedback/",
+    "/invitations/",
     "/tenants/new/",
     "/tenants/switch/",
     "/tenants/switcher/",

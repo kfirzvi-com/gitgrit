@@ -40,6 +40,20 @@ logger = logging.getLogger("app.access")
 _ALLAUTH_MAIL_KEYS = ("activate_url", "password_reset_url", "signup_url", "email")
 
 PENDING_USER_SESSION_KEY = "pending_access_user_id"
+# The token of the invitation link the person arrived with
+# (app.presentation.views.invitation_views). Signing up or in with the invited
+# address takes the invitation instead of opening an access request.
+INVITATION_SESSION_KEY = "invitation_token"
+
+
+def _session_invitation(request, email):
+    """The open invitation from this session's link, if it's for ``email``."""
+    from app.application import invitations
+
+    if request is None or not email:
+        return None
+    found = invitations.find_open(request.session.get(INVITATION_SESSION_KEY, ""))
+    return found if found is not None and found.is_for([email]) else None
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -47,6 +61,20 @@ class AccountAdapter(DefaultAccountAdapter):
         return False
 
     def respond_user_inactive(self, request, user):
+        found = _session_invitation(request, user.email)
+        if found is not None:
+            # Still waiting for approval, but invited: the invitation lets
+            # them in (and the link proved their address).
+            from django.contrib.auth import login
+
+            from app.application import invitations
+            from app.presentation.views.invitation_views import enter_workspace
+
+            invitations.accept(found, user, via_link=True)
+            user.refresh_from_db()
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+            enter_workspace(request, found)
+            return redirect("dashboard")
         if AccessRequest.objects.filter(user=user).exists():
             request.session[PENDING_USER_SESSION_KEY] = str(user.pk)
             return redirect("access_request_status")
@@ -94,6 +122,16 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def save_user(self, request, sociallogin, form=None):
         user = super().save_user(request, sociallogin, form)
-        if not user.is_active:
+        found = _session_invitation(request, user.email)
+        if found is not None:
+            # Signed up from an invitation link with the invited address:
+            # that's accepting it, and it lets them in.
+            from app.application import invitations
+            from app.presentation.views.invitation_views import enter_workspace
+
+            invitations.accept(found, user, via_link=True)
+            user.refresh_from_db()
+            enter_workspace(request, found)
+        elif not user.is_active:
             open_access_request(user)
         return user

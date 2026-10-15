@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import FormView, TemplateView
 from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
-from app.application import membership_service
+from app.application import invitations, membership_service
 from app.application.workspace_service import (
     can_delete_workspace,
     create_workspace,
@@ -30,6 +30,7 @@ from app.domain.models import (
     Platform,
     PlatformConnection,
     Tenant,
+    WorkspaceInvitation,
 )
 from app.infrastructure.llm_models import discover, test_provider
 from app.infrastructure.platform_client import get_platform_client
@@ -167,6 +168,15 @@ def members_context(user, tenant):
         "members": members,
         "manages_members": actor.manages_members,
         "invite_roles": [(r, ROLE_LABELS[r]) for r in roster.assignable_roles(actor)],
+        "invitations": [
+            {
+                "invitation": inv,
+                "manageable": roster.can_manage_invitation(actor, inv.role),
+                "role_label": ROLE_LABELS[inv.role],
+                "expired": not inv.is_open(),
+            }
+            for inv in invitations.pending_for_workspace(tenant)
+        ],
         "can_leave": own is not None and not roster.is_last_owner(user.pk),
         "is_last_owner": roster.is_last_owner(user.pk),
     }
@@ -306,21 +316,50 @@ def invite_member(request):
 
     email = request.POST.get("email", "").strip()
     role = request.POST.get("role", Membership.Role.MEMBER)
-    invitee = User.objects.filter(email__iexact=email).first() if email else None
-    if not invitee:
+    try:
+        forms.EmailField().clean(email)
+        invitation = invitations.invite(tenant, email, role, by=request.user)
+    except forms.ValidationError:
         return _member_action_done(
-            request, tenant, f"No user found with email {email}.", "error",
+            request, tenant, "Enter a valid email address.", "error",
             invite_email=email, invite_role=role,
         )
-    try:
-        membership_service.add_member(tenant, invitee, role, by=request.user)
     except MembershipRuleError as e:
         return _member_action_done(
             request, tenant, str(e), "error", invite_email=email, invite_role=role
         )
     return _member_action_done(
-        request, tenant, f"{invitee.email} added as {ROLE_LABELS[role].lower()}."
+        request, tenant,
+        f"Invitation sent to {invitation.email}. They join once they accept it.",
     )
+
+
+@login_required
+@require_POST
+def resend_invitation(request, invitation_id):
+    tenant = request.tenant
+    invitation = get_object_or_404(
+        WorkspaceInvitation, id=invitation_id, tenant=tenant, status=WorkspaceInvitation.Status.PENDING
+    )
+    try:
+        invitations.resend(invitation, request.user)
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    return _member_action_done(request, tenant, f"Sent again to {invitation.email}, with a new link.")
+
+
+@login_required
+@require_POST
+def revoke_invitation(request, invitation_id):
+    tenant = request.tenant
+    invitation = get_object_or_404(
+        WorkspaceInvitation, id=invitation_id, tenant=tenant, status=WorkspaceInvitation.Status.PENDING
+    )
+    try:
+        invitations.revoke(invitation, request.user)
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    return _member_action_done(request, tenant, f"Invitation for {invitation.email} withdrawn.")
 
 
 @login_required

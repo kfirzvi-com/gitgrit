@@ -104,10 +104,56 @@
         </div>
       </div>
 
+      {% if invitations %}
+        <div class="card bg-base-100" id="pending-invitations">
+          <div class="card-body">
+            <h2 class="card-title">Pending invitations</h2>
+            <p class="text-sm text-base-content/60">They join once they accept the invitation we emailed them.</p>
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead><tr><th>Email</th><th>Role</th><th>Invited</th><th></th></tr></thead>
+                <tbody>
+                  {% for row in invitations %}{% with inv=row.invitation %}
+                  <tr data-invitation="{{ inv.email }}">
+                    <td>{{ inv.email }}</td>
+                    <td><span class="badge badge-ghost">{{ row.role_label }}</span></td>
+                    <td class="text-sm">
+                      <div title="{{ inv.sent_at|date:'DATETIME_FORMAT' }}">{{ inv.sent_at|timesince }} ago</div>
+                      <div class="text-xs text-base-content/60">
+                        {% if inv.invited_by %}by {% if inv.invited_by_id == user.pk %}you{% else %}{{ inv.invited_by.email }}{% endif %} · {% endif %}
+                        {% if row.expired %}<span class="text-warning">expired</span>{% else %}expires {{ inv.expires_at|date:"j M" }}{% endif %}
+                      </div>
+                    </td>
+                    <td class="text-right whitespace-nowrap">
+                      {% if row.manageable %}
+                        <form class="inline" method="post" action="{% url 'resend_invitation' inv.id %}"
+                              hx-post="{% url 'resend_invitation' inv.id %}" hx-target="#members-panel" hx-swap="outerHTML">
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs">Resend</button>
+                        </form>
+                        <form class="inline" method="post" action="{% url 'revoke_invitation' inv.id %}"
+                              hx-post="{% url 'revoke_invitation' inv.id %}" hx-target="#members-panel" hx-swap="outerHTML"
+                              hx-confirm="Withdraw the invitation for {{ inv.email }}?"
+                              data-confirm-body="The link we emailed stops working. You can invite them again later."
+                              data-confirm-action="Withdraw" data-confirm-danger>
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs text-error">Withdraw</button>
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endwith %}{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
       {% if manages_members %}
         <div class="card bg-base-100">
           <div class="card-body">
-            <h2 class="card-title">Invite Member</h2>
+            <h2 class="card-title">Invite someone</h2>
             <form method="post" action="{% url 'invite_member' %}"
                   hx-post="{% url 'invite_member' %}"
                   hx-target="#members-panel" hx-swap="outerHTML"
@@ -117,10 +163,11 @@
                      value="{{ invite_email|default:'' }}"
                      class="input input-bordered flex-1">
               <select name="role" class="select select-bordered">
-                {% for value, label in invite_roles %}<option value="{{ value }}" {% if value == invite_role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                {% for value, label in invite_roles %}<option value="{{ value }}" {% if value == invite_role|default:"member" %}selected{% endif %}>{{ label }}</option>{% endfor %}
               </select>
-              <button type="submit" class="btn btn-primary">Invite</button>
+              <button type="submit" class="btn btn-primary">Send invitation</button>
             </form>
+            <p class="text-xs text-base-content/60">We email them a link. New to GitGrit? The invitation lets them in, no access request needed.</p>
           </div>
         </div>
       {% endif %}

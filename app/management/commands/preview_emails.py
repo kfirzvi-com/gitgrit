@@ -27,6 +27,15 @@ def samples():
             "workspace": "Apollo Systems",
             "login_path": reverse("account_login"),
         },
+        "workspace_invitation": {
+            "workspace": "Apollo Systems",
+            "role": "member",
+            "inviter_name": "Margaret Hamilton",
+            "inviter_email": "margaret@example.test",
+            "accept_path": "/invitations/sample-token/",
+            "has_account": False,
+            "expires": "29 October 2026",
+        },
         # allauth's emails (app.presentation.auth_adapters.send_mail): their
         # links arrive absolute.
         "email_confirmation_signup": {

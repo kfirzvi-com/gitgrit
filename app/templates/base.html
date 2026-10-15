@@ -280,6 +280,7 @@
     {% include "components/support_view_banner.html" %}
   {% endif %}
   {% include "components/navbar.html" %}
+  {% if not hide_invitation_banner %}{% include "components/invitation_banner.html" %}{% endif %}
 
   <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
         style="visibility:hidden;">

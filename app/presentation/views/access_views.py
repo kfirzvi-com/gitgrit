@@ -28,8 +28,9 @@ from app.application.access import (
     submit_access_request,
 )
 from app.domain.models import AccessRequest, Tenant
-from app.presentation.auth_adapters import PENDING_USER_SESSION_KEY
+from app.presentation.auth_adapters import PENDING_USER_SESSION_KEY, _session_invitation
 from app.presentation.htmx import toast
+from app.presentation.views.invitation_views import sign_up_from_invitation
 
 
 # --- first-run setup -------------------------------------------------------
@@ -115,6 +116,9 @@ class EmailAwareLoginView(LoginView):
 
         users = filter_users_by_email(email)
         if not users:
+            invited = _session_invitation(request, email)
+            if invited is not None:
+                return self._sign_up_invited(request, invited, email, password)
             return self._sign_up(request, email, password)
         if not any(user.has_usable_password() for user in users):
             return self._refuse(
@@ -148,6 +152,22 @@ class EmailAwareLoginView(LoginView):
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         messages.success(request, "Welcome to GitGrit.")
         return redirect("dashboard")
+
+    def _sign_up_invited(self, request, invited, email, password):
+        """Signing up from an invitation link with the invited address: no
+        access request, no confirmation email (the link proved it)."""
+        limited = ratelimit.consume_or_429(request, action="signup")
+        if limited:
+            return limited
+        form = EmailPasswordForm(request.POST)
+        if not form.is_valid():
+            return self._render(form)
+        try:
+            password_validation.validate_password(password)
+        except ValidationError as e:
+            form.add_error(None, " ".join(e.messages))
+            return self._render(form)
+        return sign_up_from_invitation(request, invited, email, password)
 
     def _refuse(self, message):
         form = EmailPasswordForm(self.request.POST)
