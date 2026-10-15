@@ -23,6 +23,33 @@ const (
 	Oauth2Scopes     oauth2ContextKey     = "oauth2.Scopes"
 )
 
+// Defines values for CheckResultStatusEnum.
+const (
+	CheckResultStatusEnumError   CheckResultStatusEnum = "error"
+	CheckResultStatusEnumFailed  CheckResultStatusEnum = "failed"
+	CheckResultStatusEnumPassed  CheckResultStatusEnum = "passed"
+	CheckResultStatusEnumRunning CheckResultStatusEnum = "running"
+	CheckResultStatusEnumSkipped CheckResultStatusEnum = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the CheckResultStatusEnum enum.
+func (e CheckResultStatusEnum) Valid() bool {
+	switch e {
+	case CheckResultStatusEnumError:
+		return true
+	case CheckResultStatusEnumFailed:
+		return true
+	case CheckResultStatusEnumPassed:
+		return true
+	case CheckResultStatusEnumRunning:
+		return true
+	case CheckResultStatusEnumSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EventsEnum.
 const (
 	PullRequest EventsEnum = "pull_request"
@@ -44,24 +71,54 @@ func (e EventsEnum) Valid() bool {
 	}
 }
 
+// Defines values for GradeEnum.
+const (
+	A  GradeEnum = "A+"
+	A1 GradeEnum = "A"
+	B  GradeEnum = "B"
+	C  GradeEnum = "C"
+	D  GradeEnum = "D"
+	F  GradeEnum = "F"
+)
+
+// Valid indicates whether the value is a known member of the GradeEnum enum.
+func (e GradeEnum) Valid() bool {
+	switch e {
+	case A:
+		return true
+	case A1:
+		return true
+	case B:
+		return true
+	case C:
+		return true
+	case D:
+		return true
+	case F:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LevelEnum.
 const (
-	Critical LevelEnum = "critical"
-	Healthy  LevelEnum = "healthy"
-	Unknown  LevelEnum = "unknown"
-	Warning  LevelEnum = "warning"
+	Attention LevelEnum = "attention"
+	Failing   LevelEnum = "failing"
+	Good      LevelEnum = "good"
+	Unknown   LevelEnum = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the LevelEnum enum.
 func (e LevelEnum) Valid() bool {
 	switch e {
-	case Critical:
+	case Attention:
 		return true
-	case Healthy:
+	case Failing:
+		return true
+	case Good:
 		return true
 	case Unknown:
-		return true
-	case Warning:
 		return true
 	default:
 		return false
@@ -86,27 +143,18 @@ func (e MatchedByEnum) Valid() bool {
 	}
 }
 
-// Defines values for StatusEnum.
+// Defines values for OffenderStatusEnum.
 const (
-	Error   StatusEnum = "error"
-	Failed  StatusEnum = "failed"
-	Passed  StatusEnum = "passed"
-	Running StatusEnum = "running"
-	Skipped StatusEnum = "skipped"
+	OffenderStatusEnumError  OffenderStatusEnum = "error"
+	OffenderStatusEnumFailed OffenderStatusEnum = "failed"
 )
 
-// Valid indicates whether the value is a known member of the StatusEnum enum.
-func (e StatusEnum) Valid() bool {
+// Valid indicates whether the value is a known member of the OffenderStatusEnum enum.
+func (e OffenderStatusEnum) Valid() bool {
 	switch e {
-	case Error:
+	case OffenderStatusEnumError:
 		return true
-	case Failed:
-		return true
-	case Passed:
-		return true
-	case Running:
-		return true
-	case Skipped:
+	case OffenderStatusEnumFailed:
 		return true
 	default:
 		return false
@@ -175,11 +223,18 @@ type CheckResult struct {
 	// * `failed` - failed
 	// * `error` - error
 	// * `skipped` - skipped
-	Status StatusEnum `json:"status"`
+	Status CheckResultStatusEnum `json:"status"`
 
 	// StillAttached Commit views only: whether the standard is still attached.
 	StillAttached *bool `json:"still_attached,omitempty"`
 }
+
+// CheckResultStatusEnum * `running` - running
+// * `passed` - passed
+// * `failed` - failed
+// * `error` - error
+// * `skipped` - skipped
+type CheckResultStatusEnum string
 
 // Commit defines model for Commit.
 type Commit struct {
@@ -189,23 +244,52 @@ type Commit struct {
 	Errored int        `json:"errored"`
 	Failed  int        `json:"failed"`
 
-	// Level * `healthy` - healthy
-	// * `warning` - warning
-	// * `critical` - critical
+	// Grade Null while nothing finished.
+	//
+	// * `A+` - A+
+	// * `A` - A
+	// * `B` - B
+	// * `C` - C
+	// * `D` - D
+	// * `F` - F
+	Grade *Commit_Grade `json:"grade"`
+
+	// Level The grade's tone.
+	//
+	// * `good` - good
+	// * `attention` - attention
+	// * `failing` - failing
 	// * `unknown` - unknown
 	Level LevelEnum `json:"level"`
 
 	// NotRun Standards that apply now but did not run on this commit.
-	NotRun  []StandardRef `json:"not_run"`
-	Passed  int           `json:"passed"`
+	NotRun []StandardRef `json:"not_run"`
+	Passed int           `json:"passed"`
+
+	// Reason Why the grade is not one higher.
+	Reason  string        `json:"reason"`
 	Results []CheckResult `json:"results"`
 
 	// Running Checks still running on this commit.
-	Running int    `json:"running"`
-	Score   *int   `json:"score"`
-	Sha     string `json:"sha"`
-	Title   string `json:"title"`
-	Url     string `json:"url"`
+	Running int `json:"running"`
+
+	// Score Mean of the results' scores; kept for older clients.
+	Score *int   `json:"score"`
+	Sha   string `json:"sha"`
+	Title string `json:"title"`
+	Url   string `json:"url"`
+}
+
+// Commit_Grade Null while nothing finished.
+//
+// * `A+` - A+
+// * `A` - A
+// * `B` - B
+// * `C` - C
+// * `D` - D
+// * `F` - F
+type Commit_Grade struct {
+	union json.RawMessage
 }
 
 // CommitPage defines model for CommitPage.
@@ -230,6 +314,14 @@ type Execution struct {
 	Status    string    `json:"status"`
 }
 
+// GradeEnum * `A+` - A+
+// * `A` - A
+// * `B` - B
+// * `C` - C
+// * `D` - D
+// * `F` - F
+type GradeEnum string
+
 // LastExecution defines model for LastExecution.
 type LastExecution struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -238,9 +330,9 @@ type LastExecution struct {
 	Status    string    `json:"status"`
 }
 
-// LevelEnum * `healthy` - healthy
-// * `warning` - warning
-// * `critical` - critical
+// LevelEnum * `good` - good
+// * `attention` - attention
+// * `failing` - failing
 // * `unknown` - unknown
 type LevelEnum string
 
@@ -258,14 +350,27 @@ type Me struct {
 	Workspaces []Workspace   `json:"workspaces"`
 }
 
+// NullEnum defines model for NullEnum.
+type NullEnum = interface{}
+
 // Offender defines model for Offender.
 type Offender struct {
+	// Critical Whether the standard gates this project (a failing critical standard is an F).
+	Critical   bool               `json:"critical"`
 	LastRun    time.Time          `json:"last_run"`
 	Message    string             `json:"message"`
 	Name       string             `json:"name"`
 	Score      *int               `json:"score"`
 	StandardId openapi_types.UUID `json:"standard_id"`
+
+	// Status * `failed` - failed
+	// * `error` - error
+	Status OffenderStatusEnum `json:"status"`
 }
+
+// OffenderStatusEnum * `failed` - failed
+// * `error` - error
+type OffenderStatusEnum string
 
 // PatchedStandardUpdateRequest PATCH body — only the fields sent are changed.
 type PatchedStandardUpdateRequest struct {
@@ -303,16 +408,45 @@ type ProjectHealth struct {
 	Errored       int     `json:"errored"`
 	Failed        int     `json:"failed"`
 
-	// Level * `healthy` - healthy
-	// * `warning` - warning
-	// * `critical` - critical
+	// Grade Null while nothing finished.
+	//
+	// * `A+` - A+
+	// * `A` - A
+	// * `B` - B
+	// * `C` - C
+	// * `D` - D
+	// * `F` - F
+	Grade *ProjectHealth_Grade `json:"grade"`
+
+	// Level The grade's tone.
+	//
+	// * `good` - good
+	// * `attention` - attention
+	// * `failing` - failing
 	// * `unknown` - unknown
-	Level   LevelEnum     `json:"level"`
-	Passed  int           `json:"passed"`
-	Project ProjectRef    `json:"project"`
+	Level   LevelEnum  `json:"level"`
+	Passed  int        `json:"passed"`
+	Project ProjectRef `json:"project"`
+
+	// Reason Why the grade is not one higher.
+	Reason  string        `json:"reason"`
 	Results []CheckResult `json:"results"`
 	Running bool          `json:"running"`
-	Score   *int          `json:"score"`
+
+	// Score Mean of the results' scores; kept for older clients.
+	Score *int `json:"score"`
+}
+
+// ProjectHealth_Grade Null while nothing finished.
+//
+// * `A+` - A+
+// * `A` - A
+// * `B` - B
+// * `C` - C
+// * `D` - D
+// * `F` - F
+type ProjectHealth_Grade struct {
+	union json.RawMessage
 }
 
 // ProjectNotFound defines model for ProjectNotFound.
@@ -330,13 +464,41 @@ type ProjectRef struct {
 
 // ProjectStatus defines model for ProjectStatus.
 type ProjectStatus struct {
-	Failed         int        `json:"failed"`
-	Grade          *string    `json:"grade"`
-	OverallScore   *float64   `json:"overall_score"`
-	Passed         int        `json:"passed"`
-	Project        ProjectRef `json:"project"`
+	Failed int `json:"failed"`
+
+	// Grade Null while nothing is evaluated.
+	//
+	// * `A+` - A+
+	// * `A` - A
+	// * `B` - B
+	// * `C` - C
+	// * `D` - D
+	// * `F` - F
+	Grade *ProjectStatus_Grade `json:"grade"`
+
+	// OverallScore Mean of the counting results' scores; kept for older clients.
+	OverallScore *float64   `json:"overall_score"`
+	Passed       int        `json:"passed"`
+	Project      ProjectRef `json:"project"`
+
+	// Reason Why the grade is not one higher.
+	Reason string `json:"reason"`
+
+	// TopOffenders Results that did not pass: critical first, then failed, then errored.
 	TopOffenders   []Offender `json:"top_offenders"`
 	TotalStandards int        `json:"total_standards"`
+}
+
+// ProjectStatus_Grade Null while nothing is evaluated.
+//
+// * `A+` - A+
+// * `A` - A
+// * `B` - B
+// * `C` - C
+// * `D` - D
+// * `F` - F
+type ProjectStatus_Grade struct {
+	union json.RawMessage
 }
 
 // ResolvedProject defines model for ResolvedProject.
@@ -462,13 +624,6 @@ type StandardTestResult struct {
 	Score   int                    `json:"score"`
 }
 
-// StatusEnum * `running` - running
-// * `passed` - passed
-// * `failed` - failed
-// * `error` - error
-// * `skipped` - skipped
-type StatusEnum string
-
 // TokenTypeEnum * `oauth` - oauth
 // * `personal_token` - personal_token
 // * `workspace_token` - workspace_token
@@ -524,6 +679,192 @@ type TestStandardJSONRequestBody = StandardTestRequest
 
 // UpdateStandardJSONRequestBody defines body for UpdateStandard for application/json ContentType.
 type UpdateStandardJSONRequestBody = PatchedStandardUpdateRequest
+
+// AsGradeEnum returns the union data inside the Commit_Grade as a GradeEnum
+func (t Commit_Grade) AsGradeEnum() (GradeEnum, error) {
+	var body GradeEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGradeEnum overwrites any union data inside the Commit_Grade as the provided GradeEnum
+func (t *Commit_Grade) FromGradeEnum(v GradeEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGradeEnum performs a merge with any union data inside the Commit_Grade, using the provided GradeEnum
+func (t *Commit_Grade) MergeGradeEnum(v GradeEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNullEnum returns the union data inside the Commit_Grade as a NullEnum
+func (t Commit_Grade) AsNullEnum() (NullEnum, error) {
+	var body NullEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNullEnum overwrites any union data inside the Commit_Grade as the provided NullEnum
+func (t *Commit_Grade) FromNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNullEnum performs a merge with any union data inside the Commit_Grade, using the provided NullEnum
+func (t *Commit_Grade) MergeNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Commit_Grade) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Commit_Grade) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsGradeEnum returns the union data inside the ProjectHealth_Grade as a GradeEnum
+func (t ProjectHealth_Grade) AsGradeEnum() (GradeEnum, error) {
+	var body GradeEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGradeEnum overwrites any union data inside the ProjectHealth_Grade as the provided GradeEnum
+func (t *ProjectHealth_Grade) FromGradeEnum(v GradeEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGradeEnum performs a merge with any union data inside the ProjectHealth_Grade, using the provided GradeEnum
+func (t *ProjectHealth_Grade) MergeGradeEnum(v GradeEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNullEnum returns the union data inside the ProjectHealth_Grade as a NullEnum
+func (t ProjectHealth_Grade) AsNullEnum() (NullEnum, error) {
+	var body NullEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNullEnum overwrites any union data inside the ProjectHealth_Grade as the provided NullEnum
+func (t *ProjectHealth_Grade) FromNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNullEnum performs a merge with any union data inside the ProjectHealth_Grade, using the provided NullEnum
+func (t *ProjectHealth_Grade) MergeNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ProjectHealth_Grade) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ProjectHealth_Grade) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsGradeEnum returns the union data inside the ProjectStatus_Grade as a GradeEnum
+func (t ProjectStatus_Grade) AsGradeEnum() (GradeEnum, error) {
+	var body GradeEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGradeEnum overwrites any union data inside the ProjectStatus_Grade as the provided GradeEnum
+func (t *ProjectStatus_Grade) FromGradeEnum(v GradeEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGradeEnum performs a merge with any union data inside the ProjectStatus_Grade, using the provided GradeEnum
+func (t *ProjectStatus_Grade) MergeGradeEnum(v GradeEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNullEnum returns the union data inside the ProjectStatus_Grade as a NullEnum
+func (t ProjectStatus_Grade) AsNullEnum() (NullEnum, error) {
+	var body NullEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNullEnum overwrites any union data inside the ProjectStatus_Grade as the provided NullEnum
+func (t *ProjectStatus_Grade) FromNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNullEnum performs a merge with any union data inside the ProjectStatus_Grade, using the provided NullEnum
+func (t *ProjectStatus_Grade) MergeNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ProjectStatus_Grade) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ProjectStatus_Grade) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error

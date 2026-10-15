@@ -213,10 +213,38 @@ class CommitRowTests(SimpleTestCase):
         ])
         self.assertEqual((row.running, row.score), (1, 100))
 
+    def test_grade_reads_each_rows_snapshot_critical_mark(self):
+        rows = [
+            mock.Mock(status=Status.PASSED, score=100, critical=False, error_origin="standard",
+                      standard_name="a", created_at=None),
+            mock.Mock(status=Status.FAILED, score=0, critical=True, error_origin="standard",
+                      standard_name="Gate", created_at=None),
+        ]
+
+        row = CommitRow(sha="f" * 40, results=rows)
+
+        self.assertEqual((row.grade, row.verdict.reason), ("F", "Gate failing"))
+        rows[1].critical = False
+        self.assertEqual((row.grade, row.verdict.reason), ("D", "1 standard failing"))
+
+    def test_grade_is_null_while_nothing_finished_and_never_capped(self):
+        running = CommitRow(sha="f" * 40, results=[
+            mock.Mock(status=Status.RUNNING, score=0, critical=True, error_origin="standard",
+                      standard_name="Gate", created_at=None),
+        ])
+        self.assertIsNone(running.grade)
+        # A commit's rows carry no neglect clock, so an old failure is a plain D.
+        old = CommitRow(sha="f" * 40, results=[
+            mock.Mock(status=Status.FAILED, score=0, critical=False, error_origin="standard",
+                      standard_name="Old", created_at=timezone.now() - timedelta(days=60)),
+        ])
+        self.assertEqual((old.grade, old.verdict.reason), ("D", "1 standard failing"))
+
     def test_an_unchecked_commit(self):
         row = CommitRow(sha="f" * 40)
         self.assertFalse(row.checked)
         self.assertIsNone(row.score)
+        self.assertIsNone(row.grade)
         self.assertEqual(row.title, "")
 
 
