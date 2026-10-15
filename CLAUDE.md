@@ -5,7 +5,9 @@ GitGrit is a DevOps compliance and best practices enforcement platform designed 
 ## Local Dev Commands
 
 ```bash
-# Start database
+# Start database and Mailpit (catches outgoing email; inbox at
+# http://localhost:8025 — set EMAIL_HOST=localhost, EMAIL_PORT=1025,
+# EMAIL_USE_TLS=False in .env)
 docker compose up -d
 
 # Install dependencies
@@ -23,7 +25,7 @@ uv run python manage.py runserver
 # Background worker (second terminal) — required for the dependency graph and
 # for every standard run (Run / Run All, attach/save/activate, webhooks);
 # the web process only queues them
-# ('notifications' sends emails; without EMAIL_HOST they print to the log)
+# ('notifications' sends emails: to Mailpit, or printed here without EMAIL_HOST)
 uv run python manage.py procrastinate worker --queues=graph,standards,notifications
 ```
 
