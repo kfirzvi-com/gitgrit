@@ -7,6 +7,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
+from app.domain import grading
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -1134,8 +1135,8 @@ class Notification(models.Model):
     (``app.domain.notifications.notification_routing``).
 
     Immutable once raised. Created only through the named constructors below
-    (``could_not_evaluate``, ``standards_failing``, ``graph_failed``), which
-    hold each kind's wording, severity and link.
+    (``could_not_evaluate``, ``standards_failing``, ``grade_unverified``,
+    ``graph_failed``, …), which hold each kind's wording, severity and link.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1221,43 +1222,79 @@ class Notification(models.Model):
 
     @classmethod
     def standards_failing(
-        cls, *, project, failed_names, failed_standard_ids, execution_ids=(), score=None,
+        cls, *, project, failed_names, failed_standard_ids, execution_ids=(), grade=None,
         trigger=None, triggered_by_user_ids=(),
     ):
         """A run finished with failed standards: one notification per run,
-        naming up to three. ``score`` is the project's overall score."""
+        naming up to three. ``grade`` is the project's current grade (an
+        ``app.domain.grading.Grade``: letter and reason) when this run's
+        failures count toward it; the body then opens with it."""
         n = len(failed_names)
         listing = ", ".join(failed_names[:3])
         if n > 3:
             listing += f" and {n - 3} more"
         context = _run_context(execution_ids, trigger, triggered_by_user_ids)
         context["failed_standard_ids"] = [str(i) for i in failed_standard_ids]
-        if score is not None:
-            context["score"] = round(score)
+        body = listing
+        if grade is not None:
+            context["grade"] = grade.letter
+            body = f"Grade {grade.letter} — {grade.reason}: {listing}"
         return cls._new(
             project=project,
             kind=Kind.STANDARDS_FAILING,
             severity=Severity.WARNING,
             title=f"{n} standard{'s' if n != 1 else ''} failed",
-            body=listing[:BODY_MAX],
+            body=body[:BODY_MAX],
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,
         )
 
     @classmethod
     def project_turned_critical(
-        cls, *, project, score_before, score_after, execution_ids=(), trigger=None,
+        cls, *, project, letter_before, letter_after, reason, execution_ids=(), trigger=None,
         triggered_by_user_ids=(),
     ):
-        """A run dropped the project's overall score into critical."""
+        """A run dropped the project's grade to F: a critical standard
+        started failing. ``reason`` is the grade's own ("<name> failing")."""
         context = _run_context(execution_ids, trigger, triggered_by_user_ids)
-        context["score"] = round(score_after)
+        context["grade"] = letter_after
+        context["grade_before"] = letter_before
         return cls._new(
             project=project,
             kind=Kind.PROJECT_CRITICAL,
             severity=Severity.CRITICAL,
-            title="Score dropped to critical",
-            body=f"From {round(score_before)}% to {round(score_after)}%.",
+            title=f"Grade dropped to {letter_after}",
+            body=reason[:BODY_MAX],
+            url=reverse("project_detail", args=[project.pk]) + "#compliance",
+            context=context,
+        )
+
+    @classmethod
+    def grade_unverified(
+        cls, *, project, standard_names, standard_ids, branch, error="", execution_ids=(),
+        trigger=None, triggered_by_user_ids=(),
+    ):
+        """A critical standard errored inside its own run on its home branch,
+        so the project is an F until it passes there again: GitGrit could
+        not verify it. One per project, naming every such standard so the
+        fix (an edit to the standard) is one step. ``error`` is the first
+        standard's error text; its useful line follows the sentence, since
+        the standard's own exception is what its author needs to see."""
+        names = ", ".join(standard_names)
+        verb = "it passes" if len(standard_names) == 1 else "they pass"
+        body = f"Grade {grading.F} until {verb} again on {branch}"
+        line = plain_reason(error) or _error_line(error)
+        if line:
+            body = f"{body}: {line}"
+        context = _run_context(execution_ids, trigger, triggered_by_user_ids)
+        context["standard_ids"] = [str(i) for i in standard_ids]
+        context["grade"] = grading.F
+        return cls._new(
+            project=project,
+            kind=Kind.GRADE_UNVERIFIED,
+            severity=Severity.CRITICAL,
+            title=f"Could not verify {names}",
+            body=body[:BODY_MAX],
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,
         )
@@ -1452,6 +1489,18 @@ def _display_name(user) -> str:
     if user is None:
         return "Someone"
     return user.get_full_name() or user.email or user.username
+
+
+_TRACEBACK = "Traceback (most recent call last):"
+
+
+def _error_line(text: str) -> str:
+    """The one line of an error worth a notification: a traceback's last line
+    (the exception), else the first line."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    return lines[-1] if any(_TRACEBACK in line for line in lines) else lines[0]
 
 
 def _run_context(execution_ids, trigger, triggered_by_user_ids):

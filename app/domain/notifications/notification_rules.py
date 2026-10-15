@@ -3,8 +3,8 @@ policies make, as pure functions of the facts. Pure Python (no Django)."""
 
 from __future__ import annotations
 
+from app.domain import grading
 from app.domain.events import DependencyInferenceFailed, StandardRunFinished
-from app.domain.health import CRITICAL, UNKNOWN, level_from_score
 
 # An AI provider answers with these when the key is wrong (401), the account
 # has no credit (402) or the key may not use the model (403).
@@ -35,11 +35,12 @@ def standards_failing(event: StandardRunFinished) -> bool:
     return event.failed > 0 and not could_not_evaluate(event)
 
 
-def turned_critical(score_before, score_after) -> bool:
-    """The project's score crossed into critical with this run. A project
-    that was already critical, or had no score yet, did not "drop"."""
-    before = level_from_score(score_before)
-    return before not in (CRITICAL, UNKNOWN) and level_from_score(score_after) == CRITICAL
+def turned_critical(letter_before, letter_after) -> bool:
+    """The project's grade dropped to F with this run. A project that was
+    already F, or had no grade yet, did not "drop"."""
+    if letter_after != grading.F:
+        return False
+    return letter_before not in (grading.F, grading.NO_GRADE, None)
 
 
 def ai_provider_refused(event: DependencyInferenceFailed) -> bool:
