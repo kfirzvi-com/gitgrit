@@ -33,9 +33,9 @@
     <h3 class="font-bold text-lg flex items-center gap-2 mb-2">
       <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-5 w-auto"> Your GitGrit badge
     </h3>
-        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show the project's health score.</p>
+        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show the project's grade.</p>
         <div class="mb-3">
-          <img src="{% url 'project_badge' project.pk %}" alt="health score badge">
+          <img src="{% url 'project_badge' project.pk %}" alt="grade badge">
         </div>
         <div class="form-control">
           <label class="label"><span class="label-text text-xs opacity-70">Markdown</span></label>

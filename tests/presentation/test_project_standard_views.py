@@ -302,6 +302,7 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
             "app.StandardExecution",
             project=project,
             standard=attached,
+            event_type="manual",
             score=100,
             status=StandardExecution.Status.PASSED,
         )
@@ -309,6 +310,7 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
             "app.StandardExecution",
             project=project,
             standard=detached,
+            event_type="manual",
             score=0,
             status=StandardExecution.Status.FAILED,
         )
@@ -316,8 +318,8 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
         resp = self.client.get(reverse("project_detail", args=[project.pk]))
         assert resp.status_code == 200
         assert [s.pk for s in resp.context["attached_standards"]] == [attached.pk]
-        # The detached standard's execution must not drag the score.
-        assert resp.context["compliance_score"] == 100
+        # The detached standard's execution must not drag the grade.
+        assert resp.context["grade"].letter == "A+"
         assert all(
             ex.standard_id == attached.pk
             for ex in resp.context["recent_executions"]

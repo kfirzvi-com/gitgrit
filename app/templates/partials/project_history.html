@@ -26,24 +26,24 @@ surfaces, sections by small-caps labels.{% endcomment %}
     {% if notice %}<p class="text-sm text-info -mt-4" data-run-notice>{{ notice }}</p>{% endif %}
 
     <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-5 sm:px-6 py-5" data-branch-status>
-      {% if status_score is not None %}
+      {% if status_grade %}
         <div class="flex items-start gap-1">
-          <span class="text-5xl font-bold leading-none {% if status_score >= 80 %}text-success{% elif status_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ status_score }}</span>
+          <span class="text-5xl font-bold leading-none {% if status_tone == 'good' %}text-success{% elif status_tone == 'attention' %}text-warning{% else %}text-error{% endif %}" data-branch-grade>{{ status_grade }}</span>
           <span class="tooltip tooltip-right cursor-help opacity-50 hover:opacity-100"
-                data-tip="{% if is_default %}The project's health score: the latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}, the default branch, out of 100.{% else %}The latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}, out of 100. Only the default branch counts toward the project's health score.{% endif %}"
-                data-score-info tabindex="0" aria-label="About this score">
+                data-tip="The latest result of each of {{ status|length }} standard{{ status|length|pluralize }} on {{ branch }}. Only a standard's home branch moves the project's grade: the default branch ({{ project.default_branch }}), or the one branch its Branch/Tag Filter names.{% if not is_default %} This letter is for {{ branch }} alone.{% endif %}"
+                data-score-info tabindex="0" aria-label="About this grade">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
           </span>
         </div>
         <div class="space-y-1.5">
           {% include "partials/health_breakdown.html" with counts=status_breakdown %}
           <p class="text-xs opacity-50">
-            {% if is_default %}Health score{% else %}Score on {{ branch }}{% endif %}
+            {% if is_default %}Grade{% else %}Grade on {{ branch }}{% endif %}
             {% if status_commits|length == 1 %}· from {{ status_commits.0 }}{% elif status_commits|length > 1 %}· from {{ status_commits|length }} commits (each standard's latest result){% endif %}
           </p>
         </div>
       {% else %}
-        <p class="text-sm opacity-60">No results on {{ branch }} yet. Run the standards on its latest commit to get a score.</p>
+        <p class="text-sm opacity-60">No results on {{ branch }} yet. Run the standards on its latest commit to get a grade.</p>
       {% endif %}
     </div>
 
