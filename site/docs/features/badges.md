@@ -1,6 +1,6 @@
 # Compliance Badges
 
-Embed a live compliance badge in your repository README to show your GitGrit compliance score.
+Embed a live badge in your repository README to show your project's GitGrit [grade](grades.md).
 
 ## How it works
 
@@ -10,12 +10,12 @@ Each project has a public badge endpoint that returns an SVG image:
 https://app.gitgrit.dev/badge/<project-id>.svg
 ```
 
-The badge shows your project's compliance score, color-coded:
+The badge shows your project's grade letter, color-coded:
 
-- **Green** — score >= 80%
-- **Orange** — score >= 50%
-- **Red** — score < 50%
-- **Gray** — no data yet
+- **Green** — A+, A or B
+- **Orange** — C or D
+- **Red** — F (a critical standard is failing or could not be verified)
+- **Gray** — no grade yet
 
 ## Adding a badge
 
@@ -40,4 +40,4 @@ The badge shows your project's compliance score, color-coded:
 
 ## Caching
 
-Badges are cached for 5 minutes. After a standard evaluation updates the score, the badge will reflect the new score within 5 minutes.
+Badges are cached for 5 minutes. After a standard run changes the grade, the badge will reflect the new letter within 5 minutes.

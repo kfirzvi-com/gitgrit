@@ -30,8 +30,8 @@ GitGrit listens for these events:
 
 Each project page shows:
 
-- **Compliance score** — average of latest standard execution scores
+- **Grade** — one letter from A+ to F with its reason, from each attached standard's latest result on its home branch (see [Grades](../features/grades.md))
 - **Standards** — which standards apply, with manual run buttons
 - **Recent activity** — webhook events and their results
-- **Badge** — embeddable compliance badge for your README
+- **Badge** — embeddable grade badge for your README
 - **Languages & tags** — fetched from the platform API
