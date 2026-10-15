@@ -273,6 +273,10 @@ EMAIL_BACKEND = EMAIL_BACKENDS[_email_backend]
 AWS_SES_REGION_NAME = os.environ.get("AWS_SES_REGION") or "eu-north-1"
 AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
 USE_SES_V2 = True
+# django-ses otherwise asks SES for the account's send rate (ses:GetAccount)
+# before every send, to pace itself. The app's role may only send, and we send
+# a handful at a time, one job each, far under SES's per-second limit.
+AWS_SES_AUTO_THROTTLE = None
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "GitGrit <noreply@gitgrit.dev>"
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 

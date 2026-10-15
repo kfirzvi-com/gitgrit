@@ -87,6 +87,9 @@ class SesBackendTests(TestCase):
         )
         assert session.return_value.client.call_args.args == ("sesv2",)
         assert session.return_value.client.call_args.kwargs["region_name"] == "eu-north-1"
+        # Only SendEmail: the VM role may not read the account (ses:GetAccount),
+        # so django-ses must not pace itself by asking for the send quota.
+        client.get_account.assert_not_called()
         kwargs = client.send_email.call_args.kwargs
         assert kwargs["FromEmailAddress"] == settings.DEFAULT_FROM_EMAIL
         assert kwargs["Destination"]["ToAddresses"] == ["ada@example.com"]
