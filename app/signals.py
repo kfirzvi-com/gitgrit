@@ -39,6 +39,15 @@ def create_root_component(sender, instance, created, raw=False, **kwargs):
 
 user_logged_in.connect(reset_support_view)
 post_save.connect(create_root_component, sender=Project, dispatch_uid="project_root_component")
+
+
+# --- Invariant backstops ------------------------------------------------------
+# The rules live in the domain (app.domain.workspace_roles, app.domain.superusers)
+# and the services apply them. These catch the same changes when they bypass the
+# services, the Django admin or a user's account being deleted, and ask the
+# domain the same question.
+
+
 def _deleting_model(origin):
     return origin.model if isinstance(origin, QuerySet) else type(origin)
 
@@ -87,6 +96,9 @@ pre_delete.connect(guard_last_owner_delete, sender=Membership, dispatch_uid="mem
 pre_save.connect(guard_last_owner_save, sender=Membership, dispatch_uid="membership_last_owner_save")
 pre_save.connect(guard_last_superuser_save, sender=User, dispatch_uid="user_last_superuser_save")
 pre_delete.connect(guard_last_superuser_delete, sender=User, dispatch_uid="user_last_superuser_delete")
+
+
+# --- allauth --------------------------------------------------------------------
 
 
 def access_request_email_confirmed(sender, request, email_address, **kwargs):
