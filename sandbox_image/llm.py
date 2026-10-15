@@ -35,6 +35,7 @@ except Exception:  # litellm is stubbed in unit tests
 # so reading fewer/smaller files is what keeps us under provider rate limits.
 MAX_ITERATIONS = 12  # model round-trips per evaluate()
 MAX_TOOL_CALLS = 20  # total tool executions per evaluate()
+_CAP_NOTICE = f"Tool-call limit ({MAX_TOOL_CALLS}) reached; this call was not executed. Answer with what you have."
 MAX_TOOL_RESULT_CHARS = 6000  # cap each tool result fed back to the model
 RATE_LIMIT_RETRIES = 3  # retry transient 429s with linear backoff
 
@@ -225,6 +226,7 @@ class _RoleRunner:
         ]
 
         tool_calls_made = 0
+        capped = False
         for i in range(MAX_ITERATIONS):
             resp = self._complete(messages, tools=tool_schemas, tool_choice="auto")
             msg = resp.choices[0].message
@@ -240,8 +242,21 @@ class _RoleRunner:
 
             for call in tool_calls:
                 if tool_calls_made >= MAX_TOOL_CALLS:
-                    self._emit(f"reached tool-call cap ({MAX_TOOL_CALLS}); stopping")
-                    break
+                    # Still answer the call: a tool_use left without a
+                    # tool_result makes Anthropic reject the next request
+                    # (400 "tool_use ids were found without tool_result
+                    # blocks"); seen on staging 2026-10-15 with Haiku 5.5.
+                    if not capped:
+                        self._emit(f"reached tool-call cap ({MAX_TOOL_CALLS}); stopping")
+                        capped = True
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "content": json.dumps(_CAP_NOTICE),
+                        }
+                    )
+                    continue
                 tool_calls_made += 1
                 name = call.function.name
                 try:

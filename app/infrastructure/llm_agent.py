@@ -39,6 +39,7 @@ except Exception:  # pragma: no cover - litellm may be stubbed in tests
 # size is what keeps cumulative input tokens under provider rate limits.
 MAX_ITERATIONS = 12  # model round-trips per run()
 MAX_TOOL_CALLS = 25  # total tool executions per run()
+_CAP_NOTICE = f"Tool-call limit ({MAX_TOOL_CALLS}) reached; this call was not executed. Answer with what you have."
 MAX_TOOL_RESULT_CHARS = 8000  # cap each tool result fed back to the model
 RATE_LIMIT_RETRIES = 3  # retry transient 429s with linear backoff
 RATE_LIMIT_MAX_WAIT = 65  # seconds; Gemini free tier asks for up to ~60s
@@ -258,6 +259,7 @@ class LLMAgent:
         ]
 
         tool_calls_made = 0
+        capped = False
         for i in range(MAX_ITERATIONS):
             resp = self._complete(messages, tools=tool_schemas, tool_choice="auto")
             msg = resp.choices[0].message
@@ -272,8 +274,21 @@ class LLMAgent:
 
             for call in tool_calls:
                 if tool_calls_made >= MAX_TOOL_CALLS:
-                    self._emit(f"reached tool-call cap ({MAX_TOOL_CALLS}); stopping")
-                    break
+                    # Still answer the call: a tool_use left without a
+                    # tool_result makes Anthropic reject the next request
+                    # (400 "tool_use ids were found without tool_result
+                    # blocks"); seen on staging 2026-10-15 with Haiku 5.5.
+                    if not capped:
+                        self._emit(f"reached tool-call cap ({MAX_TOOL_CALLS}); stopping")
+                        capped = True
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "content": _CAP_NOTICE,
+                        }
+                    )
+                    continue
                 tool_calls_made += 1
                 name = call.function.name
                 try:
@@ -301,23 +316,43 @@ class LLMAgent:
             if tool_calls_made >= MAX_TOOL_CALLS:
                 break
 
-        return self._final_answer(messages, response_model)
+        return self._final_answer(messages, response_model, tool_schemas)
 
-    def _final_answer(self, messages, response_model):
+    def _final_answer(self, messages, response_model, tool_schemas):
         """Ask for the answer as plain JSON text and validate it.
 
-        No ``tools`` and no ``response_format`` on these calls. A reply that is
-        cut off (``finish_reason == "length"``), empty, or fails validation
-        gets one repair turn quoting the problem; after that it raises
-        ``FinalAnswerError`` so the caller's retry logic takes over quickly.
+        No ``response_format`` on these calls. The loop's ``tools`` stay on
+        the request, with ``tool_choice="none"``, because the conversation
+        already holds the model's tool calls and (on Anthropic) its thinking
+        blocks. Anthropic signs each thinking block against the ``tools`` list
+        it was created with and rejects the request with a 400 when that list
+        changes — and dropping ``tools`` changes it, since LiteLLM then adds a
+        dummy tool for the tool calls in the history. Seen on prod 2026-10-14:
+        every map in a workspace on a newer Anthropic account failed at this
+        step while older accounts, where the check is off by default, passed.
+
+        A reply that is cut off (``finish_reason == "length"``), empty, or
+        fails validation gets one repair turn quoting the problem; after that
+        it raises ``FinalAnswerError`` so the caller's retry logic takes over
+        quickly.
         """
         messages.append({"role": "user", "content": _final_answer_prompt(response_model)})
         problem = ""
         for attempt in range(1, FINAL_ANSWER_ATTEMPTS + 1):
-            final = self._complete(messages, max_tokens=FINAL_MAX_TOKENS)
+            # drop_params: Bedrock has no tool_choice="none" and Ollama hangs on
+            # any tool_choice; LiteLLM drops it there instead of raising.
+            final = self._complete(
+                messages,
+                tools=tool_schemas,
+                tool_choice="none",
+                max_tokens=FINAL_MAX_TOKENS,
+                drop_params=True,
+            )
             choice = final.choices[0]
             content = getattr(choice.message, "content", None) or ""
-            if getattr(choice, "finish_reason", None) == "length":
+            if getattr(choice.message, "tool_calls", None):
+                problem = "the reply called a tool instead of answering"
+            elif getattr(choice, "finish_reason", None) == "length":
                 problem = f"the answer hit the {FINAL_MAX_TOKENS}-token limit and was cut off"
             else:
                 try:
