@@ -12,16 +12,22 @@ Class-based views
     2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
 Including another URLconf
     1. Import the include() function: from django.urls import include, path
+
+from app.presentation.views.access_views import EmailAwareLoginView
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
 from django.urls import include, path
+
+from app.presentation.views.access_views import EmailAwareLoginView
 
 from oauth2_provider import views as oauth2_views
 
 urlpatterns = [
     # /up/ is handled by HealthCheckMiddleware (before ALLOWED_HOSTS)
     path("admin/", admin.site.urls),
+    # Ahead of allauth's own login so the sign-in box can also sign people up.
+    path("accounts/login/", EmailAwareLoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("", include("app.presentation.web_urls")),
     path("api/v1/", include("app.presentation.api.urls")),

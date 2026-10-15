@@ -1,0 +1,10 @@
+{% extends "email/base.html" %}
+{% block preheader %}There's no GitGrit account for {{ email }}.{% endblock %}
+{% block heading %}No account for this address{% endblock %}
+{% block content %}
+<p>Someone asked to reset the GitGrit password for <strong>{{ email }}</strong>, but there's no GitGrit account with this address.</p>
+<p>If it was you, you may have signed up with another address, or with Google, GitHub or GitLab. You can also request access:</p>
+{% include "email/_button.html" with url=signup_url label="Request access" %}
+<p class="muted">Didn't ask for this? Ignore this email.</p>
+{% endblock %}
+{% block reason %}a password reset was requested for this address{% endblock %}

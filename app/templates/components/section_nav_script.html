@@ -1,0 +1,29 @@
+<script>
+  // Settings-style pages: side-nav links jump to a section; make sure the
+  // target is open first, since a collapsed section would otherwise scroll
+  // to nothing. Sections carry data-settings-section and a radio named
+  // settings-section; links carry data-settings-link.
+  (function () {
+    function openSection(hash) {
+      if (!hash) return;
+      var target = document.querySelector(hash);
+      if (!target || !target.hasAttribute('data-settings-section')) return;
+      var toggle = target.querySelector('input[name="settings-section"]');
+      if (toggle) toggle.checked = true;
+      document.querySelectorAll('[data-settings-link]').forEach(function (link) {
+        link.classList.toggle('menu-active', link.getAttribute('href') === hash);
+      });
+    }
+
+    document.querySelectorAll('[data-settings-link]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        openSection(link.getAttribute('href'));
+      });
+    });
+
+    window.addEventListener('hashchange', function () {
+      openSection(window.location.hash);
+    });
+    openSection(window.location.hash);
+  })();
+</script>

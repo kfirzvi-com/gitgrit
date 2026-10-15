@@ -2,9 +2,11 @@
 
 Get GitGrit running and your first standard evaluating in under 5 minutes.
 
-## 1. Sign in
+## 1. Get access
 
-Go to [app.gitgrit.dev](https://app.gitgrit.dev) and sign in with your Google, GitHub, or GitLab account. A workspace is created automatically.
+GitGrit is invite-only for now. Go to [app.gitgrit.dev](https://app.gitgrit.dev) and sign in with your Google, GitHub, or GitLab account, or enter an email and password. With an email and password, confirm your address from the email we send first. If you're new, you'll be asked a few questions about you and your team, and your request goes to the GitGrit team.
+
+Once approved, you get an email and join your company's workspace. The first person from a company owns it; see [Workspaces & Members](workspaces.md) for what each role can do.
 
 ## 2. Connect a platform
 
@@ -31,6 +33,7 @@ Standards run automatically on webhook events (push, pull request, etc.). You ca
 
 ## What's next?
 
+- [Workspaces & Members](workspaces.md) — roles, inviting people, deleting a workspace
 - [Adding Projects](projects.md) — detailed guide on project setup
 - [Writing Standards](standards.md) — learn the standard API
 - [Standard Marketplace](../features/marketplace.md) — browse pre-built standards

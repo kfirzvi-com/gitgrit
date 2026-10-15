@@ -1,5 +1,27 @@
 from django.urls import path
 
+from app.presentation.views.access_views import (
+    access_request_status,
+    first_run_setup,
+    no_workspace,
+    resend_confirmation,
+)
+from app.presentation.views.invitation_views import (
+    accept_invitation,
+    accept_invitation_in_app,
+    decline_invitation,
+    decline_invitation_in_app,
+    invitation,
+)
+from app.presentation.views.staff_views import (
+    access_request_list,
+    access_request_tab,
+    admin_dashboard,
+    grant_superuser,
+    review_access_request,
+    revoke_superuser,
+)
+
 from app.presentation.views.standard_views import (
     CreateStandardView,
     EditStandardView,
@@ -39,6 +61,8 @@ from app.presentation.views.tenant_views import (
     TenantSettingsView,
     add_connection,
     add_llm_provider,
+    change_member_role,
+    delete_workspace_view,
     edit_connection_token,
     edit_llm_provider,
     fetch_llm_models,
@@ -48,7 +72,9 @@ from app.presentation.views.tenant_views import (
     remove_connection,
     remove_llm_provider,
     remove_member,
+    resend_invitation,
     reveal_connection_token,
+    revoke_invitation,
     set_llm_role,
     switch_tenant,
     test_connection,
@@ -91,6 +117,30 @@ from app.presentation.views.token_views import (
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("setup/", first_run_setup, name="first_run_setup"),
+    path("access/", access_request_status, name="access_request_status"),
+    path("access/resend/", resend_confirmation, name="resend_confirmation"),
+    path("staff/", admin_dashboard, name="admin_dashboard"),
+    path("staff/access-requests/", access_request_list, name="access_request_list"),
+    path("staff/access-requests/tab/", access_request_tab, name="access_request_tab"),
+    path("staff/superusers/grant/", grant_superuser, name="grant_superuser"),
+    path(
+        "staff/superusers/<uuid:user_id>/revoke/",
+        revoke_superuser,
+        name="revoke_superuser",
+    ),
+    path(
+        "staff/access-requests/<uuid:pk>/approve/",
+        review_access_request,
+        {"decision": "approve"},
+        name="approve_access_request",
+    ),
+    path(
+        "staff/access-requests/<uuid:pk>/reject/",
+        review_access_request,
+        {"decision": "reject"},
+        name="reject_access_request",
+    ),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("dashboard/refresh-map/", refresh_map, name="refresh_map"),
     path("notifications/panel/", notification_panel, name="notification_panel"),
@@ -112,11 +162,33 @@ urlpatterns = [
     ),
     path("tenants/new/", CreateTenantView.as_view(), name="create_tenant"),
     path("tenants/settings/", TenantSettingsView.as_view(), name="tenant_settings"),
+    path("tenants/delete/", delete_workspace_view, name="delete_workspace"),
+    path("no-workspace/", no_workspace, name="no_workspace"),
     path("tenants/invite/", invite_member, name="invite_member"),
+    path(
+        "tenants/invitations/<uuid:invitation_id>/resend/",
+        resend_invitation,
+        name="resend_invitation",
+    ),
+    path(
+        "tenants/invitations/<uuid:invitation_id>/revoke/",
+        revoke_invitation,
+        name="revoke_invitation",
+    ),
+    path("invitations/id/<uuid:pk>/accept/", accept_invitation_in_app, name="accept_invitation_in_app"),
+    path("invitations/id/<uuid:pk>/decline/", decline_invitation_in_app, name="decline_invitation_in_app"),
+    path("invitations/<str:token>/", invitation, name="invitation"),
+    path("invitations/<str:token>/accept/", accept_invitation, name="accept_invitation"),
+    path("invitations/<str:token>/decline/", decline_invitation, name="decline_invitation"),
     path(
         "tenants/members/<uuid:membership_id>/remove/",
         remove_member,
         name="remove_member",
+    ),
+    path(
+        "tenants/members/<uuid:membership_id>/role/",
+        change_member_role,
+        name="change_member_role",
     ),
     # Platform connections
     path("tenants/connections/add/", add_connection, name="add_connection"),

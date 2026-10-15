@@ -1,0 +1,2 @@
+{# One label/value row; wrap rows in <table class="facts" role="presentation">. Skipped when empty. #}
+{% if value %}<tr><td class="fact-label">{{ label }}</td><td class="fact-value">{{ value }}</td></tr>{% endif %}

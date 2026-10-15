@@ -1,0 +1,174 @@
+{# The member list and invite form. Every action here swaps this panel in   #}
+{# place (HTMX); the plain form posts are the no-JS fallback. Confirmations #}
+{# go through the shared dialog in components/confirm_dialog.html.          #}
+<div id="members-panel" class="space-y-4">
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">Members</h2>
+          <div class="overflow-x-auto">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Access granted</th>
+                  {% if manages_members %}<th></th>{% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for member in members %}
+                  <tr data-member="{{ member.user.email }}">
+                    <td class="flex items-center gap-3">
+                      <div class="avatar">
+                        <div class="w-8 rounded-full">
+                          {% if member.user.avatar_url %}
+                            <img alt="Avatar" src="{{ member.user.avatar_url }}" />
+                          {% else %}
+                            <div class="bg-neutral text-neutral-content w-8 h-8 rounded-full flex items-center justify-center text-sm">
+                              {{ member.user.email|first|upper }}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                      {{ member.user.username }}
+                    </td>
+                    <td>{{ member.user.email }}</td>
+                    <td>
+                      {% if member.role_choices %}
+                        <form method="post" action="{% url 'change_member_role' member.id %}"
+                              hx-post="{% url 'change_member_role' member.id %}"
+                              hx-trigger="change"
+                              hx-target="#members-panel" hx-swap="outerHTML"
+                              hx-confirm="role"
+                              data-role-change
+                              data-member-email="{{ member.user.email }}"
+                              data-self="{% if member.user_id == user.pk %}1{% endif %}"
+                              data-current="{{ member.role }}">
+                          {% csrf_token %}
+                          <select name="role" aria-label="Role of {{ member.user.email }}"
+                                  class="select select-bordered select-xs">
+                            {% for value, label in member.role_choices %}
+                              <option value="{{ value }}" {% if value == member.role %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                          </select>
+                          <noscript><button type="submit" class="btn btn-xs">Save</button></noscript>
+                        </form>
+                      {% else %}
+                        <span class="badge {% if member.role == 'owner' %}badge-primary{% elif member.role == 'admin' %}badge-secondary{% else %}badge-ghost{% endif %}"
+                              {% if member.last_owner %}title="The only owner. Make someone else an owner before changing this."{% endif %}>
+                          {{ member.get_role_display }}
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td class="text-sm" data-granted>
+                      <div title="{{ member.granted_at|date:'DATETIME_FORMAT' }}">{{ member.granted_at|timesince }} ago</div>
+                      {% if member.granted_by %}
+                        <div class="text-xs text-base-content/60">by {% if member.granted_by_id == user.pk %}you{% else %}{{ member.granted_by.email|default:member.granted_by.username }}{% endif %}</div>
+                      {% endif %}
+                    </td>
+                    {% if manages_members %}
+                      <td>
+                        {% if member.removable %}
+                          <form method="post" action="{% url 'remove_member' member.id %}"
+                                hx-post="{% url 'remove_member' member.id %}"
+                                hx-target="#members-panel" hx-swap="outerHTML"
+                                hx-confirm="Remove {{ member.user.email }}?"
+                                data-confirm-body="They lose access to {{ current_tenant.name }} right away. You can invite them again later."
+                                data-confirm-action="Remove" data-confirm-danger>
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-ghost btn-xs text-error">Remove</button>
+                          </form>
+                        {% endif %}
+                      </td>
+                    {% endif %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="card-actions justify-end items-center gap-3 mt-2">
+            {% if can_leave %}
+              <form method="post" action="{% url 'leave_workspace' %}"
+                    hx-post="{% url 'leave_workspace' %}"
+                    hx-confirm="Leave {{ current_tenant.name }}?"
+                    data-confirm-body="You will lose access to its projects and standards. Someone here would have to invite you back."
+                    data-confirm-action="Leave" data-confirm-danger>
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm text-error">Leave workspace</button>
+              </form>
+            {% elif is_last_owner %}
+              <span class="text-xs opacity-60">You're the only owner, so you can't leave this workspace.</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if invitations %}
+        <div class="card bg-base-100" id="pending-invitations">
+          <div class="card-body">
+            <h2 class="card-title">Pending invitations</h2>
+            <p class="text-sm text-base-content/60">They join once they accept the invitation we emailed them.</p>
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead><tr><th>Email</th><th>Role</th><th>Invited</th><th></th></tr></thead>
+                <tbody>
+                  {% for row in invitations %}{% with inv=row.invitation %}
+                  <tr data-invitation="{{ inv.email }}">
+                    <td>{{ inv.email }}</td>
+                    <td><span class="badge badge-ghost">{{ row.role_label }}</span></td>
+                    <td class="text-sm">
+                      <div title="{{ inv.sent_at|date:'DATETIME_FORMAT' }}">{{ inv.sent_at|timesince }} ago</div>
+                      <div class="text-xs text-base-content/60">
+                        {% if inv.invited_by %}by {% if inv.invited_by_id == user.pk %}you{% else %}{{ inv.invited_by.email }}{% endif %} · {% endif %}
+                        {% if row.expired %}<span class="text-warning">expired</span>{% else %}expires {{ inv.expires_at|date:"j M" }}{% endif %}
+                      </div>
+                    </td>
+                    <td class="text-right whitespace-nowrap">
+                      {% if row.manageable %}
+                        <form class="inline" method="post" action="{% url 'resend_invitation' inv.id %}"
+                              hx-post="{% url 'resend_invitation' inv.id %}" hx-target="#members-panel" hx-swap="outerHTML">
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs">Resend</button>
+                        </form>
+                        <form class="inline" method="post" action="{% url 'revoke_invitation' inv.id %}"
+                              hx-post="{% url 'revoke_invitation' inv.id %}" hx-target="#members-panel" hx-swap="outerHTML"
+                              hx-confirm="Withdraw the invitation for {{ inv.email }}?"
+                              data-confirm-body="The link we emailed stops working. You can invite them again later."
+                              data-confirm-action="Withdraw" data-confirm-danger>
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs text-error">Withdraw</button>
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endwith %}{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if manages_members %}
+        <div class="card bg-base-100">
+          <div class="card-body">
+            <h2 class="card-title">Invite someone</h2>
+            <form method="post" action="{% url 'invite_member' %}"
+                  hx-post="{% url 'invite_member' %}"
+                  hx-target="#members-panel" hx-swap="outerHTML"
+                  class="flex flex-col sm:flex-row gap-3">
+              {% csrf_token %}
+              <input type="email" name="email" required placeholder="user@example.com"
+                     value="{{ invite_email|default:'' }}"
+                     class="input input-bordered flex-1">
+              <select name="role" class="select select-bordered">
+                {% for value, label in invite_roles %}<option value="{{ value }}" {% if value == invite_role|default:"member" %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+              <button type="submit" class="btn btn-primary">Send invitation</button>
+            </form>
+            <p class="text-xs text-base-content/60">We email them a link. New to GitGrit? The invitation lets them in, no access request needed.</p>
+          </div>
+        </div>
+      {% endif %}
+</div>

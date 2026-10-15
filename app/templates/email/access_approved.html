@@ -1,0 +1,10 @@
+{% extends "email/base.html" %}
+{% block preheader %}Your access is approved{% if workspace %}: you've joined {{ workspace }}{% endif %}.{% endblock %}
+{% block heading %}You're in{% endblock %}
+{% block content %}
+{% if name %}<p>Hi {{ name }},</p>{% endif %}
+<p>Your request for access to GitGrit has been approved{% if workspace %}, and you've joined the <strong>{{ workspace }}</strong> workspace{% endif %}.</p>
+{% include "email/_button.html" with url=site_url|add:login_path label="Sign in to GitGrit" %}
+<p class="muted">Sign in the same way you signed up.</p>
+{% endblock %}
+{% block reason %}you asked for access to GitGrit{% endblock %}

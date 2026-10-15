@@ -7,6 +7,8 @@ there's no SocialApp row + no internet to reach github.com.
 from django.test import TestCase, override_settings
 
 LOGIN_URL = "/accounts/login/"
+# The home page is where a signed-out visitor lands, so it offers the same ways in.
+HOME_URL = "/"
 
 # Production uses ManifestStaticFilesStorage, which requires `collectstatic`
 # to have populated the manifest. Tests don't run that step, so we swap to
@@ -41,16 +43,26 @@ class TestLoginProviderButtons(TestCase):
             # still render so the operator can see they have nothing wired up.
             (False, False, False, set()),
         ]
-        for github, gitlab, google, expected in cases:
-            with self.subTest(github=github, gitlab=gitlab, google=google):
+        for (github, gitlab, google, expected), url in (
+            (case, url) for case in cases for url in (LOGIN_URL, HOME_URL)
+        ):
+            with self.subTest(github=github, gitlab=gitlab, google=google, url=url):
                 with self.settings(
                     AUTH_PROVIDER_GITHUB_ENABLED=github,
                     AUTH_PROVIDER_GITLAB_ENABLED=gitlab,
                     AUTH_PROVIDER_GOOGLE_ENABLED=google,
                 ):
-                    response = self.client.get(LOGIN_URL)
+                    response = self.client.get(url)
 
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(
                     _provider_buttons(response.content.decode()), expected
                 )
+
+    def test_password_sign_in_offered_on_home_and_login(self):
+        # Password accounts (the first-run admin) have no provider button.
+        for url in (LOGIN_URL, HOME_URL):
+            with self.subTest(url=url):
+                html = self.client.get(url).content.decode()
+                self.assertIn('name="password"', html)
+                self.assertIn('action="/accounts/login/"', html)

@@ -1,0 +1,10 @@
+{% extends "email/base.html" %}
+{% block preheader %}Your new link to confirm {{ email }}.{% endblock %}
+{% block heading %}Confirm your email{% endblock %}
+{% block content %}
+{% if name %}<p>Hi {{ name }},</p>{% endif %}
+<p>Here's a new link to confirm that <strong>{{ email }}</strong> is yours.</p>
+{% include "email/_button.html" with url=activate_url label="Confirm my email" %}
+<p class="muted">Didn't ask for this? Ignore this email; nothing happens without the link.</p>
+{% endblock %}
+{% block reason %}someone asked to confirm this address on GitGrit{% endblock %}

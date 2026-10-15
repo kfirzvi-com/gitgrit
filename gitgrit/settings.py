@@ -15,6 +15,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from django.core.exceptions import ImproperlyConfigured
+
 from gitgrit.feature_flags import github_app_enabled, missing_github_app_settings
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -84,6 +86,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "app.middleware.FirstRunSetupMiddleware",
     "app.middleware.TenantMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -207,11 +210,75 @@ AUTHENTICATION_BACKENDS = [
 # allauth
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+# allauth never blocks sign-in on it: GitGrit sends the confirmation link
+# itself for email + password sign-ups on a gated deployment, and their access
+# request waits for it (app.application.access).
 ACCOUNT_EMAIL_VERIFICATION = "none"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
+ACCOUNT_ADAPTER = "app.presentation.auth_adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "app.presentation.auth_adapters.SocialAccountAdapter"
+
+# Who may get in after signing up.
+#   open        anyone who signs up is in (the old behaviour)
+#   approval    signups wait, inactive, until a superuser approves them
+#   onboarding  as approval, but the person first fills in a short
+#               request-access form whose answers the approver sees
+# Gated by default so a fresh deployment is never open to the internet by
+# accident. Signup happens through a provider or through the sign-in page's
+# email + password box (an unknown email signs up); allauth's own signup form
+# is not used.
+SIGNUP_MODES = ("open", "approval", "onboarding")
+SIGNUP_MODE = os.environ.get("GITGRIT_SIGNUP_MODE", "approval")
+if SIGNUP_MODE not in SIGNUP_MODES:
+    raise ImproperlyConfigured(
+        f"GITGRIT_SIGNUP_MODE={SIGNUP_MODE!r}; expected one of {', '.join(SIGNUP_MODES)}"
+    )
+
+# First-run setup (creating the first superuser) is guarded by a token so
+# whoever reaches a fresh deployment first cannot claim it. Derived from
+# SECRET_KEY unless set explicitly; `manage.py setup_token` prints it.
+GITGRIT_SETUP_TOKEN = os.environ.get("GITGRIT_SETUP_TOKEN", "")
+# Off only in tests, where most cases start from an empty user table.
+FIRST_RUN_SETUP_ENABLED = True
+
+# Outgoing email. GITGRIT_EMAIL_BACKEND picks how it leaves:
+#   ses     — the Amazon SES API (django-ses), authenticated by the host's AWS
+#             credentials (an EC2 instance role in our deployments), so there
+#             is no SMTP password anywhere. AWS_SES_REGION picks the region.
+#   smtp    — any SMTP relay: EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER,
+#             EMAIL_HOST_PASSWORD, EMAIL_USE_TLS (Mailpit locally).
+#   console — written to the log.
+# Unset: smtp when EMAIL_HOST is set, otherwise console, so nothing breaks
+# before mail is configured.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+EMAIL_TIMEOUT = 10
+EMAIL_BACKENDS = {
+    "ses": "django_ses.SESBackend",
+    "smtp": "django.core.mail.backends.smtp.EmailBackend",
+    "console": "django.core.mail.backends.console.EmailBackend",
+}
+_email_backend = os.environ.get("GITGRIT_EMAIL_BACKEND") or ("smtp" if EMAIL_HOST else "console")
+if _email_backend not in EMAIL_BACKENDS:
+    raise ImproperlyConfigured(
+        f"GITGRIT_EMAIL_BACKEND={_email_backend!r}; expected one of {', '.join(EMAIL_BACKENDS)}"
+    )
+EMAIL_BACKEND = EMAIL_BACKENDS[_email_backend]
+AWS_SES_REGION_NAME = os.environ.get("AWS_SES_REGION") or "eu-north-1"
+AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
+USE_SES_V2 = True
+# django-ses otherwise asks SES for the account's send rate (ses:GetAccount)
+# before every send, to pace itself. The app's role may only send, and we send
+# a handful at a time, one job each, far under SES's per-second limit.
+AWS_SES_AUTO_THROTTLE = None
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "GitGrit <noreply@gitgrit.dev>"
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Per-provider auth flags. Default True so cloud deployments are unchanged;
 # air-gap operators flip Google/GitHub off when no internet egress is available.
@@ -452,6 +519,13 @@ LOGGING = {
     },
     "loggers": {
         "app.support_view": {
+            "handlers": ["console_timestamped"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # First-run setup and access-request reviews: who became admin, who
+        # was let in or turned away, and by whom.
+        "app.access": {
             "handlers": ["console_timestamped"],
             "level": "INFO",
             "propagate": False,

@@ -1,0 +1,24 @@
+{# Invitations waiting for the signed-in person (context_processors). #}
+{% if open_invitations %}
+<div class="container mx-auto px-4 pt-4 space-y-2">
+  {% for inv in open_invitations %}
+  <div role="status" class="alert alert-info shadow-sm" id="invitation-{{ inv.pk }}">
+    <span>
+      <strong>{{ inv.invited_by.get_full_name|default:inv.invited_by.email|default:"Someone" }}</strong>
+      invited you to join <strong>{{ inv.tenant.name }}</strong> as {{ inv.get_role_display|lower }}.
+    </span>
+    <div class="flex gap-2">
+      <form method="post" action="{% url 'decline_invitation_in_app' inv.pk %}"
+            hx-post="{% url 'decline_invitation_in_app' inv.pk %}" hx-target="#invitation-{{ inv.pk }}" hx-swap="outerHTML">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
+      </form>
+      <form method="post" action="{% url 'accept_invitation_in_app' inv.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-sm">Accept and join</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

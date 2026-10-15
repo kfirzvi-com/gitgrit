@@ -191,6 +191,50 @@ for `googleapis`, `jsdelivr`, `unpkg`, `github.com`, `fonts.gstatic.com`
 fonts under `app/static/app/vendor/fonts/` are why; the `{% if
 airgapped %}` template branch in `base.html` is what gates the swap.
 
+## Managing access
+
+Superusers run the instance from **Admin** in the avatar menu
+(`${SITE_URL}/staff/`).
+
+### Who can get in
+
+`GITGRIT_SIGNUP_MODE` decides what happens the first time someone signs in,
+with GitLab (or Google/GitHub, if enabled) or with an email and password:
+
+| Mode | First sign-in | Superusers emailed | Gets in |
+|---|---|---|---|
+| `approval` (default) | An access request; "waiting for approval" | Right away | When a superuser approves |
+| `onboarding` | A short form (name, company, role, goals), then waiting | Once the form is in | When a superuser approves |
+| `open` | Signed in | Never | Immediately, but in no workspace until someone adds them |
+
+Approving always puts the person in a workspace, an existing one or a new
+one named after their company, with a role. Rejecting keeps them out.
+
+Someone who signs up with an email and password first gets a link to
+confirm the address. Their request reaches superusers (and the queue) only
+once they've followed it. Sign-ins through GitLab, Google or GitHub carry the
+provider's word for the address and skip this. Forgotten passwords are reset
+from **Forgot password?** on the sign-in page; both need
+[outgoing email](#environment-variable-reference) set up.
+
+### Superusers
+
+**Admin → Superusers** lists who they are and who made each one a
+superuser. A superuser can make another active account a superuser, remove
+one, or step down. There is always at least one: the last superuser can't
+be removed, deactivated or deleted, here or in the Django admin.
+
+Superusers can open any workspace from the workspace switcher. That is the
+**support view**: full access, a banner while it's on, and every change
+logged.
+
+### Workspaces
+
+Only superusers create workspaces (**+ New Workspace** in the workspace
+switcher, or while approving someone). Every workspace has at least one
+owner; roles and members are managed in the workspace's own settings, see
+[Workspaces & Members](../getting-started/workspaces.md).
+
 ## Environment variable reference
 
 Operator-fillable (you set these in `.env`):
@@ -208,6 +252,11 @@ Operator-fillable (you set these in `.env`):
 | `AUTH_PROVIDER_GOOGLE_ENABLED` | `True` / `False`. Air-gap default `False`. |
 | `GITLAB_URL` | Root URL of your internal GitLab, no trailing slash. |
 | `GITLAB_CLIENT_ID` / `GITLAB_CLIENT_SECRET` | OAuth app credentials from GitLab. Callback: `${SITE_URL}/accounts/gitlab/login/callback/`. |
+| `GITGRIT_SIGNUP_MODE` | `approval` (default), `onboarding` or `open`. See [Managing access](#who-can-get-in). |
+| `GITGRIT_SETUP_TOKEN` | Token for the first-run `/setup/` page. Empty (default) derives one from `SECRET_KEY`; `manage.py setup_token` prints it. |
+| `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP relay for access-request and approval emails. Port defaults to `587` with STARTTLS. Without `EMAIL_HOST`, emails only go to the app log. |
+| `DEFAULT_FROM_EMAIL` | Sender address, e.g. `GitGrit <gitgrit@acme.internal>`. |
+| `GITGRIT_EMAIL_BACKEND` | `smtp` (default when `EMAIL_HOST` is set), `console` (default otherwise: emails go to the log), or `ses`: the Amazon SES API with the host's AWS credentials, for installs running on AWS. `AWS_SES_REGION` picks the region. |
 | `SANDBOX_DNS` | Comma-separated internal DNS resolvers. gVisor cannot use Docker's embedded DNS. |
 | `GITGRIT_CUSTOM_CA_FILE_PATH` | Host path to the operator CA bundle PEM. |
 

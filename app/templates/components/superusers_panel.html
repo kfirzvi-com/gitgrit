@@ -1,0 +1,68 @@
+{# Superusers: who they are, who made them one, and making or unmaking     #}
+{# one. Actions swap this panel in place; the rules are in                  #}
+{# app.domain.superusers.                                                   #}
+<div id="superusers-panel" class="space-y-4">
+  <p class="text-sm text-base-content/70">
+    Superusers run GitGrit: they approve access requests, create workspaces, open any
+    workspace in the support view and manage each other. There is always at least one.
+  </p>
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr><th>User</th><th>Superuser since</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for su in superusers %}
+        <tr data-superuser="{{ su.email }}">
+          <td>
+            <div class="font-medium">{{ su.email|default:su.username }}{% if su.pk == user.pk %} <span class="badge badge-ghost badge-sm">you</span>{% endif %}</div>
+            {% if su.get_full_name %}<div class="text-xs text-base-content/60">{{ su.get_full_name }}</div>{% endif %}
+          </td>
+          <td class="text-sm">
+            {% if su.superuser_granted_at %}
+              <div title="{{ su.superuser_granted_at|date:'DATETIME_FORMAT' }}">{{ su.superuser_granted_at|timesince }} ago</div>
+            {% endif %}
+            <div class="text-xs text-base-content/60">
+              {% if su.superuser_granted_by %}by {% if su.superuser_granted_by_id == user.pk %}you{% else %}{{ su.superuser_granted_by.email|default:su.superuser_granted_by.username }}{% endif %}
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-right">
+            {% if su.revocable %}
+              <form method="post" action="{% url 'revoke_superuser' su.pk %}"
+                    hx-post="{% url 'revoke_superuser' su.pk %}"
+                    hx-target="#superusers-panel" hx-swap="outerHTML"
+                    hx-confirm="{% if su.pk == user.pk %}Stop being a superuser?{% else %}Remove {{ su.email }} as superuser?{% endif %}"
+                    data-confirm-body="{% if su.pk == user.pk %}You lose this page, the support view and approving access right away. Another superuser would have to make you one again.{% else %}They lose this page, the support view and approving access right away. Their workspace memberships stay as they are.{% endif %}"
+                    data-confirm-action="{% if su.pk == user.pk %}Step down{% else %}Remove superuser{% endif %}" data-confirm-danger>
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs text-error">{% if su.pk == user.pk %}Step down{% else %}Remove{% endif %}</button>
+              </form>
+            {% elif superusers|length == 1 %}
+              <span class="text-xs opacity-60" title="GitGrit needs at least one superuser">The only one</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" action="{% url 'grant_superuser' %}"
+        hx-post="{% url 'grant_superuser' %}"
+        hx-target="#superusers-panel" hx-swap="outerHTML"
+        hx-confirm="Make {email} a superuser?"
+        data-confirm-body="Superusers can open every workspace, approve or reject access, create and delete workspaces, and make or remove other superusers."
+        data-confirm-action="Make superuser" data-confirm-danger
+        class="flex flex-col sm:flex-row gap-3">
+    {% csrf_token %}
+    <input type="email" name="email" required list="superuser-candidates" autocomplete="off"
+           placeholder="someone@example.com" value="{{ grant_email|default:'' }}"
+           aria-label="Email of the new superuser"
+           class="input input-bordered flex-1">
+    <datalist id="superuser-candidates">
+      {% for email in candidates %}<option value="{{ email }}">{% endfor %}
+    </datalist>
+    <button type="submit" class="btn btn-primary">Make superuser</button>
+  </form>
+</div>

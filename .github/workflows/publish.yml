@@ -137,6 +137,8 @@ jobs:
               "environment": "${{ needs.publish.outputs.environment }}",
               "version": "${{ github.sha }}",
               "ref": "${{ github.sha }}",
+              "ref_name": "${{ github.ref_name }}",
+              "ref_type": "${{ github.ref_type }}",
               "image": "ghcr.io/kfirzvi-com/gitgrit"
             }
 

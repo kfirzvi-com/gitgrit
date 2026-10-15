@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}No Workspace — GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-center min-h-[60vh]">
+  <div class="card bg-base-100 shadow-xl w-full max-w-lg">
+    <div class="card-body items-center text-center">
+    {% if user.is_superuser %}
+      <h1 class="card-title text-2xl">You're not in a workspace</h1>
+      <p class="text-base-content/70">
+        Create one, or approve someone into a new workspace for their company.
+      </p>
+      <div class="card-actions mt-4">
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-ghost">Admin</a>
+        <a href="{% url 'create_tenant' %}" class="btn btn-primary">Create workspace</a>
+      </div>
+      {% if workspaces %}
+      <div class="divider text-sm text-base-content/60">or open one in the support view</div>
+      <ul class="menu bg-base-200 rounded-box w-full">
+        {% for ws in workspaces %}
+        <li>
+          <form method="post" action="{% url 'switch_tenant' %}" class="p-0">
+            {% csrf_token %}
+            <input type="hidden" name="tenant_id" value="{{ ws.pk }}">
+            <button type="submit" class="w-full text-left px-4 py-2">{{ ws.name }}</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    {% else %}
+      <h1 class="card-title text-2xl">No workspace yet</h1>
+      <p class="text-base-content/70">
+        You're signed in as <strong>{{ user.email }}</strong>, but you aren't in
+        a workspace. Ask your team's GitGrit admin to invite you, or reply to
+        any email from us.
+      </p>
+      <div class="card-actions mt-4">
+        <a href="{% url 'account_logout' %}" class="btn btn-ghost">Sign out</a>
+      </div>
+    {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@
 {% url 'marketplace_browse' as url_marketplace %}
 <div class="navbar bg-base-100 shadow-lg sticky top-0 z-30">
   <div class="navbar-start">
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and current_tenant %}
       <div class="dropdown">
         <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" /></svg>
@@ -26,7 +26,8 @@
     </a>
   </div>
   <div class="navbar-center hidden lg:flex">
-    {% if user.is_authenticated %}
+    {# Workspace pages only: without a workspace every one of them redirects. #}
+    {% if user.is_authenticated and current_tenant %}
       <ul class="menu menu-horizontal px-1">
         <li><a href="{{ url_dashboard }}" class="{% if request.path == url_dashboard %}text-primary font-semibold{% endif %}">Dashboard</a></li>
         <li><a href="{{ url_projects }}" class="{% if request.path == url_projects %}text-primary font-semibold{% endif %}">Projects</a></li>
@@ -67,7 +68,7 @@
             </ul>
             <div class="divider my-1"></div>
             <ul class="menu p-0">
-              <li><a href="{% url 'create_tenant' %}">+ New Workspace</a></li>
+              {% if user.is_superuser %}<li><a href="{% url 'create_tenant' %}">+ New Workspace</a></li>{% endif %}
               <li><a href="{% url 'tenant_settings' %}">Settings</a></li>
             </ul>
           </div>
@@ -93,6 +94,14 @@
         <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-[1]">
           <li class="menu-title"><span>{{ user.email }}</span></li>
           <li><a href="{% url 'profile' %}">Profile</a></li>
+          {% if user.is_superuser %}
+          <li>
+            <a href="{% url 'admin_dashboard' %}" class="justify-between">
+              Admin
+              {% include "components/access_requests_badge.html" %}
+            </a>
+          </li>
+          {% endif %}
           <li><a href="{% url 'account_logout' %}">Logout</a></li>
         </ul>
       </div>

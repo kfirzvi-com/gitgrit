@@ -1,0 +1,11 @@
+<div id="access-request-tabs" role="tablist" class="tabs tabs-bordered mb-6"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for tab, count in tabs %}
+  <a role="tab" href="{% url 'admin_dashboard' %}?status={{ tab }}#section-access-requests"
+     hx-get="{% url 'access_request_tab' %}?status={{ tab }}"
+     hx-target="#access-requests-section" hx-swap="outerHTML"
+     hx-push-url="{% url 'admin_dashboard' %}?status={{ tab }}#section-access-requests"
+     class="tab {% if tab == status %}tab-active{% endif %}">
+    {{ tab|capfirst }}{% if count %}<span class="badge badge-primary badge-sm ml-2">{{ count }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>

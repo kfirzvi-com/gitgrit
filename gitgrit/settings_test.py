@@ -33,3 +33,8 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+# Most tests predate gated signup and start with no users at all. Keep them on
+# the open, already-set-up path; the gating tests opt back in per class.
+SIGNUP_MODE = "open"
+FIRST_RUN_SETUP_ENABLED = False

@@ -1,0 +1,17 @@
+{# The access-request queue: status tabs and cards. Switching tabs swaps    #}
+{# this block in place (staff_views.access_request_tab).                    #}
+<div id="access-requests-section">
+  {% include "components/access_request_tabs.html" %}
+
+  {% if access_requests %}
+  <div class="flex flex-col gap-4" id="access-request-cards">
+    {% for ar in access_requests %}
+    {% include "components/access_request_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div id="access-request-cards" class="text-center py-16 text-base-content/60">
+    {% if status == "pending" %}No one is waiting. New signups land here.{% else %}Nothing here.{% endif %}
+  </div>
+  {% endif %}
+</div>

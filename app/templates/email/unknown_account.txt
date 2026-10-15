@@ -1,0 +1,11 @@
+Someone asked to reset the GitGrit password for {{ email }}, but there's no
+GitGrit account with this address.
+
+If it was you, you may have signed up with another address, or with Google,
+GitHub or GitLab. You can also request access:
+
+{{ signup_url }}
+
+Didn't ask for this? Ignore this email.
+
+— The GitGrit team

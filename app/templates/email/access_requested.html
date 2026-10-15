@@ -1,0 +1,19 @@
+{% extends "email/base.html" %}
+{% block preheader %}{{ answers.name|default:email }} wants access to GitGrit{% if answers.company %} for {{ answers.company }}{% endif %}.{% endblock %}
+{% block heading %}New access request{% endblock %}
+{% block content %}
+<p><strong>{{ email }}</strong> is asking for access to GitGrit.</p>
+{% if answers.name or answers.company or answers.role %}
+<table role="presentation" class="facts" cellpadding="0" cellspacing="0" border="0">
+  {% include "email/_fact.html" with label="Name" value=answers.name %}
+  {% include "email/_fact.html" with label="Company" value=answers.company %}
+  {% include "email/_fact.html" with label="Role" value=answers.role %}
+</table>
+{% endif %}
+{% if answers.goals %}
+<p class="muted" style="margin-bottom: 6px;">What they want from GitGrit</p>
+<div class="quote">{{ answers.goals|linebreaksbr }}</div>
+{% endif %}
+{% include "email/_button.html" with url=site_url|add:review_path label="Review the request" %}
+{% endblock %}
+{% block reason %}you're a GitGrit superuser{% endblock %}

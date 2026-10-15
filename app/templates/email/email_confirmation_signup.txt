@@ -1,0 +1,10 @@
+{% if name %}Hi {{ name }},
+
+{% endif %}Confirm that {{ email }} is yours, and your request for access goes to the
+GitGrit team:
+
+{{ activate_url }}
+
+Didn't sign up for GitGrit? Ignore this email; nothing happens without the link.
+
+— The GitGrit team

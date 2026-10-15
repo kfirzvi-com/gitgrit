@@ -1,0 +1,88 @@
+{# One confirmation dialog for every hx-confirm on the page, in place of the #}
+{# browser's confirm(). The element asking sets the wording:                 #}
+{#   hx-confirm="Title?"  data-confirm-body="…"  data-confirm-action="Remove"  #}
+{#   data-confirm-danger  (red confirm button)                               #}
+{# On a form, {field} in the wording is replaced by that field's value.    #}
+{# A member-role form (data-role-change) gets wording built from the change, #}
+{# and its dropdown goes back to the current role on Cancel.                 #}
+<dialog id="confirm-dialog" class="modal">
+  <form method="dialog" class="modal-box max-w-md">
+    <h3 class="font-bold text-lg" data-dialog-title></h3>
+    <p class="py-3 text-sm text-base-content/80 whitespace-pre-line" data-dialog-body></p>
+    <div class="modal-action">
+      <button value="cancel" class="btn btn-ghost btn-sm">Cancel</button>
+      <button value="ok" class="btn btn-primary btn-sm" data-dialog-ok>Confirm</button>
+    </div>
+  </form>
+  <form method="dialog" class="modal-backdrop"><button value="cancel">close</button></form>
+</dialog>
+<script>
+  (function () {
+    var dialog = document.getElementById("confirm-dialog");
+    if (!dialog || dialog.dataset.wired) return;
+    dialog.dataset.wired = "1";
+
+    var ROLE = {
+      owner: { label: "Owner", does: "Owners can do everything: manage owners, admins and members, and delete the workspace." },
+      admin: { label: "Admin", does: "Admins manage members, connections, AI providers and API tokens. They can't touch owners or delete the workspace." },
+      member: { label: "Member", does: "Members use the workspace but can't change its settings or its people." }
+    };
+    var RANK = { owner: 3, admin: 2, member: 1 };
+
+    function ask(opts) {
+      dialog.querySelector("[data-dialog-title]").textContent = opts.title;
+      dialog.querySelector("[data-dialog-body]").textContent = opts.body || "";
+      var ok = dialog.querySelector("[data-dialog-ok]");
+      ok.textContent = opts.action || "Confirm";
+      ok.classList.toggle("btn-error", !!opts.danger);
+      ok.classList.toggle("btn-primary", !opts.danger);
+      dialog.returnValue = "";
+      dialog.showModal();
+      ok.focus();
+      return new Promise(function (resolve) {
+        dialog.addEventListener("close", function () { resolve(dialog.returnValue === "ok"); }, { once: true });
+      });
+    }
+
+    function roleChange(form) {
+      var to = form.elements.role.value;
+      var from = form.dataset.current;
+      var self = form.dataset.self === "1";
+      var body = ROLE[to].does;
+      if (self && RANK[to] < RANK[from]) {
+        body += "\n\nThis is your own role: you can't undo it yourself.";
+      }
+      return {
+        title: self
+          ? "Change your role from " + ROLE[from].label + " to " + ROLE[to].label + "?"
+          : "Change " + form.dataset.memberEmail + " from " + ROLE[from].label + " to " + ROLE[to].label + "?",
+        body: body,
+        action: "Make " + ROLE[to].label.toLowerCase(),
+        danger: to === "owner" || (self && RANK[to] < RANK[from])
+      };
+    }
+
+    document.addEventListener("htmx:confirm", function (evt) {
+      var elt = evt.detail.elt;
+      if (!evt.detail.question) return;
+      evt.preventDefault();
+      var isRole = elt.hasAttribute("data-role-change");
+      var fill = function (text) {
+        return (text || "").replace(/\{(\w+)\}/g, function (m, name) {
+          var field = elt.elements && elt.elements[name];
+          return field && field.value ? field.value : m;
+        });
+      };
+      var opts = isRole ? roleChange(elt) : {
+        title: fill(evt.detail.question),
+        body: fill(elt.dataset.confirmBody),
+        action: elt.dataset.confirmAction,
+        danger: elt.hasAttribute("data-confirm-danger")
+      };
+      ask(opts).then(function (ok) {
+        if (ok) evt.detail.issueRequest(true);
+        else if (isRole) elt.elements.role.value = elt.dataset.current;
+      });
+    });
+  })();
+</script>

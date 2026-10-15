@@ -16,6 +16,7 @@
         <li><a href="#section-connections" data-settings-link>Git Platform Connections</a></li>
         <li><a href="#section-llm" data-settings-link>LLM Providers</a></li>
         {% if is_admin %}<li><a href="#section-api-tokens" data-settings-link>API Tokens</a></li>{% endif %}
+        {% if can_delete_workspace %}<li><a href="#section-danger" data-settings-link class="text-error">Danger Zone</a></li>{% endif %}
       </ul>
     </nav>
 
@@ -25,93 +26,7 @@
         <input type="radio" name="settings-section" {% if not new_token_value %}checked{% endif %} aria-label="Toggle Members &amp; Permissions">
         <h2 class="collapse-title text-xl font-semibold">Members &amp; Permissions</h2>
         <div class="collapse-content space-y-4">
-      <div class="card bg-base-100">
-        <div class="card-body">
-          <h2 class="card-title">Members</h2>
-          <div class="overflow-x-auto">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  {% if is_admin %}<th></th>{% endif %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for member in members %}
-                  <tr>
-                    <td class="flex items-center gap-3">
-                      <div class="avatar">
-                        <div class="w-8 rounded-full">
-                          {% if member.user.avatar_url %}
-                            <img alt="Avatar" src="{{ member.user.avatar_url }}" />
-                          {% else %}
-                            <div class="bg-neutral text-neutral-content w-8 h-8 rounded-full flex items-center justify-center text-sm">
-                              {{ member.user.email|first|upper }}
-                            </div>
-                          {% endif %}
-                        </div>
-                      </div>
-                      {{ member.user.username }}
-                    </td>
-                    <td>{{ member.user.email }}</td>
-                    <td>
-                      <span class="badge {% if member.role == 'owner' %}badge-primary{% elif member.role == 'admin' %}badge-secondary{% else %}badge-ghost{% endif %}">
-                        {{ member.get_role_display }}
-                      </span>
-                    </td>
-                    {% if is_admin %}
-                      <td>
-                        {% if member.role != 'owner' %}
-                          <form method="post" action="{% url 'remove_member' member.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-ghost btn-xs text-error"
-                                    onclick="return confirm('Remove {{ member.user.username }}?')">
-                              Remove
-                            </button>
-                          </form>
-                        {% endif %}
-                      </td>
-                    {% endif %}
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <div class="card-actions justify-end items-center gap-3 mt-2">
-            {% if can_leave %}
-              <form method="post" action="{% url 'leave_workspace' %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-ghost btn-sm text-error"
-                        onclick="return confirm('Leave {{ current_tenant.name|escapejs }}? You will lose access to its projects and standards.')">
-                  Leave workspace
-                </button>
-              </form>
-            {% else %}
-              <span class="text-xs opacity-60">You're the only owner, so you can't leave this workspace.</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      {% if is_admin %}
-        <div class="card bg-base-100">
-          <div class="card-body">
-            <h2 class="card-title">Invite Member</h2>
-            <form method="post" action="{% url 'invite_member' %}" class="flex flex-col sm:flex-row gap-3">
-              {% csrf_token %}
-              <input type="email" name="email" required placeholder="user@example.com"
-                     class="input input-bordered flex-1">
-              <select name="role" class="select select-bordered">
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-              <button type="submit" class="btn btn-primary">Invite</button>
-            </form>
-          </div>
-        </div>
-      {% endif %}
+          {% include "components/members_panel.html" %}
         </div>
       </section>
 
@@ -478,36 +393,75 @@
       </section>
       {% endif %}
 
+      {% if can_delete_workspace %}
+      <section id="section-danger" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6 border border-error/40"
+               data-settings-section>
+        <input type="radio" name="settings-section" aria-label="Toggle Danger Zone">
+        <h2 class="collapse-title text-xl font-semibold text-error">Danger Zone</h2>
+        <div class="collapse-content">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 class="font-semibold">Delete this workspace</h3>
+              <p class="text-sm opacity-70">
+                Removes <strong>{{ current_tenant.name }}</strong> and everything in it for every member.
+                This can't be undone.
+              </p>
+            </div>
+            <button type="button" class="btn btn-error btn-outline btn-sm"
+                    onclick="document.getElementById('delete-workspace-modal').showModal()">
+              Delete workspace…
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <dialog id="delete-workspace-modal" class="modal">
+        <form method="post" action="{% url 'delete_workspace' %}" class="modal-box flex flex-col gap-4">
+          {% csrf_token %}
+          <h3 class="font-bold text-lg text-error">Delete {{ current_tenant.name }}?</h3>
+          <div role="alert" class="alert alert-error text-sm">
+            <span><strong>This is permanent and irreversible.</strong> There is no undo and no backup to restore from.</span>
+          </div>
+          <p class="text-sm">Deleting the workspace permanently removes, for every member:</p>
+          <ul class="list-disc list-inside text-sm opacity-80 -mt-2">
+            <li>its projects, stacks, standards and their run history</li>
+            <li>its git platform connections, LLM providers and API tokens</li>
+            <li>its members' access (their accounts stay; they lose this workspace)</li>
+          </ul>
+          <p class="text-sm opacity-80 -mt-1">GitGrit also removes the webhooks it added to your repositories.</p>
+          <label class="form-control w-full">
+            <div class="label">
+              <span class="label-text">Type <strong class="font-mono select-all">{{ current_tenant.name }}</strong> to confirm</span>
+            </div>
+            <input type="text" name="confirm_name" autocomplete="off" spellcheck="false" required
+                   class="input input-bordered w-full font-mono" id="delete-workspace-confirm"
+                   data-expected="{{ current_tenant.name }}">
+          </label>
+          <div class="modal-action mt-0">
+            <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn btn-error" id="delete-workspace-submit" disabled>
+              Permanently delete workspace
+            </button>
+          </div>
+        </form>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+      </dialog>
+      <script>
+        (function () {
+          var input = document.getElementById('delete-workspace-confirm');
+          var submit = document.getElementById('delete-workspace-submit');
+          // The server checks the name again; this only keeps the button honest.
+          input.addEventListener('input', function () {
+            submit.disabled = input.value !== input.dataset.expected;
+          });
+        })();
+      </script>
+      {% endif %}
+
     </div>
   </div>
 
-  <script>
-    // Side-nav links jump to a section; make sure the target is open first,
-    // since a collapsed section would otherwise scroll to nothing.
-    (function () {
-      function openSection(hash) {
-        if (!hash) return;
-        var target = document.querySelector(hash);
-        if (!target || !target.hasAttribute('data-settings-section')) return;
-        var toggle = target.querySelector('input[name="settings-section"]');
-        if (toggle) toggle.checked = true;
-        document.querySelectorAll('[data-settings-link]').forEach(function (link) {
-          link.classList.toggle('menu-active', link.getAttribute('href') === hash);
-        });
-      }
-
-      document.querySelectorAll('[data-settings-link]').forEach(function (link) {
-        link.addEventListener('click', function () {
-          openSection(link.getAttribute('href'));
-        });
-      });
-
-      window.addEventListener('hashchange', function () {
-        openSection(window.location.hash);
-      });
-      openSection(window.location.hash);
-    })();
-  </script>
+  {% include "components/section_nav_script.html" %}
 
   {% comment %}
     Dialogs live outside the collapsible sections: a collapsed section hides its
@@ -946,7 +900,7 @@
   <div class="text-center py-12">
     <h1 class="text-3xl font-bold mb-4">No Workspace</h1>
     <p class="mb-6 opacity-70">You don't belong to any workspace yet.</p>
-    <a href="{% url 'create_tenant' %}" class="btn btn-primary">Create Workspace</a>
+    {% if user.is_superuser %}<a href="{% url 'create_tenant' %}" class="btn btn-primary">Create Workspace</a>{% endif %}
   </div>
 {% endif %}
 {% endblock %}

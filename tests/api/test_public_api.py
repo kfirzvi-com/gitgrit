@@ -126,6 +126,7 @@ class TestWorkspaceScoping(PublicAPITestCase):
     def test_personal_token_loses_a_workspace_with_the_membership(self):
         _, raw = APIToken.issue(name="laptop", created_by=self.user, user=self.user)
         self.use_token(raw)
+        baker.make("app.Membership", tenant=self.tenant, role="owner")  # someone keeps it
         self.user.memberships.all().delete()
         assert self.get(f"{self.ws}/projects/").status_code == 404
 
@@ -154,6 +155,7 @@ class TestWorkspaceScoping(PublicAPITestCase):
     def test_workspace_token_survives_its_creator_leaving(self):
         _, raw = APIToken.issue(name="ci", created_by=self.user, tenant=self.tenant)
         self.use_token(raw)
+        baker.make("app.Membership", tenant=self.tenant, role="owner")  # someone keeps it
         self.user.delete()
         assert self.get(f"{self.ws}/projects/").status_code == 200
 

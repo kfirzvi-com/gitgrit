@@ -249,6 +249,22 @@ def deliver_notification(notification_id: str) -> None:
     dispatch(notification_id)
 
 
+@app.task(
+    queue="notifications",
+    name="send_email",
+    priority=NOTIFICATION_PRIORITY,
+)
+def send_email(template: str, to: list[str], context: dict) -> None:
+    """Render and send one templated email (see ``app.infrastructure.mailer``).
+    Off the request so a slow or failing mail server never holds up the page
+    that triggered it. No Procrastinate retry (see the note on
+    ``INFERENCE_ATTEMPTS``): a failed send leaves a failed job, which is the
+    record."""
+    from app.infrastructure.mailer import send_templated
+
+    send_templated(template, to, context)
+
+
 @app.periodic(cron="*/5 * * * *")
 @app.task(queue="standards", name="expire_stale_standard_runs", pass_context=False)
 @fresh_db_connection

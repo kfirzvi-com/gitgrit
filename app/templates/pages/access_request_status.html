@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Request Access — GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-center min-h-[60vh]">
+  <div class="card bg-base-100 shadow-xl w-full max-w-lg">
+    <div class="card-body">
+    {% if access_request.is_pending and not access_request.is_email_confirmed %}
+      <h1 class="card-title text-2xl">Check your inbox</h1>
+      <p class="text-base-content/70">
+        We sent a link to <strong>{{ access_request.user.email }}</strong>. Open it to
+        confirm the address is yours; then your request goes to the GitGrit team.
+      </p>
+      <p class="text-sm text-base-content/60">The link works for {{ confirm_days }} days. Nothing there? Check your spam folder, or:</p>
+      <form method="post" action="{% url 'resend_confirmation' %}" hx-post="{% url 'resend_confirmation' %}" hx-swap="none">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm">Send the link again</button>
+      </form>
+    {% elif form %}
+      <h1 class="card-title text-2xl">Tell us about you</h1>
+      <p class="text-sm text-base-content/70">
+        GitGrit is invite-only while we onboard teams one by one. Requesting access as
+        <strong>{{ access_request.user.email }}</strong>. A few details and
+        we'll be in touch.
+      </p>
+      <form method="post" class="flex flex-col gap-1 mt-2">
+        {% csrf_token %}
+        <label class="form-control w-full">
+          <div class="label"><span class="label-text">Your name</span></div>
+          <input type="text" name="name" value="{{ form.name.value|default:'' }}" required maxlength="200"
+                 class="input input-bordered w-full" autocomplete="name">
+          {% if form.name.errors %}<div class="label"><span class="label-text-alt text-error">{{ form.name.errors.0 }}</span></div>{% endif %}
+        </label>
+        <label class="form-control w-full">
+          <div class="label"><span class="label-text">Company</span></div>
+          <input type="text" name="company" value="{{ form.company.value|default:'' }}" required maxlength="200"
+                 class="input input-bordered w-full" autocomplete="organization">
+          {% if form.company.errors %}<div class="label"><span class="label-text-alt text-error">{{ form.company.errors.0 }}</span></div>{% endif %}
+        </label>
+        <label class="form-control w-full">
+          <div class="label"><span class="label-text">Your role</span></div>
+          <input type="text" name="role" value="{{ form.role.value|default:'' }}" required maxlength="200"
+                 class="input input-bordered w-full" placeholder="e.g. Platform engineer" autocomplete="organization-title">
+          {% if form.role.errors %}<div class="label"><span class="label-text-alt text-error">{{ form.role.errors.0 }}</span></div>{% endif %}
+        </label>
+        <label class="form-control w-full">
+          <div class="label"><span class="label-text">What do you want GitGrit to enforce?</span></div>
+          <textarea name="goals" required maxlength="2000" rows="4"
+                    class="textarea textarea-bordered w-full"
+                    placeholder="Repos, stacks, the standards you care about…">{{ form.goals.value|default:'' }}</textarea>
+          {% if form.goals.errors %}<div class="label"><span class="label-text-alt text-error">{{ form.goals.errors.0 }}</span></div>{% endif %}
+        </label>
+        <div class="card-actions justify-end mt-4">
+          <button type="submit" class="btn btn-primary">Request access</button>
+        </div>
+      </form>
+    {% elif access_request.status == "rejected" %}
+      <h1 class="card-title text-2xl">Access not granted</h1>
+      <p class="text-base-content/70">
+        We couldn't open GitGrit to <strong>{{ access_request.user.email }}</strong>
+        this time. If you think that's a mistake, reply to any email from us.
+      </p>
+    {% else %}
+      <h1 class="card-title text-2xl">Thanks — you're on the list</h1>
+      <p class="text-base-content/70">
+        Your request for <strong>{{ access_request.user.email }}</strong> is
+        waiting for review. We'll email you as soon as you're in; then sign in
+        the same way you just did.
+      </p>
+    {% endif %}
+      <div class="card-actions justify-end mt-2">
+        <a href="{% url 'home' %}" class="btn btn-ghost btn-sm">Back to home</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
