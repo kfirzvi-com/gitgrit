@@ -22,19 +22,21 @@ window.GitGritFlow = (function () {
 
   // Health colour codes — single source of truth for node stripes (via the
   // --gg-health custom property) and legend swatches. Kept in step with the
-  // levels in app/domain/health.py.
+  // levels in app/domain/health.py, which derive from the grade
+  // letter (F failing, D/C attention, A+/A/B good, no grade unknown).
   var HEALTH_COLOR = {
-    healthy: "#34d399",
-    warning: "#fbbf24",
-    critical: "#f87171",
+    good: "#34d399",
+    attention: "#fbbf24",
+    failing: "#f87171",
     unknown: "#64748b",
   };
   var HEALTH_LABEL = {
-    healthy: "Healthy",
-    warning: "Needs attention",
-    critical: "Critical",
-    unknown: "No data",
+    good: "Good (A+ to B)",
+    attention: "Needs attention (C, D)",
+    failing: "Failing (F)",
+    unknown: "No grade",
   };
+  var HEALTH_LEVELS = ["good", "attention", "failing", "unknown"];
 
   /* Props to give a node a left health stripe: a marker class plus the
    * --gg-health custom property the stripe pseudo-element paints with. */
@@ -45,10 +47,13 @@ window.GitGritFlow = (function () {
     };
   }
 
-  function scoreBadgeClass(score) {
-    if (score >= 80) return "badge-success";
-    if (score >= 50) return "badge-warning";
-    return "badge-error";
+  // Badge colour for a node's grade letter, from the health level the server
+  // derived from it (no thresholds here).
+  function gradeBadgeClass(level) {
+    if (level === "good") return "badge-success";
+    if (level === "attention") return "badge-warning";
+    if (level === "failing") return "badge-error";
+    return "badge-ghost";
   }
 
   // Edge colours by kind — shared by both diagrams.
@@ -262,7 +267,7 @@ window.GitGritFlow = (function () {
   // --- Health hover tooltip --------------------------------------------------
   // A single fixed-position element reused across nodes (so it isn't scaled by
   // the canvas zoom and isn't clipped by the flow container). Shown only for
-  // nodes that carry `issues` — i.e. needs-attention / critical.
+  // nodes that carry `issues` — i.e. needs-attention / failing.
   function tooltipEl() {
     var el = document.getElementById("gg-flow-tooltip");
     if (!el) {
@@ -340,12 +345,13 @@ window.GitGritFlow = (function () {
   return {
     ready: ready,
     refit: refit,
-    scoreBadgeClass: scoreBadgeClass,
+    gradeBadgeClass: gradeBadgeClass,
     EDGE_COLOR: EDGE_COLOR,
     handles: handles,
     boundaryNode: boundaryNode,
     HEALTH_COLOR: HEALTH_COLOR,
     HEALTH_LABEL: HEALTH_LABEL,
+    HEALTH_LEVELS: HEALTH_LEVELS,
     healthProps: healthProps,
     dagreLayout: dagreLayout,
     mount: mount,

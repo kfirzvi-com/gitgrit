@@ -1,7 +1,7 @@
 /* Workspace architecture diagram (read-only).
  *
- * Stacks as nodes (with technologies aggregated from their components and a
- * rolled-up compliance score), stack-to-stack dependencies as edges. Clicking
+ * Stacks as nodes (with technologies aggregated from their components and the
+ * worst project grade), stack-to-stack dependencies as edges. Clicking
  * a stack opens its stack view. Built on window.GitGritFlow (flow-common.js),
  * which is loaded ahead of this file along with the React/@xyflow UMD globals.
  */
@@ -43,11 +43,11 @@
         "div",
         { className: "gg-stack-node__head" },
         h("span", { className: "gg-stack-node__name" }, d.name),
-        d.score != null
+        d.grade != null
           ? h(
               "span",
-              { className: "badge badge-sm " + GF.scoreBadgeClass(d.score) },
-              d.score + "%"
+              { className: "badge badge-sm font-bold " + GF.gradeBadgeClass(d.health) },
+              d.grade
             )
           : null
       ),
@@ -161,10 +161,7 @@
       "div",
       { key: "health", className: "gg-legend__section" },
       h("div", { className: "gg-legend__title" }, "Health"),
-      healthRow("healthy"),
-      healthRow("warning"),
-      healthRow("critical"),
-      healthRow("unknown")
+      GF.HEALTH_LEVELS.map(healthRow)
     ),
     h(
       "div",
