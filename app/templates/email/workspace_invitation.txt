@@ -1,0 +1,13 @@
+{% if inviter_name %}{{ inviter_name }} ({{ inviter_email }}){% else %}{{ inviter_email|default:"Someone" }}{% endif %} invited you to join the {{ workspace }} workspace on GitGrit as {{ role }}.
+
+GitGrit keeps your repositories to your team's standards: CI, branch rules,
+dependencies and more, checked on every push.
+
+Accept the invitation:
+{{ site_url }}{{ accept_path }}
+{% if not has_account %}
+You'll create your GitGrit account on the way, with this address. The invitation lets you straight in.
+{% endif %}
+The link works until {{ expires }}. Didn't expect this? Ignore this email; nothing happens unless you accept.
+
+— The GitGrit team

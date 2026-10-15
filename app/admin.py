@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from app.domain.models import (
+    AccessRequest,
     FeedbackReport,
     LLMProvider,
     LLMRole,
@@ -209,3 +210,13 @@ class StandardExecutionAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(AccessRequest)
+class AccessRequestAdmin(admin.ModelAdmin):
+    # Review happens on /staff/access-requests/, which also activates the user
+    # and sends the email; this is for looking things up.
+    list_display = ("user", "status", "submitted_at", "reviewed_by", "reviewed_at", "created_at")
+    list_filter = ("status",)
+    search_fields = ("user__email",)
+    readonly_fields = ("user", "status", "answers", "submitted_at", "reviewed_by", "reviewed_at", "created_at")

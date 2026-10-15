@@ -48,6 +48,17 @@ x-gitgrit-service: &gitgrit-service
     GITLAB_URL: ${GITLAB_URL}
     GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID}
     GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET}
+    # Who gets in: open, approval or onboarding (see .env.example).
+    GITGRIT_SIGNUP_MODE: ${GITGRIT_SIGNUP_MODE:-approval}
+    GITGRIT_SETUP_TOKEN: ${GITGRIT_SETUP_TOKEN:-}
+    # Outgoing email: access requests and approvals. Without EMAIL_HOST,
+    # messages are only written to the app log.
+    EMAIL_HOST: ${EMAIL_HOST:-}
+    EMAIL_PORT: ${EMAIL_PORT:-587}
+    EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+    EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+    EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+    DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
     # Sandbox runtime — point at the same bridge so spawned sandbox
     # containers can reach `db` and the operator's internal GitLab.
     SANDBOX_NETWORK: gitgrit_internal

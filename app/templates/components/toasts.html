@@ -1,0 +1,23 @@
+{# Feedback for actions that update the page in place. A response raises it #}
+{# with the HX-Trigger header {"toast": {"level": "success", "text": "…"}}  #}
+{# (app.presentation.htmx.toast).                                          #}
+<div id="toasts" class="toast toast-end toast-bottom z-[60] mb-16" aria-live="polite"></div>
+<script>
+  (function () {
+    if (window.__toastsWired) return;
+    window.__toastsWired = true;
+    var LEVELS = { success: "alert-success", error: "alert-error", warning: "alert-warning", info: "alert-info" };
+    document.body.addEventListener("toast", function (evt) {
+      var detail = evt.detail || {};
+      var box = document.getElementById("toasts");
+      var toast = document.createElement("div");
+      toast.className = "alert shadow " + (LEVELS[detail.level] || LEVELS.info);
+      toast.setAttribute("role", detail.level === "error" ? "alert" : "status");
+      var text = document.createElement("span");
+      text.textContent = detail.text || "";
+      toast.appendChild(text);
+      box.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, detail.level === "error" ? 8000 : 4000);
+    });
+  })();
+</script>

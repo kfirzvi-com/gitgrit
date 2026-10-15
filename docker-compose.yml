@@ -10,5 +10,14 @@ services:
     ports:
       - "5432:5432"
 
+  # Catches every email the app sends locally; read them at
+  # http://localhost:8025. Point the app at it from .env:
+  #   EMAIL_HOST=localhost  EMAIL_PORT=1025  EMAIL_USE_TLS=False
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # web inbox
+
 volumes:
   postgres_data:

@@ -1,0 +1,9 @@
+{% if name %}Hi {{ name }},
+
+{% endif %}Here's a new link to confirm that {{ email }} is yours:
+
+{{ activate_url }}
+
+Didn't ask for this? Ignore this email; nothing happens without the link.
+
+— The GitGrit team

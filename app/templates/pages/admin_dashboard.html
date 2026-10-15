@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — GitGrit{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-6">Admin</h1>
+
+<div class="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6 lg:items-start">
+  <nav id="admin-nav" aria-label="Admin sections"
+       class="mb-6 lg:mb-0 lg:sticky lg:top-[5.5rem]">
+    <ul class="menu bg-base-100 rounded-box shadow-xl w-full">
+      <li class="menu-title">GitGrit</li>
+      <li><a href="#section-access-requests" data-tab-link class="justify-between">Access requests {% include "components/access_requests_badge.html" with badge_id="admin-nav-requests-badge" %}</a></li>
+      <li><a href="#section-superusers" data-tab-link>Superusers</a></li>
+    </ul>
+  </nav>
+
+  <div class="min-w-0">
+    <section id="section-access-requests" class="card bg-base-100 shadow-xl" data-tab-panel>
+      <div class="card-body">
+        <h2 class="card-title text-xl">Access requests</h2>
+        <p class="text-sm text-base-content/70 mb-2">People who signed up and are waiting to get in.</p>
+        {% include "components/access_requests_section.html" %}
+      </div>
+    </section>
+
+    <section id="section-superusers" class="card bg-base-100 shadow-xl" data-tab-panel hidden>
+      <div class="card-body">
+        <h2 class="card-title text-xl">Superusers</h2>
+        {% include "components/superusers_panel.html" %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{% include "components/tab_panels_script.html" %}
+<script>
+  // Approving into a new workspace makes the person its owner (the server
+  // insists). Joining an existing one defaults to member, until the approver
+  // picks a role themselves. Delegated, so cards swapped in by the status
+  // tabs are covered too.
+  (function () {
+    function sync(form) {
+      var role = form.elements.role;
+      var isNew = form.elements.workspace_mode.value !== "existing";
+      for (var i = 0; i < role.options.length; i++) {
+        role.options[i].disabled = isNew && role.options[i].value !== "owner";
+      }
+      if (isNew) role.value = "owner";
+      else if (!form.dataset.roleTouched) role.value = "member";
+    }
+    document.addEventListener("change", function (e) {
+      var form = e.target.closest && e.target.closest("[data-approve-form]");
+      if (!form) return;
+      if (e.target.name === "role") form.dataset.roleTouched = "1";
+      sync(form);
+    });
+    htmx.onLoad(function (root) {
+      if (root.querySelectorAll) root.querySelectorAll("[data-approve-form]").forEach(sync);
+    });
+  })();
+</script>
+{% endblock %}

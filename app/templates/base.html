@@ -23,6 +23,27 @@
     #loading-screen .shape-hex {
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
+    /* In-place (HTMX) updates: a thin bar along the top, and the part being
+       updated dims under a spinner. The rest of the page stays usable. */
+    #htmx-progress {
+      position: fixed; top: 0; left: 0; z-index: 9999;
+      height: 2px; width: 0; opacity: 0; pointer-events: none;
+      background: var(--color-primary, #14b8a6);
+      transition: width .2s ease, opacity .3s ease;
+    }
+    #htmx-progress.active {
+      opacity: 1; width: 85%;
+      transition: width 8s cubic-bezier(.1, .7, .3, 1), opacity .1s ease;
+    }
+    .gg-busy { opacity: .55; pointer-events: none; transition: opacity .15s ease; }
+    .gg-busy-anchor { position: relative; }
+    .gg-busy::after {
+      content: ""; position: absolute; top: 50%; left: 50%;
+      width: 1.25rem; height: 1.25rem; margin: -.625rem 0 0 -.625rem;
+      border: 2px solid currentColor; border-right-color: transparent;
+      border-radius: 50%; animation: ggSpin .7s linear infinite;
+    }
+    @keyframes ggSpin { to { transform: rotate(360deg); } }
   </style>
   <script>
   (function () {
@@ -110,27 +131,54 @@
     }
 
     // --- HTMX in-page requests ---
-    var htmxTimer = null;
-    var htmxShown = false;
+    // An in-place update keeps the page on screen: past THRESHOLD a thin bar
+    // runs along the top and the element being updated dims under a spinner.
+    // The full-screen loader is for page loads, and for HTMX requests that
+    // opt in with data-loading="LABEL" because they do slow work.
+    var bar = document.createElement('div');
+    bar.id = 'htmx-progress';
+    document.documentElement.appendChild(bar);
+    var inFlight = 0;
 
     document.addEventListener('htmx:beforeRequest', function (e) {
-      var trigger = e.detail.elt.getAttribute('hx-trigger') || '';
+      var elt = e.detail.elt;
+      if (elt.hasAttribute('data-loading')) {
+        showLoader(elt.getAttribute('data-loading'));
+        return;
+      }
+      var trigger = elt.getAttribute('hx-trigger') || '';
       if (trigger.indexOf('load') !== -1) return; // skip auto-triggers
-      // Small in-place fetches (e.g. the navbar workspace list) opt out with
-      // data-no-loader so a slow response doesn't take over the whole page.
-      if (e.detail.elt.hasAttribute('data-no-loader')) return;
-      clearTimeout(htmxTimer);
-      htmxShown = false;
-      htmxTimer = setTimeout(function () {
-        htmxShown = true;
-        showLoader();
+      // Small background fetches (e.g. the navbar workspace list) opt out.
+      if (elt.hasAttribute('data-no-loader')) return;
+      var xhr = e.detail.xhr;
+      var target = e.detail.target;
+      inFlight++;
+      xhr.__ggBusy = setTimeout(function () {
+        bar.classList.add('active');
+        if (target && target.isConnected) {
+          if (getComputedStyle(target).position === 'static') target.classList.add('gg-busy-anchor');
+          target.classList.add('gg-busy');
+          target.setAttribute('aria-busy', 'true');
+        }
       }, THRESHOLD);
     });
 
+    document.addEventListener('htmx:afterRequest', function (e) {
+      var xhr = e.detail.xhr;
+      if (!xhr || xhr.__ggBusy === undefined) return;
+      clearTimeout(xhr.__ggBusy);
+      delete xhr.__ggBusy;
+      var target = e.detail.target;
+      if (target) {
+        target.classList.remove('gg-busy', 'gg-busy-anchor');
+        target.removeAttribute('aria-busy');
+      }
+      inFlight = Math.max(0, inFlight - 1);
+      if (!inFlight) bar.classList.remove('active');
+    });
+
     document.addEventListener('htmx:afterSettle', function () {
-      clearTimeout(htmxTimer);
-      htmxShown = false;
-      reveal();
+      if (loaderShownAt) reveal(); // a data-loading request is done
     });
 
     // --- Full-page form POSTs that do slow server work ---
@@ -232,6 +280,7 @@
     {% include "components/support_view_banner.html" %}
   {% endif %}
   {% include "components/navbar.html" %}
+  {% if not hide_invitation_banner %}{% include "components/invitation_banner.html" %}{% endif %}
 
   <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
         style="visibility:hidden;">
@@ -261,6 +310,8 @@
   </footer>
 
   {% if user.is_authenticated %}{% include "components/feedback_modal.html" %}{% endif %}
+  {# For everyone: signed-out pages (the access request page) act in place too. #}
+  {% include "components/confirm_dialog.html" %}{% include "components/toasts.html" %}
   {% if user.is_authenticated %}<script src="{% static 'app/attention.js' %}"></script>{% endif %}
   {% if user.is_authenticated and current_tenant %}{% include "components/notification_panel.html" %}{% endif %}
 </body>

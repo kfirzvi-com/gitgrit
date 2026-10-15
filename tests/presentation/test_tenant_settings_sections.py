@@ -1,7 +1,8 @@
 """Workspace settings is organised into navigable, collapsible sections.
 
-Four areas — members, git platform connections, LLM providers and (admins
-only) API tokens — each a collapsible section reachable from a side nav. Modals stay outside the
+Five areas — members, git platform connections, LLM providers, (admins
+only) API tokens and (owners only) the danger zone — each a collapsible
+section reachable from a side nav. Modals stay outside the
 collapsibles: a collapsed section hides its whole subtree, which would take a
 <dialog> down with it.
 """
@@ -18,7 +19,14 @@ NON_MANIFEST_STORAGES = {
     },
 }
 
-SECTIONS = ["section-members", "section-connections", "section-llm", "section-api-tokens"]
+# As an owner sees them; the tests log in as one.
+SECTIONS = [
+    "section-members",
+    "section-connections",
+    "section-llm",
+    "section-api-tokens",
+    "section-danger",
+]
 SECTION_INPUT = '<input type="radio" name="settings-section"'
 
 
@@ -142,9 +150,10 @@ class TestSettingsSections(TestCase):
         _login(self.client, role="member")
         body = self.client.get(reverse("tenant_settings")).content.decode()
         for section in SECTIONS:
-            if section != "section-api-tokens":  # admin-only
+            if section not in ("section-api-tokens", "section-danger"):  # admin/owner-only
                 assert f'id="{section}"' in body, section
         assert 'id="add-connection-card"' not in body
+        assert 'id="section-danger"' not in body
 
 
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
@@ -153,7 +162,8 @@ class TestApiTokensSectionIsAdminOnly(TestCase):
         _login(self.client, role="member")
         body = self.client.get(reverse("tenant_settings")).content.decode()
         assert 'id="section-api-tokens"' not in body
-        assert body.count(SECTION_INPUT) == len(SECTIONS) - 1
+        # Neither API tokens nor the owners' danger zone.
+        assert body.count(SECTION_INPUT) == len(SECTIONS) - 2
 
     def test_a_new_token_opens_the_api_tokens_section_instead(self):
         _login(self.client)

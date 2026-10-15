@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{# The small centred card the account pages share (password reset, email  #}
+{# confirmation): fill card_title and card_body.                            #}
+{% block content %}
+<div class="flex justify-center items-center min-h-[60vh]">
+  <div class="card bg-base-100 shadow-xl w-full max-w-md">
+    <div class="card-body gap-3">
+      <h1 class="card-title text-2xl">{% block card_title %}{% endblock %}</h1>
+      {% block card_body %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

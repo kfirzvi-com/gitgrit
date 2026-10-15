@@ -9,9 +9,15 @@ from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
 
+from app.application import invitations
 from app.application.notifications.dispatcher import dispatch
 from app.application.standard_runs import expire_stale_runs
-from app.domain.models import InboxItem, Notification, StandardExecution
+from app.domain.models import (
+    InboxItem,
+    Notification,
+    StandardExecution,
+    WorkspaceInvitation,
+)
 from tests.support import deliver_defer_patch
 
 
@@ -48,7 +54,11 @@ class WorkspaceChangeNotificationTests(TestCase):
     def test_adding_a_member_tells_the_other_admins(self):
         newcomer = baker.make("app.User", email="sam@example.test", first_name="Sam", last_name="Kim")
 
-        self.client.post(reverse("invite_member"), {"email": "sam@example.test", "role": "member"})
+        with mock.patch("app.tasks.send_email.defer"):
+            self.client.post(reverse("invite_member"), {"email": "sam@example.test", "role": "member"})
+        # Nobody joins on someone else's say-so: Sam accepts the invitation.
+        assert not Notification.objects.filter(kind="member.joined").exists()
+        invitations.accept(WorkspaceInvitation.objects.get(email="sam@example.test"), newcomer, via_link=True)
 
         n = Notification.objects.get(kind="member.joined")
         self.assertEqual(n.body, "Dana Lee added Sam Kim as member.")

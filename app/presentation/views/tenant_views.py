@@ -1,20 +1,26 @@
 import re
 
 from django.conf import settings
+from django import forms
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404, redirect
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import escape
-from django.utils.text import slugify
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, TemplateView
-from django_htmx.http import HttpResponseClientRedirect
+from django.views.generic import FormView, TemplateView
+from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
-from app.application.event_bus import publish
-from app.domain.events import MemberJoined, MemberRemoved
+from app.application import invitations, membership_service
+from app.application.workspace_service import (
+    can_delete_workspace,
+    create_workspace,
+    delete_workspace,
+)
+from app.domain.workspace_roles import ROLE_LABELS, LastOwner, MembershipRuleError
 from app.domain.models import (
     APIToken,
     LLMProvider,
@@ -24,9 +30,11 @@ from app.domain.models import (
     Platform,
     PlatformConnection,
     Tenant,
+    WorkspaceInvitation,
 )
 from app.infrastructure.llm_models import discover, test_provider
 from app.infrastructure.platform_client import get_platform_client
+from app.presentation.htmx import toast
 from app.workspace_access import (
     enter_support_view,
     has_admin_membership,
@@ -93,81 +101,163 @@ def leave_workspace(request):
     if not membership:
         return redirect("dashboard")
 
-    if membership.role == Membership.Role.OWNER and not (
-        Membership.objects.filter(tenant=tenant, role=Membership.Role.OWNER)
-        .exclude(pk=membership.pk)
-        .exists()
-    ):
-        messages.error(
+    try:
+        membership_service.remove_member(membership, request.user)
+    except LastOwner:
+        return _member_action_done(
             request,
+            tenant,
             "You're the only owner of this workspace, so you can't leave it. "
             "Make another member an owner first.",
+            "error",
         )
-        return redirect("tenant_settings")
 
-    membership.delete()
-    publish(
-        MemberRemoved(
-            tenant_id=str(tenant.pk),
-            user_id=str(request.user.pk),
-            removed_by_user_id=str(request.user.pk),
-        )
-    )
+    # Leaving takes this page away, so this one is a real navigation.
     request.session.pop("active_tenant_id", None)
     messages.success(request, f'You left "{tenant.name}".')
+    if request.htmx:
+        return HttpResponseClientRedirect(reverse("dashboard"))
     return redirect("dashboard")
 
 
-class CreateTenantView(LoginRequiredMixin, CreateView):
-    model = Tenant
-    fields = ["name"]
+@login_required
+@require_POST
+def delete_workspace_view(request):
+    """Delete the active workspace. Owners and superusers only, and only with
+    the workspace's exact name typed back — the settings dialog asks for it,
+    and it is checked again here so a stray or forged POST can't do it."""
+    tenant = request.tenant
+    if tenant is None:
+        return redirect("dashboard")
+    if not can_delete_workspace(request.user, tenant):
+        raise PermissionDenied()
+    if request.POST.get("confirm_name", "") != tenant.name:
+        messages.error(
+            request,
+            "The name you typed doesn't match the workspace's, so nothing was deleted.",
+        )
+        return redirect(reverse("tenant_settings") + "#section-danger")
+
+    name = tenant.name
+    delete_workspace(tenant, request.user)
+    request.session.pop("active_tenant_id", None)
+    leave_support_view(request)
+    messages.success(request, f'Workspace "{name}" was permanently deleted.')
+    return redirect("dashboard")
+
+
+def members_context(user, tenant):
+    """The member list as ``user`` sees it: each row carries what they may
+    do to it, as the workspace rules (``app.domain.workspace_roles``) say.
+    The service asks the rules again when they act."""
+    members = list(
+        Membership.objects.filter(tenant=tenant)
+        .select_related("user", "granted_by")
+        .order_by("created_at")
+    )
+    roster = membership_service.roster_of(tenant, members)
+    actor = membership_service.actor_in(roster, user)
+    for m in members:
+        m.last_owner = roster.is_last_owner(m.user_id)
+        m.role_choices = [
+            (r, ROLE_LABELS[r]) for r in roster.assignable_roles(actor, m.user_id)
+        ]
+        m.removable = m.user_id != user.pk and roster.can_remove(actor, m.user_id)
+    own = roster.seat_of(user.pk)
+    return {
+        "members": members,
+        "manages_members": actor.manages_members,
+        "invite_roles": [(r, ROLE_LABELS[r]) for r in roster.assignable_roles(actor)],
+        "invitations": [
+            {
+                "invitation": inv,
+                "manageable": roster.can_manage_invitation(actor, inv.role),
+                "role_label": ROLE_LABELS[inv.role],
+                "expired": not inv.is_open(),
+            }
+            for inv in invitations.pending_for_workspace(tenant)
+        ],
+        "can_leave": own is not None and not roster.is_last_owner(user.pk),
+        "is_last_owner": roster.is_last_owner(user.pk),
+    }
+
+
+class CreateWorkspaceForm(forms.Form):
+    name = forms.CharField(max_length=255)
+    owner_email = forms.EmailField(
+        error_messages={"required": "Every workspace needs an owner."}
+    )
+
+    def clean_owner_email(self):
+        email = self.cleaned_data["owner_email"].strip()
+        owner = User.objects.filter(email__iexact=email, is_active=True).first()
+        if owner is None:
+            raise forms.ValidationError(
+                "No active user with that email. If they haven't been approved yet, "
+                "approve their access request into a new workspace instead."
+            )
+        return owner
+
+
+class CreateTenantView(LoginRequiredMixin, FormView):
+    """Superusers only: workspaces are gated, like the people who join them.
+
+    A workspace is never without an owner, so the superuser names one: any
+    active user, themselves included. For a company that hasn't signed up yet,
+    approving its first person into a new workspace does the same job. A
+    superuser who isn't the owner is taken in through the support view."""
+
+    form_class = CreateWorkspaceForm
     template_name = "pages/create_tenant.html"
 
-    def form_valid(self, form):
-        base_slug = slugify(form.cleaned_data["name"])
-        slug = base_slug
-        counter = 1
-        while Tenant.objects.filter(slug=slug).exists():
-            slug = f"{base_slug}-{counter}"
-            counter += 1
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            raise PermissionDenied()
+        return super().dispatch(request, *args, **kwargs)
 
-        tenant = Tenant.objects.create(
-            name=form.cleaned_data["name"],
-            slug=slug,
+    def get_initial(self):
+        # Right after first-run setup the admin is setting up their own team.
+        if not Membership.objects.filter(user=self.request.user).exists():
+            return {"owner_email": self.request.user.email}
+        return {}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["active_emails"] = (
+            User.objects.filter(is_active=True)
+            .exclude(email="")
+            .order_by("email")
+            .values_list("email", flat=True)
         )
-        Membership.objects.create(
-            user=self.request.user, tenant=tenant, role=Membership.Role.OWNER
+        return context
+
+    def form_valid(self, form):
+        owner = form.cleaned_data["owner_email"]
+        tenant = create_workspace(
+            form.cleaned_data["name"].strip(), owner, by=self.request.user
         )
-        self.request.session["active_tenant_id"] = str(tenant.id)
-        messages.success(self.request, f'Workspace "{tenant.name}" created.')
+        if owner == self.request.user:
+            leave_support_view(self.request)
+            self.request.session["active_tenant_id"] = str(tenant.id)
+        else:
+            enter_support_view(self.request, tenant)
+        messages.success(
+            self.request, f'Workspace "{tenant.name}" created, owned by {owner.email}.'
+        )
         return redirect("dashboard")
 
 
 class TenantSettingsView(LoginRequiredMixin, TemplateView):
     template_name = "pages/tenant_settings.html"
 
-    def _can_leave(self, tenant):
-        own = Membership.objects.filter(user=self.request.user, tenant=tenant).first()
-        if not own:
-            return False
-        if own.role != Membership.Role.OWNER:
-            return True
-        return (
-            Membership.objects.filter(tenant=tenant, role=Membership.Role.OWNER)
-            .exclude(pk=own.pk)
-            .exists()
-        )
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         tenant = self.request.tenant
         if tenant:
-            context["members"] = (
-                Membership.objects.filter(tenant=tenant)
-                .select_related("user")
-                .order_by("created_at")
+            context.update(members_context(self.request.user, tenant))
+            context["can_delete_workspace"] = can_delete_workspace(
+                self.request.user, tenant
             )
-            context["can_leave"] = self._can_leave(tenant)
             context["connections"] = PlatformConnection.objects.filter(
                 tenant=tenant
             ).order_by("created_at")
@@ -222,38 +312,54 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
 def invite_member(request):
     tenant = request.tenant
     if not tenant:
-        messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
-
-    if not is_workspace_admin(request):
-        messages.error(request, "You don't have permission to invite members.")
         return redirect("tenant_settings")
 
     email = request.POST.get("email", "").strip()
     role = request.POST.get("role", Membership.Role.MEMBER)
-    if role not in (Membership.Role.ADMIN, Membership.Role.MEMBER):
-        role = Membership.Role.MEMBER
-
-    invitee = User.objects.filter(email=email).first()
-    if not invitee:
-        messages.error(request, f"No user found with email {email}.")
-        return redirect("tenant_settings")
-
-    if Membership.objects.filter(user=invitee, tenant=tenant).exists():
-        messages.warning(request, f"{email} is already a member.")
-        return redirect("tenant_settings")
-
-    Membership.objects.create(user=invitee, tenant=tenant, role=role)
-    publish(
-        MemberJoined(
-            tenant_id=str(tenant.pk),
-            user_id=str(invitee.pk),
-            role=role,
-            added_by_user_id=str(request.user.pk),
+    try:
+        forms.EmailField().clean(email)
+        invitation = invitations.invite(tenant, email, role, by=request.user)
+    except forms.ValidationError:
+        return _member_action_done(
+            request, tenant, "Enter a valid email address.", "error",
+            invite_email=email, invite_role=role,
         )
+    except MembershipRuleError as e:
+        return _member_action_done(
+            request, tenant, str(e), "error", invite_email=email, invite_role=role
+        )
+    return _member_action_done(
+        request, tenant,
+        f"Invitation sent to {invitation.email}. They join once they accept it.",
     )
-    messages.success(request, f"{email} added as {role}.")
-    return redirect("tenant_settings")
+
+
+@login_required
+@require_POST
+def resend_invitation(request, invitation_id):
+    tenant = request.tenant
+    invitation = get_object_or_404(
+        WorkspaceInvitation, id=invitation_id, tenant=tenant, status=WorkspaceInvitation.Status.PENDING
+    )
+    try:
+        invitations.resend(invitation, request.user)
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    return _member_action_done(request, tenant, f"Sent again to {invitation.email}, with a new link.")
+
+
+@login_required
+@require_POST
+def revoke_invitation(request, invitation_id):
+    tenant = request.tenant
+    invitation = get_object_or_404(
+        WorkspaceInvitation, id=invitation_id, tenant=tenant, status=WorkspaceInvitation.Status.PENDING
+    )
+    try:
+        invitations.revoke(invitation, request.user)
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    return _member_action_done(request, tenant, f"Invitation for {invitation.email} withdrawn.")
 
 
 @login_required
@@ -261,29 +367,51 @@ def invite_member(request):
 def remove_member(request, membership_id):
     tenant = request.tenant
     if not tenant:
-        messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
-
-    if not is_workspace_admin(request):
-        messages.error(request, "You don't have permission to remove members.")
         return redirect("tenant_settings")
 
     target = get_object_or_404(Membership, id=membership_id, tenant=tenant)
+    try:
+        membership_service.remove_member(target, request.user)
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    return _member_action_done(request, tenant, f"{target.user.email} removed.")
 
-    if target.role == Membership.Role.OWNER:
-        messages.error(request, "Cannot remove the workspace owner.")
+
+@login_required
+@require_POST
+def change_member_role(request, membership_id):
+    tenant = request.tenant
+    if not tenant:
         return redirect("tenant_settings")
 
-    target.delete()
-    publish(
-        MemberRemoved(
-            tenant_id=str(tenant.pk),
-            user_id=str(target.user_id),
-            removed_by_user_id=str(request.user.pk),
+    target = get_object_or_404(Membership, id=membership_id, tenant=tenant)
+    old_role = target.role
+    try:
+        target = membership_service.change_role(
+            target, request.POST.get("role", ""), request.user
         )
-    )
-    messages.success(request, "Member removed.")
-    return redirect("tenant_settings")
+    except MembershipRuleError as e:
+        return _member_action_done(request, tenant, str(e), "error")
+    text = f"{target.user.email} is now {target.get_role_display().lower()}."
+    if target.user_id == request.user.pk and target.role != old_role and request.htmx:
+        # Your own role decides what the whole settings page lets you do, so
+        # this is the one change that needs the page drawn again.
+        messages.success(request, text)
+        return HttpResponseClientRefresh()
+    return _member_action_done(request, tenant, text)
+
+
+def _member_action_done(request, tenant, text, level="success", **form_state):
+    """Answer a member action. Over HTMX: the member panel drawn again in
+    place, with ``text`` as a toast. Without JS: a flash message and back to
+    the settings page."""
+    if not request.htmx:
+        getattr(messages, level)(request, text)
+        return redirect(f"{reverse('tenant_settings')}#section-members")
+    context = members_context(request.user, tenant)
+    context.update(form_state, current_tenant=tenant)
+    response = render(request, "components/members_panel.html", context)
+    return toast(response, text, level)
 
 
 @login_required

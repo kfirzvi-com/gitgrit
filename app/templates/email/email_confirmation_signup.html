@@ -1,0 +1,10 @@
+{% extends "email/base.html" %}
+{% block preheader %}One click and your access request goes to the GitGrit team.{% endblock %}
+{% block heading %}Confirm your email{% endblock %}
+{% block content %}
+{% if name %}<p>Hi {{ name }},</p>{% endif %}
+<p>Confirm that <strong>{{ email }}</strong> is yours, and your request for access goes to the GitGrit team.</p>
+{% include "email/_button.html" with url=activate_url label="Confirm my email" %}
+<p class="muted">Didn't sign up for GitGrit? Ignore this email; nothing happens without the link.</p>
+{% endblock %}
+{% block reason %}someone signed up to GitGrit with this address{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "email/base.html" %}
+{% block preheader %}Join {{ workspace }} on GitGrit as {{ role }}.{% endblock %}
+{% block heading %}You're invited to {{ workspace }}{% endblock %}
+{% block content %}
+<p><strong>{% if inviter_name %}{{ inviter_name }}</strong> ({{ inviter_email }}){% else %}{{ inviter_email|default:"Someone" }}</strong>{% endif %} invited you to join the <strong>{{ workspace }}</strong> workspace on GitGrit as <strong>{{ role }}</strong>.</p>
+<p class="muted">GitGrit keeps your repositories to your team's standards: CI, branch rules, dependencies and more, checked on every push.</p>
+{% include "email/_button.html" with url=site_url|add:accept_path label="Accept the invitation" %}
+{% if not has_account %}<p>You'll create your GitGrit account on the way, with this address. The invitation lets you straight in.</p>{% endif %}
+<p class="muted">The link works until {{ expires }}. Didn't expect this? Ignore this email; nothing happens unless you accept.</p>
+{% endblock %}
+{% block reason %}a member of {{ workspace }} invited this address{% endblock %}

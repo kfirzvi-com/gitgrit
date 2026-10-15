@@ -14,11 +14,29 @@
           <span class="label-text">Workspace Name</span>
         </label>
         <input type="text" name="name" id="id_name" required maxlength="255"
-               class="input input-bordered w-full" placeholder="My Team" autofocus>
+               class="input input-bordered w-full" placeholder="Company name" autofocus
+               value="{{ form.name.value|default:'' }}">
         {% if form.name.errors %}
           <label class="label">
             <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
           </label>
+        {% endif %}
+      </div>
+      <div class="form-control mt-2">
+        <label class="label" for="id_owner_email">
+          <span class="label-text">Owner</span>
+        </label>
+        <input type="email" name="owner_email" id="id_owner_email" list="active-users" required
+               class="input input-bordered w-full {% if form.owner_email.errors %}input-error{% endif %}"
+               placeholder="owner@company.com" autocomplete="off"
+               value="{{ form.owner_email.value|default:'' }}">
+        <datalist id="active-users">
+          {% for email in active_emails %}<option value="{{ email }}">{% endfor %}
+        </datalist>
+        {% if form.owner_email.errors %}
+          <p class="text-xs text-error mt-1">{{ form.owner_email.errors.0 }}</p>
+        {% else %}
+          <p class="text-xs text-base-content/60 mt-1">Every workspace has an owner: any active user, you included. For someone still waiting for access, approve them into a new workspace instead.</p>
         {% endif %}
       </div>
       <div class="card-actions justify-end mt-4">

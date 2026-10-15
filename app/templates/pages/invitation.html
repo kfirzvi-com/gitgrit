@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Invitation — GitGrit{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-center min-h-[60vh]">
+  <div class="card bg-base-100 shadow-xl w-full max-w-md">
+    <div class="card-body gap-3">
+    {% if state == "gone" %}
+      <h1 class="card-title text-2xl">This invitation isn't valid</h1>
+      <p class="text-base-content/70">
+        It expired, was already used, or was withdrawn. Ask whoever invited you to send a new one.
+      </p>
+      <a href="{% url 'home' %}" class="btn btn-ghost btn-sm self-start">Back to home</a>
+    {% else %}
+      <p class="text-sm uppercase tracking-wide text-base-content/50">You're invited</p>
+      <h1 class="card-title text-2xl">Join {{ invitation.tenant.name }} on GitGrit</h1>
+      <p class="text-base-content/70">
+        {% if inviter %}<strong>{{ inviter.get_full_name|default:inviter.email }}</strong>{% if inviter.get_full_name %} ({{ inviter.email }}){% endif %}{% else %}A member{% endif %}
+        invited <strong>{{ invitation.email }}</strong> to join as <strong>{{ role_label|lower }}</strong>.
+      </p>
+
+      {% if state == "accept" %}
+        <div class="flex gap-2 mt-2">
+          <form method="post" action="{% url 'accept_invitation' token %}" class="flex-1">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary w-full">Accept and join</button>
+          </form>
+          <form method="post" action="{% url 'decline_invitation' token %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-ghost">Decline</button>
+          </form>
+        </div>
+      {% elif state == "wrong_account" %}
+        <div role="alert" class="alert alert-warning text-sm">
+          You're signed in as {{ user.email }}, but this invitation is for {{ invitation.email }}.
+        </div>
+        <a href="{% url 'account_logout' %}" class="btn btn-outline btn-sm self-start">Sign out and use {{ invitation.email }}</a>
+      {% else %}
+        <p class="text-sm text-base-content/70">
+          {% if state == "sign_in" %}Sign in as {{ invitation.email }} to accept.{% else %}Create your GitGrit account with <strong>{{ invitation.email }}</strong> to accept. The invitation lets you straight in.{% endif %}
+        </p>
+        {% with prefill_email=invitation.email %}
+          {% include "components/sign_in_options.html" %}
+        {% endwith %}
+      {% endif %}
+      <p class="text-xs text-base-content/50">The invitation is valid until {{ invitation.expires_at|date:"j F Y" }}.</p>
+    {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

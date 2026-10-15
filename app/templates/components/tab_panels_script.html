@@ -1,0 +1,35 @@
+<script>
+  // Menu-driven pages: the side menu shows one panel at a time. Panels carry
+  // data-tab-panel (all but the first rendered hidden); menu links carry
+  // data-tab-link and href="#<panel id>". The hash keeps the open panel
+  // across reloads and links, without jumping the page to it.
+  (function () {
+    var panels = Array.prototype.slice.call(document.querySelectorAll('[data-tab-panel]'));
+    var links = Array.prototype.slice.call(document.querySelectorAll('[data-tab-link]'));
+    if (!panels.length) return;
+
+    function show(hash) {
+      var id = (hash || '').replace(/^#/, '');
+      var target = panels.filter(function (p) { return p.id === id; })[0] || panels[0];
+      panels.forEach(function (p) { p.hidden = p !== target; });
+      links.forEach(function (link) {
+        var active = link.getAttribute('href') === '#' + target.id;
+        link.classList.toggle('menu-active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+    }
+
+    links.forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        var hash = link.getAttribute('href');
+        history.pushState(null, '', location.pathname + location.search + hash);
+        show(hash);
+      });
+    });
+    window.addEventListener('popstate', function () { show(location.hash); });
+    window.addEventListener('hashchange', function () { show(location.hash); });
+    show(location.hash);
+  })();
+</script>
