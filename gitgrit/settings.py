@@ -210,6 +210,9 @@ AUTHENTICATION_BACKENDS = [
 # allauth
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+# allauth never blocks sign-in on it: GitGrit sends the confirmation link
+# itself for email + password sign-ups on a gated deployment, and their access
+# request waits for it (app.application.access).
 ACCOUNT_EMAIL_VERIFICATION = "none"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
@@ -241,20 +244,35 @@ GITGRIT_SETUP_TOKEN = os.environ.get("GITGRIT_SETUP_TOKEN", "")
 # Off only in tests, where most cases start from an empty user table.
 FIRST_RUN_SETUP_ENABLED = True
 
-# Outgoing email. SMTP when EMAIL_HOST is set (e.g. SES:
-# email-smtp.<region>.amazonaws.com:587 with TLS); otherwise emails are
-# written to the log, so nothing breaks before mail is configured.
+# Outgoing email. GITGRIT_EMAIL_BACKEND picks how it leaves:
+#   ses     — the Amazon SES API (django-ses), authenticated by the host's AWS
+#             credentials (an EC2 instance role in our deployments), so there
+#             is no SMTP password anywhere. AWS_SES_REGION picks the region.
+#   smtp    — any SMTP relay: EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER,
+#             EMAIL_HOST_PASSWORD, EMAIL_USE_TLS (Mailpit locally).
+#   console — written to the log.
+# Unset: smtp when EMAIL_HOST is set, otherwise console, so nothing breaks
+# before mail is configured.
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 EMAIL_TIMEOUT = 10
-EMAIL_BACKEND = (
-    "django.core.mail.backends.smtp.EmailBackend"
-    if EMAIL_HOST
-    else "django.core.mail.backends.console.EmailBackend"
-)
+EMAIL_BACKENDS = {
+    "ses": "django_ses.SESBackend",
+    "smtp": "django.core.mail.backends.smtp.EmailBackend",
+    "console": "django.core.mail.backends.console.EmailBackend",
+}
+_email_backend = os.environ.get("GITGRIT_EMAIL_BACKEND") or ("smtp" if EMAIL_HOST else "console")
+if _email_backend not in EMAIL_BACKENDS:
+    raise ImproperlyConfigured(
+        f"GITGRIT_EMAIL_BACKEND={_email_backend!r}; expected one of {', '.join(EMAIL_BACKENDS)}"
+    )
+EMAIL_BACKEND = EMAIL_BACKENDS[_email_backend]
+AWS_SES_REGION_NAME = os.environ.get("AWS_SES_REGION") or "eu-north-1"
+AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
+USE_SES_V2 = True
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "GitGrit <noreply@gitgrit.dev>"
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 

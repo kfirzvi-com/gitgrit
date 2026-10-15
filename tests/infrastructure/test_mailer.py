@@ -58,3 +58,37 @@ class MailerTests(TestCase):
             render(name, samples()[name])[0] for name in _emails()
         )
         assert all(m.to == ["me@example.com"] for m in mail.outbox)
+
+
+@override_settings(
+    EMAIL_BACKEND="django_ses.SESBackend",
+    AWS_SES_REGION_NAME="eu-north-1",
+    AWS_SES_REGION_ENDPOINT="email.eu-north-1.amazonaws.com",
+    USE_SES_V2=True,
+    SITE_URL="https://gitgrit.example/",
+)
+class SesBackendTests(TestCase):
+    """With GITGRIT_EMAIL_BACKEND=ses, the same email goes out through the SES
+    v2 API, credentials from the host's AWS role (none in settings)."""
+
+    def test_sends_the_branded_email_through_sesv2(self):
+        from unittest import mock
+
+        with mock.patch("boto3.Session") as session:
+            client = session.return_value.client.return_value
+            client.send_email.return_value = {
+                "MessageId": "m-1", "ResponseMetadata": {"RequestId": "r-1"}
+            }
+            send_templated("access_approved", ["ada@example.com"], samples()["access_approved"])
+
+        # No keys from settings: boto3 falls back to the instance role.
+        session.assert_called_once_with(
+            aws_access_key_id=None, aws_secret_access_key=None, aws_session_token=None
+        )
+        assert session.return_value.client.call_args.args == ("sesv2",)
+        assert session.return_value.client.call_args.kwargs["region_name"] == "eu-north-1"
+        kwargs = client.send_email.call_args.kwargs
+        assert kwargs["FromEmailAddress"] == settings.DEFAULT_FROM_EMAIL
+        assert kwargs["Destination"]["ToAddresses"] == ["ada@example.com"]
+        raw = kwargs["Content"]["Raw"]["Data"].decode()
+        assert "multipart/alternative" in raw and "text/html" in raw

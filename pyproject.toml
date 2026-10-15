@@ -33,6 +33,9 @@ dependencies = [
     # (app/infrastructure/mailer.py). Pinned: the Dockerfile installs from
     # pyproject, not uv.lock, so a floating range would drift on rebuild.
     "css-inline==0.21.3",
+    # Email through the SES API with the host's AWS role (GITGRIT_EMAIL_BACKEND=ses):
+    # no SMTP credentials to store. Pinned for the same reason as above.
+    "django-ses==4.8.0",
 ]
 
 [dependency-groups]

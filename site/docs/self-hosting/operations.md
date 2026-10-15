@@ -256,6 +256,7 @@ Operator-fillable (you set these in `.env`):
 | `GITGRIT_SETUP_TOKEN` | Token for the first-run `/setup/` page. Empty (default) derives one from `SECRET_KEY`; `manage.py setup_token` prints it. |
 | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP relay for access-request and approval emails. Port defaults to `587` with STARTTLS. Without `EMAIL_HOST`, emails only go to the app log. |
 | `DEFAULT_FROM_EMAIL` | Sender address, e.g. `GitGrit <gitgrit@acme.internal>`. |
+| `GITGRIT_EMAIL_BACKEND` | `smtp` (default when `EMAIL_HOST` is set), `console` (default otherwise: emails go to the log), or `ses`: the Amazon SES API with the host's AWS credentials, for installs running on AWS. `AWS_SES_REGION` picks the region. |
 | `SANDBOX_DNS` | Comma-separated internal DNS resolvers. gVisor cannot use Docker's embedded DNS. |
 | `GITGRIT_CUSTOM_CA_FILE_PATH` | Host path to the operator CA bundle PEM. |
 
