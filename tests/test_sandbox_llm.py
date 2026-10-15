@@ -215,3 +215,43 @@ class SandboxLLMTests(SimpleTestCase):
         loop_calls = sum(1 for c in always.calls if "response_format" not in c)
         assert loop_calls == llm_mod.MAX_ITERATIONS
         assert verdict.passed is False
+
+
+class BurstThenAnswerCompletion:
+    """One reply asks for more tools than MAX_TOOL_CALLS allows, then answers."""
+
+    def __init__(self, n):
+        self.n = n
+        self.calls = []
+
+    def __call__(self, **kwargs):
+        self.calls.append({**kwargs, "messages": list(kwargs["messages"])})
+        if "response_format" in kwargs:
+            return _Response(
+                _Message(content=json.dumps({"passed": True, "reason": "ok", "violations": []})),
+                _Usage(1, 1),
+            )
+        return _Response(
+            _Message(tool_calls=[_ToolCall(f"c{i}", "list_files", "{}") for i in range(self.n)]),
+            _Usage(1, 1),
+        )
+
+
+class TestToolCallCap(SimpleTestCase):
+    def test_every_requested_tool_call_gets_a_result_even_past_the_cap(self):
+        """Same bug as the in-process loop (staging 2026-10-15): a dangling
+        tool_use id makes Anthropic reject the final request with 400."""
+        burst = BurstThenAnswerCompletion(n=0)  # n set after the module loads
+        llm_mod = _load_llm(burst)
+        burst.n = llm_mod.MAX_TOOL_CALLS + 2
+
+        obj = llm_mod.LLM(
+            {"reasoning": {"model": "m", "base_url": "", "api_key": "k"}}, _mock_project()
+        )
+        verdict = obj.reasoning.evaluate("burst")
+
+        assert verdict.passed is True
+        final_messages = burst.calls[-1]["messages"]
+        answered = [m for m in final_messages if m["role"] == "tool"]
+        assert [m["tool_call_id"] for m in answered] == [f"c{i}" for i in range(burst.n)]
+        assert all("not executed" in m["content"] for m in answered[llm_mod.MAX_TOOL_CALLS :])
