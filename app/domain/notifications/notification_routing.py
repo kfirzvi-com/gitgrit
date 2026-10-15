@@ -70,14 +70,17 @@ class Route:
 
 
 # Problems with a run go to the admins and whoever started it; changes to the
-# workspace go to the admins.
+# workspace go to the admins. A critical standard that could not be verified
+# gates the project for everyone, so everyone hears it.
 _RUN = Route((Admins(), Triggerer()), ("inbox",))
 _WORKSPACE = Route((Admins(),), ("inbox",))
+_TEAM = Route((Team(),), ("inbox",))
 
 ROUTES: dict[str, Route] = {
     Kind.RUN_FAILED: _RUN,
     Kind.STANDARDS_FAILING: _RUN,
     Kind.PROJECT_CRITICAL: _RUN,
+    Kind.GRADE_UNVERIFIED: _TEAM,
     Kind.RUN_TIMED_OUT: _RUN,
     Kind.CONNECTION_BROKEN: _RUN,
     Kind.GRAPH_FAILED: _RUN,

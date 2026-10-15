@@ -64,11 +64,11 @@
         "div",
         { className: "gg-stack-node__head" },
         h("span", { className: "gg-stack-node__name" }, d.name),
-        d.score != null
+        d.grade != null
           ? h(
               "span",
-              { className: "badge badge-sm " + GF.scoreBadgeClass(d.score) },
-              d.score + "%"
+              { className: "badge badge-sm font-bold " + GF.gradeBadgeClass(d.health) },
+              d.grade
             )
           : null
       ),
@@ -236,10 +236,7 @@
       "div",
       { key: "health", className: "gg-legend__section" },
       h("div", { className: "gg-legend__title" }, "Health (per repository)"),
-      healthRow("healthy"),
-      healthRow("warning"),
-      healthRow("critical"),
-      healthRow("unknown")
+      GF.HEALTH_LEVELS.map(healthRow)
     ),
     h(
       "div",

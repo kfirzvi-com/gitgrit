@@ -12,7 +12,7 @@ These Terms of Service ("Terms") govern access to and use of the hosted GitGrit 
 
 ## 2. The Service
 
-GitGrit is a standards-as-code compliance platform. Users connect source-code repositories from third-party platforms (GitHub, GitLab), author or install Python standards, and run those standards against connected repositories in sandboxed containers. The Service produces evaluation results, a per-project compliance score, and an embeddable public badge reflecting that score.
+GitGrit is a standards-as-code compliance platform. Users connect source-code repositories from third-party platforms (GitHub, GitLab), author or install Python standards, and run those standards against connected repositories in sandboxed containers. The Service produces evaluation results, a per-project grade, and an embeddable public badge reflecting that grade.
 
 ## 3. Accounts and authentication
 

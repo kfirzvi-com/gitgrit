@@ -8,6 +8,8 @@ from rest_framework.test import APITestCase
 from app.application.project_status_service import ProjectStatusService
 from app.domain.models import StandardExecution
 
+Status = StandardExecution.Status
+
 
 def _stamp(execution, when):
     """Override auto_now_add created_at so order-sensitive tests are deterministic."""
@@ -22,126 +24,126 @@ class TestGetProjectStatus(APITestCase):
         self.tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=self.tenant)
 
-    def test_empty_project_returns_unknown_grade(self):
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        assert result["grade"] == "unknown"
+    def _standard(self, attach=True, critical=False, **kwargs):
+        standard = baker.make("app.Standard", tenant=self.tenant, **kwargs)
+        if attach:
+            self.project.standards.add(standard)
+        if critical:
+            self.project.project_standards.filter(standard=standard).update(critical=True)
+        return standard
+
+    def _run(self, standard, status=Status.PASSED, score=100, **kwargs):
+        """A manual default-branch run, so it counts."""
+        kwargs.setdefault("event_type", "manual")
+        kwargs.setdefault("ref", "")
+        return baker.make(
+            "app.StandardExecution",
+            project=self.project,
+            standard=standard,
+            standard_name=standard.name,
+            score=score,
+            status=status,
+            **kwargs,
+        )
+
+    def status(self):
+        return self.service.get_project_status(self.tenant, str(self.project.id))
+
+    def test_empty_project_has_no_grade(self):
+        result = self.status()
+        assert result["grade"] is None
+        assert result["reason"] == "no results yet"
         assert result["overall_score"] is None
         assert result["total_standards"] == 0
         assert result["top_offenders"] == []
 
-    def test_grade_excellent_when_all_scores_high(self):
+    def test_letter_reason_and_overall_score_kept(self):
         for score in (95, 92, 98):
-            standard = baker.make("app.Standard", tenant=self.tenant)
-            self.project.standards.add(standard)
-            baker.make(
-                "app.StandardExecution",
-                project=self.project,
-                standard=standard,
-                score=score,
-                status=StandardExecution.Status.PASSED,
-            )
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        assert result["grade"] == "excellent"
-        assert result["overall_score"] == (95 + 92 + 98) / 3
-        assert result["total_standards"] == 3
+            self._run(self._standard(), score=score)
+        failing = self._standard(name="lint")
+        self._run(failing, Status.FAILED, score=40)
+
+        result = self.status()
+
+        assert result["grade"] == "B"  # 3 of 4 passed
+        assert result["reason"] == "1 standard failing"
+        assert result["overall_score"] == (95 + 92 + 98 + 40) / 4
+        assert result["total_standards"] == 4
         assert result["passed"] == 3
-        assert result["failed"] == 0
+        assert result["failed"] == 1
 
-    def test_ignores_running_skipped_and_errored(self):
-        standard = baker.make("app.Standard", tenant=self.tenant)
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=standard,
-            score=80,
-            status=StandardExecution.Status.RUNNING,
-        )
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=baker.make("app.Standard", tenant=self.tenant),
-            score=80,
-            status=StandardExecution.Status.SKIPPED,
-        )
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=baker.make("app.Standard", tenant=self.tenant),
-            score=80,
-            status=StandardExecution.Status.ERROR,
-        )
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        assert result["total_standards"] == 0
-        assert result["grade"] == "unknown"
+    def test_critical_failure_is_f_with_the_name(self):
+        self._run(self._standard())
+        self._run(self._standard(critical=True, name="No secrets"), Status.FAILED)
 
-    def test_top_offenders_are_three_lowest_scoring(self):
-        scores = [95, 30, 70, 20, 55]
-        for score in scores:
-            standard = baker.make("app.Standard", tenant=self.tenant)
-            self.project.standards.add(standard)
-            baker.make(
-                "app.StandardExecution",
-                project=self.project,
-                standard=standard,
-                score=score,
-                status=StandardExecution.Status.FAILED,
-            )
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        offender_scores = [o["score"] for o in result["top_offenders"]]
-        assert offender_scores == [20, 30, 55]
+        result = self.status()
+
+        assert result["grade"] == "F"
+        assert result["reason"] == "No secrets failing"
+
+    def test_ignores_running_skipped_and_other_branch_runs(self):
+        standard = self._standard()
+        self._run(standard, Status.PASSED)
+        self._run(standard, Status.RUNNING, score=0)
+        self._run(self._standard(), Status.SKIPPED)
+        self._run(
+            self._standard(), Status.FAILED, event_type="pull_request", ref="refs/heads/feature/x"
+        )
+
+        result = self.status()
+
+        assert result["total_standards"] == 1
+        assert result["grade"] == "A+"
+
+    def test_top_offenders_critical_first_then_failed_then_errored(self):
+        self._run(self._standard(name="passed"))
+        self._run(self._standard(name="errored"), Status.ERROR, score=0)
+        self._run(self._standard(name="low"), Status.FAILED, score=20)
+        self._run(self._standard(name="high"), Status.FAILED, score=55)
+        self._run(self._standard(name="gate", critical=True), Status.FAILED, score=90)
+
+        result = self.status()
+
+        offenders = result["top_offenders"]
+        assert [o["name"] for o in offenders] == ["gate", "low", "high"]
+        assert offenders[0]["critical"] is True
+        assert offenders[1]["critical"] is False
+        assert offenders[0]["status"] == "failed"
 
     def test_uses_only_latest_execution_per_standard(self):
-        standard = baker.make("app.Standard", tenant=self.tenant)
-        self.project.standards.add(standard)
+        standard = self._standard()
         now = timezone.now()
-        old = baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=standard,
-            score=10,
-            status=StandardExecution.Status.FAILED,
-        )
-        _stamp(old, now - timedelta(hours=2))
-        newer = baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=standard,
-            score=100,
-            status=StandardExecution.Status.PASSED,
-        )
-        _stamp(newer, now)
+        _stamp(self._run(standard, Status.FAILED, score=10), now - timedelta(hours=2))
+        _stamp(self._run(standard, Status.PASSED, score=100), now)
 
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        # Only the newer run counts: one standard, perfect score.
+        result = self.status()
+
         assert result["total_standards"] == 1
         assert result["overall_score"] == 100
         assert result["passed"] == 1
         assert result["failed"] == 0
 
-    def test_detached_standard_executions_are_excluded_from_score(self):
-        attached = baker.make("app.Standard", tenant=self.tenant)
-        detached = baker.make("app.Standard", tenant=self.tenant)
-        self.project.standards.add(attached)
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=attached,
-            score=100,
-            status=StandardExecution.Status.PASSED,
-        )
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=detached,
-            score=0,
-            status=StandardExecution.Status.FAILED,
-        )
+    def test_detached_standard_executions_are_excluded(self):
+        self._run(self._standard(), score=100)
+        self._run(self._standard(attach=False), Status.FAILED, score=0)
 
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
+        result = self.status()
 
         assert result["total_standards"] == 1
         assert result["overall_score"] == 100
         assert result["failed"] == 0
+
+    def test_the_picture_before_a_run_leaves_that_run_out(self):
+        standard = self._standard(name="lint")
+        now = timezone.now()
+        _stamp(self._run(standard, Status.PASSED), now - timedelta(hours=1))
+        newest = _stamp(self._run(standard, Status.FAILED, score=0), now)
+
+        before = self.service.get_project_status(
+            self.tenant, str(self.project.id), exclude_execution_ids=[newest.pk]
+        )
+
+        assert (before["grade"], self.status()["grade"]) == ("A+", "D")
 
     def test_unknown_project_raises_value_error(self):
         with pytest.raises(ValueError):

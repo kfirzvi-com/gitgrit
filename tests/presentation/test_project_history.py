@@ -54,9 +54,11 @@ class ProjectHistoryViewTests(TestCase):
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
         self.assertNotIn("%</span>", content)
-        self.assertIn("The project's health score", content)
+        self.assertIn("default branch (main)", content)
         self.assertNotIn("Latest results", content)
-        self.assertIn("Health score", content)
+        self.assertEqual(response.context["status_grade"], "D")
+        self.assertEqual(response.context["status_tone"], "attention")
+        self.assertRegex(content, r'text-warning" data-branch-grade>D</span>')
         self.assertIn("from aaaaaaa", content)
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
@@ -108,9 +110,13 @@ class ProjectHistoryViewTests(TestCase):
 
         response = self._get(branch="feature/x")
 
-        self.assertEqual(response.context["status_score"], 100)
+        self.assertEqual(response.context["status_grade"], "A+")
+        self.assertEqual(response.context["status_tone"], "good")
         self.assertFalse(response.context["is_default"])
-        self.assertIn("Only the default branch counts", response.content.decode())
+        content = response.content.decode()
+        self.assertRegex(content, r'text-success" data-branch-grade>A\+</span>')
+        self.assertIn("Only a standard's home branch moves the project's grade", content)
+        self.assertIn("This letter is for feature/x alone", content)
         self.platform.list_commits.assert_called_with(
             self.project.external_id, self.project.full_path, "feature/x", page=1,
             per_page=commit_checks.COMMITS_PER_PAGE,

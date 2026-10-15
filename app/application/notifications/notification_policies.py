@@ -12,6 +12,7 @@ about these listeners.
 from __future__ import annotations
 
 from app.application.event_bus import subscribe
+from app.application.notifications import grade_alerts
 from app.application.notifications.service import raise_notification
 from app.domain.events import (
     DependencyInferenceFailed,
@@ -27,6 +28,7 @@ from app.domain.events import (
 )
 from app.domain.models import Notification, Project, Standard, StandardExecution, User
 from app.domain.notifications import notification_rules
+from app.domain.refs import home_branch
 
 # ``triggered_by`` values written by the app itself (``standard_runs`` and
 # ``subscribers``); anything else there is a webhook actor's username.
@@ -81,7 +83,10 @@ class CouldNotEvaluateNotificationPolicy:
 class StandardsFailingNotificationPolicy:
     """Whenever a run that could be evaluated left standards failing, raise
     one "N standards failed" for the run. The count and names are this run's
-    failures; the score is the project's current overall score."""
+    failures; the body opens with the project's grade (letter and reason)
+    when those failures count toward it (a run on the standards' home
+    branch), since a failure seen only on another branch leaves the grade
+    where it was."""
 
     def handle(self, event: StandardRunFinished) -> None:
         if not notification_rules.standards_failing(event):
@@ -97,13 +102,15 @@ class StandardsFailingNotificationPolicy:
         # (superseded, or another project's): a "0 standards failed" is noise.
         if not failed:
             return
+        picture = grade_alerts.pictures_for(event, project).after
+        counting = {ex.pk for ex in picture.executions}
         raise_notification(
             Notification.standards_failing(
                 project=project,
                 failed_names=[r.standard_name for r in failed],
                 failed_standard_ids=[r.standard_id for r in failed],
                 execution_ids=event.execution_ids,
-                score=_overall_score(project),
+                grade=picture.grade if any(r.pk in counting for r in failed) else None,
                 trigger=_trigger(failed[0]),
                 triggered_by_user_ids=_triggered_by(event),
             )
@@ -111,8 +118,10 @@ class StandardsFailingNotificationPolicy:
 
 
 class ProjectTurnedCriticalNotificationPolicy:
-    """Whenever a run drops a project's overall score into critical, raise
-    "Score dropped to critical"."""
+    """Whenever a run drops a project's grade to F because a critical
+    standard started failing, raise "Grade dropped to F". An F from a
+    critical standard that could not be verified is the could-not-verify
+    alert's fact (``GradeUnverifiedNotificationPolicy``), not repeated here."""
 
     def handle(self, event: StandardRunFinished) -> None:
         if notification_rules.could_not_evaluate(event):
@@ -120,18 +129,55 @@ class ProjectTurnedCriticalNotificationPolicy:
         project = _project(event)
         if project is None:
             return
-        before = _overall_score(project, excluding=event.execution_ids)
-        after = _overall_score(project)
-        if not notification_rules.turned_critical(before, after):
+        pictures = grade_alerts.pictures_for(event, project)
+        before = pictures.before.grade
+        after = pictures.after
+        if not notification_rules.turned_critical(before.letter, after.grade.letter):
+            return
+        if not _critical_failing(after):
             return
         rows = _rows(event, project)
         raise_notification(
             Notification.project_turned_critical(
                 project=project,
-                score_before=before,
-                score_after=after,
+                letter_before=before.letter,
+                letter_after=after.grade.letter,
+                reason=after.grade.reason,
                 execution_ids=event.execution_ids,
                 trigger=_trigger(rows[0] if rows else None),
+                triggered_by_user_ids=_triggered_by(event),
+            )
+        )
+
+
+class GradeUnverifiedNotificationPolicy:
+    """Whenever a run leaves a critical standard errored inside its own code
+    on its home branch, when it was not errored before, raise "Could not
+    verify <standards>" for the project: it is an F until they pass again,
+    and the fix is an edit to the standard. One per project, naming every
+    standard that just transitioned (``grade_alerts``); a repeat error, a
+    run on another branch, GitGrit's own failure or a non-critical standard
+    raise nothing."""
+
+    def handle(self, event: StandardRunFinished) -> None:
+        if not event.errored:
+            return
+        project = _project(event)
+        if project is None:
+            return
+        rows = grade_alerts.unverified_transitions(grade_alerts.pictures_for(event, project))
+        if not rows:
+            return
+        branches = list(dict.fromkeys(home_branch(project.default_branch, r.standard.criteria or {}) for r in rows))
+        raise_notification(
+            Notification.grade_unverified(
+                project=project,
+                standard_names=[r.standard_name for r in rows],
+                standard_ids=[r.standard_id for r in rows],
+                branch=branches[0] if len(branches) == 1 else "their home branches",
+                error=_row_error(rows[0]),
+                execution_ids=[r.pk for r in rows],
+                trigger=_trigger(rows[0]),
                 triggered_by_user_ids=_triggered_by(event),
             )
         )
@@ -280,6 +326,7 @@ NOTIFICATION_POLICIES = (
     (StandardRunFinished, CouldNotEvaluateNotificationPolicy()),
     (StandardRunFinished, StandardsFailingNotificationPolicy()),
     (StandardRunFinished, ProjectTurnedCriticalNotificationPolicy()),
+    (StandardRunFinished, GradeUnverifiedNotificationPolicy()),
     (StandardRunsTimedOut, RunsTimedOutNotificationPolicy()),
     (DependencyInferenceFailed, GraphBrokeNotificationPolicy()),
     (DependencyInferenceFailed, AIProviderFailedNotificationPolicy()),
@@ -349,12 +396,14 @@ def _triggered_by(event) -> list[str]:
     return list(dict.fromkeys(str(u) for u in ids))
 
 
-def _overall_score(project, excluding=()):
-    from app.application.project_status_service import ProjectStatusService
-
-    return ProjectStatusService().get_project_status(
-        project.tenant, str(project.pk), exclude_execution_ids=excluding
-    )["overall_score"]
+def _critical_failing(picture) -> bool:
+    """Is a critical standard's counting result a failed verdict? (An F with
+    none is a could-not-verify F.)"""
+    return any(
+        ex.standard_id in picture.critical_standard_ids
+        and ex.status == StandardExecution.Status.FAILED
+        for ex in picture.executions
+    )
 
 
 def _connection_works(project) -> bool:

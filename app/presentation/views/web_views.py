@@ -9,14 +9,12 @@ from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
 from app.application.dependency_agent import refresh_workspace_map
+from app.application.grading_service import grades_for_tenant, letter_for_projects
 from app.application.standard_results import attention_items
+from app.domain import grading
 from app.domain.models import PlatformConnection, Standard, Project, Stack
 from app.workspace_access import is_workspace_admin
-from app.presentation.architecture import (
-    latest_scores_by_project,
-    workspace_graph,
-    workspace_map_status,
-)
+from app.presentation.architecture import workspace_graph, workspace_map_status
 
 
 class HomeView(TemplateView):
@@ -46,16 +44,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ).count()
             context["stack_count"] = Stack.objects.filter(tenant=tenant).count()
 
-            latest = latest_scores_by_project(tenant)
-            all_scores = [
-                result["score"]
-                for results in latest.values()
-                for result in results.values()
-            ]
-            context["compliance_score"] = (
-                round(sum(all_scores) / len(all_scores)) if all_scores else None
-            )
-            context["architecture_data"] = json.dumps(workspace_graph(tenant, latest))
+            # One grade read serves the letter, the map and the attention
+            # list. The workspace letter is the worst graded project.
+            grades = grades_for_tenant(tenant)
+            letter = letter_for_projects(grades, grades)
+            context["workspace_grade"] = letter if letter != grading.NO_GRADE else None
+            context["workspace_tone"] = grading.tone_for(letter)
+            context["architecture_data"] = json.dumps(workspace_graph(tenant, grades))
             map_status = workspace_map_status(tenant)
             context["map_updated_at"] = map_status["updated_at"]
             context["map_analyzing"] = map_status["analyzing"]
@@ -66,7 +61,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["project_count"] = 0
             context["standard_count"] = 0
             context["stack_count"] = 0
-            context["compliance_score"] = None
+            context["workspace_grade"] = None
+            context["workspace_tone"] = grading.TONE_UNKNOWN
             context["architecture_data"] = json.dumps(
                 {"stacks": [], "dependencies": []}
             )

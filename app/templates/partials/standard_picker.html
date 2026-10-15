@@ -1,11 +1,21 @@
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
 {# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check), #}
+{# critical_standard_ids (set of pks whose attachment is marked critical), #}
 {# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
+{# POST sends `standards` (attached ids) and `critical` (ids marked critical); a critical mark on an unattached row is ignored. #}
 <div class="standard-picker">
-  <input type="text" placeholder="Search standards by name, description, or tag..."
-         class="input input-bordered w-full mb-2"
-         oninput="filterStandardPicker(this)" autocomplete="off"
-         onkeydown="if (event.key === 'Enter') event.preventDefault()">
+  <div class="flex gap-2 mb-2">
+    <input type="text" placeholder="Search standards by name, description, or tag..."
+           class="input input-bordered w-full"
+           oninput="filterStandardPicker(this)" autocomplete="off"
+           onkeydown="if (event.key === 'Enter') event.preventDefault()">
+    <select class="select select-bordered standard-picker-critical-filter" title="Filter by Critical mark"
+            onchange="filterStandardPicker(this)">
+      <option value="all">All</option>
+      <option value="critical">Critical</option>
+      <option value="not-critical">Not critical</option>
+    </select>
+  </div>
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
     <span class="flex flex-wrap items-center gap-2">
       <span class="opacity-70">
@@ -23,6 +33,7 @@
       <thead>
         <tr>
           <th class="w-8"></th>
+          <th class="w-20" title="A failing critical standard makes the project grade an F">Critical</th>
           <th>
             <button type="button" class="link link-hover font-semibold"
                     title="Sort by name"
@@ -49,6 +60,12 @@
                      class="checkbox checkbox-sm"
                      onchange="updateStandardPickerCounts(this.closest('.standard-picker'))"
                      {% if standard.pk in attached_standard_ids %}checked{% endif %}>
+            </td>
+            <td>
+              <input type="checkbox" name="critical" value="{{ standard.pk }}"
+                     class="checkbox checkbox-sm checkbox-error"
+                     title="Critical: a failing result makes the project grade an F"
+                     {% if standard.pk in critical_standard_ids %}checked{% endif %}>
             </td>
             <td>
               <a href="{% url 'standard_detail' standard.pk %}" target="_blank" rel="noopener"
@@ -81,10 +98,10 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
+          <tr><td colspan="5"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
         {% endfor %}
         <tr class="standard-picker-no-match hidden">
-          <td colspan="4"><p class="text-sm opacity-70">No standards match your search.</p></td>
+          <td colspan="5"><p class="text-sm opacity-70">No standards match your search.</p></td>
         </tr>
       </tbody>
     </table>
@@ -94,12 +111,24 @@
 <script>
 // Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
 if (!window.filterStandardPicker) {
-  window.filterStandardPicker = function (input) {
-    var picker = input.closest('.standard-picker');
+  // The search box and the Critical filter (all / critical / not critical)
+  // compose: a row shows only when it matches both. The Critical filter reads
+  // the row's live checkbox, so unchecking a mark drops the row from the
+  // "critical" view on the next filter, not while it is being edited.
+  window.filterStandardPicker = function (control) {
+    var picker = control.closest('.standard-picker');
+    var input = picker.querySelector('input[type="text"]');
+    var select = picker.querySelector('.standard-picker-critical-filter');
     var q = input.value.trim().toLowerCase();
+    var mode = select ? select.value : 'all';
     var anyVisible = false;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
       var match = !q || row.dataset.standardSearch.indexOf(q) !== -1;
+      if (match && mode !== 'all') {
+        var critical = row.querySelector('input[name="critical"]');
+        var marked = !!(critical && critical.checked);
+        match = mode === 'critical' ? marked : !marked;
+      }
       row.classList.toggle('hidden', !match);
       if (match) anyVisible = true;
     });
@@ -143,26 +172,30 @@ if (!window.filterStandardPicker) {
     return form ? form.querySelector('.standard-picker') : null;
   }
 
-  // Sets every row the search filter currently leaves visible (all of them
-  // when the search box is empty) to `checked`. Hidden rows are left alone.
-  function setVisibleStandardPickerRows(btn, checked) {
+  // Sets the `name` checkbox ("standards" = attach, "critical" = the mark)
+  // of every row the filters currently leave visible (all of them when the
+  // search box is empty and the Critical filter is "all") to `checked`.
+  // Hidden rows are left alone.
+  function setVisibleStandardPickerRows(btn, name, checked) {
     var picker = pickerFor(btn);
     if (!picker) return;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
       if (row.classList.contains('hidden')) return;
-      var cb = row.querySelector('input[type="checkbox"]');
+      var cb = row.querySelector('input[name="' + name + '"]');
       if (cb) cb.checked = checked;
     });
     window.updateStandardPickerCounts(picker);
   }
 
-  window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, true); };
-  window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, false); };
+  window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'standards', true); };
+  window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'standards', false); };
+  window.checkAllCriticalStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'critical', true); };
+  window.uncheckAllCriticalStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'critical', false); };
 
   window.updateStandardPickerCounts = function (picker) {
     var selected = 0, draft = 0, disabled = 0;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
-      var cb = row.querySelector('input[type="checkbox"]');
+      var cb = row.querySelector('input[name="standards"]');
       if (!cb || !cb.checked) return;
       selected++;
       if (row.dataset.draft) draft++;

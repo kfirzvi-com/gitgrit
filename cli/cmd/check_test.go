@@ -45,9 +45,13 @@ func fakeAPI(t *testing.T, failed int, commitSHA *string) *httptest.Server {
 			running = 2
 		}
 		score := 100 - 50*failed
+		grade, level := "A+", "good"
+		if failed > 0 {
+			grade, level = "D", "attention"
+		}
 		return map[string]any{
 			"sha": sha, "title": "Fix", "author": "Dana", "date": nil, "url": "", "checked": true, "running": running,
-			"score": score, "level": "healthy", "passed": 2 - failed, "failed": failed, "errored": 0,
+			"score": score, "grade": grade, "reason": "perfect", "level": level, "passed": 2 - failed, "failed": failed, "errored": 0,
 			"results": []any{}, "not_run": []any{},
 		}
 	}

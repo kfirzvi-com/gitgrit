@@ -48,16 +48,21 @@ def _map_failure(error="boom", status=None, had_worked_before=True):
 
 
 class TurnedCriticalTests(TestCase):
-    def test_crossing_below_fifty_turns_critical(self):
-        self.assertTrue(rules.turned_critical(80, 40))
-        self.assertTrue(rules.turned_critical(50, 49))
+    """``turned_critical`` reads letters: the grade dropped to F."""
 
-    def test_already_critical_or_no_score_did_not_drop(self):
-        self.assertFalse(rules.turned_critical(30, 10))
-        self.assertFalse(rules.turned_critical(None, 10))
+    def test_any_graded_letter_to_f_is_a_drop(self):
+        for before in ("A+", "A", "B", "C", "D"):
+            with self.subTest(before=before):
+                self.assertTrue(rules.turned_critical(before, "F"))
 
-    def test_staying_above_critical_is_not_a_drop(self):
-        self.assertFalse(rules.turned_critical(90, 60))
+    def test_already_f_or_no_grade_did_not_drop(self):
+        self.assertFalse(rules.turned_critical("F", "F"))
+        self.assertFalse(rules.turned_critical("—", "F"))
+        self.assertFalse(rules.turned_critical(None, "F"))
+
+    def test_staying_above_f_is_not_a_drop(self):
+        self.assertFalse(rules.turned_critical("A", "D"))
+        self.assertFalse(rules.turned_critical("F", "A"))
 
 
 class AIProviderTests(TestCase):

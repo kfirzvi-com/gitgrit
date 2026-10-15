@@ -4,39 +4,23 @@ import logging
 import re
 
 from django.db.models import QuerySet
+from django.utils import timezone
 
+from app.application import standard_results
 from app.domain.events import DomainEvent
 from app.domain.models import (
     AuthMethod,
     LLMRole,
     Project,
+    ProjectStandard,
     Standard,
     StandardExecution,
 )
+from app.domain.refs import bare_ref, literal_ref  # noqa: F401  (re-exported)
 from app.domain.standard_criteria import language_matches
-from app.infrastructure.sandbox.runner import SandboxRunner
+from app.infrastructure.sandbox.runner import PLATFORM_ERROR_ORIGIN, SandboxRunner
 
 logger = logging.getLogger(__name__)
-
-_REF_PREFIX = re.compile(r"^refs/(heads|tags)/")
-_REGEX_CHARS = re.compile(r"[*+?()\[\]{}|\\]")
-
-
-def bare_ref(ref: str | None) -> str:
-    """Strip the refs/heads/ or refs/tags/ prefix a webhook ref carries."""
-    return _REF_PREFIX.sub("", ref or "")
-
-
-def literal_ref(pattern: str | None) -> str:
-    """Return the branch or tag a Branch/Tag Filter names literally, or ""
-    when the filter is empty or a regex. ``main`` and ``^main$`` both name
-    ``main``; ``^release/.*`` names nothing, so runs fall back to the default
-    branch."""
-    name = (pattern or "").strip().removeprefix("^").removesuffix("$")
-    if not name or _REGEX_CHARS.search(name):
-        return ""
-    return name
-
 
 def resolve_llm_roles(tenant) -> dict:
     """Resolve a tenant's configured LLM roles into a flat map the sandbox can
@@ -56,6 +40,41 @@ def resolve_llm_roles(tenant) -> dict:
         }
         for role in roles
     }
+
+
+def keep_neglect_clock(execution: StandardExecution) -> None:
+    """Maintain the attachment's neglect clock after one finished result.
+
+    The clock follows what the grade reads: the pair's current counting
+    result (``standard_results.current_results``: newest commit on the home
+    branch, GitGrit's own failures skipped), not the run that just finished.
+    A pass clears it; a failure or an error in the standard's own run starts
+    it if it is not running and leaves it alone otherwise; no counting
+    result leaves it alone. So re-running an older commit never moves it
+    against a newer one, runs on other branches never touch it, and
+    detaching deletes the row, so a reattached standard starts with no clock.
+    """
+    current = next(
+        (
+            row
+            for row in standard_results.current_results(
+                [execution.project], exclude_platform_errors=True
+            )
+            if row.standard_id == execution.standard_id
+        ),
+        None,
+    )
+    if current is None:
+        return
+    attachment = ProjectStandard.objects.filter(
+        project_id=execution.project_id, standard_id=execution.standard_id
+    )
+    if current.status == StandardExecution.Status.PASSED:
+        attachment.update(first_failed_at=None)
+    else:
+        attachment.filter(first_failed_at__isnull=True).update(
+            first_failed_at=timezone.now()
+        )
 
 
 class StandardEngine:
@@ -235,6 +254,10 @@ class StandardEngine:
 
         if result.get("details", {}).get("error"):
             execution.status = StandardExecution.Status.ERROR
+            # Only the runner's own failures carry the marker; a standard
+            # that raised is the customer's error (the default).
+            if result.get("error_origin") == PLATFORM_ERROR_ORIGIN:
+                execution.error_origin = StandardExecution.ErrorOrigin.PLATFORM
         elif result.get("passed"):
             execution.status = StandardExecution.Status.PASSED
         else:
@@ -245,6 +268,7 @@ class StandardEngine:
         execution.details = result.get("details", {})
         execution.logs = result.get("logs", [])
         execution.save()
+        keep_neglect_clock(execution)
 
         result["standard_id"] = str(standard.id)
         result["standard_name"] = standard.name

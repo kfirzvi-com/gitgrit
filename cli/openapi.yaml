@@ -215,8 +215,11 @@ paths:
       operationId: get_project_health
       description: 'Without `branch`: the project''s health — each attached standard''s
         latest result on its home branch (the default branch unless the standard''s
-        filter names one). With `branch`: that branch''s health. Levels: healthy ≥
-        80, warning ≥ 50, critical below.'
+        filter names one). With `branch`: that branch''s health. `grade` is the letter
+        (A+ to F, null while nothing is evaluated), `reason` says why it is not one
+        higher, and `level` is its tone: good (A+, A, B), attention (C, D), failing
+        (F), unknown (no grade). Breaking change in this release: `level` was healthy,
+        warning and critical before; it is now good, attention and failing.'
       summary: Project or branch health
       parameters:
       - in: query
@@ -628,7 +631,7 @@ components:
         standard_name:
           type: string
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/CheckResultStatusEnum'
         score:
           type: integer
           nullable: true
@@ -656,14 +659,54 @@ components:
       - standard_id
       - standard_name
       - status
+    CheckResultStatusEnum:
+      enum:
+      - running
+      - passed
+      - failed
+      - error
+      - skipped
+      type: string
+      description: |-
+        * `running` - running
+        * `passed` - passed
+        * `failed` - failed
+        * `error` - error
+        * `skipped` - skipped
     Commit:
       type: object
       properties:
         score:
           type: integer
           nullable: true
+          description: Mean of the results' scores; kept for older clients.
+        grade:
+          nullable: true
+          description: |-
+            Null while nothing finished.
+
+            * `A+` - A+
+            * `A` - A
+            * `B` - B
+            * `C` - C
+            * `D` - D
+            * `F` - F
+          oneOf:
+          - $ref: '#/components/schemas/GradeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        reason:
+          type: string
+          description: Why the grade is not one higher.
         level:
-          $ref: '#/components/schemas/LevelEnum'
+          allOf:
+          - $ref: '#/components/schemas/LevelEnum'
+          description: |-
+            The grade's tone.
+
+            * `good` - good
+            * `attention` - attention
+            * `failing` - failing
+            * `unknown` - unknown
         passed:
           type: integer
         failed:
@@ -702,9 +745,11 @@ components:
       - date
       - errored
       - failed
+      - grade
       - level
       - not_run
       - passed
+      - reason
       - results
       - running
       - score
@@ -760,6 +805,22 @@ components:
       - project
       - score
       - status
+    GradeEnum:
+      enum:
+      - A+
+      - A
+      - B
+      - C
+      - D
+      - F
+      type: string
+      description: |-
+        * `A+` - A+
+        * `A` - A
+        * `B` - B
+        * `C` - C
+        * `D` - D
+        * `F` - F
     LastExecution:
       type: object
       properties:
@@ -780,15 +841,15 @@ components:
       - status
     LevelEnum:
       enum:
-      - healthy
-      - warning
-      - critical
+      - good
+      - attention
+      - failing
       - unknown
       type: string
       description: |-
-        * `healthy` - healthy
-        * `warning` - warning
-        * `critical` - critical
+        * `good` - good
+        * `attention` - attention
+        * `failing` - failing
         * `unknown` - unknown
     MatchedByEnum:
       enum:
@@ -815,6 +876,9 @@ components:
       - token_type
       - user
       - workspaces
+    NullEnum:
+      enum:
+      - null
     Offender:
       type: object
       properties:
@@ -823,6 +887,12 @@ components:
           format: uuid
         name:
           type: string
+        critical:
+          type: boolean
+          description: Whether the standard gates this project (a failing critical
+            standard is an F).
+        status:
+          $ref: '#/components/schemas/OffenderStatusEnum'
         score:
           type: integer
           nullable: true
@@ -832,11 +902,21 @@ components:
           type: string
           format: date-time
       required:
+      - critical
       - last_run
       - message
       - name
       - score
       - standard_id
+      - status
+    OffenderStatusEnum:
+      enum:
+      - failed
+      - error
+      type: string
+      description: |-
+        * `failed` - failed
+        * `error` - error
     PatchedStandardUpdateRequest:
       type: object
       description: PATCH body — only the fields sent are changed.
@@ -920,8 +1000,34 @@ components:
         score:
           type: integer
           nullable: true
+          description: Mean of the results' scores; kept for older clients.
+        grade:
+          nullable: true
+          description: |-
+            Null while nothing finished.
+
+            * `A+` - A+
+            * `A` - A
+            * `B` - B
+            * `C` - C
+            * `D` - D
+            * `F` - F
+          oneOf:
+          - $ref: '#/components/schemas/GradeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        reason:
+          type: string
+          description: Why the grade is not one higher.
         level:
-          $ref: '#/components/schemas/LevelEnum'
+          allOf:
+          - $ref: '#/components/schemas/LevelEnum'
+          description: |-
+            The grade's tone.
+
+            * `good` - good
+            * `attention` - attention
+            * `failing` - failing
+            * `unknown` - unknown
         passed:
           type: integer
         failed:
@@ -947,9 +1053,11 @@ components:
       - default_branch
       - errored
       - failed
+      - grade
       - level
       - passed
       - project
+      - reason
       - results
       - running
       - score
@@ -986,9 +1094,24 @@ components:
           type: number
           format: double
           nullable: true
+          description: Mean of the counting results' scores; kept for older clients.
         grade:
-          type: string
           nullable: true
+          description: |-
+            Null while nothing is evaluated.
+
+            * `A+` - A+
+            * `A` - A
+            * `B` - B
+            * `C` - C
+            * `D` - D
+            * `F` - F
+          oneOf:
+          - $ref: '#/components/schemas/GradeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        reason:
+          type: string
+          description: Why the grade is not one higher.
         total_standards:
           type: integer
         passed:
@@ -999,12 +1122,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Offender'
+          description: 'Results that did not pass: critical first, then failed, then
+            errored.'
       required:
       - failed
       - grade
       - overall_score
       - passed
       - project
+      - reason
       - top_offenders
       - total_standards
     ResolvedProject:
@@ -1287,20 +1413,6 @@ components:
       - message
       - passed
       - score
-    StatusEnum:
-      enum:
-      - running
-      - passed
-      - failed
-      - error
-      - skipped
-      type: string
-      description: |-
-        * `running` - running
-        * `passed` - passed
-        * `failed` - failed
-        * `error` - error
-        * `skipped` - skipped
     TokenTypeEnum:
       enum:
       - oauth

@@ -1,25 +1,51 @@
-{% comment %}The Overview tab's health card: the project's score (its default branch), the
-passed / failed / error breakdown behind it, and a way into the Results tab.{% endcomment %}
+{% comment %}The Overview tab's health card: the project's grade (the letter and why it
+is not one higher), the passed / failed / error breakdown behind it, the attachments with
+nothing to read yet, and a way into the Results tab. Colours follow the grade's tone.{% endcomment %}
 <div class="card bg-base-100 shadow-xl h-full" data-overview-health>
   <div class="card-body items-center justify-center gap-6 py-10">
-    {% if compliance_score is not None %}
-      <div class="relative">
-        <div class="radial-progress {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %} text-4xl font-bold"
-             style="--value:{{ compliance_score }}; --size:10rem; --thickness:0.75rem;" role="progressbar" aria-label="Health score {{ compliance_score }}">{{ compliance_score }}</div>
+    {% if grade.graded %}
+      <div class="relative flex items-center gap-6">
+        <div class="text-7xl font-bold leading-none {% if grade_tone == 'good' %}text-success{% elif grade_tone == 'attention' %}text-warning{% elif grade_tone == 'failing' %}text-error{% endif %}"
+             data-grade="{{ grade.letter }}" role="img" aria-label="Grade {{ grade.letter }}">{{ grade.letter }}</div>
+        <div>
+          <p class="font-medium" data-grade-reason>{{ grade.reason }}</p>
+          <p class="text-sm opacity-70">Based on {{ latest_executions|length }} standard{{ latest_executions|length|pluralize }}</p>
+        </div>
         <span class="tooltip tooltip-left absolute -top-1 -right-6 cursor-help opacity-50 hover:opacity-100"
-              data-tip="The project's health score: the average of each standard's latest result on {{ project.default_branch }}, the default branch, out of 100."
-              tabindex="0" aria-label="About this score">
+              data-tip="The project's grade: any critical standard failing is an F; otherwise the share of standards passing their latest run on {{ project.default_branch }}, the default branch (or the branch a standard's Branch/Tag Filter names). A standard left failing for more than 14 days caps the grade at B, more than 30 at C."
+              tabindex="0" aria-label="About this grade">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
         </span>
       </div>
       {% include "partials/health_breakdown.html" with counts=health_breakdown %}
       <a href="#results" class="link link-hover text-sm opacity-70" data-open-tab="results">See the results by commit →</a>
     {% elif attached_standards %}
-      <p class="text-sm opacity-60">No results on {{ project.default_branch }} yet.</p>
+      <p class="text-sm opacity-60">No results on {{ project.default_branch }} yet. The grade appears after a push to it or a manual run.</p>
       <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
     {% else %}
       <p class="text-sm opacity-60">No standards attached. Pick the standards that apply to this project.</p>
       <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
+    {% endif %}
+    {% if not_evaluated_standards %}
+      <div class="w-full text-sm" data-not-evaluated>
+        <p class="opacity-70">Not evaluated yet:</p>
+        <ul class="mt-1 space-y-1">
+          {% for standard in not_evaluated_standards %}
+            <li data-not-evaluated-standard="{{ standard.pk }}">
+              <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover">{{ standard.name }}</a>
+              {% if standard.pk in critical_standard_ids %}
+                {% include "partials/critical_chip.html" %}
+                <span class="text-xs opacity-70">not evaluated on {{ standard.home_branch }}, so it does not gate yet</span>
+              {% else %}
+                <span class="text-xs opacity-70">no result on {{ standard.home_branch }} yet</span>
+              {% endif %}
+              {% if standard.pk in running_standard_ids %}
+                <span class="loading loading-spinner loading-xs align-middle ml-1"></span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
     {% endif %}
   </div>
 </div>

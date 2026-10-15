@@ -9,8 +9,16 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
 from app.application import stack_service
+from app.application.grading_service import grades_for_tenant, letter_for_projects
+from app.domain import grading
 from app.domain.models import Component, Stack
-from app.presentation.architecture import latest_scores_by_project, stack_graph
+from app.presentation.architecture import stack_graph
+
+
+def _stack_grade(project_ids, grades):
+    """``(letter or None, tone)`` for a stack: the worst graded project."""
+    letter = letter_for_projects(project_ids, grades)
+    return (letter if letter != grading.NO_GRADE else None), grading.tone_for(letter)
 
 
 class StackListView(LoginRequiredMixin, ListView):
@@ -25,6 +33,27 @@ class StackListView(LoginRequiredMixin, ListView):
             Stack.objects.filter(tenant=tenant)
             .annotate(component_count=Count("components"))
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        tenant = self.request.tenant
+        if not tenant:
+            return context
+        stacks = list(context["stacks"])
+        # Each stack's letter is the worst graded project among its
+        # components; one grade read and one membership read for the page.
+        grades = grades_for_tenant(tenant)
+        members = {}
+        for stack_id, project_id in Component.objects.filter(
+            tenant=tenant, stacks__in=stacks
+        ).values_list("stacks", "project_id"):
+            members.setdefault(stack_id, set()).add(project_id)
+        for stack in stacks:
+            stack.grade, stack.grade_tone = _stack_grade(
+                members.get(stack.pk, ()), grades
+            )
+        context["stacks"] = stacks
+        return context
 
 
 class CreateStackView(LoginRequiredMixin, CreateView):
@@ -61,11 +90,15 @@ class StackDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         stack = self.object
-        context["stack_components"] = Component.objects.filter(
+        components = Component.objects.filter(
             tenant=stack.tenant, stacks=stack
         ).select_related("project", "project__platform_connection")
-        latest = latest_scores_by_project(stack.tenant)
-        context["architecture_data"] = json.dumps(stack_graph(stack, latest))
+        context["stack_components"] = components
+        grades = grades_for_tenant(stack.tenant)
+        context["stack_grade"], context["stack_grade_tone"] = _stack_grade(
+            {c.project_id for c in components}, grades
+        )
+        context["architecture_data"] = json.dumps(stack_graph(stack, grades))
         return context
 
 

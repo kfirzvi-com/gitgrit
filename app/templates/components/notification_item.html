@@ -26,7 +26,8 @@ notice was published.{% endcomment %}
           </span>
         {% endif %}
       {% endwith %}
-      {% if "score" in ctx %}<span class="text-xs font-bold">Score: {{ ctx.score }}%</span>{% endif %}
+      {% if "grade" in ctx %}<span class="text-xs font-bold">Grade: {{ ctx.grade }}</span>
+      {% elif "score" in ctx %}<span class="text-xs font-bold">Score: {{ ctx.score }}%</span>{% endif %}
     </div>
     <div class="text-sm opacity-80 line-clamp-2 break-words mt-0.5">{{ item.notification.body }}</div>
   </a>

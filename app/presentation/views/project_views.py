@@ -1,5 +1,6 @@
 import logging
 import secrets
+import uuid
 
 from django.conf import settings
 from django.contrib import messages
@@ -18,15 +19,19 @@ from app.application.commit_checks import (
     branch_commits,
     branch_status,
     branches,
+    commit_grade,
     waiting_for_commit,
 )
-from app.application.standard_results import breakdown, current_results, project_score
+from app.application.grading_service import grade_for_project
+from app.application.standard_results import breakdown
+from app.domain.grading import tone_for
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
     AuthMethod,
     PlatformConnection,
     Project,
+    ProjectStandard,
     Stack,
     Standard,
     StandardExecution,
@@ -57,6 +62,30 @@ def _run_newly_attached(request, project, standards, previously_attached_ids):
         messages.info(request, results[0]["message"])
 
 
+def _uuids(values) -> list:
+    """The values that are UUIDs; anything else posted is ignored rather
+    than failing the query."""
+    ids = []
+    for value in values:
+        try:
+            ids.append(uuid.UUID(str(value)))
+        except (ValueError, AttributeError, TypeError):
+            continue
+    return ids
+
+
+def _set_critical_marks(project, critical_ids):
+    """Write the Critical mark on the project's attachments from the posted
+    ``critical`` list: marked rows get True, every other attachment False.
+    Runs after ``standards.set()``, so an id with no surviving attachment
+    (a mark on an unattached row) is ignored, as is anything that is not
+    an id."""
+    critical_ids = _uuids(critical_ids)
+    rows = ProjectStandard.objects.filter(project=project)
+    rows.exclude(standard_id__in=critical_ids).update(critical=False)
+    rows.filter(standard_id__in=critical_ids).update(critical=True)
+
+
 def _existing_owners(tenant):
     return list(
         Project.objects.filter(tenant=tenant)
@@ -77,8 +106,9 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
 def results_context(project) -> dict:
     """What the project page's Overview and Standards tabs render: the
-    attached standards, the project's current results, its health score and
-    that score's breakdown."""
+    attached standards, the project's grade with its reason, the current
+    results behind it and their breakdown, and the attachments with nothing
+    to read yet."""
     context = {}
     attached_standards = list(project.standards.order_by("ordinal", "name"))
     context["attached_standards"] = attached_standards
@@ -89,7 +119,7 @@ def results_context(project) -> dict:
         1 for s in attached_standards if s.enabled and not s.draft
     )
 
-    # Executions of detached standards must not drag the score
+    # Recent Activity lists only attached standards' runs
     recent_executions = StandardExecution.objects.filter(
         project=project,
         standard__in=attached_standards,
@@ -107,15 +137,18 @@ def results_context(project) -> dict:
         ).values_list("standard_id", flat=True)
     )
 
-    # Each standard's current result on its home branch. Every run, on any
-    # branch and still RUNNING, shows under "Recent Activity" above; only
-    # these move the score.
-    latest_executions = sorted(
-        current_results([project]), key=lambda ex: ex.created_at, reverse=True
-    )
-    context["latest_executions"] = latest_executions
-    context["compliance_score"] = project_score(latest_executions)
-    context["health_breakdown"] = breakdown(latest_executions)
+    # The grade and the counting result per attachment (each standard's
+    # latest finished result on its home branch, GitGrit's own failures
+    # skipped). Every run, on any branch and still RUNNING, shows under
+    # "Recent Activity" above; only these move the grade. Attachments with
+    # nothing to read yet are listed as not evaluated.
+    grading = grade_for_project(project)
+    context["grade"] = grading.grade
+    context["grade_tone"] = tone_for(grading.grade.letter)
+    context["latest_executions"] = grading.executions
+    context["health_breakdown"] = breakdown(grading.executions)
+    context["not_evaluated_standards"] = grading.not_evaluated
+    context["critical_standard_ids"] = grading.critical_standard_ids
 
     return context
 
@@ -142,6 +175,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
     status = branch_status(project, branch)
+    grade = commit_grade(status)
     # The score's results can come from several commits (a standard that did
     # not run on the newest one keeps its earlier result); the header says so.
     status_commits = list(dict.fromkeys(
@@ -162,7 +196,8 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "page": page,
             "has_more": has_more,
             "status": status,
-            "status_score": project_score(status),
+            "status_grade": grade.letter if grade.graded else None,
+            "status_tone": tone_for(grade.letter),
             "status_breakdown": breakdown(status),
             "status_commits": status_commits,
             "open_sha": open_sha,
@@ -291,6 +326,7 @@ def add_project_search(request, connection_id):
 
         stack_ids = request.POST.getlist("stacks")
         standard_ids = request.POST.getlist("standards")
+        critical_ids = request.POST.getlist("critical")
 
         project = Project.objects.create(
             tenant=tenant,
@@ -316,6 +352,7 @@ def add_project_search(request, connection_id):
                 Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
             )
             project.standards.set(attached_standards)
+            _set_critical_marks(project, critical_ids)
 
         try:
             client = get_platform_client(connection)
@@ -372,6 +409,7 @@ def add_project_search(request, connection_id):
             .prefetch_related("labels")
             .order_by("ordinal", "name"),
             "attached_standard_ids": set(),
+            "critical_standard_ids": set(),
         },
     )
 
@@ -545,11 +583,15 @@ def project_standards(request, pk):
 
     if request.method == "POST":
         standard_ids = request.POST.getlist("standards")
+        critical_ids = request.POST.getlist("critical")
         standards = list(Standard.objects.filter(pk__in=standard_ids, tenant=tenant))
         previously_attached_ids = set(
             project.standards.values_list("pk", flat=True)
         )
+        # set() is a delta: attachments that stay keep their row, so the
+        # Critical marks below are the only thing a re-save rewrites.
         project.standards.set(standards)
+        _set_critical_marks(project, critical_ids)
         count = len(standards)
         if count:
             messages.success(
@@ -592,6 +634,11 @@ def project_standards(request, pk):
             .order_by("ordinal", "name"),
             "attached_standard_ids": set(
                 project.standards.values_list("pk", flat=True)
+            ),
+            "critical_standard_ids": set(
+                project.project_standards.filter(critical=True).values_list(
+                    "standard_id", flat=True
+                )
             ),
         },
     )

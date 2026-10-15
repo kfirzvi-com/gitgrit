@@ -203,6 +203,27 @@ class TestProjects(PublicAPITestCase):
         assert r.status_code == 200
         assert r.json()["project"]["name"] == "backend"
         assert r.json()["total_standards"] == 0
+        assert (r.json()["grade"], r.json()["reason"]) == (None, "no results yet")
+
+    def test_status_carries_the_letter_its_reason_and_ordered_offenders(self):
+        gate = baker.make("app.Standard", tenant=self.tenant, name="No secrets")
+        lint = baker.make("app.Standard", tenant=self.tenant, name="Lint")
+        self.project.standards.add(gate, lint)
+        self.project.project_standards.filter(standard=gate).update(critical=True)
+        for standard, score in ((lint, 20), (gate, 90)):
+            baker.make(
+                "app.StandardExecution", project=self.project, standard=standard,
+                standard_name=standard.name, status="failed", score=score, ref="",
+            )
+
+        body = self.get(f"{self.ws}/projects/{self.project.id}/status/").json()
+
+        assert (body["grade"], body["reason"]) == ("F", "No secrets failing")
+        assert body["overall_score"] == 55
+        assert [(o["name"], o["critical"], o["status"]) for o in body["top_offenders"]] == [
+            ("No secrets", True, "failed"),
+            ("Lint", False, "failed"),
+        ]
 
     def test_other_workspace_project_is_404(self):
         foreign = baker.make("app.Project", tenant=baker.make("app.Tenant"))

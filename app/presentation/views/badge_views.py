@@ -4,7 +4,8 @@ from pathlib import Path
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
-from app.application.standard_results import current_results, project_score
+from app.application.grading_service import grade_for_project
+from app.domain import grading
 from app.domain.models import Project
 
 _LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "app" / "images" / "logo.svg"
@@ -14,41 +15,33 @@ try:
 except Exception:
     _LOGO_DATA_URI = None
 
+# Badge colour per tone (see ``grading.tone_for``).
+_COLOR = {
+    grading.TONE_GOOD: "#4caf50",
+    grading.TONE_ATTENTION: "#ff9800",
+    grading.TONE_FAILING: "#f44336",
+    grading.TONE_UNKNOWN: "#9e9e9e",
+}
+
 
 def project_badge(request, pk):
-    """Serve an SVG compliance badge for a project. Unauthenticated."""
+    """Serve an SVG grade badge for a project. Unauthenticated."""
     project = get_object_or_404(Project, pk=pk)
 
-    # The project's current results (each attached standard's latest finished
-    # result on its home branch), the same ones the dashboard scores.
-    latest = current_results([project])
-    score = project_score(latest)
-    all_passed = bool(latest) and all(ex.status == "passed" for ex in latest)
-
-    svg = _render_badge(score, all_passed)
+    # The same grade the project page shows: the letter from the latest
+    # counting default-branch result per attached standard.
+    svg = _render_badge(grade_for_project(project).grade.letter)
 
     response = HttpResponse(svg, content_type="image/svg+xml")
     response["Cache-Control"] = "public, max-age=300"  # 5 min cache
     return response
 
 
-def _render_badge(score, all_passed):
-    """Render a shields.io-style SVG badge with the GitGrit logo as label."""
-    if score is None:
-        value = "no data"
-        color = "#9e9e9e"
-    elif all_passed:
-        value = f"{score}%"
-        color = "#4caf50"
-    elif score >= 80:
-        value = f"{score}%"
-        color = "#4caf50"
-    elif score >= 50:
-        value = f"{score}%"
-        color = "#ff9800"
-    else:
-        value = f"{score}%"
-        color = "#f44336"
+def _render_badge(letter):
+    """Render a shields.io-style SVG badge with the GitGrit logo as label:
+    the letter, coloured by its tone, or "no grade"."""
+    value = letter if letter != grading.NO_GRADE else "no grade"
+    color = _COLOR[grading.tone_for(letter)]
 
     logo_size = 14
     label_width = logo_size + 12  # 6px padding each side
@@ -64,8 +57,8 @@ def _render_badge(score, all_passed):
         else f'<text x="{label_width / 2}" y="13" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,sans-serif" font-size="11">g</text>'
     )
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{total_width}" height="20" role="img" aria-label="GitGrit compliance: {value}">
-  <title>GitGrit compliance: {value}</title>
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{total_width}" height="20" role="img" aria-label="GitGrit grade: {value}">
+  <title>GitGrit grade: {value}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>

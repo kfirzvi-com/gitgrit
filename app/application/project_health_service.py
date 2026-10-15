@@ -7,9 +7,11 @@ from django.core.exceptions import ValidationError
 
 from app.application import commit_checks
 from app.application.errors import NotFoundError
-from app.application.standard_results import breakdown, current_results, project_score
+from app.application.grading_service import grade_for_project
+from app.application.standard_results import breakdown, project_score
 from app.application.standard_runs import in_flight
-from app.domain.health import level_from_score
+from app.domain import grading
+from app.domain.health import level_from_letter
 from app.domain.models import Project, StandardExecution, Tenant
 
 Status = StandardExecution.Status
@@ -33,9 +35,18 @@ def _result(ex: StandardExecution) -> dict:
     return data
 
 
-def _summary(results) -> dict:
-    score = project_score(results)
-    return {"score": score, "level": level_from_score(score), **breakdown(results)}
+def _summary(results, grade: grading.Grade) -> dict:
+    """``grade`` is the letter (null when nothing is evaluated) and ``reason``
+    its one sentence; ``level`` is the letter's tone (good, attention,
+    failing, unknown). ``score`` (the mean of the results' scores) stays for
+    clients that read it, the ``gitgrit`` CLI among them."""
+    return {
+        "score": project_score(results),
+        "grade": grade.letter if grade.graded else None,
+        "reason": grade.reason,
+        "level": level_from_letter(grade.letter),
+        **breakdown(results),
+    }
 
 
 def _commit(row: commit_checks.CommitRow) -> dict:
@@ -48,7 +59,7 @@ def _commit(row: commit_checks.CommitRow) -> dict:
         "url": row.url,
         "checked": row.checked,
         "running": row.running,
-        **_summary(finished),
+        **_summary(finished, row.verdict),
         "results": [_result(r) for r in row.results],
         "not_run": [{"id": str(s.id), "name": s.name} for s in row.not_run],
     }
@@ -81,18 +92,26 @@ class ProjectHealthService:
 
     def health(self, tenant: Tenant, project_id: str, branch: str | None = None) -> dict:
         """The project's health — each attached standard's latest result on
-        its home branch — or, with ``branch``, that branch's own health."""
+        its home branch — or, with ``branch``, that branch's own health.
+
+        The project's grade is the one the project page shows
+        (``grade_for_project``: attachments' current Critical marks and
+        neglect clocks). A branch's grade reads its rows as they were marked
+        when they ran, with no neglect cap, like a commit's."""
         project = self._project(tenant, project_id)
         if branch:
             results = commit_checks.branch_status(project, branch)
+            grade = commit_checks.commit_grade(results)
         else:
-            results = current_results([project])
+            graded = grade_for_project(project)
+            results = graded.executions
+            grade = graded.grade
         results = sorted(results, key=lambda ex: ex.created_at, reverse=True)
         return {
             "project": {"id": str(project.id), "name": project.name},
             "branch": branch or None,
             "default_branch": project.default_branch,
-            **_summary(results),
+            **_summary(results, grade),
             "running": self._running(project, branch),
             "results": [_result(ex) for ex in results],
         }
