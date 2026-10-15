@@ -1,6 +1,6 @@
-Hi{% if name %} {{ name }}{% endif %},
+{% if name %}Hi {{ name }},
 
-Your request for access to GitGrit has been approved{% if workspace %} and you have been
+{% endif %}Your request for access to GitGrit has been approved{% if workspace %} and you have been
 added to the {{ workspace }} workspace{% endif %}. Sign in the same way
 you signed up:
 

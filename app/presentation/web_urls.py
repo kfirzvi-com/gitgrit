@@ -4,6 +4,7 @@ from app.presentation.views.access_views import (
     access_request_status,
     first_run_setup,
     no_workspace,
+    resend_confirmation,
 )
 from app.presentation.views.staff_views import (
     access_request_list,
@@ -109,6 +110,7 @@ urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("setup/", first_run_setup, name="first_run_setup"),
     path("access/", access_request_status, name="access_request_status"),
+    path("access/resend/", resend_confirmation, name="resend_confirmation"),
     path("staff/", admin_dashboard, name="admin_dashboard"),
     path("staff/access-requests/", access_request_list, name="access_request_list"),
     path("staff/access-requests/tab/", access_request_tab, name="access_request_tab"),

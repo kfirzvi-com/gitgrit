@@ -17,6 +17,7 @@ from app.application import superuser_service
 from app.application.access import (
     approve_access_request,
     onboarding_form_required,
+    pending_access_request_count,
     reject_access_request,
 )
 from app.domain.models import AccessRequest, Membership, Tenant
@@ -74,7 +75,7 @@ def access_request_tab(request):
 
 
 def _pending_count():
-    return AccessRequest.objects.filter(status=AccessRequest.Status.PENDING).count()
+    return pending_access_request_count()
 
 
 def _tabs(pending):
@@ -85,9 +86,10 @@ def _tabs(pending):
 def access_requests_context(status):
     if status not in STATUS_TABS:
         status = "pending"
-    requests_ = AccessRequest.objects.select_related(
+    # Unconfirmed sign-ups haven't reached superusers: not in any tab.
+    requests_ = AccessRequest.objects.reviewable().select_related(
         "user", "reviewed_by"
-    ).prefetch_related("user__socialaccount_set")
+    ).prefetch_related("user__socialaccount_set", "user__emailaddress_set")
     if status != "all":
         requests_ = requests_.filter(status=status)
     return {
@@ -105,7 +107,7 @@ def access_requests_context(status):
 def review_access_request(request, pk, decision):
     _require_superuser(request)
     access_request = get_object_or_404(
-        AccessRequest.objects.select_related("user"), pk=pk
+        AccessRequest.objects.reviewable().select_related("user"), pk=pk
     )
     email = access_request.user.email
     if not access_request.is_pending:

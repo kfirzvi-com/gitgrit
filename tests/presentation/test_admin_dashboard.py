@@ -5,6 +5,7 @@ import json
 import pytest
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from model_bakery import baker
 
 from app.domain.models import AccessRequest, User
@@ -44,7 +45,10 @@ class TestDashboard(TestCase):
         assert response.headers["Location"] == self.url + "?status=rejected#section-access-requests"
 
     def test_status_tabs_swap_in_place(self):
-        baker.make(AccessRequest, user__email="gone@example.com", status="rejected")
+        baker.make(
+            AccessRequest, user__email="gone@example.com", status="rejected",
+            email_confirmed_at=timezone.now(),
+        )
 
         response = self.client.get(reverse("access_request_tab") + "?status=rejected", **HTMX)
 

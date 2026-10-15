@@ -13,8 +13,10 @@
               {% with accounts=ar.user.socialaccount_set.all %}
               {% if accounts %}
                 <span class="badge badge-ghost badge-sm" title="The provider vouches for this email">via {{ accounts.0.get_provider.name }}</span>
+              {% elif ar.user.emailaddress_set.all|length and ar.user.emailaddress_set.all.0.verified %}
+                <span class="badge badge-ghost badge-sm" title="They followed the confirmation link sent to this address">email confirmed</span>
               {% else %}
-                <span class="badge badge-outline badge-warning badge-sm" title="Signed up with email and password; nothing has confirmed they own this address">email not verified</span>
+                <span class="badge badge-outline badge-warning badge-sm" title="Signed up with email and password before confirmation links existed; nothing has confirmed they own this address">email not verified</span>
               {% endif %}
               {% endwith %}
               {% if ar.answers.company %} · {{ ar.answers.company }}{% endif %}

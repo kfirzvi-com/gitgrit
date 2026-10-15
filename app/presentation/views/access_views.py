@@ -1,6 +1,11 @@
 """Getting in: first-run setup, a pending person's request page, and the
 superuser review queue. The rules live in ``app.application.access``."""
+from allauth.account import app_settings as allauth_settings
 from allauth.account import signals as account_signals
+from allauth.account.internal.flows.email_verification import (
+    handle_verification_email_rate_limit,
+)
+from allauth.account.models import EmailAddress
 from allauth.account.utils import filter_users_by_email
 from allauth.account.views import LoginView
 from allauth.core import ratelimit
@@ -9,8 +14,9 @@ from django.contrib import messages
 from django.contrib.auth import login, password_validation
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from app.application.access import (
     SetupAlreadyDone,
@@ -23,6 +29,7 @@ from app.application.access import (
 )
 from app.domain.models import AccessRequest, Tenant
 from app.presentation.auth_adapters import PENDING_USER_SESSION_KEY
+from app.presentation.htmx import toast
 
 
 # --- first-run setup -------------------------------------------------------
@@ -135,6 +142,7 @@ class EmailAwareLoginView(LoginView):
             sender=user.__class__, request=request, user=user
         )
         if not user.is_active:
+            _send_confirmation(request, user, signup=True)
             request.session[PENDING_USER_SESSION_KEY] = str(user.pk)
             return redirect("access_request_status")
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
@@ -154,6 +162,21 @@ class EmailAwareLoginView(LoginView):
 # --- the pending person's page --------------------------------------------
 
 
+def _send_confirmation(request, user, *, signup=False):
+    """Email ``user`` the link that confirms their address (allauth builds
+    it; it reaches them through our outbox, on the branded layout)."""
+    address = EmailAddress.objects.filter(user=user, email__iexact=user.email).first()
+    if address is not None and not address.verified:
+        address.send_confirmation(request, signup=signup)
+
+
+def _pending_access_request(request):
+    user_id = request.session.get(PENDING_USER_SESSION_KEY)
+    if not user_id:
+        return None
+    return AccessRequest.objects.select_related("user").filter(user_id=user_id).first()
+
+
 class AccessRequestForm(forms.Form):
     name = forms.CharField(max_length=200)
     company = forms.CharField(max_length=200)
@@ -165,17 +188,13 @@ def access_request_status(request):
     """Where a gated signup lands, and lands again on every later sign-in
     until approved. Not behind login: the person is inactive and cannot be
     logged in. allauth's inactive hook names them in the session."""
-    user_id = request.session.get(PENDING_USER_SESSION_KEY)
-    access_request = (
-        AccessRequest.objects.select_related("user").filter(user_id=user_id).first()
-        if user_id
-        else None
-    )
+    access_request = _pending_access_request(request)
     if access_request is None:
         return redirect("account_login")
 
     needs_form = (
         access_request.is_pending
+        and access_request.is_email_confirmed
         and onboarding_form_required()
         and not access_request.is_submitted
     )
@@ -192,8 +211,31 @@ def access_request_status(request):
     return render(
         request,
         "pages/access_request_status.html",
-        {"access_request": access_request, "form": form},
+        {
+            "access_request": access_request,
+            "form": form,
+            "confirm_days": allauth_settings.EMAIL_CONFIRMATION_EXPIRE_DAYS,
+        },
     )
+
+
+@require_POST
+def resend_confirmation(request):
+    """Send the confirmation link again, rate-limited the way allauth limits
+    its own (ACCOUNT_RATE_LIMITS["confirm_email"])."""
+    access_request = _pending_access_request(request)
+    if access_request is None or access_request.is_email_confirmed:
+        return redirect("access_request_status")
+    email = access_request.user.email
+    if handle_verification_email_rate_limit(request, email):
+        _send_confirmation(request, access_request.user)
+        text, level = f"Sent again to {email}. Check your spam folder too.", "success"
+    else:
+        text, level = "We just sent one. Give it a few minutes before asking again.", "warning"
+    if request.htmx:
+        return toast(HttpResponse(status=204), text, level)
+    getattr(messages, level)(request, text)
+    return redirect("access_request_status")
 
 
 # --- signed in, but in no workspace ---------------------------------------

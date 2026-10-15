@@ -1,9 +1,10 @@
+from allauth.account.signals import email_confirmed
 from django.contrib.auth.signals import user_logged_in
+from django.db.models import QuerySet
 from django.db.models.signals import post_save, pre_delete, pre_save
 
-from django.db.models import QuerySet
-
 from app.application import superuser_service
+from app.application.access import confirm_access_request_email
 from app.application.membership_service import roster_of
 from app.domain.models import Component, Membership, Project, Tenant, User
 from app.domain.workspace_roles import OWNER
@@ -86,3 +87,12 @@ pre_delete.connect(guard_last_owner_delete, sender=Membership, dispatch_uid="mem
 pre_save.connect(guard_last_owner_save, sender=Membership, dispatch_uid="membership_last_owner_save")
 pre_save.connect(guard_last_superuser_save, sender=User, dispatch_uid="user_last_superuser_save")
 pre_delete.connect(guard_last_superuser_delete, sender=User, dispatch_uid="user_last_superuser_delete")
+
+
+def access_request_email_confirmed(sender, request, email_address, **kwargs):
+    """A pending sign-up followed their confirmation link: their access
+    request can now reach superusers."""
+    confirm_access_request_email(email_address.user)
+
+
+email_confirmed.connect(access_request_email_confirmed, dispatch_uid="access_request_email_confirmed")

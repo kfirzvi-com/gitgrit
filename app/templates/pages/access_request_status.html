@@ -6,7 +6,18 @@
 <div class="flex justify-center items-center min-h-[60vh]">
   <div class="card bg-base-100 shadow-xl w-full max-w-lg">
     <div class="card-body">
-    {% if form %}
+    {% if access_request.is_pending and not access_request.is_email_confirmed %}
+      <h1 class="card-title text-2xl">Check your inbox</h1>
+      <p class="text-base-content/70">
+        We sent a link to <strong>{{ access_request.user.email }}</strong>. Open it to
+        confirm the address is yours; then your request goes to the GitGrit team.
+      </p>
+      <p class="text-sm text-base-content/60">The link works for {{ confirm_days }} days. Nothing there? Check your spam folder, or:</p>
+      <form method="post" action="{% url 'resend_confirmation' %}" hx-post="{% url 'resend_confirmation' %}" hx-swap="none">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm">Send the link again</button>
+      </form>
+    {% elif form %}
       <h1 class="card-title text-2xl">Tell us about you</h1>
       <p class="text-sm text-base-content/70">
         GitGrit is invite-only while we onboard teams one by one. Requesting access as

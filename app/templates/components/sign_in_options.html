@@ -42,6 +42,7 @@ login form when the login view renders it, absent on the home page.
          value="{{ form.login.value|default:'' }}">
   <input type="password" name="password" autocomplete="current-password" required
          class="input input-bordered w-full" placeholder="Password">
+  <a href="{% url 'account_reset_password' %}" class="link link-hover text-xs text-base-content/60 self-end -mt-1">Forgot password?</a>
   <button type="submit" class="btn btn-primary">Continue</button>
 </form>
 

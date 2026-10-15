@@ -10,6 +10,7 @@ import pytest
 from allauth.account.models import EmailAddress
 from django.core import mail
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from model_bakery import baker
 
 from app.application import access
@@ -118,6 +119,59 @@ class TestOpenAccessRequest(TestCase):
 
 
 @pytest.mark.django_db
+class TestEmailConfirmation(TestCase):
+    """A password sign-up reaches superusers once its email is confirmed."""
+
+    def setUp(self):
+        baker.make("app.User", is_superuser=True, email="boss@example.com")
+
+    def _sign_up(self):
+        with _send_email_patch() as defer, self.captureOnCommitCallbacks(execute=True):
+            user = access.register_with_password("new@example.com", "a-long-passphrase")
+        return user, defer
+
+    def _confirm(self, user):
+        with _send_email_patch() as defer, self.captureOnCommitCallbacks(execute=True):
+            access.confirm_access_request_email(user)
+        return defer
+
+    @override_settings(SIGNUP_MODE="approval")
+    def test_unconfirmed_is_silent_and_out_of_the_count(self):
+        user, defer = self._sign_up()
+
+        defer.assert_not_called()
+        assert not AccessRequest.objects.get(user=user).is_email_confirmed
+        assert access.pending_access_request_count() == 0
+
+    @override_settings(SIGNUP_MODE="approval")
+    def test_confirming_tells_superusers_once(self):
+        user, _ = self._sign_up()
+
+        defer = self._confirm(user)
+        assert defer.call_args.kwargs["to"] == ["boss@example.com"]
+        assert access.pending_access_request_count() == 1
+        self._confirm(user).assert_not_called()
+
+    @override_settings(SIGNUP_MODE="onboarding")
+    def test_with_the_form_on_they_hear_once_the_form_is_in(self):
+        user, _ = self._sign_up()
+        self._confirm(user).assert_not_called()
+
+        request = AccessRequest.objects.get(user=user)
+        with _send_email_patch() as defer, self.captureOnCommitCallbacks(execute=True):
+            access.submit_access_request(request, {"name": "Ada"})
+        defer.assert_called_once()
+
+    @override_settings(SIGNUP_MODE="approval")
+    def test_a_provider_signup_is_confirmed_from_the_start(self):
+        user = baker.make("app.User", is_active=False)
+        with _send_email_patch() as defer, self.captureOnCommitCallbacks(execute=True):
+            request = access.open_access_request(user)
+        assert request.is_email_confirmed
+        defer.assert_called_once()
+
+
+@pytest.mark.django_db
 class TestReview(TestCase):
     def setUp(self):
         self.reviewer = baker.make("app.User", is_superuser=True)
@@ -125,7 +179,7 @@ class TestReview(TestCase):
             "app.User", is_active=False, username="ada", email="ada@example.com"
         )
         self.access_request = AccessRequest.objects.create(
-            user=self.user, answers={"name": "Ada"}
+            user=self.user, answers={"name": "Ada"}, email_confirmed_at=timezone.now()
         )
 
     def _approve(self, **kwargs):

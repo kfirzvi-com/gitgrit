@@ -26,6 +26,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.application.membership_service import add_member
+from app.application.outbox import send_later
 from app.application.workspace_service import create_workspace
 from app.domain.models import AccessRequest, Tenant
 
@@ -107,9 +108,11 @@ def create_first_admin(email: str, password: str):
 def register_with_password(email: str, password: str):
     """Sign someone up from the email + password box on the sign-in page.
 
-    On a gated deployment they arrive inactive with a pending request, exactly
-    like a provider signup. Nothing has proven they own the address, so the
-    ``EmailAddress`` is unverified; the approver sees that.
+    On a gated deployment they arrive inactive with a pending request, like a
+    provider signup, except that nothing has proven they own the address yet:
+    the request stays out of superusers' sight until they follow the
+    confirmation link (``confirm_access_request_email``). The caller sends that
+    link; it needs the request to build it.
     """
     from allauth.account.adapter import get_adapter
     from allauth.account.models import EmailAddress
@@ -121,25 +124,42 @@ def register_with_password(email: str, password: str):
         user.save()
         EmailAddress.objects.create(user=user, email=email, primary=True, verified=False)
         if not user.is_active:
-            open_access_request(user)
+            open_access_request(user, email_confirmed=False)
     return user
 
 
 # --- access requests -------------------------------------------------------
 
 
-def open_access_request(user) -> AccessRequest:
-    """Record a gated signup. ``user`` was just created inactive."""
-    access_request = AccessRequest.objects.create(user=user)
-    if not onboarding_form_required():
-        _notify_reviewers(access_request)
+def open_access_request(user, *, email_confirmed: bool = True) -> AccessRequest:
+    """Record a gated signup. ``user`` was just created inactive.
+    ``email_confirmed`` is True when a provider vouched for the address."""
+    access_request = AccessRequest(user=user)
+    if email_confirmed:
+        access_request.confirm_email()
+    access_request.save()
+    _notify_reviewers_if_ready(access_request)
     return access_request
 
 
 def submit_access_request(access_request: AccessRequest, answers: dict) -> None:
     access_request.submit(answers)
     access_request.save(update_fields=["answers", "submitted_at"])
-    _notify_reviewers(access_request)
+    _notify_reviewers_if_ready(access_request)
+
+
+def confirm_access_request_email(user) -> AccessRequest | None:
+    """``user`` followed their confirmation link. Their request, if pending,
+    now reaches superusers (once the onboarding form is in, where it's on)."""
+    access_request = AccessRequest.objects.filter(
+        user=user, status=AccessRequest.Status.PENDING
+    ).first()
+    if access_request is None or not access_request.confirm_email():
+        return access_request
+    access_request.save(update_fields=["email_confirmed_at"])
+    logger.info("access request %s: %s confirmed their email", access_request.pk, user.email)
+    _notify_reviewers_if_ready(access_request)
+    return access_request
 
 
 def approve_access_request(
@@ -167,7 +187,7 @@ def approve_access_request(
             )
         else:
             add_member(workspace, access_request.user, role, by=reviewer)
-        _send_email(
+        send_later(
             "access_approved",
             [access_request.user.email],
             {
@@ -201,17 +221,26 @@ def reject_access_request(access_request: AccessRequest, reviewer) -> None:
 
 
 def pending_access_request_count() -> int:
-    return AccessRequest.objects.filter(status=AccessRequest.Status.PENDING).count()
+    return (
+        AccessRequest.objects.reviewable()
+        .filter(status=AccessRequest.Status.PENDING)
+        .count()
+    )
 
 
-def _notify_reviewers(access_request: AccessRequest) -> None:
+def _notify_reviewers_if_ready(access_request: AccessRequest) -> None:
+    """Tell superusers when a request becomes ready for review. Each step
+    that can complete it (confirming the email, submitting the form) calls
+    this once, so they hear about it once."""
+    if not access_request.is_ready_for_review(onboarding_form_required()):
+        return
     reviewers = list(
         get_user_model()
         .objects.filter(is_superuser=True, is_active=True)
         .exclude(email="")
         .values_list("email", flat=True)
     )
-    _send_email(
+    send_later(
         "access_requested",
         reviewers,
         {
@@ -219,16 +248,4 @@ def _notify_reviewers(access_request: AccessRequest) -> None:
             "answers": access_request.answers,
             "review_path": reverse("admin_dashboard") + "#section-access-requests",
         },
-    )
-
-
-def _send_email(template: str, to: list[str], context: dict) -> None:
-    """Queue the email once the surrounding transaction commits, so a rolled
-    back approval never tells anyone they are in."""
-    if not to:
-        return
-    from app.tasks import send_email
-
-    transaction.on_commit(
-        lambda: send_email.defer(template=template, to=to, context=context)
     )

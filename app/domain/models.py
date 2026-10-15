@@ -1117,6 +1117,13 @@ class FeedbackReport(models.Model):
         return f"Feedback from {self.user_email or self.user_id or 'anonymous'} @ {self.created_at:%Y-%m-%d}"
 
 
+class AccessRequestQuerySet(models.QuerySet):
+    def reviewable(self):
+        """What superusers see: requests whose email is confirmed. An
+        unconfirmed sign-up hasn't reached them yet."""
+        return self.filter(email_confirmed_at__isnull=False)
+
+
 class AccessRequest(models.Model):
     """A person who signed up on a gated deployment and is waiting for a
     superuser to let them in.
@@ -1125,7 +1132,15 @@ class AccessRequest(models.Model):
     until the request is approved, so every way in — web login, API tokens,
     CLI OAuth — refuses them without any gate of its own. Approval is the one
     place a pending user becomes active; rejection leaves them inactive.
+
+    A request reaches superusers only once its email address is confirmed:
+    at once for a Google/GitHub/GitLab sign-up (the provider vouches for it),
+    after the confirmation link for an email + password one. Until then it
+    can't be reviewed. With the onboarding form on, it is ready for review
+    once the form is in too; that is when superusers are told.
     """
+
+    objects = AccessRequestQuerySet.as_manager()
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -1145,6 +1160,8 @@ class AccessRequest(models.Model):
     # submitted; deployments that skip the form approve on the email alone.
     answers = models.JSONField(default=dict, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    # When the person proved they own the email address. Empty until then.
+    email_confirmed_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1170,6 +1187,26 @@ class AccessRequest(models.Model):
     def is_submitted(self) -> bool:
         return self.submitted_at is not None
 
+    @property
+    def is_email_confirmed(self) -> bool:
+        return self.email_confirmed_at is not None
+
+    def is_ready_for_review(self, form_required: bool) -> bool:
+        """Everything a superuser needs is in: a confirmed email and, when
+        the onboarding form is on, the form."""
+        return (
+            self.is_pending
+            and self.is_email_confirmed
+            and (self.is_submitted or not form_required)
+        )
+
+    def confirm_email(self) -> bool:
+        """Record that the address is proven. True the first time only."""
+        if self.is_email_confirmed:
+            return False
+        self.email_confirmed_at = timezone.now()
+        return True
+
     def submit(self, answers: dict) -> None:
         if not self.is_pending:
             raise ValueError("Only a pending request can be submitted.")
@@ -1187,6 +1224,8 @@ class AccessRequest(models.Model):
     def _review(self, status, reviewer) -> None:
         if not self.is_pending:
             raise ValueError(f"This request was already {self.status}.")
+        if not self.is_email_confirmed:
+            raise ValueError("This person hasn't confirmed their email address yet.")
         self.status = status
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()

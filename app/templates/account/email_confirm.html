@@ -1,0 +1,26 @@
+{% extends "account/base_card.html" %}
+{% block title %}Confirm Email — GitGrit{% endblock %}
+{% block card_title %}Confirm your email{% endblock %}
+{% block card_body %}
+{% if confirmation and can_confirm %}
+  <p class="text-base-content/70">
+    Confirm that <strong>{{ confirmation.email_address.email }}</strong> is yours.
+    {% if not confirmation.email_address.user.is_active %}Then your access request goes to the GitGrit team.{% endif %}
+  </p>
+  <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+    {% csrf_token %}
+    {{ redirect_field }}
+    <button type="submit" class="btn btn-primary w-full">Confirm {{ confirmation.email_address.email }}</button>
+  </form>
+{% elif confirmation %}
+  <p class="text-base-content/70">
+    <strong>{{ confirmation.email_address.email }}</strong> is already confirmed on another account.
+  </p>
+{% else %}
+  <p class="text-base-content/70">
+    This link has expired or was already used. Sign in again with the same email and password
+    and we'll send a new one.
+  </p>
+  <a href="{% url 'account_login' %}" class="btn btn-primary">Sign in</a>
+{% endif %}
+{% endblock %}

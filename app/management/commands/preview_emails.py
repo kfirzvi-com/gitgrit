@@ -1,6 +1,7 @@
 """Send every GitGrit email, filled with sample data, through the configured
 mail backend: with Mailpit running locally (docker compose up -d), they all
 land in http://localhost:8025 to look at."""
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.urls import reverse
 
@@ -9,6 +10,7 @@ from app.infrastructure.mailer import send_templated
 
 def samples():
     """One sample context per email. Add yours when you add an email."""
+    site = settings.SITE_URL.rstrip("/")
     return {
         "access_requested": {
             "email": "margaret@example.test",
@@ -24,6 +26,26 @@ def samples():
             "name": "Margaret Hamilton",
             "workspace": "Apollo Systems",
             "login_path": reverse("account_login"),
+        },
+        # allauth's emails (app.presentation.auth_adapters.send_mail): their
+        # links arrive absolute.
+        "email_confirmation_signup": {
+            "email": "margaret@example.test",
+            "activate_url": f"{site}/accounts/confirm-email/sample-key/",
+        },
+        "email_confirmation": {
+            "email": "margaret@example.test",
+            "name": "Margaret Hamilton",
+            "activate_url": f"{site}/accounts/confirm-email/sample-key/",
+        },
+        "password_reset_key": {
+            "email": "margaret@example.test",
+            "name": "Margaret Hamilton",
+            "password_reset_url": f"{site}/accounts/password/reset/key/sample-key/",
+        },
+        "unknown_account": {
+            "email": "nobody@example.test",
+            "signup_url": f"{site}/accounts/login/",
         },
     }
 

@@ -4,7 +4,7 @@ Get GitGrit running and your first standard evaluating in under 5 minutes.
 
 ## 1. Get access
 
-GitGrit is invite-only for now. Go to [app.gitgrit.dev](https://app.gitgrit.dev) and sign in with your Google, GitHub, or GitLab account, or enter an email and password. If you're new, you'll be asked a few questions about you and your team, and your request goes to the GitGrit team.
+GitGrit is invite-only for now. Go to [app.gitgrit.dev](https://app.gitgrit.dev) and sign in with your Google, GitHub, or GitLab account, or enter an email and password. With an email and password, confirm your address from the email we send first. If you're new, you'll be asked a few questions about you and your team, and your request goes to the GitGrit team.
 
 Once approved, you get an email and join your company's workspace. The first person from a company owns it; see [Workspaces & Members](workspaces.md) for what each role can do.
 

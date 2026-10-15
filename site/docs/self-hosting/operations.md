@@ -210,9 +210,12 @@ with GitLab (or Google/GitHub, if enabled) or with an email and password:
 Approving always puts the person in a workspace, an existing one or a new
 one named after their company, with a role. Rejecting keeps them out.
 
-Email addresses entered with a password aren't verified; the request shows
-**email not verified** so you can check before approving. Sign-ins through
-GitLab, Google or GitHub carry the provider's word for the address.
+Someone who signs up with an email and password first gets a link to
+confirm the address. Their request reaches superusers (and the queue) only
+once they've followed it. Sign-ins through GitLab, Google or GitHub carry the
+provider's word for the address and skip this. Forgotten passwords are reset
+from **Forgot password?** on the sign-in page; both need
+[outgoing email](#environment-variable-reference) set up.
 
 ### Superusers
 

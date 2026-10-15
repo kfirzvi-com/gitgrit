@@ -8,6 +8,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from model_bakery import baker
 
 from app.application import access
@@ -148,7 +149,9 @@ class TestAccessRequestStatus(TestCase):
 
     def setUp(self):
         self.user = baker.make("app.User", is_active=False, email="new@example.com")
-        self.access_request = AccessRequest.objects.create(user=self.user)
+        self.access_request = AccessRequest.objects.create(
+            user=self.user, email_confirmed_at=timezone.now()
+        )
 
     def _identify(self):
         session = self.client.session
@@ -197,7 +200,9 @@ class TestReviewQueue(TestCase):
             "app.User", is_active=False, email="new@example.com", username="new"
         )
         self.access_request = AccessRequest.objects.create(
-            user=self.pending_user, answers={"name": "Ada", "company": "Acme"}
+            user=self.pending_user,
+            answers={"name": "Ada", "company": "Acme"},
+            email_confirmed_at=timezone.now(),
         )
 
     def test_superusers_only(self):
@@ -359,8 +364,8 @@ class TestSignInBox(TestCase):
         assert AccessRequest.objects.get(user=user).is_pending
         assert not user.memberships.exists()
         assert "_auth_user_id" not in self.client.session
-        # The request page knows who they are and asks for the form.
-        assert b"Tell us about you" in self.client.get(response.headers["Location"]).content
+        # Nothing proves they own the address yet: confirm it first.
+        assert b"Check your inbox" in self.client.get(response.headers["Location"]).content
 
     @override_settings(SIGNUP_MODE="open")
     def test_unknown_email_on_an_open_deployment_is_signed_in_without_a_workspace(self):
