@@ -22,7 +22,7 @@ class ErrorOriginBackfillTests(TestCase):
         tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=tenant)
         self.standard = baker.make("app.Standard", tenant=tenant)
-        self.migration = import_module("app.migrations.0047_standardexecution_error_origin")
+        self.migration = import_module("app.migrations.0052_standardexecution_error_origin")
 
     def _row(self, status=Status.ERROR, message="", details=None):
         return baker.make(

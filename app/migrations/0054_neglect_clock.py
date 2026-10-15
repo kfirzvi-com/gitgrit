@@ -82,7 +82,7 @@ def start_clocks_for_failing_attachments(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("app", "0048_critical_marks"),
+        ("app", "0053_critical_marks"),
     ]
 
     operations = [

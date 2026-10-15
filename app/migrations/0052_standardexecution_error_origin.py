@@ -43,7 +43,7 @@ def mark_platform_errors(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app', '0046_standard_archived_at'),
+        ('app', '0051_workspace_invitations'),
     ]
 
     operations = [

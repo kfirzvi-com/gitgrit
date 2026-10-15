@@ -206,7 +206,7 @@ class ReleaseDayBackfillTests(TestCase):
         self.tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=self.tenant, default_branch="main")
         self._clock = timezone.now() - timedelta(days=10)
-        self.migration = import_module("app.migrations.0049_neglect_clock")
+        self.migration = import_module("app.migrations.0054_neglect_clock")
 
     def _attach(self, name, **kwargs):
         kwargs.setdefault("enabled", True)

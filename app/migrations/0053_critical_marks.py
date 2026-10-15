@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app', '0047_standardexecution_error_origin'),
+        ('app', '0052_standardexecution_error_origin'),
     ]
 
     operations = [
