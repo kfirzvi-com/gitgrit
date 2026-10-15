@@ -1,0 +1,76 @@
+{% load static %}<!doctype html>
+{# The one layout every GitGrit email shares. An email extends it and fills: #}
+{#   preheader — the grey preview line inboxes show after the subject        #}
+{#   heading   — the big line at the top of the card                          #}
+{#   content   — the body; use the components in email/_*.html               #}
+{#   reason    — why this person got it, finishing "You received this …"     #}
+{# Styles live in the <style> block below only; the mailer inlines them into #}
+{# every element at send time (css-inline) and drops the block, as many mail #}
+{# clients ignore <style>. So: no @media, no pseudo-classes, nothing that    #}
+{# can't be inlined. Keep layout in tables: Outlook still renders with Word. #}
+{# Mailpit's "HTML Check" tab scores client support; keep it clean.          #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>{{ subject }}</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #eef1f5; -webkit-text-size-adjust: 100%; }
+    .wrapper { background-color: #eef1f5; padding: 24px 8px; }
+    .container { width: 100%; max-width: 560px; }
+    .preheader { display: none; color: #eef1f5; font-size: 1px; line-height: 1px; }
+    .header { background-color: #181e28; border-radius: 12px 12px 0 0; padding: 18px 24px; border-bottom: 3px solid #00a3af; }
+    .brand { font-family: 'DM Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 700; color: #e1e5eb; letter-spacing: 0.2px; padding-left: 10px; }
+    .card { background-color: #ffffff; padding: 28px 24px 24px; border-radius: 0 0 12px 12px; font-family: 'DM Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1f2933; font-size: 16px; line-height: 1.6; }
+    h1 { margin: 0 0 16px; font-size: 24px; line-height: 1.3; font-weight: 700; color: #0b0f17; }
+    p { margin: 0 0 16px; }
+    a { color: #007c86; }
+    .muted { color: #5b6573; font-size: 14px; }
+    .facts { width: 100%; margin: 4px 0 20px; border-collapse: collapse; }
+    .fact-label { width: 32%; padding: 8px 12px 8px 0; color: #5b6573; font-size: 14px; vertical-align: top; border-bottom: 1px solid #e6e9ee; }
+    .fact-value { padding: 8px 0; font-size: 15px; color: #1f2933; vertical-align: top; border-bottom: 1px solid #e6e9ee; }
+    .quote { margin: 0 0 20px; padding: 12px 16px; background-color: #f4f6f9; border-left: 3px solid #00a3af; border-radius: 4px; color: #1f2933; font-size: 15px; }
+    .button { margin: 8px 0 20px; }
+    .button-cell { background-color: #00a3af; border-radius: 8px; }
+    .button-link { display: inline-block; padding: 12px 22px; font-family: 'DM Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; color: #0b0f17; text-decoration: none; }
+    .fallback-link { font-size: 13px; color: #5b6573; }
+    .footer { padding: 20px 28px; font-family: 'DM Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #7c8089; text-align: center; }
+    .footer a { color: #7c8089; }
+  </style>
+</head>
+<body>
+  <div class="preheader">{% block preheader %}{% endblock %}</div>
+  <table role="presentation" class="wrapper" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="container" width="560" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td class="header">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td><img src="{{ site_url }}{% static 'app/images/email-logo.png' %}" width="32" height="32" alt="" style="display: block; border: 0;"></td>
+                  <td class="brand">GitGrit</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="card">
+              <h1>{% block heading %}{% endblock %}</h1>
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+          <tr>
+            <td class="footer">
+              You received this because {% block reason %}you have a GitGrit account{% endblock %}.<br>
+              <a href="{{ site_url }}">GitGrit</a> · Repository standards &amp; compliance
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

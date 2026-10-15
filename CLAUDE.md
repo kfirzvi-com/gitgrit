@@ -27,6 +27,9 @@ uv run python manage.py runserver
 # the web process only queues them
 # ('notifications' sends emails: to Mailpit, or printed here without EMAIL_HOST)
 uv run python manage.py procrastinate worker --queues=graph,standards,notifications
+
+# Every email, with sample data, into Mailpit: check its "HTML Check" tab
+uv run python manage.py preview_emails
 ```
 
 ## Architecture
