@@ -22,6 +22,9 @@ CONFIGURE = "app.tasks.infer_project_dependencies.configure"
 
 class DashboardMapRefreshTests(TestCase):
     def setUp(self):
+        # GitGrit always keeps one superuser, so another one lets the tests
+        # take the flag off this user.
+        baker.make("app.User", is_superuser=True)
         self.user = baker.make("app.User", is_superuser=True)
         self.tenant = baker.make("app.Tenant")
         baker.make("app.Membership", user=self.user, tenant=self.tenant, role="member")
