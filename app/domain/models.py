@@ -492,6 +492,19 @@ class ProjectStandard(models.Model):
         on_delete=models.CASCADE,
         related_name="project_standards",
     )
+    # Does this standard gate this project: any failing or unverified
+    # critical result makes the grade an F. The mark lives only here, on the
+    # link, so the same standard can gate one project and not another; a
+    # standard itself has no severity. Every attachment starts not critical,
+    # and detaching deletes the row, so reattaching starts not critical too.
+    critical = models.BooleanField(default=False)
+    # The neglect clock: when this standard first failed (or errored in its
+    # own run) on the project's default branch and has not passed since.
+    # The engine sets it on the first counting failure, keeps it through
+    # later failures and errors, and clears it on a pass; GitGrit's own
+    # failures never touch it. Null while the standard is not failing.
+    # Detaching deletes the row, so reattaching starts a fresh clock.
+    first_failed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -998,6 +1011,13 @@ class StandardExecution(models.Model):
         ERROR = "error", "Error"
         SKIPPED = "skipped", "Skipped"
 
+    class ErrorOrigin(models.TextChoices):
+        # The standard's own run raised (or returned details.error).
+        STANDARD = "standard", "Standard"
+        # GitGrit could not run the standard: job failure, stale sweep,
+        # sandbox error, unparseable output.
+        PLATFORM = "platform", "Platform"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
         Project,
@@ -1018,6 +1038,18 @@ class StandardExecution(models.Model):
         default=Status.RUNNING,
     )
     score = models.IntegerField(default=0)
+    # Who an ERROR row belongs to: the standard's own code ("standard", the
+    # default the engine writes) or GitGrit ("platform": job failure, stale
+    # sweep, sandbox error). A platform error never changes the project grade.
+    error_origin = models.CharField(
+        max_length=10,
+        choices=ErrorOrigin.choices,
+        default=ErrorOrigin.STANDARD,
+    )
+    # The attachment's Critical mark when the row was created, so the commit
+    # verdict and the history can read it without the attachment (a standard
+    # detached after the run still explains its old verdict).
+    critical = models.BooleanField(default=False)
     message = models.TextField(blank=True, default="")
     details = models.JSONField(default=dict, blank=True)
     # Chronological execution log (level/message/t_ms entries) captured from the

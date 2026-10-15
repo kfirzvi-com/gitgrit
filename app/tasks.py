@@ -155,8 +155,11 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     from app.domain.models import Project, StandardExecution
 
     def _fail(rows, message: str) -> None:
+        # A job-level failure is ours, not the standard's: the row is marked
+        # platform-origin so the project grade keeps its previous result.
         rows.filter(status=StandardExecution.Status.RUNNING).update(
             status=StandardExecution.Status.ERROR,
+            error_origin=StandardExecution.ErrorOrigin.PLATFORM,
             message=message,
             details={"error": message},
         )
