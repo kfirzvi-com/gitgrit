@@ -23,7 +23,7 @@ from django.core.cache import caches
 from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
-from app.application.standard_results import current_results, group_results, project_score
+from app.application.standard_results import critical_summary, current_results, group_results, project_score
 from app.domain import grading
 from app.domain.models import CommitCheck, StandardExecution
 
@@ -194,6 +194,11 @@ class CommitRow:
     @property
     def score(self) -> int | None:
         return project_score([r for r in self.results if r.status != Status.RUNNING])
+
+    @property
+    def critical(self):
+        """How many critical standards this commit ran and how many failed."""
+        return critical_summary(self.results)
 
     @property
     def result_groups(self) -> list:

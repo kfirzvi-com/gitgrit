@@ -6,7 +6,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Exists, OuterRef
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -28,7 +27,7 @@ from app.application.grading_service import (
     grade_for_project,
     grades_for_tenant,
 )
-from app.application.standard_results import breakdown
+from app.application.standard_results import breakdown, critical_summary
 from app.domain.grading import tone_for
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
@@ -113,24 +112,11 @@ class ProjectListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return context
-        # Two batched reads for the whole list, never one per project: every
-        # project's grade (the dashboard's read) and each project's newest run
-        # of a still-attached standard (what the project page calls "last run").
+        # One batched read for the whole list, never one per project.
         grades = grades_for_tenant(tenant)
-        attached = ProjectStandard.objects.filter(
-            project=OuterRef("project"), standard=OuterRef("standard")
-        )
-        latest_runs = {
-            ex.project_id: ex
-            for ex in StandardExecution.objects.filter(project__tenant=tenant)
-            .filter(Exists(attached))
-            .order_by("project_id", "-created_at")
-            .distinct("project_id")
-        }
         for project in context["projects"]:
             project_grading = grades.get(project.pk)
             project.grade = project_grading.grade if project_grading else None
-            project.last_run = latest_runs.get(project.pk)
         return context
 
 
@@ -232,6 +218,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "status_grade": grade.letter if grade.graded else None,
             "status_tone": tone_for(grade.letter),
             "status_breakdown": breakdown(status),
+            "status_critical": critical_summary(status),
             "status_commits": status_commits,
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
