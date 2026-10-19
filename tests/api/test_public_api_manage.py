@@ -163,7 +163,7 @@ class TestProjects(ManageAPITestCase):
 
         attached = self.send("post", url, {"standards": [str(self.readme.id)]})
         again = self.send("post", url, {"standards": [str(self.readme.id)]})
-        detached = self.send("delete", url, {"standards": [str(self.readme.id)]})
+        detached = self.send("delete", f"{url}{self.readme.id}/")
 
         assert attached.status_code == 200 and attached.json()["runs"]["queued"] == 1
         assert again.json()["runs"] is None
