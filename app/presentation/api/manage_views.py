@@ -222,6 +222,7 @@ class ProjectDetailView(WorkspaceAPIView):
         operation_id="get_project",
         tags=["projects"],
         summary="Get a project with its attached standards",
+        description="Every attached standard, including drafts and disabled ones, which don't run.",
         responses=s.ProjectDetailSerializer,
     )
     def get(self, request, project_id, **_):
@@ -231,6 +232,7 @@ class ProjectDetailView(WorkspaceAPIView):
         operation_id="update_project",
         tags=["projects"],
         summary="Update a project's lifecycle or owner",
+        description="Only the fields sent change.",
         request=s.ProjectUpdateSerializer,
         responses=s.ProjectDetailSerializer,
     )
@@ -266,24 +268,27 @@ class ProjectStandardsView(views.ProjectStandardsView):
     def post(self, request, project_id, **_):
         return self._change(request, project_id, pm.attach_standards)
 
-    @extend_schema(
-        operation_id="detach_project_standards",
-        tags=["projects"],
-        summary="Detach standards from a project",
-        request=s.StandardIdsSerializer,
-        responses=s.ProjectStandardsChangeSerializer,
-    )
-    def delete(self, request, project_id, **_):
-        return self._change(request, project_id, pm.detach_standards)
-
     def _change(self, request, project_id, change):
         body = s.StandardIdsSerializer(data=request.data)
         body.is_valid(raise_exception=True)
+        return _changed(change(pm.get_project(self.tenant, project_id), body.validated_data["standards"]))
+
+
+class ProjectStandardView(WorkspaceAPIView):
+    @extend_schema(
+        operation_id="detach_project_standard",
+        tags=["projects"],
+        summary="Detach a standard from a project",
+        description="Its past results stay; it just stops running on the project.",
+        responses={200: s.ProjectStandardsChangeSerializer},
+    )
+    def delete(self, request, project_id, standard_id, **_):
         project = pm.get_project(self.tenant, project_id)
-        result = change(project, body.validated_data["standards"])
-        return Response(
-            {"standards": [_attached(x) for x in result["standards"]], "runs": result["runs"]}
-        )
+        return _changed(pm.detach_standards(project, [standard_id]))
+
+
+def _changed(result) -> Response:
+    return Response({"standards": [_attached(x) for x in result["standards"]], "runs": result["runs"]})
 
 
 # --- standards on/off ---------------------------------------------------------
@@ -313,6 +318,7 @@ class StandardDisableView(StandardEnableView):
         operation_id="disable_standard",
         tags=["standards"],
         summary="Turn a standard off",
+        description="It stops running everywhere; its attachments stay.",
         request=None,
         responses=s.StandardEnabledSerializer,
     )
@@ -352,6 +358,7 @@ class MarketplacePackView(WorkspaceAPIView):
         operation_id="get_marketplace_pack",
         tags=["marketplace"],
         summary="A pack and its standards",
+        description="Each standard carries this workspace's install state.",
         responses=s.MarketplacePackSerializer,
     )
     def get(self, request, slug, **_):

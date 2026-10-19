@@ -28,6 +28,11 @@ workspace_patterns = [
         name="api_project_standards",
     ),
     path(
+        "projects/<uuid:project_id>/standards/<uuid:standard_id>/",
+        manage_views.ProjectStandardView.as_view(),
+        name="api_project_standard",
+    ),
+    path(
         "projects/<uuid:project_id>/branches/",
         views.ProjectBranchesView.as_view(),
         name="api_project_branches",

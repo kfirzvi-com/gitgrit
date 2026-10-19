@@ -949,9 +949,6 @@ type ClientInterface interface {
 	// GetProjectHealth request
 	GetProjectHealth(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, params *GetProjectHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DetachProjectStandards request
-	DetachProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListProjectStandards request
 	ListProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -959,6 +956,9 @@ type ClientInterface interface {
 	AttachProjectStandardsWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AttachProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetachProjectStandard request
+	DetachProjectStandard(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectStatus request
 	GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1282,18 +1282,6 @@ func (c *Client) GetProjectHealth(ctx context.Context, workspaceId openapi_types
 	return c.Client.Do(req)
 }
 
-func (c *Client) DetachProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDetachProjectStandardsRequest(c.Server, workspaceId, projectId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) ListProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectStandardsRequest(c.Server, workspaceId, projectId)
 	if err != nil {
@@ -1320,6 +1308,18 @@ func (c *Client) AttachProjectStandardsWithBody(ctx context.Context, workspaceId
 
 func (c *Client) AttachProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAttachProjectStandardsRequest(c.Server, workspaceId, projectId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DetachProjectStandard(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachProjectStandardRequest(c.Server, workspaceId, projectId, standardId)
 	if err != nil {
 		return nil, err
 	}
@@ -2429,47 +2429,6 @@ func NewGetProjectHealthRequest(server string, workspaceId openapi_types.UUID, p
 	return req, nil
 }
 
-// NewDetachProjectStandardsRequest generates requests for DetachProjectStandards
-func NewDetachProjectStandardsRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/standards/", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListProjectStandardsRequest generates requests for ListProjectStandards
 func NewListProjectStandardsRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -2561,6 +2520,54 @@ func NewAttachProjectStandardsRequestWithBody(server string, workspaceId openapi
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDetachProjectStandardRequest generates requests for DetachProjectStandard
+func NewDetachProjectStandardRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "standard_id", standardId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/standards/%s/", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -3063,9 +3070,6 @@ type ClientWithResponsesInterface interface {
 	// GetProjectHealthWithResponse request
 	GetProjectHealthWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, params *GetProjectHealthParams, reqEditors ...RequestEditorFn) (*GetProjectHealthResponse, error)
 
-	// DetachProjectStandardsWithResponse request
-	DetachProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardsResponse, error)
-
 	// ListProjectStandardsWithResponse request
 	ListProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectStandardsResponse, error)
 
@@ -3073,6 +3077,9 @@ type ClientWithResponsesInterface interface {
 	AttachProjectStandardsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachProjectStandardsResponse, error)
 
 	AttachProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachProjectStandardsResponse, error)
+
+	// DetachProjectStandardWithResponse request
+	DetachProjectStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardResponse, error)
 
 	// GetProjectStatusWithResponse request
 	GetProjectStatusWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectStatusResponse, error)
@@ -3708,35 +3715,6 @@ func (r GetProjectHealthResponse) ContentType() string {
 	return ""
 }
 
-type DetachProjectStandardsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-}
-
-// Status returns HTTPResponse.Status
-func (r DetachProjectStandardsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DetachProjectStandardsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r DetachProjectStandardsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type ListProjectStandardsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3791,6 +3769,36 @@ func (r AttachProjectStandardsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AttachProjectStandardsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DetachProjectStandardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectStandardsChange
+}
+
+// Status returns HTTPResponse.Status
+func (r DetachProjectStandardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DetachProjectStandardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DetachProjectStandardResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4278,15 +4286,6 @@ func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, 
 	return ParseGetProjectHealthResponse(rsp)
 }
 
-// DetachProjectStandardsWithResponse request returning *DetachProjectStandardsResponse
-func (c *ClientWithResponses) DetachProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardsResponse, error) {
-	rsp, err := c.DetachProjectStandards(ctx, workspaceId, projectId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDetachProjectStandardsResponse(rsp)
-}
-
 // ListProjectStandardsWithResponse request returning *ListProjectStandardsResponse
 func (c *ClientWithResponses) ListProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectStandardsResponse, error) {
 	rsp, err := c.ListProjectStandards(ctx, workspaceId, projectId, reqEditors...)
@@ -4311,6 +4310,15 @@ func (c *ClientWithResponses) AttachProjectStandardsWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseAttachProjectStandardsResponse(rsp)
+}
+
+// DetachProjectStandardWithResponse request returning *DetachProjectStandardResponse
+func (c *ClientWithResponses) DetachProjectStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardResponse, error) {
+	rsp, err := c.DetachProjectStandard(ctx, workspaceId, projectId, standardId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachProjectStandardResponse(rsp)
 }
 
 // GetProjectStatusWithResponse request returning *GetProjectStatusResponse
@@ -4935,22 +4943,6 @@ func ParseGetProjectHealthResponse(rsp *http.Response) (*GetProjectHealthRespons
 	return response, nil
 }
 
-// ParseDetachProjectStandardsResponse parses an HTTP response from a DetachProjectStandardsWithResponse call
-func ParseDetachProjectStandardsResponse(rsp *http.Response) (*DetachProjectStandardsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DetachProjectStandardsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	return response, nil
-}
-
 // ParseListProjectStandardsResponse parses an HTTP response from a ListProjectStandardsWithResponse call
 func ParseListProjectStandardsResponse(rsp *http.Response) (*ListProjectStandardsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4986,6 +4978,32 @@ func ParseAttachProjectStandardsResponse(rsp *http.Response) (*AttachProjectStan
 	}
 
 	response := &AttachProjectStandardsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectStandardsChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDetachProjectStandardResponse parses an HTTP response from a DetachProjectStandardWithResponse call
+func ParseDetachProjectStandardResponse(rsp *http.Response) (*DetachProjectStandardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DetachProjectStandardResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

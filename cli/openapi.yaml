@@ -152,14 +152,7 @@ paths:
   /api/v1/workspaces/{workspace_id}/marketplace/packs/{slug}/:
     get:
       operationId: get_marketplace_pack
-      description: |-
-        Scoped to the workspace named in the URL.
-
-        A user (OAuth or personal token) must be a member of it; a workspace token
-        reaches only its own workspace. Anything else is a 404, so workspace ids
-        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
-        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
-        is 400.
+      description: Each standard carries this workspace's install state.
       summary: A pack and its standards
       parameters:
       - in: path
@@ -340,14 +333,8 @@ paths:
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/:
     get:
       operationId: get_project
-      description: |-
-        Scoped to the workspace named in the URL.
-
-        A user (OAuth or personal token) must be a member of it; a workspace token
-        reaches only its own workspace. Anything else is a 404, so workspace ids
-        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
-        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
-        is 400.
+      description: Every attached standard, including drafts and disabled ones, which
+        don't run.
       summary: Get a project with its attached standards
       parameters:
       - in: path
@@ -377,14 +364,7 @@ paths:
           description: ''
     patch:
       operationId: update_project
-      description: |-
-        Scoped to the workspace named in the URL.
-
-        A user (OAuth or personal token) must be a member of it; a workspace token
-        reaches only its own workspace. Anything else is a 404, so workspace ids
-        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
-        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
-        is 400.
+      description: Only the fields sent change.
       summary: Update a project's lifecycle or owner
       parameters:
       - in: path
@@ -698,14 +678,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectStandardsChange'
           description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/{standard_id}/:
     delete:
-      operationId: detach_project_standards
-      description: 'A project''s standards: the active ones (inherited), attaching,
-        detaching.'
-      summary: Detach standards from a project
+      operationId: detach_project_standard
+      description: Its past results stay; it just stops running on the project.
+      summary: Detach a standard from a project
       parameters:
       - in: path
         name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: standard_id
         schema:
           type: string
           format: uuid
@@ -723,8 +709,12 @@ paths:
       - oauth2:
         - write
       responses:
-        '204':
-          description: No response body
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStandardsChange'
+          description: ''
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/status/:
     get:
       operationId: get_project_status
@@ -978,14 +968,7 @@ paths:
   /api/v1/workspaces/{workspace_id}/standards/{standard_id}/disable/:
     post:
       operationId: disable_standard
-      description: |-
-        Scoped to the workspace named in the URL.
-
-        A user (OAuth or personal token) must be a member of it; a workspace token
-        reaches only its own workspace. Anything else is a 404, so workspace ids
-        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
-        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
-        is 400.
+      description: It stops running everywhere; its attachments stay.
       summary: Turn a standard off
       parameters:
       - in: path
