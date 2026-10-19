@@ -46,6 +46,7 @@ const (
 	PullRequest EventsEnum = "pull_request"
 	Push        EventsEnum = "push"
 	Tag         EventsEnum = "tag"
+	Upload      EventsEnum = "upload"
 )
 
 // Valid indicates whether the value is a known member of the EventsEnum enum.
@@ -56,6 +57,8 @@ func (e EventsEnum) Valid() bool {
 	case Push:
 		return true
 	case Tag:
+		return true
+	case Upload:
 		return true
 	default:
 		return false
@@ -215,11 +218,30 @@ func (e TokenTypeEnum) Valid() bool {
 	}
 }
 
+// Defines values for TypeEnum.
+const (
+	TypeEnumArtifact   TypeEnum = "artifact"
+	TypeEnumRepository TypeEnum = "repository"
+)
+
+// Valid indicates whether the value is a known member of the TypeEnum enum.
+func (e TypeEnum) Valid() bool {
+	switch e {
+	case TypeEnumArtifact:
+		return true
+	case TypeEnumRepository:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebhookEnum.
 const (
 	Active  WebhookEnum = "active"
 	App     WebhookEnum = "app"
 	Missing WebhookEnum = "missing"
+	None    WebhookEnum = "none"
 )
 
 // Valid indicates whether the value is a known member of the WebhookEnum enum.
@@ -230,6 +252,8 @@ func (e WebhookEnum) Valid() bool {
 	case App:
 		return true
 	case Missing:
+		return true
+	case None:
 		return true
 	default:
 		return false
@@ -371,6 +395,30 @@ type CommitScore struct {
 	Value *int `json:"value"`
 }
 
+// CommitUploadRequest defines model for CommitUploadRequest.
+type CommitUploadRequest struct {
+	// Archive The project's files as a .zip or .tar.gz.
+	Archive openapi_types.File `json:"archive"`
+
+	// Branch Defaults to the project's default branch. Standards' Branch/Tag Filter matches it.
+	Branch *string `json:"branch,omitempty"`
+
+	// Message The commit message; its first line is the title.
+	Message *string `json:"message,omitempty"`
+}
+
+// CommitUploadResult defines model for CommitUploadResult.
+type CommitUploadResult struct {
+	Commit UploadedCommit `json:"commit"`
+
+	// Created False when the same archive was uploaded before (it is checked again).
+	Created bool `json:"created"`
+
+	// Message What was queued, in a sentence.
+	Message string `json:"message"`
+	Queued  int    `json:"queued"`
+}
+
 // Connection defines model for Connection.
 type Connection struct {
 	// AccountLogin GitHub App connections: the org or user.
@@ -402,6 +450,7 @@ type ConnectionCreateRequest struct {
 // EventsEnum * `push` - push
 // * `pull_request` - pull_request
 // * `tag` - tag
+// * `upload` - upload
 type EventsEnum string
 
 // Execution defines model for Execution.
@@ -553,30 +602,52 @@ type PlatformEnum string
 
 // Project defines model for Project.
 type Project struct {
-	DefaultBranch string             `json:"default_branch"`
-	Description   string             `json:"description"`
-	FullPath      string             `json:"full_path"`
-	Id            openapi_types.UUID `json:"id"`
-	Languages     []string           `json:"languages"`
-	Lifecycle     string             `json:"lifecycle"`
-	Name          string             `json:"name"`
-	Platform      string             `json:"platform"`
-	Tags          []string           `json:"tags"`
-	WebUrl        string             `json:"web_url"`
+	DefaultBranch string `json:"default_branch"`
+	Description   string `json:"description"`
+
+	// ExternalId The platform's id for the repository; for an artifact project, the caller's own.
+	ExternalId string             `json:"external_id"`
+	FullPath   string             `json:"full_path"`
+	Id         openapi_types.UUID `json:"id"`
+	Languages  []string           `json:"languages"`
+	Lifecycle  string             `json:"lifecycle"`
+	Name       string             `json:"name"`
+
+	// Platform github, gitlab, or artifact.
+	Platform string   `json:"platform"`
+	Tags     []string `json:"tags"`
+	WebUrl   string   `json:"web_url"`
 }
 
-// ProjectCreateRequest defines model for ProjectCreateRequest.
+// ProjectCreateRequest Either kind of project: a repository from a connection (the default),
+// or an artifact project, whose commits are uploaded builds.
 type ProjectCreateRequest struct {
-	// ConnectionId Which connection reaches it. Optional when only one connection can.
+	// ConnectionId `repository` only: which connection reaches it. Optional when only one connection can.
 	ConnectionId *openapi_types.UUID `json:"connection_id,omitempty"`
-	Lifecycle    *string             `json:"lifecycle,omitempty"`
-	Owner        *string             `json:"owner,omitempty"`
+	Description  *string             `json:"description,omitempty"`
 
-	// Repository The repository's path (`org/repo`) or platform id.
-	Repository string `json:"repository"`
+	// ExternalId `artifact` only (required): your own id for the project. Creating it again with the same id returns the existing project (200).
+	ExternalId *string `json:"external_id,omitempty"`
+	Lifecycle  *string `json:"lifecycle,omitempty"`
 
-	// Standards Workspace standards to attach. None are attached unless listed.
+	// Name `artifact` only (required).
+	Name  *string `json:"name,omitempty"`
+	Owner *string `json:"owner,omitempty"`
+
+	// Repository `repository` only (required): the repository's path (`org/repo`) or platform id.
+	Repository *string `json:"repository,omitempty"`
+
+	// Stack `artifact` only: the stack to put it in, found by name or created.
+	Stack *string `json:"stack,omitempty"`
+
+	// Standards Workspace standards to attach. Omitted: none for a repository; for an artifact project, every published standard whose events include `upload`.
 	Standards *[]openapi_types.UUID `json:"standards,omitempty"`
+
+	// Type `repository`: add a repository a connection reaches. `artifact`: create a project whose commits are build archives you upload (`POST projects/<id>/commits/`).
+	//
+	// * `repository` - repository
+	// * `artifact` - artifact
+	Type *TypeEnum `json:"type,omitempty"`
 }
 
 // ProjectCreated defines model for ProjectCreated.
@@ -584,13 +655,18 @@ type ProjectCreated struct {
 	ConnectionId  openapi_types.UUID `json:"connection_id"`
 	DefaultBranch string             `json:"default_branch"`
 	Description   string             `json:"description"`
-	FullPath      string             `json:"full_path"`
-	Id            openapi_types.UUID `json:"id"`
-	Languages     []string           `json:"languages"`
-	Lifecycle     string             `json:"lifecycle"`
-	Name          string             `json:"name"`
-	Owner         string             `json:"owner"`
-	Platform      string             `json:"platform"`
+
+	// ExternalId The platform's id for the repository; for an artifact project, the caller's own.
+	ExternalId string             `json:"external_id"`
+	FullPath   string             `json:"full_path"`
+	Id         openapi_types.UUID `json:"id"`
+	Languages  []string           `json:"languages"`
+	Lifecycle  string             `json:"lifecycle"`
+	Name       string             `json:"name"`
+	Owner      string             `json:"owner"`
+
+	// Platform github, gitlab, or artifact.
+	Platform string `json:"platform"`
 
 	// Runs The first run, when standards were attached.
 	Runs *RunsSummary `json:"runs"`
@@ -600,11 +676,12 @@ type ProjectCreated struct {
 	Tags      []string           `json:"tags"`
 	WebUrl    string             `json:"web_url"`
 
-	// Webhook `app`: events come through the GitHub App; `missing`: re-register from the project page.
+	// Webhook `app`: events come through the GitHub App; `missing`: re-register from the project page; `none`: an artifact project, whose commits are uploaded instead.
 	//
 	// * `app` - app
 	// * `active` - active
 	// * `missing` - missing
+	// * `none` - none
 	Webhook WebhookEnum `json:"webhook"`
 }
 
@@ -613,24 +690,30 @@ type ProjectDetail struct {
 	ConnectionId  openapi_types.UUID `json:"connection_id"`
 	DefaultBranch string             `json:"default_branch"`
 	Description   string             `json:"description"`
-	FullPath      string             `json:"full_path"`
-	Id            openapi_types.UUID `json:"id"`
-	Languages     []string           `json:"languages"`
-	Lifecycle     string             `json:"lifecycle"`
-	Name          string             `json:"name"`
-	Owner         string             `json:"owner"`
-	Platform      string             `json:"platform"`
+
+	// ExternalId The platform's id for the repository; for an artifact project, the caller's own.
+	ExternalId string             `json:"external_id"`
+	FullPath   string             `json:"full_path"`
+	Id         openapi_types.UUID `json:"id"`
+	Languages  []string           `json:"languages"`
+	Lifecycle  string             `json:"lifecycle"`
+	Name       string             `json:"name"`
+	Owner      string             `json:"owner"`
+
+	// Platform github, gitlab, or artifact.
+	Platform string `json:"platform"`
 
 	// Standards Every attached standard, runnable or not.
 	Standards []AttachedStandard `json:"standards"`
 	Tags      []string           `json:"tags"`
 	WebUrl    string             `json:"web_url"`
 
-	// Webhook `app`: events come through the GitHub App; `missing`: re-register from the project page.
+	// Webhook `app`: events come through the GitHub App; `missing`: re-register from the project page; `none`: an artifact project, whose commits are uploaded instead.
 	//
 	// * `app` - app
 	// * `active` - active
 	// * `missing` - missing
+	// * `none` - none
 	Webhook WebhookEnum `json:"webhook"`
 }
 
@@ -730,20 +813,25 @@ type Repository struct {
 
 // ResolvedProject defines model for ResolvedProject.
 type ResolvedProject struct {
-	DefaultBranch string             `json:"default_branch"`
-	Description   string             `json:"description"`
-	FullPath      string             `json:"full_path"`
-	Id            openapi_types.UUID `json:"id"`
-	Languages     []string           `json:"languages"`
-	Lifecycle     string             `json:"lifecycle"`
+	DefaultBranch string `json:"default_branch"`
+	Description   string `json:"description"`
+
+	// ExternalId The platform's id for the repository; for an artifact project, the caller's own.
+	ExternalId string             `json:"external_id"`
+	FullPath   string             `json:"full_path"`
+	Id         openapi_types.UUID `json:"id"`
+	Languages  []string           `json:"languages"`
+	Lifecycle  string             `json:"lifecycle"`
 
 	// MatchedBy * `full_path` - full_path
 	// * `web_url` - web_url
 	MatchedBy MatchedByEnum `json:"matched_by"`
 	Name      string        `json:"name"`
-	Platform  string        `json:"platform"`
-	Tags      []string      `json:"tags"`
-	WebUrl    string        `json:"web_url"`
+
+	// Platform github, gitlab, or artifact.
+	Platform string   `json:"platform"`
+	Tags     []string `json:"tags"`
+	WebUrl   string   `json:"web_url"`
 }
 
 // RunCheckRequest defines model for RunCheckRequest.
@@ -911,6 +999,23 @@ type StatusEnum string
 // * `workspace_token` - workspace_token
 type TokenTypeEnum string
 
+// TypeEnum * `repository` - repository
+// * `artifact` - artifact
+type TypeEnum string
+
+// UploadedCommit defines model for UploadedCommit.
+type UploadedCommit struct {
+	Author    string    `json:"author"`
+	Branch    string    `json:"branch"`
+	CreatedAt time.Time `json:"created_at"`
+	FileCount int       `json:"file_count"`
+	Message   string    `json:"message"`
+
+	// Sha The archive's content hash; poll `commits/<sha>/` for its checks.
+	Sha  string `json:"sha"`
+	Size int    `json:"size"`
+}
+
 // UserRef defines model for UserRef.
 type UserRef struct {
 	Email    string `json:"email"`
@@ -921,6 +1026,7 @@ type UserRef struct {
 // WebhookEnum * `app` - app
 // * `active` - active
 // * `missing` - missing
+// * `none` - none
 type WebhookEnum string
 
 // Workspace defines model for Workspace.
@@ -971,6 +1077,9 @@ type UpdateProjectJSONRequestBody = PatchedProjectUpdateRequest
 
 // RunProjectCheckJSONRequestBody defines body for RunProjectCheck for application/json ContentType.
 type RunProjectCheckJSONRequestBody = RunCheckRequest
+
+// UploadProjectCommitMultipartRequestBody defines body for UploadProjectCommit for multipart/form-data ContentType.
+type UploadProjectCommitMultipartRequestBody = CommitUploadRequest
 
 // AttachProjectStandardsJSONRequestBody defines body for AttachProjectStandards for application/json ContentType.
 type AttachProjectStandardsJSONRequestBody = StandardIdsRequest
@@ -1183,6 +1292,9 @@ type ClientInterface interface {
 
 	// ListProjectCommits request
 	ListProjectCommits(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, params *ListProjectCommitsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadProjectCommitWithBody request with any body
+	UploadProjectCommitWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectCommit request
 	GetProjectCommit(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, sha string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1494,6 +1606,18 @@ func (c *Client) RunProjectCheck(ctx context.Context, workspaceId openapi_types.
 
 func (c *Client) ListProjectCommits(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, params *ListProjectCommitsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectCommitsRequest(c.Server, workspaceId, projectId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadProjectCommitWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadProjectCommitRequestWithBody(c.Server, workspaceId, projectId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2583,6 +2707,49 @@ func NewListProjectCommitsRequest(server string, workspaceId openapi_types.UUID,
 	return req, nil
 }
 
+// NewUploadProjectCommitRequestWithBody generates requests for UploadProjectCommit with any type of body
+func NewUploadProjectCommitRequestWithBody(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/commits/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetProjectCommitRequest generates requests for GetProjectCommit
 func NewGetProjectCommitRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, sha string) (*http.Request, error) {
 	var err error
@@ -3395,6 +3562,9 @@ type ClientWithResponsesInterface interface {
 	// ListProjectCommitsWithResponse request
 	ListProjectCommitsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, params *ListProjectCommitsParams, reqEditors ...RequestEditorFn) (*ListProjectCommitsResponse, error)
 
+	// UploadProjectCommitWithBodyWithResponse request with any body
+	UploadProjectCommitWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadProjectCommitResponse, error)
+
 	// GetProjectCommitWithResponse request
 	GetProjectCommitWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, sha string, reqEditors ...RequestEditorFn) (*GetProjectCommitResponse, error)
 
@@ -3754,6 +3924,7 @@ func (r ListProjectsResponse) ContentType() string {
 type CreateProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *ProjectCreated
 	JSON201      *ProjectCreated
 }
 
@@ -3985,6 +4156,36 @@ func (r ListProjectCommitsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListProjectCommitsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UploadProjectCommitResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *CommitUploadResult
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadProjectCommitResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadProjectCommitResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UploadProjectCommitResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4634,6 +4835,15 @@ func (c *ClientWithResponses) ListProjectCommitsWithResponse(ctx context.Context
 	return ParseListProjectCommitsResponse(rsp)
 }
 
+// UploadProjectCommitWithBodyWithResponse request with arbitrary body returning *UploadProjectCommitResponse
+func (c *ClientWithResponses) UploadProjectCommitWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadProjectCommitResponse, error) {
+	rsp, err := c.UploadProjectCommitWithBody(ctx, workspaceId, projectId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadProjectCommitResponse(rsp)
+}
+
 // GetProjectCommitWithResponse request returning *GetProjectCommitResponse
 func (c *ClientWithResponses) GetProjectCommitWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, sha string, reqEditors ...RequestEditorFn) (*GetProjectCommitResponse, error) {
 	rsp, err := c.GetProjectCommit(ctx, workspaceId, projectId, sha, reqEditors...)
@@ -5083,6 +5293,13 @@ func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, err
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectCreated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest ProjectCreated
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5268,6 +5485,32 @@ func ParseListProjectCommitsResponse(rsp *http.Response) (*ListProjectCommitsRes
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadProjectCommitResponse parses an HTTP response from a UploadProjectCommitWithResponse call
+func ParseUploadProjectCommitResponse(rsp *http.Response) (*UploadProjectCommitResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadProjectCommitResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest CommitUploadResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	}
 

@@ -58,6 +58,19 @@ Create a workspace token (workspace settings → API Tokens) and:
 
 By default the build fails only when the commit fails (every standard ran and a Required one failed); it exits 2 when the commit has no score (a standard errored or never ran). `--fail-under 90` also fails it below an A.
 
+### Artifact projects (uploaded builds)
+
+A project whose files are build artifacts rather than a repository. Name it
+with `--project` (there is no repository to find it from):
+
+```sh
+gitgrit project add --artifact --name "Storefront" --stack "Web Team"   # again: same project
+gitgrit project upload dist.zip --project Storefront -m "Release 1.4.2" --wait
+```
+
+`upload` sends a .zip or .tar.gz as a commit (default branch unless `--branch`);
+`--wait` and `--fail-under` work as for `check`.
+
 ## Develop
 
 ```sh
