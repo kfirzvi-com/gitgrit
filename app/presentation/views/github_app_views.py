@@ -19,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.http import Http404
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from app.domain.models import AuthMethod, Platform, PlatformConnection
@@ -272,6 +273,20 @@ def _record_connection(tenant, installation_id: int, account_login: str, account
     )
 
 
+def _connected(request, connection, created: bool, account_login: str):
+    """Where an admin goes once an installation is linked: a new connection
+    has nothing in it yet, so straight on to picking its repositories; a
+    refreshed one back to the connections it sits among."""
+    who = account_login or "your account"
+    if created:
+        messages.success(
+            request, f"GitHub App connected for {who}. Pick the repositories to add."
+        )
+        return redirect("add_project_search", connection_id=connection.id)
+    messages.success(request, f"GitHub App updated for {who}.")
+    return redirect(reverse("tenant_settings") + "#section-connections")
+
+
 def _existing_connection(tenant, installation_id: int):
     return PlatformConnection.objects.filter(
         tenant=tenant,
@@ -306,7 +321,7 @@ def _refresh_without_code(request, tenant, installation_id: int):
 
     _record_connection(tenant, installation_id, *account)
     messages.success(request, "GitHub App connection updated.")
-    return redirect("tenant_settings")
+    return redirect(reverse("tenant_settings") + "#section-connections")
 
 
 def _offer_reachable_installations(request, tenant):
@@ -419,18 +434,13 @@ def github_app_choose(request):
         messages.error(request, "You don't have access to that GitHub installation.")
         return redirect("tenant_settings")
 
-    _, created = _record_connection(
+    connection, created = _record_connection(
         tenant,
         chosen["id"],
         chosen.get("account_login", ""),
         chosen.get("account_type", ""),
     )
-    messages.success(
-        request,
-        f'GitHub App {"connected" if created else "updated"} for '
-        f'{chosen.get("account_login") or "your account"}.',
-    )
-    return redirect("tenant_settings")
+    return _connected(request, connection, created, chosen.get("account_login", ""))
 
 
 @login_required
@@ -500,15 +510,10 @@ def github_app_callback(request):
     # A valid state means the user already chose the workspace on the way out —
     # don't ask them again.
     if request.GET.get("state"):
-        _, created = _record_connection(
+        connection, created = _record_connection(
             tenant, installation_id, account_login, account_type
         )
-        messages.success(
-            request,
-            f'GitHub App {"connected" if created else "updated"} for '
-            f'{account_login or "your account"}.',
-        )
-        return redirect("tenant_settings")
+        return _connected(request, connection, created, account_login)
 
     # Records which workspace the confirm page is about to name. The user can
     # switch workspace in another tab before pressing the button, and attaching
@@ -570,15 +575,10 @@ def github_app_confirm(request):
         )
         return redirect("tenant_settings")
 
-    _, created = _record_connection(
+    connection, created = _record_connection(
         tenant,
         pending["installation_id"],
         pending.get("account_login", ""),
         pending.get("account_type", ""),
     )
-    messages.success(
-        request,
-        f'GitHub App {"connected" if created else "updated"} for '
-        f'{pending.get("account_login") or "your account"}.',
-    )
-    return redirect("tenant_settings")
+    return _connected(request, connection, created, pending.get("account_login", ""))

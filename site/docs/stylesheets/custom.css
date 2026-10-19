@@ -410,3 +410,25 @@
   background-color: var(--gg-surface);
   outline: none;
 }
+
+/* ── Ordered lists ──
+ * Tailwind's preflight (loaded for the landing page) sets list-style: none on
+ * every ol, which strips the step numbers from docs content. */
+.md-typeset ol {
+  list-style-type: decimal;
+}
+.md-typeset ol ol {
+  list-style-type: lower-alpha;
+}
+
+/* ── Screenshots (Quick Start and other walkthroughs) ── */
+.md-typeset img.gg-shot {
+  display: block;
+  margin: 1rem auto 1.5rem;
+  border: 1px solid var(--gg-bg-300);
+  border-radius: var(--gg-radius-lg);
+  box-shadow: var(--gg-shadow-card);
+}
+.md-typeset img.gg-shot--narrow {
+  max-width: 28rem;
+}

@@ -42,6 +42,7 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Workspaces & Members: getting-started/workspaces.md
     - Adding Projects: getting-started/projects.md
+    - Command Line: getting-started/cli.md
     - Writing Standards: getting-started/standards.md
   - Features:
     - Standard Marketplace: features/marketplace.md
