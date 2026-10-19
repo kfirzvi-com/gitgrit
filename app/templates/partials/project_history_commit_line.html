@@ -20,6 +20,7 @@ checked"). One line on wide screens; on phones the details wrap under the title.
         {% if row.passed %}<span class="badge badge-soft badge-success badge-sm">{{ row.passed }} passed</span>{% endif %}
         {% if row.failed %}<span class="badge badge-soft badge-error badge-sm">{{ row.failed }} failed</span>{% endif %}
         {% if row.errored %}<span class="badge badge-soft badge-warning badge-sm">{{ row.errored }} error</span>{% endif %}
+        {% include "partials/critical_failed.html" with summary=row.critical compact=True %}
         {% if row.not_run %}<span class="badge badge-ghost badge-sm" title="Current standards that did not run on this commit">{{ row.not_run|length }} not run</span>{% endif %}
       </span>
     {% else %}
