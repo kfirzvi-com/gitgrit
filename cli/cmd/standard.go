@@ -16,7 +16,8 @@ import (
 
 func newStandardCmd() *cobra.Command {
 	c := &cobra.Command{Use: "standard", Aliases: []string{"standards"}, Short: "Manage the workspace's standards"}
-	c.AddCommand(standardList(), standardView(), standardTest(), standardCreate(), standardEdit(), standardDelete())
+	c.AddCommand(standardList(), standardView(), standardTest(), standardCreate(), standardEdit(), standardDelete(),
+		standardSwitch(true), standardSwitch(false))
 	return c
 }
 
@@ -48,13 +49,7 @@ func standardList() *cobra.Command {
 			return emit(cmd.OutOrStdout(), resp.Body, func() {
 				tb := output.NewTable(cmd.OutOrStdout(), "NAME", "STATE", "EVENTS", "LABELS", "ID")
 				for _, s := range *resp.JSON200 {
-					state := "active"
-					if s.Draft {
-						state = "draft"
-					} else if !s.Enabled {
-						state = "disabled"
-					}
-					tb.Row(s.Name, state, strings.Join(s.Events, ","), strings.Join(s.Labels, ","), s.Id.String())
+					tb.Row(s.Name, standardState(s.Enabled, s.Draft), strings.Join(s.Events, ","), strings.Join(s.Labels, ","), s.Id.String())
 				}
 				tb.Flush()
 			})
@@ -307,5 +302,114 @@ func mutationDone(cmd *cobra.Command, verb string, m *api.StandardMutation) {
 	fmt.Fprintf(w, "%s %s (%s).\n", verb, m.Name, m.Id)
 	if m.Runs != nil {
 		fmt.Fprintln(w, m.Runs.Message)
+	}
+}
+
+func standardState(enabled, draft bool) string {
+	switch {
+	case draft:
+		return "draft"
+	case !enabled:
+		return "disabled"
+	}
+	return "active"
+}
+
+// standardIDs turns standard names or ids into ids; all picks every enabled,
+// non-draft standard in the workspace.
+func standardIDs(cmd *cobra.Command, t *target, refs []string, all bool) ([]uuid.UUID, error) {
+	ids := []uuid.UUID{}
+	if len(refs) == 0 && !all {
+		return ids, nil
+	}
+	resp, err := t.s.API.ListStandardsWithResponse(cmd.Context(), t.ws.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkResp(resp.HTTPResponse, resp.Body); err != nil {
+		return nil, err
+	}
+	standards := *resp.JSON200
+	if all {
+		for _, s := range standards {
+			if s.Enabled && !s.Draft {
+				ids = append(ids, s.Id)
+			}
+		}
+		if len(ids) == 0 {
+			return nil, errors.New("the workspace has no enabled standards; install some: gitgrit marketplace list")
+		}
+		return ids, nil
+	}
+	for _, ref := range refs {
+		if id, err := uuid.Parse(ref); err == nil {
+			ids = append(ids, id)
+			continue
+		}
+		var match []uuid.UUID
+		for _, s := range standards {
+			if equalFold(s.Name, ref) {
+				match = append(match, s.Id)
+			}
+		}
+		switch len(match) {
+		case 0:
+			return nil, fmt.Errorf("no standard named %q; see `gitgrit standard list`", ref)
+		case 1:
+			ids = append(ids, match[0])
+		default:
+			return nil, fmt.Errorf("several standards are named %q; use its id", ref)
+		}
+	}
+	return ids, nil
+}
+
+func standardSwitch(on bool) *cobra.Command {
+	use, short := "disable <standard>", "Turn a standard off"
+	if on {
+		use, short = "enable <standard>", "Turn a standard on; it runs on its projects right away"
+	}
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			t, err := resolve(cmd.Context(), "", false)
+			if err != nil {
+				return err
+			}
+			ids, err := standardIDs(cmd, t, args, false)
+			if err != nil {
+				return err
+			}
+			var body []byte
+			var result *api.StandardEnabled
+			if on {
+				resp, err := t.s.API.EnableStandardWithResponse(cmd.Context(), t.ws.ID, ids[0])
+				if err != nil {
+					return err
+				}
+				if err := checkResp(resp.HTTPResponse, resp.Body); err != nil {
+					return err
+				}
+				body, result = resp.Body, resp.JSON200
+			} else {
+				resp, err := t.s.API.DisableStandardWithResponse(cmd.Context(), t.ws.ID, ids[0])
+				if err != nil {
+					return err
+				}
+				if err := checkResp(resp.HTTPResponse, resp.Body); err != nil {
+					return err
+				}
+				body, result = resp.Body, resp.JSON200
+			}
+			return emit(cmd.OutOrStdout(), body, func() {
+				w := cmd.OutOrStdout()
+				fmt.Fprintf(w, "%s is %s.\n", result.Name, standardState(result.Enabled, false))
+				if result.Runs != nil {
+					fmt.Fprintln(w, result.Runs.Message)
+				}
+			})
+		},
 	}
 }

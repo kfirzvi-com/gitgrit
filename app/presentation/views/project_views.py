@@ -1,19 +1,17 @@
 import logging
-import secrets
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
 
-from app.application import commit_checks, stack_service
-from app.application.event_bus import publish
+from app.application import commit_checks, project_management
+from app.application.errors import NotFoundError
 from app.application.commit_checks import (
     branch_commits,
     branch_status,
@@ -22,39 +20,20 @@ from app.application.commit_checks import (
 )
 from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
-from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
-    AuthMethod,
     PlatformConnection,
     Project,
     Stack,
     Standard,
     StandardExecution,
 )
-from app.infrastructure.platform_client import get_platform_client
 
 logger = logging.getLogger(__name__)
 
 
-def _run_newly_attached(request, project, standards, previously_attached_ids):
-    """Publish the attach delta — newly attached, runnable standards are queued
-    to run on the project — and flash the enqueue summary."""
-    newly_runnable = [
-        s
-        for s in standards
-        if s.pk not in previously_attached_ids and s.enabled and not s.draft
-    ]
-    if not newly_runnable:
-        return
-    results = publish(
-        StandardsAttached(
-            project_id=str(project.pk),
-            tenant_id=str(project.tenant_id),
-            standard_ids=tuple(str(s.pk) for s in newly_runnable),
-        )
-    )
-    if results:
-        messages.info(request, results[0]["message"])
+def _flash_runs(request, runs):
+    if runs:
+        messages.info(request, runs["message"])
 
 
 def _existing_owners(tenant):
@@ -271,91 +250,44 @@ def add_project_search(request, connection_id):
     )
 
     if request.method == "POST":
-        external_id = request.POST.get("external_id", "").strip()
-        name = request.POST.get("name", "").strip()
-        full_path = request.POST.get("full_path", "").strip()
-        web_url = request.POST.get("web_url", "").strip()
-        default_branch = request.POST.get("default_branch", "main").strip()
-        description = request.POST.get("description", "").strip()
-        lifecycle = request.POST.get("lifecycle", Project.Lifecycle.DEVELOPMENT)
-
-        if not external_id or not name:
+        repo = {
+            "external_id": request.POST.get("external_id", "").strip(),
+            "name": request.POST.get("name", "").strip(),
+            "full_path": request.POST.get("full_path", "").strip(),
+            "web_url": request.POST.get("web_url", "").strip(),
+            "default_branch": request.POST.get("default_branch", "main").strip(),
+            "description": request.POST.get("description", "").strip(),
+        }
+        if not repo["external_id"] or not repo["name"]:
             messages.error(request, "Please select a project.")
             return redirect("add_project_search", connection_id=connection_id)
 
-        if Project.objects.filter(
-            tenant=tenant, platform_connection=connection, external_id=external_id
-        ).exists():
-            messages.warning(request, f'"{name}" is already added to this workspace.')
-            return redirect("project_list")
-
-        stack_ids = request.POST.getlist("stacks")
-        standard_ids = request.POST.getlist("standards")
-
-        project = Project.objects.create(
-            tenant=tenant,
-            platform_connection=connection,
-            platform=connection.platform,
-            external_id=external_id,
-            name=name,
-            full_path=full_path,
-            web_url=web_url,
-            default_branch=default_branch,
-            description=description,
-            lifecycle=lifecycle,
-            owner=request.POST.get("owner", ""),
-        )
-
-        if stack_ids:
-            stacks = Stack.objects.filter(pk__in=stack_ids, tenant=tenant)
-            stack_service.add_project_to_stacks(tenant=tenant, project=project, stacks=stacks)
-
-        attached_standards = []
-        if standard_ids:
-            attached_standards = list(
-                Standard.objects.filter(pk__in=standard_ids, tenant=tenant)
-            )
-            project.standards.set(attached_standards)
-
         try:
-            client = get_platform_client(connection)
+            added = project_management.add_project(
+                tenant,
+                request.user,
+                connection,
+                repo,
+                lifecycle=request.POST.get("lifecycle", Project.Lifecycle.DEVELOPMENT),
+                owner=request.POST.get("owner", ""),
+                stack_ids=request.POST.getlist("stacks"),
+                standard_ids=request.POST.getlist("standards"),
+            )
+        except project_management.AlreadyAdded:
+            messages.warning(request, f'"{repo["name"]}" is already added to this workspace.')
+            return redirect("project_list")
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("add_project_search", connection_id=connection_id)
 
-            # Fetch languages and topics from platform
-            try:
-                project.languages = client.get_languages(external_id, full_path=full_path)
-                project.tags = client.get_topics(external_id, full_path=full_path)
-                project.save(update_fields=["languages", "tags"])
-            except Exception:
-                logger.exception("Failed to fetch metadata for project %s", project.name)
-
-            # GitHub App connections receive events through the App's own
-            # webhook (configured once on the App), so no per-repo hook is
-            # created. PAT connections still register a per-repo webhook.
-            if connection.auth_method != AuthMethod.GITHUB_APP:
-                webhook_secret = secrets.token_hex(32)
-                target_url = f"{settings.SITE_URL}/api/webhooks/{connection.platform}/"
-                webhook_id = client.create_webhook(external_id, target_url, webhook_secret)
-                project.webhook_id = webhook_id
-                project.webhook_secret = webhook_secret
-                project.save(update_fields=["webhook_id", "webhook_secret"])
-        except Exception:
-            logger.exception("Failed to register webhook for project %s", project.name)
+        if not added.webhook_ok:
             messages.warning(
                 request,
-                f'Project added but webhook registration failed. You can retry from the project page.',
+                "Project added but webhook registration failed. You can retry from the project page.",
             )
-
-        publish(
-            ProjectCreated(
-                project_id=str(project.id), tenant_id=str(tenant.id), user_id=str(request.user.pk)
-            )
-        )
-        messages.success(request, f'Project "{project.name}" added.')
-        # After the metadata fetch above, so language criteria see real data.
-        _run_newly_attached(
-            request, project, attached_standards, previously_attached_ids=set()
-        )
-        return redirect("project_detail", pk=project.pk)
+        messages.success(request, f'Project "{added.project.name}" added.')
+        _flash_runs(request, added.runs)
+        return redirect("project_detail", pk=added.project.pk)
 
     stacks = Stack.objects.filter(tenant=tenant).order_by("name")
 
@@ -383,43 +315,30 @@ def search_projects_api(request):
     if not tenant:
         return JsonResponse({"results": []})
 
-    connection_id = request.GET.get("connection_id")
-    query = request.GET.get("q", "").strip()
-
-    connection = PlatformConnection.objects.filter(
-        id=connection_id, tenant=tenant
-    ).first()
-    if not connection:
+    try:
+        connection = project_management.get_connection(tenant, request.GET.get("connection_id"))
+    except NotFoundError:
         return JsonResponse({"results": []})
 
     try:
-        client = get_platform_client(connection)
-        results = client.search_projects(query)
-        existing_ids = set(
-            Project.objects.filter(
-                tenant=tenant, platform_connection=connection
-            ).values_list("external_id", flat=True)
+        results = project_management.search_repositories(
+            tenant, connection, request.GET.get("q", "")
         )
-        for r in results:
-            r["already_added"] = r["external_id"] in existing_ids
-
-        results = results[:25]
-
-        if request.headers.get("HX-Request"):
-            return render(
-                request,
-                "partials/project_search_results.html",
-                {"results": results},
-            )
-        return JsonResponse({"results": results})
-    except Exception:
-        logger.exception("Failed to search projects")
+    except project_management.PlatformError:
         if request.headers.get("HX-Request"):
             return HttpResponse(
                 '<p class="text-sm text-error">Failed to search platform API. '
                 "Check your connection token.</p>"
             )
         return JsonResponse({"results": [], "error": "Failed to search platform API"})
+
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "partials/project_search_results.html",
+            {"results": results},
+        )
+    return JsonResponse({"results": results})
 
 
 @login_required
@@ -430,26 +349,10 @@ def delete_project(request, pk):
         messages.error(request, "No active workspace.")
         return redirect("project_list")
 
-    project = get_object_or_404(Project, pk=pk, tenant=tenant)
-    name = project.name
-
-    if project.webhook_id:
-        try:
-            client = get_platform_client(project.platform_connection)
-            client.delete_webhook(project.external_id, project.webhook_id)
-        except Exception:
-            logger.exception("Failed to delete webhook for project %s", name)
-
-    project_id = str(project.pk)
-    project.delete()
-    publish(
-        ProjectDeleted(
-            project_id=project_id,
-            tenant_id=str(tenant.id),
-            project_name=name,
-            user_id=str(request.user.pk),
-        )
-    )
+    try:
+        name = project_management.delete_project(tenant, request.user, pk)
+    except NotFoundError:
+        raise Http404
     messages.success(request, f'Project "{name}" removed.')
     return redirect("project_list")
 
@@ -544,12 +447,14 @@ def project_standards(request, pk):
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
 
     if request.method == "POST":
-        standard_ids = request.POST.getlist("standards")
-        standards = list(Standard.objects.filter(pk__in=standard_ids, tenant=tenant))
-        previously_attached_ids = set(
-            project.standards.values_list("pk", flat=True)
-        )
-        project.standards.set(standards)
+        try:
+            result = project_management.set_project_standards(
+                project, request.POST.getlist("standards")
+            )
+        except NotFoundError:
+            messages.error(request, "One of those standards no longer exists. Please try again.")
+            return redirect(reverse("project_detail", args=[pk]) + "#standards")
+        standards = result["standards"]
         count = len(standards)
         if count:
             messages.success(
@@ -576,7 +481,7 @@ def project_standards(request, pk):
                 )
         else:
             messages.success(request, f'All standards detached from "{project.name}".')
-        _run_newly_attached(request, project, standards, previously_attached_ids)
+        _flash_runs(request, result["runs"])
         return redirect(reverse("project_detail", args=[pk]) + "#standards")
 
     if not request.headers.get("HX-Request"):
@@ -607,24 +512,9 @@ def retry_webhook(request, pk):
 
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
 
-    if project.webhook_id:
-        try:
-            client = get_platform_client(project.platform_connection)
-            client.delete_webhook(project.external_id, project.webhook_id)
-        except Exception:
-            logger.exception("Failed to delete old webhook for project %s", project.name)
-
-    try:
-        client = get_platform_client(project.platform_connection)
-        webhook_secret = secrets.token_hex(32)
-        target_url = f"{settings.SITE_URL}/api/webhooks/{project.platform_connection.platform}/"
-        webhook_id = client.create_webhook(project.external_id, target_url, webhook_secret)
-        project.webhook_id = webhook_id
-        project.webhook_secret = webhook_secret
-        project.save(update_fields=["webhook_id", "webhook_secret"])
+    if project_management.register_webhook(project):
         messages.success(request, "Webhook registered successfully.")
-    except Exception:
-        logger.exception("Failed to register webhook for project %s", project.name)
+    else:
         messages.error(request, "Webhook registration failed. Check your connection token.")
 
     return redirect("project_detail", pk=project.pk)

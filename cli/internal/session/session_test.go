@@ -31,6 +31,10 @@ func TestCheck(t *testing.T) {
 	if err := Check(resp(401, "application/json"), []byte(`{"detail":"Invalid token."}`)); err == nil || !strings.Contains(err.Error(), "gitgrit auth login") {
 		t.Errorf("401 should hint at logging in: %v", err)
 	}
+	err = Check(resp(500, "text/html"), []byte("<!doctype html><title>Server Error (500)</title>"))
+	if err == nil || strings.Contains(err.Error(), "<") || !strings.Contains(err.Error(), "Internal Server Error") {
+		t.Errorf("an HTML 500 page should become a one-line error: %v", err)
+	}
 }
 
 func TestResolveHostOrder(t *testing.T) {

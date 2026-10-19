@@ -9,10 +9,12 @@ from rest_framework.views import APIView
 
 from app.application.project_health_service import ProjectHealthService
 from app.application.errors import NotFoundError
+from app.application.project_management import AlreadyAdded, PlatformError
 from app.application.project_service import ProjectService, SandboxService
 from app.application.project_status_service import ProjectStatusService
 from app.application.standard_service import StandardService
 from app.domain.models import APIToken, Membership
+from app.workspace_access import ADMIN_ROLES
 from app.presentation.api import serializers as s
 from app.presentation.api.authentication import APITokenAuthentication, HasToken, ReadWriteScope
 
@@ -61,6 +63,17 @@ class PublicAPIView(APIView):
         return None
 
 
+class Conflict(exceptions.APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "conflict"
+
+
+class PlatformUnavailable(exceptions.APIException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = "The git platform couldn't be reached."
+    default_code = "platform_unavailable"
+
+
 class WorkspaceAPIView(PublicAPIView):
     """Scoped to the workspace named in the URL.
 
@@ -92,9 +105,22 @@ class WorkspaceAPIView(PublicAPIView):
                 return membership.tenant
         raise exceptions.NotFound("Workspace not found.")
 
+    def require_admin(self):
+        """Only a workspace owner or admin — never a workspace token, which
+        has no person behind it."""
+        user = self.actor
+        if user is None or not Membership.objects.filter(
+            user=user, tenant=self.tenant, role__in=ADMIN_ROLES
+        ).exists():
+            raise exceptions.PermissionDenied("Only workspace owners and admins can do this.")
+
     def handle_exception(self, exc):
         if isinstance(exc, NotFoundError):
             exc = exceptions.NotFound(str(exc))
+        elif isinstance(exc, AlreadyAdded):
+            exc = Conflict(str(exc))
+        elif isinstance(exc, PlatformError):
+            exc = PlatformUnavailable(str(exc))
         elif isinstance(exc, ValueError):
             exc = exceptions.ValidationError({"detail": str(exc)})
         return super().handle_exception(exc)

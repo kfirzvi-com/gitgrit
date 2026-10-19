@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import FormView, TemplateView
 from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
-from app.application import invitations, membership_service
+from app.application import invitations, membership_service, project_management
 from app.application.workspace_service import (
     can_delete_workspace,
     create_workspace,
@@ -426,43 +426,18 @@ def add_connection(request):
         messages.error(request, "You don't have permission to manage connections.")
         return redirect("tenant_settings")
 
-    platform = request.POST.get("platform", "")
-    display_name = request.POST.get("display_name", "").strip()
-    base_url = request.POST.get("base_url", "").strip()
-    access_token = request.POST.get("access_token", "").strip()
-
-    if not access_token:
-        messages.error(request, "Access token is required.")
-        return redirect("tenant_settings")
-
-    if platform not in (Platform.GITHUB, Platform.GITLAB):
-        messages.error(request, "Invalid platform.")
-        return redirect("tenant_settings")
-
-    if not display_name:
-        platform_labels = {Platform.GITHUB: "GitHub", Platform.GITLAB: "GitLab"}
-        base_name = platform_labels[platform]
-        existing_names = set(
-            PlatformConnection.objects.filter(tenant=tenant).values_list(
-                "display_name", flat=True
-            )
+    try:
+        connection = project_management.add_token_connection(
+            tenant,
+            request.POST.get("platform", ""),
+            request.POST.get("access_token", ""),
+            display_name=request.POST.get("display_name", ""),
+            base_url=request.POST.get("base_url", ""),
         )
-        if base_name not in existing_names:
-            display_name = base_name
-        else:
-            n = 2
-            while f"{base_name} {n}" in existing_names:
-                n += 1
-            display_name = f"{base_name} {n}"
-
-    connection = PlatformConnection(
-        tenant=tenant,
-        platform=platform,
-        display_name=display_name,
-        base_url=base_url,
-        access_token=access_token,
-    )
-    connection.save()
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("tenant_settings")
+    display_name = connection.display_name
     messages.success(request, f'Connection "{display_name}" added.')
     return redirect("tenant_settings")
 

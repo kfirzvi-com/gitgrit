@@ -23,6 +23,24 @@ const (
 	Oauth2Scopes     oauth2ContextKey     = "oauth2.Scopes"
 )
 
+// Defines values for AuthMethodEnum.
+const (
+	GithubApp AuthMethodEnum = "github_app"
+	Pat       AuthMethodEnum = "pat"
+)
+
+// Valid indicates whether the value is a known member of the AuthMethodEnum enum.
+func (e AuthMethodEnum) Valid() bool {
+	switch e {
+	case GithubApp:
+		return true
+	case Pat:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EventsEnum.
 const (
 	PullRequest EventsEnum = "pull_request"
@@ -86,6 +104,24 @@ func (e MatchedByEnum) Valid() bool {
 	}
 }
 
+// Defines values for PlatformEnum.
+const (
+	Github PlatformEnum = "github"
+	Gitlab PlatformEnum = "gitlab"
+)
+
+// Valid indicates whether the value is a known member of the PlatformEnum enum.
+func (e PlatformEnum) Valid() bool {
+	switch e {
+	case Github:
+		return true
+	case Gitlab:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusEnum.
 const (
 	Error   StatusEnum = "error"
@@ -134,6 +170,27 @@ func (e TokenTypeEnum) Valid() bool {
 	}
 }
 
+// Defines values for WebhookEnum.
+const (
+	Active  WebhookEnum = "active"
+	App     WebhookEnum = "app"
+	Missing WebhookEnum = "missing"
+)
+
+// Valid indicates whether the value is a known member of the WebhookEnum enum.
+func (e WebhookEnum) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case App:
+		return true
+	case Missing:
+		return true
+	default:
+		return false
+	}
+}
+
 // ActiveStandard defines model for ActiveStandard.
 type ActiveStandard struct {
 	Description   string             `json:"description"`
@@ -148,6 +205,18 @@ type ActiveStandard struct {
 	// Rules Extracted enforcement rules: watched files, forbidden patterns, flags.
 	Rules map[string]interface{} `json:"rules"`
 }
+
+// AttachedStandard defines model for AttachedStandard.
+type AttachedStandard struct {
+	Draft   bool               `json:"draft"`
+	Enabled bool               `json:"enabled"`
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
+}
+
+// AuthMethodEnum * `pat` - pat
+// * `github_app` - github_app
+type AuthMethodEnum string
 
 // Branch defines model for Branch.
 type Branch struct {
@@ -216,6 +285,34 @@ type CommitPage struct {
 	Page    int      `json:"page"`
 }
 
+// Connection defines model for Connection.
+type Connection struct {
+	// AccountLogin GitHub App connections: the org or user.
+	AccountLogin *string `json:"account_login"`
+
+	// AuthMethod * `pat` - pat
+	// * `github_app` - github_app
+	AuthMethod  AuthMethodEnum     `json:"auth_method"`
+	BaseUrl     string             `json:"base_url"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DisplayName string             `json:"display_name"`
+	Id          openapi_types.UUID `json:"id"`
+	Platform    string             `json:"platform"`
+}
+
+// ConnectionCreateRequest defines model for ConnectionCreateRequest.
+type ConnectionCreateRequest struct {
+	AccessToken string `json:"access_token"`
+
+	// BaseUrl Self-hosted GitLab/GitHub Enterprise. Empty for the public service.
+	BaseUrl     *string `json:"base_url,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Platform * `github` - github
+	// * `gitlab` - gitlab
+	Platform PlatformEnum `json:"platform"`
+}
+
 // EventsEnum * `push` - push
 // * `pull_request` - pull_request
 // * `tag` - tag
@@ -228,6 +325,14 @@ type Execution struct {
 	Project   string    `json:"project"`
 	Score     *int      `json:"score"`
 	Status    string    `json:"status"`
+}
+
+// InstalledStandard defines model for InstalledStandard.
+type InstalledStandard struct {
+	// Created False when the workspace already had it.
+	Created bool               `json:"created"`
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
 }
 
 // LastExecution defines model for LastExecution.
@@ -243,6 +348,42 @@ type LastExecution struct {
 // * `critical` - critical
 // * `unknown` - unknown
 type LevelEnum string
+
+// Marketplace defines model for Marketplace.
+type Marketplace struct {
+	Packs     []MarketplacePack     `json:"packs"`
+	Standards []MarketplaceStandard `json:"standards"`
+}
+
+// MarketplacePack defines model for MarketplacePack.
+type MarketplacePack struct {
+	Description string                `json:"description"`
+	Icon        string                `json:"icon"`
+	Name        string                `json:"name"`
+	Slug        string                `json:"slug"`
+	Standards   []MarketplaceStandard `json:"standards"`
+}
+
+// MarketplaceStandard defines model for MarketplaceStandard.
+type MarketplaceStandard struct {
+	Description string `json:"description"`
+
+	// InstalledStandardId This workspace's copy, when installed.
+	InstalledStandardId *openapi_types.UUID `json:"installed_standard_id"`
+	Labels              []string            `json:"labels"`
+	Name                string              `json:"name"`
+	Slug                string              `json:"slug"`
+	UpdateAvailable     bool                `json:"update_available"`
+	Version             int                 `json:"version"`
+}
+
+// MarketplaceUpdate defines model for MarketplaceUpdate.
+type MarketplaceUpdate struct {
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
+	Runs    *RunsSummary       `json:"runs"`
+	Version int                `json:"version"`
+}
 
 // MatchedByEnum * `full_path` - full_path
 // * `web_url` - web_url
@@ -267,6 +408,21 @@ type Offender struct {
 	StandardId openapi_types.UUID `json:"standard_id"`
 }
 
+// PackInstall defines model for PackInstall.
+type PackInstall struct {
+	Installed []InstalledStandard `json:"installed"`
+	Pack      string              `json:"pack"`
+
+	// Skipped Already in the workspace.
+	Skipped []InstalledStandard `json:"skipped"`
+}
+
+// PatchedProjectUpdateRequest PATCH body — only the fields sent are changed.
+type PatchedProjectUpdateRequest struct {
+	Lifecycle *string `json:"lifecycle,omitempty"`
+	Owner     *string `json:"owner,omitempty"`
+}
+
 // PatchedStandardUpdateRequest PATCH body — only the fields sent are changed.
 type PatchedStandardUpdateRequest struct {
 	ChangeSummary *string       `json:"change_summary,omitempty"`
@@ -281,6 +437,10 @@ type PatchedStandardUpdateRequest struct {
 	RefPattern    *string       `json:"ref_pattern,omitempty"`
 }
 
+// PlatformEnum * `github` - github
+// * `gitlab` - gitlab
+type PlatformEnum string
+
 // Project defines model for Project.
 type Project struct {
 	DefaultBranch string             `json:"default_branch"`
@@ -293,6 +453,75 @@ type Project struct {
 	Platform      string             `json:"platform"`
 	Tags          []string           `json:"tags"`
 	WebUrl        string             `json:"web_url"`
+}
+
+// ProjectCreateRequest defines model for ProjectCreateRequest.
+type ProjectCreateRequest struct {
+	// ConnectionId Which connection reaches it. Optional when only one connection can.
+	ConnectionId *openapi_types.UUID `json:"connection_id,omitempty"`
+	Lifecycle    *string             `json:"lifecycle,omitempty"`
+	Owner        *string             `json:"owner,omitempty"`
+
+	// Repository The repository's path (`org/repo`) or platform id.
+	Repository string `json:"repository"`
+
+	// Standards Workspace standards to attach. None are attached unless listed.
+	Standards *[]openapi_types.UUID `json:"standards,omitempty"`
+}
+
+// ProjectCreated defines model for ProjectCreated.
+type ProjectCreated struct {
+	ConnectionId  openapi_types.UUID `json:"connection_id"`
+	DefaultBranch string             `json:"default_branch"`
+	Description   string             `json:"description"`
+	FullPath      string             `json:"full_path"`
+	Id            openapi_types.UUID `json:"id"`
+	Languages     []string           `json:"languages"`
+	Lifecycle     string             `json:"lifecycle"`
+	Name          string             `json:"name"`
+	Owner         string             `json:"owner"`
+	Platform      string             `json:"platform"`
+
+	// Runs The first run, when standards were attached.
+	Runs *RunsSummary `json:"runs"`
+
+	// Standards Every attached standard, runnable or not.
+	Standards []AttachedStandard `json:"standards"`
+	Tags      []string           `json:"tags"`
+	WebUrl    string             `json:"web_url"`
+
+	// Webhook `app`: events come through the GitHub App; `missing`: re-register from the project page.
+	//
+	// * `app` - app
+	// * `active` - active
+	// * `missing` - missing
+	Webhook WebhookEnum `json:"webhook"`
+}
+
+// ProjectDetail defines model for ProjectDetail.
+type ProjectDetail struct {
+	ConnectionId  openapi_types.UUID `json:"connection_id"`
+	DefaultBranch string             `json:"default_branch"`
+	Description   string             `json:"description"`
+	FullPath      string             `json:"full_path"`
+	Id            openapi_types.UUID `json:"id"`
+	Languages     []string           `json:"languages"`
+	Lifecycle     string             `json:"lifecycle"`
+	Name          string             `json:"name"`
+	Owner         string             `json:"owner"`
+	Platform      string             `json:"platform"`
+
+	// Standards Every attached standard, runnable or not.
+	Standards []AttachedStandard `json:"standards"`
+	Tags      []string           `json:"tags"`
+	WebUrl    string             `json:"web_url"`
+
+	// Webhook `app`: events come through the GitHub App; `missing`: re-register from the project page.
+	//
+	// * `app` - app
+	// * `active` - active
+	// * `missing` - missing
+	Webhook WebhookEnum `json:"webhook"`
 }
 
 // ProjectHealth defines model for ProjectHealth.
@@ -328,6 +557,12 @@ type ProjectRef struct {
 	Name string             `json:"name"`
 }
 
+// ProjectStandardsChange defines model for ProjectStandardsChange.
+type ProjectStandardsChange struct {
+	Runs      *RunsSummary       `json:"runs"`
+	Standards []AttachedStandard `json:"standards"`
+}
+
 // ProjectStatus defines model for ProjectStatus.
 type ProjectStatus struct {
 	Failed         int        `json:"failed"`
@@ -337,6 +572,17 @@ type ProjectStatus struct {
 	Project        ProjectRef `json:"project"`
 	TopOffenders   []Offender `json:"top_offenders"`
 	TotalStandards int        `json:"total_standards"`
+}
+
+// Repository defines model for Repository.
+type Repository struct {
+	AlreadyAdded  bool    `json:"already_added"`
+	DefaultBranch *string `json:"default_branch"`
+	Description   *string `json:"description"`
+	ExternalId    string  `json:"external_id"`
+	FullPath      string  `json:"full_path"`
+	Name          string  `json:"name"`
+	WebUrl        string  `json:"web_url"`
 }
 
 // ResolvedProject defines model for ResolvedProject.
@@ -416,6 +662,21 @@ type StandardDetail struct {
 	UpdatedAt        time.Time              `json:"updated_at"`
 }
 
+// StandardEnabled defines model for StandardEnabled.
+type StandardEnabled struct {
+	Enabled bool               `json:"enabled"`
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
+
+	// Runs Queued on its projects when turned on.
+	Runs *RunsSummary `json:"runs"`
+}
+
+// StandardIdsRequest defines model for StandardIdsRequest.
+type StandardIdsRequest struct {
+	Standards []openapi_types.UUID `json:"standards"`
+}
+
 // StandardMutation defines model for StandardMutation.
 type StandardMutation struct {
 	Id   openapi_types.UUID `json:"id"`
@@ -481,6 +742,11 @@ type UserRef struct {
 	Username string `json:"username"`
 }
 
+// WebhookEnum * `app` - app
+// * `active` - active
+// * `missing` - missing
+type WebhookEnum string
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Id   openapi_types.UUID `json:"id"`
@@ -495,6 +761,11 @@ type bearerAuthContextKey string
 
 // oauth2ContextKey is the context key for oauth2 security scheme
 type oauth2ContextKey string
+
+// ListRepositoriesParams defines parameters for ListRepositories.
+type ListRepositoriesParams struct {
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
 
 // ResolveProjectParams defines parameters for ResolveProject.
 type ResolveProjectParams struct {
@@ -513,8 +784,20 @@ type GetProjectHealthParams struct {
 	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
 }
 
+// CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
+type CreateConnectionJSONRequestBody = ConnectionCreateRequest
+
+// CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
+type CreateProjectJSONRequestBody = ProjectCreateRequest
+
+// UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
+type UpdateProjectJSONRequestBody = PatchedProjectUpdateRequest
+
 // RunProjectCheckJSONRequestBody defines body for RunProjectCheck for application/json ContentType.
 type RunProjectCheckJSONRequestBody = RunCheckRequest
+
+// AttachProjectStandardsJSONRequestBody defines body for AttachProjectStandards for application/json ContentType.
+type AttachProjectStandardsJSONRequestBody = StandardIdsRequest
 
 // CreateStandardJSONRequestBody defines body for CreateStandard for application/json ContentType.
 type CreateStandardJSONRequestBody = StandardCreateRequest
@@ -601,11 +884,53 @@ type ClientInterface interface {
 	// GetMe request
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListConnections request
+	ListConnections(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateConnectionWithBody request with any body
+	CreateConnectionWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateConnection(ctx context.Context, workspaceId openapi_types.UUID, body CreateConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRepositories request
+	ListRepositories(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMarketplace request
+	GetMarketplace(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMarketplacePack request
+	GetMarketplacePack(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InstallMarketplacePack request
+	InstallMarketplacePack(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InstallMarketplaceStandard request
+	InstallMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateMarketplaceStandard request
+	UpdateMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjects request
 	ListProjects(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateProjectWithBody request with any body
+	CreateProjectWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProject(ctx context.Context, workspaceId openapi_types.UUID, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ResolveProject request
 	ResolveProject(ctx context.Context, workspaceId openapi_types.UUID, params *ResolveProjectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProject request
+	DeleteProject(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProject request
+	GetProject(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectWithBody request with any body
+	UpdateProjectWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateProject(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectBranches request
 	ListProjectBranches(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -626,6 +951,14 @@ type ClientInterface interface {
 
 	// ListProjectStandards request
 	ListProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AttachProjectStandardsWithBody request with any body
+	AttachProjectStandardsWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AttachProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetachProjectStandard request
+	DetachProjectStandard(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectStatus request
 	GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -653,10 +986,124 @@ type ClientInterface interface {
 	UpdateStandardWithBody(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateStandard(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, body UpdateStandardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DisableStandard request
+	DisableStandard(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableStandard request
+	EnableStandard(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListConnections(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListConnectionsRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateConnectionWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateConnectionRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateConnection(ctx context.Context, workspaceId openapi_types.UUID, body CreateConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateConnectionRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListRepositories(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRepositoriesRequest(c.Server, workspaceId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMarketplace(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarketplaceRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMarketplacePack(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarketplacePackRequest(c.Server, workspaceId, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InstallMarketplacePack(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInstallMarketplacePackRequest(c.Server, workspaceId, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InstallMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInstallMarketplaceStandardRequest(c.Server, workspaceId, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMarketplaceStandardRequest(c.Server, workspaceId, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -679,8 +1126,80 @@ func (c *Client) ListProjects(ctx context.Context, workspaceId openapi_types.UUI
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateProjectWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProject(ctx context.Context, workspaceId openapi_types.UUID, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ResolveProject(ctx context.Context, workspaceId openapi_types.UUID, params *ResolveProjectParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResolveProjectRequest(c.Server, workspaceId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProject(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectRequest(c.Server, workspaceId, projectId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProject(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectRequest(c.Server, workspaceId, projectId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProjectWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectRequestWithBody(c.Server, workspaceId, projectId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProject(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectRequest(c.Server, workspaceId, projectId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -765,6 +1284,42 @@ func (c *Client) GetProjectHealth(ctx context.Context, workspaceId openapi_types
 
 func (c *Client) ListProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectStandardsRequest(c.Server, workspaceId, projectId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AttachProjectStandardsWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttachProjectStandardsRequestWithBody(c.Server, workspaceId, projectId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AttachProjectStandards(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttachProjectStandardsRequest(c.Server, workspaceId, projectId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DetachProjectStandard(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachProjectStandardRequest(c.Server, workspaceId, projectId, standardId)
 	if err != nil {
 		return nil, err
 	}
@@ -895,6 +1450,30 @@ func (c *Client) UpdateStandard(ctx context.Context, workspaceId openapi_types.U
 	return c.Client.Do(req)
 }
 
+func (c *Client) DisableStandard(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisableStandardRequest(c.Server, workspaceId, standardId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) EnableStandard(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableStandardRequest(c.Server, workspaceId, standardId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // NewGetMeRequest generates requests for GetMe
 func NewGetMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -915,6 +1494,353 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListConnectionsRequest generates requests for ListConnections
+func NewListConnectionsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/connections/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateConnectionRequest calls the generic CreateConnection builder with application/json body
+func NewCreateConnectionRequest(server string, workspaceId openapi_types.UUID, body CreateConnectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateConnectionRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateConnectionRequestWithBody generates requests for CreateConnection with any type of body
+func NewCreateConnectionRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/connections/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListRepositoriesRequest generates requests for ListRepositories
+func NewListRepositoriesRequest(server string, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connection_id", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/connections/%s/repositories/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMarketplaceRequest generates requests for GetMarketplace
+func NewGetMarketplaceRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/marketplace/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMarketplacePackRequest generates requests for GetMarketplacePack
+func NewGetMarketplacePackRequest(server string, workspaceId openapi_types.UUID, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/marketplace/packs/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewInstallMarketplacePackRequest generates requests for InstallMarketplacePack
+func NewInstallMarketplacePackRequest(server string, workspaceId openapi_types.UUID, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/marketplace/packs/%s/install/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewInstallMarketplaceStandardRequest generates requests for InstallMarketplaceStandard
+func NewInstallMarketplaceStandardRequest(server string, workspaceId openapi_types.UUID, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/marketplace/standards/%s/install/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateMarketplaceStandardRequest generates requests for UpdateMarketplaceStandard
+func NewUpdateMarketplaceStandardRequest(server string, workspaceId openapi_types.UUID, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/marketplace/standards/%s/update/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -952,6 +1878,53 @@ func NewListProjectsRequest(server string, workspaceId openapi_types.UUID) (*htt
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateProjectRequest calls the generic CreateProject builder with application/json body
+func NewCreateProjectRequest(server string, workspaceId openapi_types.UUID, body CreateProjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateProjectRequestWithBody generates requests for CreateProject with any type of body
+func NewCreateProjectRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1025,6 +1998,142 @@ func NewResolveProjectRequest(server string, workspaceId openapi_types.UUID, par
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewDeleteProjectRequest generates requests for DeleteProject
+func NewDeleteProjectRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectRequest generates requests for GetProject
+func NewGetProjectRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProjectRequest calls the generic UpdateProject builder with application/json body
+func NewUpdateProjectRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProjectRequestWithBody(server, workspaceId, projectId, "application/json", bodyReader)
+}
+
+// NewUpdateProjectRequestWithBody generates requests for UpdateProject with any type of body
+func NewUpdateProjectRequestWithBody(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1361,6 +2470,108 @@ func NewListProjectStandardsRequest(server string, workspaceId openapi_types.UUI
 	return req, nil
 }
 
+// NewAttachProjectStandardsRequest calls the generic AttachProjectStandards builder with application/json body
+func NewAttachProjectStandardsRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAttachProjectStandardsRequestWithBody(server, workspaceId, projectId, "application/json", bodyReader)
+}
+
+// NewAttachProjectStandardsRequestWithBody generates requests for AttachProjectStandards with any type of body
+func NewAttachProjectStandardsRequestWithBody(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/standards/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDetachProjectStandardRequest generates requests for DetachProjectStandard
+func NewDetachProjectStandardRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "standard_id", standardId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/standards/%s/", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetProjectStatusRequest generates requests for GetProjectStatus
 func NewGetProjectStatusRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -1666,6 +2877,88 @@ func NewUpdateStandardRequestWithBody(server string, workspaceId openapi_types.U
 	return req, nil
 }
 
+// NewDisableStandardRequest generates requests for DisableStandard
+func NewDisableStandardRequest(server string, workspaceId openapi_types.UUID, standardId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "standard_id", standardId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/standards/%s/disable/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEnableStandardRequest generates requests for EnableStandard
+func NewEnableStandardRequest(server string, workspaceId openapi_types.UUID, standardId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "standard_id", standardId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/standards/%s/enable/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1712,11 +3005,53 @@ type ClientWithResponsesInterface interface {
 	// GetMeWithResponse request
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
 
+	// ListConnectionsWithResponse request
+	ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error)
+
+	// CreateConnectionWithBodyWithResponse request with any body
+	CreateConnectionWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateConnectionResponse, error)
+
+	CreateConnectionWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateConnectionResponse, error)
+
+	// ListRepositoriesWithResponse request
+	ListRepositoriesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*ListRepositoriesResponse, error)
+
+	// GetMarketplaceWithResponse request
+	GetMarketplaceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetMarketplaceResponse, error)
+
+	// GetMarketplacePackWithResponse request
+	GetMarketplacePackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*GetMarketplacePackResponse, error)
+
+	// InstallMarketplacePackWithResponse request
+	InstallMarketplacePackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*InstallMarketplacePackResponse, error)
+
+	// InstallMarketplaceStandardWithResponse request
+	InstallMarketplaceStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*InstallMarketplaceStandardResponse, error)
+
+	// UpdateMarketplaceStandardWithResponse request
+	UpdateMarketplaceStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*UpdateMarketplaceStandardResponse, error)
+
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
 
+	// CreateProjectWithBodyWithResponse request with any body
+	CreateProjectWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+
+	CreateProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+
 	// ResolveProjectWithResponse request
 	ResolveProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ResolveProjectParams, reqEditors ...RequestEditorFn) (*ResolveProjectResponse, error)
+
+	// DeleteProjectWithResponse request
+	DeleteProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error)
+
+	// GetProjectWithResponse request
+	GetProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectResponse, error)
+
+	// UpdateProjectWithBodyWithResponse request with any body
+	UpdateProjectWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
+
+	UpdateProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
 	// ListProjectBranchesWithResponse request
 	ListProjectBranchesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectBranchesResponse, error)
@@ -1737,6 +3072,14 @@ type ClientWithResponsesInterface interface {
 
 	// ListProjectStandardsWithResponse request
 	ListProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectStandardsResponse, error)
+
+	// AttachProjectStandardsWithBodyWithResponse request with any body
+	AttachProjectStandardsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachProjectStandardsResponse, error)
+
+	AttachProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachProjectStandardsResponse, error)
+
+	// DetachProjectStandardWithResponse request
+	DetachProjectStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardResponse, error)
 
 	// GetProjectStatusWithResponse request
 	GetProjectStatusWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectStatusResponse, error)
@@ -1764,6 +3107,12 @@ type ClientWithResponsesInterface interface {
 	UpdateStandardWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStandardResponse, error)
 
 	UpdateStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, body UpdateStandardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStandardResponse, error)
+
+	// DisableStandardWithResponse request
+	DisableStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DisableStandardResponse, error)
+
+	// EnableStandardWithResponse request
+	EnableStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*EnableStandardResponse, error)
 }
 
 type GetMeResponse struct {
@@ -1790,6 +3139,246 @@ func (r GetMeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListConnectionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Connection
+}
+
+// Status returns HTTPResponse.Status
+func (r ListConnectionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListConnectionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListConnectionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Connection
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListRepositoriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Repository
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRepositoriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRepositoriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListRepositoriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMarketplaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Marketplace
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarketplaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarketplaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMarketplaceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMarketplacePackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MarketplacePack
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarketplacePackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarketplacePackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMarketplacePackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InstallMarketplacePackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PackInstall
+}
+
+// Status returns HTTPResponse.Status
+func (r InstallMarketplacePackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InstallMarketplacePackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InstallMarketplacePackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InstallMarketplaceStandardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InstalledStandard
+}
+
+// Status returns HTTPResponse.Status
+func (r InstallMarketplaceStandardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InstallMarketplaceStandardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InstallMarketplaceStandardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateMarketplaceStandardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MarketplaceUpdate
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateMarketplaceStandardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateMarketplaceStandardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateMarketplaceStandardResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -1826,6 +3415,36 @@ func (r ListProjectsResponse) ContentType() string {
 	return ""
 }
 
+type CreateProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ProjectCreated
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResolveProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1851,6 +3470,95 @@ func (r ResolveProjectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ResolveProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectDetail
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectDetail
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateProjectResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2031,6 +3739,66 @@ func (r ListProjectStandardsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListProjectStandardsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AttachProjectStandardsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectStandardsChange
+}
+
+// Status returns HTTPResponse.Status
+func (r AttachProjectStandardsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AttachProjectStandardsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AttachProjectStandardsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DetachProjectStandardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectStandardsChange
+}
+
+// Status returns HTTPResponse.Status
+func (r DetachProjectStandardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DetachProjectStandardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DetachProjectStandardResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2246,6 +4014,66 @@ func (r UpdateStandardResponse) ContentType() string {
 	return ""
 }
 
+type DisableStandardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StandardEnabled
+}
+
+// Status returns HTTPResponse.Status
+func (r DisableStandardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DisableStandardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DisableStandardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnableStandardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StandardEnabled
+}
+
+// Status returns HTTPResponse.Status
+func (r EnableStandardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnableStandardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnableStandardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // GetMeWithResponse request returning *GetMeResponse
 func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error) {
 	rsp, err := c.GetMe(ctx, reqEditors...)
@@ -2253,6 +4081,86 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 		return nil, err
 	}
 	return ParseGetMeResponse(rsp)
+}
+
+// ListConnectionsWithResponse request returning *ListConnectionsResponse
+func (c *ClientWithResponses) ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error) {
+	rsp, err := c.ListConnections(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListConnectionsResponse(rsp)
+}
+
+// CreateConnectionWithBodyWithResponse request with arbitrary body returning *CreateConnectionResponse
+func (c *ClientWithResponses) CreateConnectionWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateConnectionResponse, error) {
+	rsp, err := c.CreateConnectionWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateConnectionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateConnectionWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateConnectionResponse, error) {
+	rsp, err := c.CreateConnection(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateConnectionResponse(rsp)
+}
+
+// ListRepositoriesWithResponse request returning *ListRepositoriesResponse
+func (c *ClientWithResponses) ListRepositoriesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*ListRepositoriesResponse, error) {
+	rsp, err := c.ListRepositories(ctx, workspaceId, connectionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRepositoriesResponse(rsp)
+}
+
+// GetMarketplaceWithResponse request returning *GetMarketplaceResponse
+func (c *ClientWithResponses) GetMarketplaceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetMarketplaceResponse, error) {
+	rsp, err := c.GetMarketplace(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarketplaceResponse(rsp)
+}
+
+// GetMarketplacePackWithResponse request returning *GetMarketplacePackResponse
+func (c *ClientWithResponses) GetMarketplacePackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*GetMarketplacePackResponse, error) {
+	rsp, err := c.GetMarketplacePack(ctx, workspaceId, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarketplacePackResponse(rsp)
+}
+
+// InstallMarketplacePackWithResponse request returning *InstallMarketplacePackResponse
+func (c *ClientWithResponses) InstallMarketplacePackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*InstallMarketplacePackResponse, error) {
+	rsp, err := c.InstallMarketplacePack(ctx, workspaceId, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInstallMarketplacePackResponse(rsp)
+}
+
+// InstallMarketplaceStandardWithResponse request returning *InstallMarketplaceStandardResponse
+func (c *ClientWithResponses) InstallMarketplaceStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*InstallMarketplaceStandardResponse, error) {
+	rsp, err := c.InstallMarketplaceStandard(ctx, workspaceId, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInstallMarketplaceStandardResponse(rsp)
+}
+
+// UpdateMarketplaceStandardWithResponse request returning *UpdateMarketplaceStandardResponse
+func (c *ClientWithResponses) UpdateMarketplaceStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*UpdateMarketplaceStandardResponse, error) {
+	rsp, err := c.UpdateMarketplaceStandard(ctx, workspaceId, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMarketplaceStandardResponse(rsp)
 }
 
 // ListProjectsWithResponse request returning *ListProjectsResponse
@@ -2264,6 +4172,23 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, work
 	return ParseListProjectsResponse(rsp)
 }
 
+// CreateProjectWithBodyWithResponse request with arbitrary body returning *CreateProjectResponse
+func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
+	rsp, err := c.CreateProjectWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
+	rsp, err := c.CreateProject(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectResponse(rsp)
+}
+
 // ResolveProjectWithResponse request returning *ResolveProjectResponse
 func (c *ClientWithResponses) ResolveProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ResolveProjectParams, reqEditors ...RequestEditorFn) (*ResolveProjectResponse, error) {
 	rsp, err := c.ResolveProject(ctx, workspaceId, params, reqEditors...)
@@ -2271,6 +4196,41 @@ func (c *ClientWithResponses) ResolveProjectWithResponse(ctx context.Context, wo
 		return nil, err
 	}
 	return ParseResolveProjectResponse(rsp)
+}
+
+// DeleteProjectWithResponse request returning *DeleteProjectResponse
+func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error) {
+	rsp, err := c.DeleteProject(ctx, workspaceId, projectId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectResponse(rsp)
+}
+
+// GetProjectWithResponse request returning *GetProjectResponse
+func (c *ClientWithResponses) GetProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectResponse, error) {
+	rsp, err := c.GetProject(ctx, workspaceId, projectId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectResponse(rsp)
+}
+
+// UpdateProjectWithBodyWithResponse request with arbitrary body returning *UpdateProjectResponse
+func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
+	rsp, err := c.UpdateProjectWithBody(ctx, workspaceId, projectId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
+	rsp, err := c.UpdateProject(ctx, workspaceId, projectId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectResponse(rsp)
 }
 
 // ListProjectBranchesWithResponse request returning *ListProjectBranchesResponse
@@ -2333,6 +4293,32 @@ func (c *ClientWithResponses) ListProjectStandardsWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseListProjectStandardsResponse(rsp)
+}
+
+// AttachProjectStandardsWithBodyWithResponse request with arbitrary body returning *AttachProjectStandardsResponse
+func (c *ClientWithResponses) AttachProjectStandardsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachProjectStandardsResponse, error) {
+	rsp, err := c.AttachProjectStandardsWithBody(ctx, workspaceId, projectId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttachProjectStandardsResponse(rsp)
+}
+
+func (c *ClientWithResponses) AttachProjectStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, body AttachProjectStandardsJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachProjectStandardsResponse, error) {
+	rsp, err := c.AttachProjectStandards(ctx, workspaceId, projectId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttachProjectStandardsResponse(rsp)
+}
+
+// DetachProjectStandardWithResponse request returning *DetachProjectStandardResponse
+func (c *ClientWithResponses) DetachProjectStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardResponse, error) {
+	rsp, err := c.DetachProjectStandard(ctx, workspaceId, projectId, standardId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachProjectStandardResponse(rsp)
 }
 
 // GetProjectStatusWithResponse request returning *GetProjectStatusResponse
@@ -2422,6 +4408,24 @@ func (c *ClientWithResponses) UpdateStandardWithResponse(ctx context.Context, wo
 	return ParseUpdateStandardResponse(rsp)
 }
 
+// DisableStandardWithResponse request returning *DisableStandardResponse
+func (c *ClientWithResponses) DisableStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DisableStandardResponse, error) {
+	rsp, err := c.DisableStandard(ctx, workspaceId, standardId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisableStandardResponse(rsp)
+}
+
+// EnableStandardWithResponse request returning *EnableStandardResponse
+func (c *ClientWithResponses) EnableStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*EnableStandardResponse, error) {
+	rsp, err := c.EnableStandard(ctx, workspaceId, standardId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableStandardResponse(rsp)
+}
+
 // ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
 func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2438,6 +4442,214 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Me
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListConnectionsResponse parses an HTTP response from a ListConnectionsWithResponse call
+func ParseListConnectionsResponse(rsp *http.Response) (*ListConnectionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListConnectionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Connection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateConnectionResponse parses an HTTP response from a CreateConnectionWithResponse call
+func ParseCreateConnectionResponse(rsp *http.Response) (*CreateConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Connection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRepositoriesResponse parses an HTTP response from a ListRepositoriesWithResponse call
+func ParseListRepositoriesResponse(rsp *http.Response) (*ListRepositoriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRepositoriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Repository
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMarketplaceResponse parses an HTTP response from a GetMarketplaceWithResponse call
+func ParseGetMarketplaceResponse(rsp *http.Response) (*GetMarketplaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarketplaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Marketplace
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMarketplacePackResponse parses an HTTP response from a GetMarketplacePackWithResponse call
+func ParseGetMarketplacePackResponse(rsp *http.Response) (*GetMarketplacePackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarketplacePackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MarketplacePack
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInstallMarketplacePackResponse parses an HTTP response from a InstallMarketplacePackWithResponse call
+func ParseInstallMarketplacePackResponse(rsp *http.Response) (*InstallMarketplacePackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InstallMarketplacePackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PackInstall
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInstallMarketplaceStandardResponse parses an HTTP response from a InstallMarketplaceStandardWithResponse call
+func ParseInstallMarketplaceStandardResponse(rsp *http.Response) (*InstallMarketplaceStandardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InstallMarketplaceStandardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InstalledStandard
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateMarketplaceStandardResponse parses an HTTP response from a UpdateMarketplaceStandardWithResponse call
+func ParseUpdateMarketplaceStandardResponse(rsp *http.Response) (*UpdateMarketplaceStandardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateMarketplaceStandardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MarketplaceUpdate
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2474,6 +4686,32 @@ func ParseListProjectsResponse(rsp *http.Response) (*ListProjectsResponse, error
 	return response, nil
 }
 
+// ParseCreateProjectResponse parses an HTTP response from a CreateProjectWithResponse call
+func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ProjectCreated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseResolveProjectResponse parses an HTTP response from a ResolveProjectWithResponse call
 func ParseResolveProjectResponse(rsp *http.Response) (*ResolveProjectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2501,6 +4739,74 @@ func ParseResolveProjectResponse(rsp *http.Response) (*ResolveProjectResponse, e
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectResponse parses an HTTP response from a DeleteProjectWithResponse call
+func ParseDeleteProjectResponse(rsp *http.Response) (*DeleteProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectResponse parses an HTTP response from a GetProjectWithResponse call
+func ParseGetProjectResponse(rsp *http.Response) (*GetProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProjectResponse parses an HTTP response from a UpdateProjectWithResponse call
+func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
@@ -2653,6 +4959,58 @@ func ParseListProjectStandardsResponse(rsp *http.Response) (*ListProjectStandard
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []ActiveStandard
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAttachProjectStandardsResponse parses an HTTP response from a AttachProjectStandardsWithResponse call
+func ParseAttachProjectStandardsResponse(rsp *http.Response) (*AttachProjectStandardsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AttachProjectStandardsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectStandardsChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDetachProjectStandardResponse parses an HTTP response from a DetachProjectStandardWithResponse call
+func ParseDetachProjectStandardResponse(rsp *http.Response) (*DetachProjectStandardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DetachProjectStandardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectStandardsChange
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2825,6 +5183,58 @@ func ParseUpdateStandardResponse(rsp *http.Response) (*UpdateStandardResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest StandardMutation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDisableStandardResponse parses an HTTP response from a DisableStandardWithResponse call
+func ParseDisableStandardResponse(rsp *http.Response) (*DisableStandardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DisableStandardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StandardEnabled
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnableStandardResponse parses an HTTP response from a EnableStandardWithResponse call
+func ParseEnableStandardResponse(rsp *http.Response) (*EnableStandardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnableStandardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StandardEnabled
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

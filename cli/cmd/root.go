@@ -70,7 +70,8 @@ In CI, set GITGRIT_TOKEN to a workspace token (workspace settings → API Tokens
 	pf.BoolVar(&jsonFlag, "json", false, "print the API's JSON response")
 
 	root.AddCommand(
-		newAuthCmd(), newWorkspaceCmd(), newProjectCmd(), newHealthCmd(), newBranchesCmd(),
+		newAuthCmd(), newWorkspaceCmd(), newConnectionCmd(), newRepoCmd(), newProjectCmd(),
+		newMarketplaceCmd(), newHealthCmd(), newBranchesCmd(),
 		newCommitsCmd(), newCommitCmd(), newCheckCmd(), newStandardCmd(),
 		newAPICmd(), newUpdateCmd(),
 	)
