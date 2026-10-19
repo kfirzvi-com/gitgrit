@@ -9,10 +9,14 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from app.application.event_bus import publish
-from app.application.standard_service import create_standard_version
-from app.domain.events import StandardActivated
-from app.domain.models import Standard, StandardExecution, StandardLabel, StandardVersion
+from app.application.standard_service import StandardService, create_standard_version
+from app.domain.models import (
+    DraftCannotBeEnabled,
+    Standard,
+    StandardExecution,
+    StandardLabel,
+    StandardVersion,
+)
 from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
 
@@ -291,9 +295,10 @@ def toggle_standard(request, pk):
         return redirect("standard_list")
 
     standard = get_object_or_404(Standard, pk=pk, tenant=tenant)
-
-    # Drafts never run, so a draft can only be disabled.
-    if standard.draft and not standard.enabled:
+    try:
+        result = StandardService().set_enabled(tenant, request.user, standard.pk, not standard.enabled)
+    except DraftCannotBeEnabled:
+        # Drafts never run, so a draft can only be disabled.
         msg = (
             "Draft standards can't be enabled — edit the standard and turn "
             "off Draft first."
@@ -307,22 +312,8 @@ def toggle_standard(request, pk):
             )
         messages.info(request, msg)
         return redirect("standard_list")
-
-    standard.enabled = not standard.enabled
-    standard.save(update_fields=["enabled", "updated_at"])
-
-    # Flipping to runnable is a coverage change — queue it to run on its
-    # projects; the background worker executes it.
-    run_summary = None
-    if standard.enabled and not standard.draft:
-        results = publish(
-            StandardActivated(
-                standard_id=str(standard.id),
-                tenant_id=str(tenant.id),
-                user_id=str(request.user.pk),
-            )
-        )
-        run_summary = results[0] if results else None
+    standard.enabled = result["enabled"]
+    run_summary = result["runs"]
 
     if request.headers.get("HX-Request"):
         label = "Enabled" if standard.enabled else "Disabled"

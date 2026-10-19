@@ -971,6 +971,13 @@ class LiveStandardManager(models.Manager):
         return super().get_queryset().filter(archived_at__isnull=True)
 
 
+class DraftCannotBeEnabled(ValueError):
+    def __init__(self, name: str):
+        super().__init__(
+            f'"{name}" is a draft, and drafts never run. Turn off Draft first.'
+        )
+
+
 class Standard(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(
@@ -1012,6 +1019,16 @@ class Standard(models.Model):
 
     def __str__(self):
         return self.name
+
+    def set_enabled(self, enabled: bool) -> bool:
+        """Turn the standard on or off. Returns whether it is now runnable.
+
+        Drafts never run, so a draft can only be disabled."""
+        if enabled and self.draft:
+            raise DraftCannotBeEnabled(self.name)
+        self.enabled = enabled
+        self.save(update_fields=["enabled", "updated_at"])
+        return self.enabled and not self.draft
 
     def archive(self) -> None:
         """Hide the standard and detach it from every project. Its versions

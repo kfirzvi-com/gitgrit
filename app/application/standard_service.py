@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 
 from app.application.errors import NotFoundError
 from app.application.event_bus import publish
-from app.domain.events import StandardSaved
+from app.domain.events import StandardActivated, StandardSaved
 from app.domain.models import (
     Project,
     Standard,
@@ -221,6 +221,25 @@ class StandardService:
         if runs:
             result["runs"] = runs
         return result
+
+    def set_enabled(self, tenant: Tenant, user: User | None, standard_id: str, enabled: bool) -> dict:
+        """Turn a standard on or off. Turning it on queues it to run on its
+        projects. Returns ``{"id", "name", "enabled", "runs"}``."""
+        try:
+            standard = Standard.objects.get(id=standard_id, tenant=tenant)
+        except (Standard.DoesNotExist, ValidationError):
+            raise NotFoundError(f"Standard {standard_id} not found")
+        runs = None
+        if standard.set_enabled(enabled):
+            results = publish(
+                StandardActivated(
+                    standard_id=str(standard.id),
+                    tenant_id=str(tenant.id),
+                    user_id=str(user.pk) if user else None,
+                )
+            )
+            runs = results[0] if results else None
+        return {"id": str(standard.id), "name": standard.name, "enabled": standard.enabled, "runs": runs}
 
     def delete_standard(self, tenant: Tenant, standard_id: str) -> None:
         try:
