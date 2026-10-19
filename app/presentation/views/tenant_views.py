@@ -437,9 +437,11 @@ def add_connection(request):
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("tenant_settings")
-    display_name = connection.display_name
-    messages.success(request, f'Connection "{display_name}" added.')
-    return redirect("tenant_settings")
+    # A new connection has nothing in it yet: go straight on to its repositories.
+    messages.success(
+        request, f'Connection "{connection.display_name}" added. Pick the repositories to add.'
+    )
+    return redirect("add_project_search", connection_id=connection.id)
 
 
 @login_required
