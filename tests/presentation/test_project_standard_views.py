@@ -190,7 +190,7 @@ class TestAddProjectPersistsStandards(TestCase):
         client.get_topics.return_value = []
         client.create_webhook.return_value = "hook-1"
         with mock.patch(
-            "app.presentation.views.project_views.get_platform_client",
+            "app.application.project_management.get_platform_client",
             return_value=client,
         ), defer_patch() as configure:
             resp = self.client.post(
@@ -227,7 +227,7 @@ class TestAddProjectPersistsStandards(TestCase):
         client.get_topics.return_value = []
         client.create_webhook.return_value = "hook-1"
         with mock.patch(
-            "app.presentation.views.project_views.get_platform_client",
+            "app.application.project_management.get_platform_client",
             return_value=client,
         ):
             resp = self.client.post(

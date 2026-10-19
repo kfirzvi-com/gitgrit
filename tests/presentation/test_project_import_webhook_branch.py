@@ -59,7 +59,7 @@ class TestImportWebhookBranch(TestCase):
         conn = self._connection(tenant, AuthMethod.GITHUB_APP)
         client = self._mock_client()
         with mock.patch(
-            "app.presentation.views.project_views.get_platform_client",
+            "app.application.project_management.get_platform_client",
             return_value=client,
         ):
             resp = self._post_import(conn)
@@ -77,7 +77,7 @@ class TestImportWebhookBranch(TestCase):
         conn = self._connection(tenant, AuthMethod.PAT)
         client = self._mock_client()
         with mock.patch(
-            "app.presentation.views.project_views.get_platform_client",
+            "app.application.project_management.get_platform_client",
             return_value=client,
         ):
             resp = self._post_import(conn)
