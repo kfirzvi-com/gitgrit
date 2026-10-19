@@ -1,5 +1,5 @@
 """Upload projects end to end, short of the container: creating them,
-uploading versions, and running standards on a version's files.
+uploading commits, and running standards on a commit's files.
 
 The sandbox runner is mocked; what it is handed (the mounted directory and
 the input config) is what these tests check.
@@ -19,7 +19,7 @@ from app.domain.models import (
     CommitCheck,
     Platform,
     PlatformConnection,
-    ProjectVersion,
+    UploadCommit,
     StandardExecution,
 )
 from app.domain.uploads import UploadRejected
@@ -102,7 +102,7 @@ class CreateUploadProjectTests(TestCase):
         refresh.assert_not_called()
 
 
-class UploadVersionTests(TestCase):
+class UploadCommitTests(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
         self.standard = _upload_standard(self.tenant, code="CODE")
@@ -112,19 +112,19 @@ class UploadVersionTests(TestCase):
 
     def _upload(self, data=BUILD_V1, **kw):
         with defer_patch() as configure:
-            result = upload_service.upload_version(self.project, data, uploaded_by="platform", **kw)
+            result = upload_service.upload_commit(self.project, data, author="platform", **kw)
         return result, configure
 
     def test_an_upload_is_stored_and_checked_like_a_pushed_commit(self):
-        result, configure = self._upload(label="1.0.0")
+        result, configure = self._upload(message="Release 1.0.0\n\nfirst cut")
 
-        version = result.version
+        commit = result.commit
         self.assertTrue(result.created)
-        self.assertEqual(version.label, "1.0.0")
-        self.assertEqual(version.channel, "main")
-        self.assertEqual(version.file_count, 2)
+        self.assertEqual(commit.title, "Release 1.0.0")
+        self.assertEqual(commit.branch, "main")
+        self.assertEqual(commit.file_count, 2)
         check = CommitCheck.objects.get(project=self.project)
-        self.assertEqual(check.commit_sha, version.digest)
+        self.assertEqual(check.commit_sha, commit.sha)
         self.assertEqual(check.branch, "main")
         self.assertEqual(check.event_type, "upload")
         self.assertEqual(result.run["queued"], 1)
@@ -135,18 +135,18 @@ class UploadVersionTests(TestCase):
         self.project.refresh_from_db()
         self.assertEqual(sorted(self.project.languages), ["HTML", "JavaScript"])
 
-    def test_the_same_bytes_again_are_the_same_version_but_checked_again(self):
+    def test_the_same_bytes_again_are_the_same_commit_but_checked_again(self):
         first, _ = self._upload()
         again, _ = self._upload()
 
         self.assertFalse(again.created)
-        self.assertEqual(again.version.pk, first.version.pk)
-        self.assertEqual(ProjectVersion.objects.count(), 1)
+        self.assertEqual(again.commit.pk, first.commit.pk)
+        self.assertEqual(UploadCommit.objects.count(), 1)
         self.assertEqual(CommitCheck.objects.filter(project=self.project).count(), 2)
 
-    def test_a_channel_is_the_version_branch(self):
-        result, _ = self._upload(channel="review")
-        self.assertEqual(result.version.channel, "review")
+    def test_an_upload_lands_on_the_branch_it_names(self):
+        result, _ = self._upload(branch="review")
+        self.assertEqual(result.commit.branch, "review")
         self.assertEqual(CommitCheck.objects.get().branch, "review")
 
     def test_only_standards_that_run_on_uploads_are_queued(self):
@@ -162,13 +162,13 @@ class UploadVersionTests(TestCase):
     def test_a_rejected_archive_stores_nothing(self):
         with self.assertRaises(UploadRejected):
             self._upload(make_zip({"../escape.js": b"x"}))
-        self.assertFalse(ProjectVersion.objects.exists())
+        self.assertFalse(UploadCommit.objects.exists())
         self.assertFalse(CommitCheck.objects.exists())
 
     def test_a_git_project_takes_no_uploads(self):
         git_project = baker.make("app.Project", tenant=self.tenant)
         with self.assertRaises(ValueError):
-            upload_service.upload_version(git_project, BUILD_V1)
+            upload_service.upload_commit(git_project, BUILD_V1)
 
     def test_a_manual_run_before_any_upload_queues_nothing(self):
         with defer_patch() as configure:
@@ -176,8 +176,8 @@ class UploadVersionTests(TestCase):
         configure.assert_not_called()
 
 
-class RunOnVersionTests(TestCase):
-    """The ``run_standards`` job on an upload project's version."""
+class RunOnCommitTests(TestCase):
+    """The ``run_standards`` job on an upload project's commit."""
 
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
@@ -200,13 +200,13 @@ class RunOnVersionTests(TestCase):
 
     def _upload_and_run(self, data, **kw):
         with defer_patch() as configure:
-            upload_service.upload_version(self.project, data, **kw)
+            upload_service.upload_commit(self.project, data, **kw)
         job = configure.return_value.defer.call_args.kwargs
         with self._runner():
             tasks.run_standards.func(**job)
         return StandardExecution.objects.filter(pk__in=job["execution_ids"])
 
-    def test_the_sandbox_reads_the_version_files_mounted_from_disk(self):
+    def test_the_sandbox_reads_the_commit_files_mounted_from_disk(self):
         executions = self._upload_and_run(BUILD_V1)
 
         self.assertEqual(executions.get().status, StandardExecution.Status.PASSED)
@@ -215,32 +215,32 @@ class RunOnVersionTests(TestCase):
         self.assertEqual(seen["index"], "<html>v1</html>")
         self.assertEqual(seen["config"]["platform"], "upload")
         self.assertNotIn("access_token", seen["config"])
-        self.assertEqual(seen["config"]["ref"], ProjectVersion.objects.get().digest)
+        self.assertEqual(seen["config"]["ref"], UploadCommit.objects.get().sha)
 
     def test_the_extracted_files_are_removed_after_the_job(self):
         self._upload_and_run(BUILD_V1)
         self.assertFalse(Path(self.seen[0]["dir"]).exists())
 
-    def test_each_version_is_read_at_its_own_files(self):
+    def test_each_commit_is_read_at_its_own_files(self):
         self._upload_and_run(BUILD_V1)
         self._upload_and_run(BUILD_V2)
         self.assertEqual([s["index"] for s in self.seen], ["<html>v1</html>", "<html>v2</html>"])
 
-    def test_a_run_on_a_channel_with_no_version_is_an_error_not_a_crash(self):
+    def test_a_run_on_a_branch_with_no_commit_is_an_error_not_a_crash(self):
         with defer_patch() as configure:
-            upload_service.upload_version(self.project, BUILD_V1)
-        ProjectVersion.objects.all().delete()  # gone before the job ran
+            upload_service.upload_commit(self.project, BUILD_V1)
+        UploadCommit.objects.all().delete()  # gone before the job ran
         job = configure.return_value.defer.call_args.kwargs
         with self._runner():
             tasks.run_standards.func(**job)
 
         execution = StandardExecution.objects.get()
         self.assertEqual(execution.status, StandardExecution.Status.ERROR)
-        self.assertIn("No version of Storefront has been uploaded", execution.message)
+        self.assertIn("No commit of Storefront has been uploaded", execution.message)
 
 
-class VersionHistoryTests(TestCase):
-    """The project page's branch/commit history reads versions for uploads."""
+class CommitHistoryTests(TestCase):
+    """The project page's branch and commit history reads uploaded commits."""
 
     def setUp(self):
         tenant = baker.make("app.Tenant")
@@ -249,16 +249,16 @@ class VersionHistoryTests(TestCase):
             tenant, name="Storefront", external_id="ext-42"
         ).project
         with defer_patch():
-            self.v1 = upload_service.upload_version(self.project, BUILD_V1, label="1.0", uploaded_by="platform").version
-            self.v2 = upload_service.upload_version(self.project, BUILD_V2, label="1.1", uploaded_by="platform").version
-            upload_service.upload_version(self.project, make_zip({"x.js": b"x"}), channel="review")
+            self.v1 = upload_service.upload_commit(self.project, BUILD_V1, message="1.0", author="platform").commit
+            self.v2 = upload_service.upload_commit(self.project, BUILD_V2, message="1.1", author="platform").commit
+            upload_service.upload_commit(self.project, make_zip({"x.js": b"x"}), branch="review")
 
-    def test_channels_are_the_branches(self):
+    def test_upload_branches_are_the_branches(self):
         self.assertEqual(branches(self.project), ["main", "review"])
 
-    def test_versions_are_the_commits_newest_first(self):
+    def test_uploads_are_the_commits_newest_first(self):
         rows, has_more = branch_commits(self.project, "main")
-        self.assertEqual([r.sha for r in rows], [self.v2.digest, self.v1.digest])
+        self.assertEqual([r.sha for r in rows], [self.v2.sha, self.v1.sha])
         self.assertEqual([r.title for r in rows], ["1.1", "1.0"])
         self.assertEqual(rows[0].author, "platform")
         self.assertFalse(has_more)
@@ -266,11 +266,11 @@ class VersionHistoryTests(TestCase):
     def test_a_new_upload_shows_at_once_despite_the_cached_list(self):
         branch_commits(self.project, "main")  # cached
         with defer_patch():
-            v3 = upload_service.upload_version(self.project, make_zip({"y.js": b"y"}), label="1.2").version
+            v3 = upload_service.upload_commit(self.project, make_zip({"y.js": b"y"}), message="1.2").commit
         rows, _ = branch_commits(self.project, "main")
-        self.assertEqual(rows[0].sha, v3.digest)
+        self.assertEqual(rows[0].sha, v3.sha)
 
-    def test_a_version_check_reports_through_the_commit_lookup(self):
-        row = commit_results(self.project, self.v2.digest)
+    def test_an_upload_check_reports_through_the_commit_lookup(self):
+        row = commit_results(self.project, self.v2.sha)
         self.assertTrue(row.checked)
         self.assertEqual(row.running, 1)  # queued, the worker has not run it yet

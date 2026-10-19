@@ -11,9 +11,9 @@
   </div>
   <div class="flex flex-wrap items-center gap-2">
     {% if project.is_upload %}
-    <button type="button" class="btn btn-sm btn-primary gap-2" onclick="document.getElementById('upload_modal').showModal()" data-upload-version>
+    <button type="button" class="btn btn-sm btn-primary gap-2" onclick="document.getElementById('upload_modal').showModal()" data-upload-commit>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0-12l-4 4m4-4l4 4"/></svg>
-      Upload version
+      Upload commit
     </button>
     {% endif %}
     <button type="button" class="btn btn-sm btn-outline btn-primary gap-2" onclick="document.getElementById('badge_modal').showModal()">
@@ -39,9 +39,18 @@
 {% if project.is_upload %}
 <dialog id="upload_modal" class="modal">
   <div class="modal-box max-w-xl">
-    <h3 class="font-bold text-lg mb-1">Upload a version of {{ project.name }}</h3>
+    <h3 class="font-bold text-lg mb-1">Upload a commit to {{ project.name }}</h3>
     <p class="text-sm opacity-70 mb-4">The standards whose events include <code>upload</code> run on it, the same as for uploads from the API.</p>
-    {% include "partials/upload_version_form.html" %}
+    {% include "partials/upload_commit_form.html" %}
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{# A commit's files: the Results tab opens this from a commit's SHA. #}
+<dialog id="commit_files_modal" class="modal">
+  <div class="modal-box max-w-6xl">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3" aria-label="Close">✕</button></form>
+    <div id="commit-files"><p class="text-sm opacity-60">Loading files…</p></div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
@@ -82,9 +91,8 @@
 
 {# Three tabs, picked by the URL hash so links can open one: #overview (and   #}
 {# #components), #results (and #compliance, where notifications link) and     #}
-{# #standards; an upload project adds #files. Results, Files and Standards    #}
-{# load their content when first opened (the script sends their loaders       #}
-{# "tab-open").                                                               #}
+{# #standards. Results and Standards load their content when first opened     #}
+{# (the script sends their loaders "tab-open").                               #}
 <div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
   <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
   <div class="tab-content pt-6" id="overview">
@@ -102,16 +110,6 @@
       <div class="card-body"><p class="text-sm opacity-60">Loading branches and commits…</p></div>
     </div>
   </div>
-
-  {% if project.is_upload %}
-  <input type="radio" name="project_tab" class="tab" aria-label="Files" data-tab="files">
-  <div class="tab-content pt-6" id="files">
-    <div id="project-files" class="card bg-base-100 shadow-xl"
-         hx-get="{% url 'project_files' project.pk %}" hx-trigger="tab-open once" hx-swap="outerHTML" data-tab-load data-no-loader>
-      <div class="card-body"><p class="text-sm opacity-60">Loading files…</p></div>
-    </div>
-  </div>
-  {% endif %}
 
   <input type="radio" name="project_tab" class="tab" aria-label="Standards" data-tab="standards">
   <div class="tab-content pt-6" id="standards">
@@ -137,7 +135,7 @@
 
 <script>
   (function () {
-    var byHash = {overview: "overview", components: "overview", results: "results", compliance: "results", files: "files", standards: "standards"};
+    var byHash = {overview: "overview", components: "overview", results: "results", compliance: "results", standards: "standards"};
     var tabs = document.querySelectorAll("[data-project-tabs] input[data-tab]");
     // A tab's panel is the element right after its radio input.
     function load(tab) {
@@ -190,12 +188,22 @@
       }
       openState = null;
     });
-    // An upload from the dialog: close it and follow the new version's run.
-    document.body.addEventListener("versionUploaded", function () {
+    // An upload from the dialog: close it and follow the new commit's run.
+    document.body.addEventListener("commitUploaded", function () {
       var dialog = document.getElementById("upload_modal");
       if (dialog) dialog.close();
       pick("results", true);
       history.replaceState(null, "", "#results");
+    });
+    // An uploaded commit's SHA in the Results tab opens its files. It sits
+    // inside the commit's <summary>, so the click must not toggle the row.
+    document.addEventListener("click", function (e) {
+      var sha = e.target.closest("[data-commit-files-url]");
+      if (!sha) return;
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById("commit_files_modal").showModal();
+      htmx.ajax("GET", sha.dataset.commitFilesUrl, {target: "#commit-files", swap: "innerHTML"});
     });
     document.addEventListener("click", function (e) {
       var link = e.target.closest("[data-open-tab]");

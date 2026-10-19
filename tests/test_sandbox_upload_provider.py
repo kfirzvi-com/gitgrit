@@ -56,4 +56,4 @@ class UploadProviderTests(TmpPathMixin, SimpleTestCase):
         self.assertEqual(self.provider.get_members(), [])
         self.assertEqual(self.provider.get_contributors(), [])
         self.assertIsNone(self.provider.get_file_last_commit_date("index.html"))
-        self.assertEqual(self.provider.get_metadata()["version"], "abc")
+        self.assertEqual(self.provider.get_metadata()["commit"], "abc")

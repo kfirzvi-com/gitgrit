@@ -560,36 +560,35 @@ class UploadProjectCreateSerializer(serializers.Serializer):
     )
 
 
-class VersionUploadSerializer(serializers.Serializer):
+class CommitUploadSerializer(serializers.Serializer):
     archive = serializers.FileField(help_text="The project's files as a .zip or .tar.gz.")
-    label = serializers.CharField(
-        max_length=255, required=False, allow_blank=True, default="",
-        help_text="Your name for the version, e.g. 1.4.2.",
+    message = serializers.CharField(
+        required=False, allow_blank=True, default="", trim_whitespace=False,
+        help_text="The commit message; its first line is the title.",
     )
-    channel = serializers.CharField(
+    branch = serializers.CharField(
         max_length=255, required=False, allow_blank=True, default="",
-        help_text="Plays the branch: standards' Branch/Tag Filter matches it. "
-        "Defaults to the project's default branch.",
+        help_text="Defaults to the project's default branch. Standards' Branch/Tag "
+        "Filter matches it.",
     )
 
 
-class VersionSerializer(serializers.Serializer):
-    id = serializers.UUIDField()
-    digest = serializers.CharField(
-        help_text="Content hash; poll `commits/<digest>/` for the version's checks."
+class UploadedCommitSerializer(serializers.Serializer):
+    sha = serializers.CharField(
+        help_text="The archive's content hash; poll `commits/<sha>/` for its checks."
     )
-    label = serializers.CharField()
-    channel = serializers.CharField()
+    message = serializers.CharField()
+    branch = serializers.CharField()
+    author = serializers.CharField()
     size = serializers.IntegerField()
     file_count = serializers.IntegerField()
-    uploaded_by = serializers.CharField()
     created_at = serializers.DateTimeField()
 
 
-class VersionUploadResultSerializer(serializers.Serializer):
-    version = VersionSerializer()
+class CommitUploadResultSerializer(serializers.Serializer):
+    commit = UploadedCommitSerializer()
     created = serializers.BooleanField(
         help_text="False when the same archive was uploaded before (it is checked again)."
     )
     queued = serializers.IntegerField()
-    message = serializers.CharField()
+    message = serializers.CharField(help_text="What was queued, in a sentence.")

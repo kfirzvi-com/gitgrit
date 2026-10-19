@@ -210,8 +210,6 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
             "notice": notice,
-            # An upload project's commits are its uploaded versions.
-            "unit": "version" if project.is_upload else "commit",
         },
     )
 

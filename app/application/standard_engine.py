@@ -45,9 +45,9 @@ def resolve_llm_roles(tenant) -> dict:
 class StandardEngine:
     def __init__(self) -> None:
         self._runner = None
-        # Upload projects: digest -> host directory holding that version's
+        # Upload projects: commit SHA -> host directory holding that commit's
         # extracted files, shared by every run of the job (see close()).
-        self._version_dirs: dict[str, str] = {}
+        self._commit_dirs: dict[str, str] = {}
 
     @property
     def runner(self) -> SandboxRunner:
@@ -146,34 +146,34 @@ class StandardEngine:
             skip_event_check=skip_event_check,
         )
 
-    def _version_dir(self, project: Project, read_at: str) -> str | None:
+    def _commit_dir(self, project: Project, read_at: str) -> str | None:
         """The host directory holding the files of the upload project's
-        version a run reads: the version whose digest ``read_at`` is, else
-        the latest one on the channel it names. None when there is none.
+        commit a run reads: the commit whose SHA ``read_at`` is, else the
+        latest one on the branch it names. None when there is none.
         Extracted once per job, under the directory the sandbox can mount."""
-        versions = project.versions.all()
-        version = versions.filter(digest=read_at).first() if read_at else None
-        if version is None:
-            version = versions.filter(channel=read_at or project.default_branch).first()
-        if version is None:
+        commits = project.upload_commits.order_by("-created_at")
+        commit = commits.filter(sha=read_at).first() if read_at else None
+        if commit is None:
+            commit = commits.filter(branch=read_at or project.default_branch).first()
+        if commit is None:
             return None
-        if version.digest not in self._version_dirs:
+        if commit.sha not in self._commit_dirs:
             Path(SANDBOX_TMP).mkdir(parents=True, exist_ok=True)
-            target = Path(tempfile.mkdtemp(prefix="version-", dir=SANDBOX_TMP))
+            target = Path(tempfile.mkdtemp(prefix="commit-", dir=SANDBOX_TMP))
             target.chmod(0o755)  # the sandbox's user must be able to read it
             try:
-                archives.extract(upload_storage.read_archive(version.archive_key), target)
+                archives.extract(upload_storage.read_archive(commit.archive_key), target)
             except Exception:
                 shutil.rmtree(target, ignore_errors=True)
                 raise
-            self._version_dirs[version.digest] = str(target)
-        return self._version_dirs[version.digest]
+            self._commit_dirs[commit.sha] = str(target)
+        return self._commit_dirs[commit.sha]
 
     def close(self) -> None:
-        """Remove the version files extracted for this job's runs."""
-        for path in self._version_dirs.values():
+        """Remove the commit files extracted for this job's runs."""
+        for path in self._commit_dirs.values():
             shutil.rmtree(path, ignore_errors=True)
-        self._version_dirs.clear()
+        self._commit_dirs.clear()
 
     def build_input_config(self, project: Project, ref: str | None = None) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
@@ -234,11 +234,11 @@ class StandardEngine:
         config = {**input_config, "ref": read_at}
         if not project.is_upload:
             result = self.runner.run(code, config)
-        elif project_dir := self._version_dir(project, read_at):
+        elif project_dir := self._commit_dir(project, read_at):
             result = self.runner.run(code, config, project_dir=project_dir)
         else:
-            channel = bare_ref(execution.ref) or project.default_branch
-            message = f"No version of {project.name} has been uploaded to {channel} yet."
+            branch = bare_ref(execution.ref) or project.default_branch
+            message = f"No commit of {project.name} has been uploaded to {branch} yet."
             result = {"passed": False, "score": 0, "message": message, "details": {"error": True}}
 
         if result.get("details", {}).get("error"):

@@ -1,0 +1,25 @@
+{% comment %}One uploaded commit's files, in the modal the Results tab opens from the commit's
+SHA: the folder tree (what the sandbox sees: the archive's wrapping folder is dropped) and a
+viewer for one file. Served by commit_files.{% endcomment %}
+<div class="space-y-4" data-commit-files="{{ commit.sha }}">
+  <div class="pr-8">
+    <h3 class="font-bold text-lg break-words">{{ commit.title|default:"Uploaded commit" }}</h3>
+    <p class="text-sm opacity-60" data-commit-summary>
+      <code>{{ commit.sha|slice:":7" }}</code> · {{ commit.branch }}
+      · {% if commit.author %}{{ commit.author }}, {% endif %}{{ commit.created_at|timesince }} ago
+      · {{ tree.file_count }} file{{ tree.file_count|pluralize }} · {{ tree.size|filesizeformat }}
+    </p>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <nav class="lg:col-span-2 rounded-2xl bg-base-200/50 p-3 max-h-[32rem] overflow-auto text-sm" aria-label="Files" data-file-tree>
+      <ul class="menu menu-sm w-full p-0">
+        {% for node in tree.children %}{% include "partials/file_tree_node.html" %}{% endfor %}
+      </ul>
+    </nav>
+    <div id="file-view" class="lg:col-span-3 min-w-0">
+      {% if file %}{% include "partials/file_view.html" %}{% else %}
+        <p class="text-sm opacity-60 p-3">Pick a file to see its contents.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -5,7 +5,7 @@ from app.domain.uploads import (
     ArchiveLimits,
     UploadRejected,
     check_totals,
-    content_digest,
+    commit_sha,
     file_tree,
     languages_from_paths,
     member_path,
@@ -67,12 +67,12 @@ class TotalsTests(SimpleTestCase):
             check_totals(1, 101, self.limits)
 
 
-class DigestTests(SimpleTestCase):
-    def test_the_digest_is_as_wide_as_a_git_sha_and_stable(self):
-        digest = content_digest(b"build")
-        self.assertEqual(len(digest), 40)
-        self.assertEqual(digest, content_digest(b"build"))
-        self.assertNotEqual(digest, content_digest(b"other build"))
+class CommitShaTests(SimpleTestCase):
+    def test_the_sha_is_as_wide_as_a_git_sha_and_stable(self):
+        sha = commit_sha(b"build")
+        self.assertEqual(len(sha), 40)
+        self.assertEqual(sha, commit_sha(b"build"))
+        self.assertNotEqual(sha, commit_sha(b"other build"))
 
 
 class LanguagesTests(SimpleTestCase):

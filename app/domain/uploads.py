@@ -2,7 +2,7 @@
 
 An upload project's files arrive as an archive (zip or tar.gz) instead of
 from a Git repository: e.g. a built app's dist, uploaded by hand or by the
-system that produces it. Each upload becomes a ``ProjectVersion``.
+system that produces it. Each upload is a commit (``UploadCommit``).
 
 The archive is untrusted input. These rules decide what is accepted before
 anything is written to disk: every member path must stay inside the project
@@ -18,9 +18,8 @@ import posixpath
 from collections import Counter
 from dataclasses import dataclass
 
-# Width of a Git commit SHA: a version's digest stands in for one (see
-# ``ProjectVersion``).
-DIGEST_LENGTH = 40
+# Width of a Git commit SHA, which an uploaded commit's SHA matches.
+SHA_LENGTH = 40
 
 
 class UploadRejected(ValueError):
@@ -37,10 +36,10 @@ class ArchiveLimits:
 DEFAULT_LIMITS = ArchiveLimits()
 
 
-def content_digest(data: bytes) -> str:
-    """The version's identity: the first 40 hex characters of the archive's
-    SHA-256. The same bytes uploaded twice are the same version."""
-    return hashlib.sha256(data).hexdigest()[:DIGEST_LENGTH]
+def commit_sha(data: bytes) -> str:
+    """An uploaded commit's SHA: the first 40 hex characters of the
+    archive's SHA-256. The same bytes uploaded twice are the same commit."""
+    return hashlib.sha256(data).hexdigest()[:SHA_LENGTH]
 
 
 def member_path(name: str) -> str:
@@ -109,7 +108,7 @@ def languages_from_paths(paths: list[str]) -> list[str]:
 
 @dataclass
 class TreeNode:
-    """A folder or file of an uploaded version, for browsing. A folder's
+    """A folder or file of an uploaded commit, for browsing. A folder's
     ``size`` and ``file_count`` cover everything under it."""
 
     name: str
@@ -126,7 +125,7 @@ class TreeNode:
 
 
 def file_tree(sizes: dict[str, int]) -> TreeNode:
-    """The folder tree of a version's files (path -> size): folders first,
+    """The folder tree of a commit's files (path -> size): folders first,
     then files, each by name."""
     root = TreeNode(name="", path="", is_dir=True, children=[])
     folders = {"": root}

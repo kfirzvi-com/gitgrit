@@ -1,4 +1,4 @@
-{% comment %}One file of an upload project's version, in the Files tab: text (escaped, wrapped,
+{% comment %}One file of an uploaded commit, in the commit's files modal: text (escaped, wrapped,
 since a minified bundle is one long line), an image preview, or a note for other binaries.{% endcomment %}
 <div class="rounded-2xl bg-base-200/50 overflow-hidden" data-file-view="{{ file.path }}">
   <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-base-200">
@@ -10,7 +10,7 @@ since a minified bundle is one long line), an image preview, or a note for other
     {% endif %}
   </div>
   {% if file.missing %}
-    <p class="text-sm opacity-60 p-4">This version has no such file.</p>
+    <p class="text-sm opacity-60 p-4">This commit has no such file.</p>
   {% elif file.image_url %}
     <div class="p-4 flex justify-center bg-base-300/40">
       <img src="{{ file.image_url }}" alt="{{ file.path }}" class="max-h-[30rem] max-w-full object-contain" style="image-rendering: auto">

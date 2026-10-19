@@ -1,13 +1,14 @@
 """Upload projects: projects whose files arrive as archives, not from Git.
 
 Any project can be one: its files are a build (a built web app's dist, a
-bundle, a release package) rather than a repository. A person uploads
-versions from the project page, or another system does it through the API
-with a workspace token: it creates the upload project (idempotent on its own
-id for it, in a stack found by name) and uploads each new build as a
-version. Each version is checked like a pushed commit: an
-``upload`` event on the version's channel, pinned to the version's digest,
-so the existing commit endpoints report its results.
+bundle, a release package) rather than a repository. Each upload is a
+commit, in Git's terms: a SHA (the archive's content hash), a message, a
+branch and an author. A person uploads commits from the project page, or
+another system does it through the API with a workspace token: it creates
+the upload project (idempotent on its own id for it, in a stack found by
+name) and uploads each new build as a commit. Each commit is checked like a
+pushed one: an ``upload`` event on its branch, pinned to its SHA, so the
+existing commit endpoints report its results.
 """
 from __future__ import annotations
 
@@ -25,15 +26,15 @@ from app.domain.models import (
     Platform,
     PlatformConnection,
     Project,
-    ProjectVersion,
     Stack,
     Standard,
+    UploadCommit,
 )
 from app.domain.uploads import (
     DEFAULT_LIMITS,
     TreeNode,
     UploadRejected,
-    content_digest,
+    commit_sha,
     file_tree,
     languages_from_paths,
 )
@@ -166,50 +167,51 @@ def get_upload_project(tenant, project_id) -> Project:
 
 
 @dataclass
-class UploadedVersion:
-    version: ProjectVersion
+class UploadedCommit:
+    commit: UploadCommit
     created: bool
     run: dict | None  # the enqueue summary; None when no standard applies
 
 
-def upload_version(
+def upload_commit(
     project: Project,
     data: bytes,
     *,
-    label: str = "",
-    channel: str = "",
+    message: str = "",
+    branch: str = "",
     user=None,
-    uploaded_by: str = "",
+    author: str = "",
     limits=DEFAULT_LIMITS,
-) -> UploadedVersion:
-    """Store ``data`` as a version of ``project`` and queue the standards that
-    run on uploads to its ``channel`` (the project's default one when empty).
+) -> UploadedCommit:
+    """Store ``data`` as a commit of ``project`` on ``branch`` (the project's
+    default branch when empty) and queue the standards that run on uploads
+    to that branch.
 
     The archive is checked against the upload rules before anything is
     stored (``UploadRejected`` otherwise). The same bytes uploaded again are
-    the same version: nothing new is stored, but the standards run again, as
-    a repeated push would run them.
+    the same commit: nothing new is stored, but the standards run again, as
+    pushing it again would run them.
     """
     if not project.is_upload:
         raise ValueError(f"{project.name} is not an upload project.")
     manifest = archives.scan(data, limits)
-    digest = content_digest(data)
-    channel = channel.strip() or project.default_branch
-    key = upload_storage.archive_key(project.tenant_id, project.pk, digest)
+    sha = commit_sha(data)
+    branch = branch.strip() or project.default_branch
+    key = upload_storage.archive_key(project.tenant_id, project.pk, sha)
     upload_storage.save_archive(key, data)
 
     with transaction.atomic():
-        version, created = ProjectVersion.objects.get_or_create(
+        commit, created = UploadCommit.objects.get_or_create(
             project=project,
-            digest=digest,
+            sha=sha,
             defaults={
-                "label": label.strip(),
-                "channel": channel,
+                "message": message.strip(),
+                "branch": branch,
                 "archive_key": key,
                 "size": len(data),
                 "file_count": len(manifest.paths),
-                "uploaded_by": uploaded_by,
-                "uploaded_by_user": user,
+                "author": author,
+                "author_user": user,
             },
         )
         languages = languages_from_paths(manifest.paths)
@@ -218,73 +220,65 @@ def upload_version(
             project.save(update_fields=["languages", "updated_at"])
 
         standards = StandardEngine().get_standards_for_project(
-            project, UPLOAD_EVENT, ref=channel
+            project, UPLOAD_EVENT, ref=branch
         )
         run = enqueue_run(
             project,
             standards,
             event_type=UPLOAD_EVENT,
-            triggered_by=uploaded_by,
+            triggered_by=author,
             user=user,
-            ref=channel,
-            commit_sha=digest,
-            committed_at=version.created_at,
+            ref=branch,
+            commit_sha=sha,
+            committed_at=commit.created_at,
             skip_running=False,
         )
-    # Like a push: the project page must not keep showing the version list
-    # it cached before this upload.
+    # Like a push: the project page must not keep showing the commit list it
+    # cached before this upload.
     forget_platform_lists([project])
-    return UploadedVersion(version=version, created=created, run=run)
+    return UploadedCommit(commit=commit, created=created, run=run)
 
 
-
-def version_dict(version: ProjectVersion) -> dict:
+def commit_dict(commit: UploadCommit) -> dict:
     return {
-        "id": str(version.id),
-        "digest": version.digest,
-        "label": version.label,
-        "channel": version.channel,
-        "size": version.size,
-        "file_count": version.file_count,
-        "uploaded_by": version.uploaded_by,
-        "created_at": version.created_at.isoformat(),
+        "sha": commit.sha,
+        "message": commit.message,
+        "branch": commit.branch,
+        "author": commit.author,
+        "size": commit.size,
+        "file_count": commit.file_count,
+        "created_at": commit.created_at.isoformat(),
     }
 
 
-def list_versions(project: Project) -> list[dict]:
-    """Every version of the project, newest first (versions are kept forever)."""
-    return [version_dict(v) for v in project.versions.order_by("-created_at")]
-
-
-def upload_result_dict(result: UploadedVersion) -> dict:
-    """What the upload call answers: the version, and what was queued on it.
-    Poll the version's checks at ``.../commits/<digest>/`` until ``running``
-    is 0."""
+def upload_result_dict(result: UploadedCommit) -> dict:
+    """What the upload call answers: the commit, and what was queued on it.
+    Poll its checks at ``.../commits/<sha>/`` until ``running`` is 0."""
     run = result.run or {"queued": 0, "already_running": 0, "executions": []}
     return {
-        "version": version_dict(result.version),
+        "commit": commit_dict(result.commit),
         "created": result.created,
         "queued": run["queued"],
-        "message": run.get("message") or "No standard runs on uploads to this channel.",
+        "message": run.get("message") or "No standard runs on uploads to this branch.",
     }
 
 
-# --- Browsing a version's files ---------------------------------------------
+# --- Browsing a commit's files ----------------------------------------------
 
 
-def get_version(project: Project, digest: str = "") -> ProjectVersion | None:
-    """The version with ``digest``, or the newest one when ``digest`` is
-    empty. None when there is no such version."""
-    versions = project.versions.order_by("-created_at")
-    return versions.filter(digest=digest).first() if digest else versions.first()
+def get_commit(project: Project, sha: str = "") -> UploadCommit | None:
+    """The uploaded commit with ``sha``, or the newest one when ``sha`` is
+    empty. None when there is no such commit."""
+    commits = project.upload_commits.order_by("-created_at")
+    return commits.filter(sha=sha).first() if sha else commits.first()
 
 
-def version_tree(version: ProjectVersion) -> TreeNode:
-    """The version's folders and files, as the sandbox sees them."""
-    data = upload_storage.read_archive(version.archive_key)
+def commit_tree(commit: UploadCommit) -> TreeNode:
+    """The commit's folders and files, as the sandbox sees them."""
+    data = upload_storage.read_archive(commit.archive_key)
     return file_tree(archives.scan(data).sizes)
 
 
-def version_file(version: ProjectVersion, path: str) -> bytes | None:
-    """One file of the version, or None when it has no such file."""
-    return archives.read_file(upload_storage.read_archive(version.archive_key), path)
+def commit_file(commit: UploadCommit, path: str) -> bytes | None:
+    """One file of the commit, or None when it has no such file."""
+    return archives.read_file(upload_storage.read_archive(commit.archive_key), path)

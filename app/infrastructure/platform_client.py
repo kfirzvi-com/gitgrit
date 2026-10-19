@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import requests
 
-from app.domain.models import AuthMethod, Platform, PlatformConnection, ProjectVersion
+from app.domain.models import AuthMethod, Platform, PlatformConnection, UploadCommit
 
 logger = logging.getLogger(__name__)
 
@@ -441,8 +441,8 @@ class GitLabClient(PlatformClient):
 
 class UploadClient(PlatformClient):
     """The upload connection's "platform": GitGrit itself. An upload
-    project's versions play its commits and their channels its branches
-    (see ``ProjectVersion``), so the project page's history reads them
+    project's commits are its uploads (see ``UploadCommit``), each on a
+    branch, so the project page's history reads them
     through the same interface as a Git platform's."""
 
     def search_projects(self, query: str = "") -> list[dict]:
@@ -457,34 +457,34 @@ class UploadClient(PlatformClient):
     def test_token(self) -> bool:
         return True
 
-    def _versions(self, external_id: str):
-        return ProjectVersion.objects.filter(
+    def _commits(self, external_id: str):
+        return UploadCommit.objects.filter(
             project__platform_connection=self.connection,
             project__external_id=external_id,
         ).order_by("-created_at")
 
     def list_branches(self, external_id: str, full_path: str) -> list[str]:
-        return sorted(set(self._versions(external_id).values_list("channel", flat=True)))
+        return sorted(set(self._commits(external_id).values_list("branch", flat=True)))
 
     def list_commits(
         self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
     ) -> list[dict]:
         start = (page - 1) * per_page
-        versions = self._versions(external_id).filter(channel=branch)[start : start + per_page]
+        commits = self._commits(external_id).filter(branch=branch)[start : start + per_page]
         return [
             {
-                "sha": v.digest,
-                "message": v.label or f"Upload of {v.file_count} files",
-                "author": v.uploaded_by,
-                "date": v.created_at.isoformat(),
+                "sha": c.sha,
+                "message": c.message or f"Upload of {c.file_count} files",
+                "author": c.author,
+                "date": c.created_at.isoformat(),
                 "url": "",
             }
-            for v in versions
+            for c in commits
         ]
 
     def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
-        version = self._versions(external_id).filter(channel=branch).first()
-        return {"sha": version.digest, "date": version.created_at.isoformat()} if version else {}
+        commit = self._commits(external_id).filter(branch=branch).first()
+        return {"sha": commit.sha, "date": commit.created_at.isoformat()} if commit else {}
 
 
 def get_platform_client(connection: PlatformConnection) -> PlatformClient:

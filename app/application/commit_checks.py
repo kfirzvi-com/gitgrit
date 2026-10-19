@@ -118,11 +118,11 @@ def run_on_branch(project, branch: str, *, sha: str = "", committed_at=None, use
     from app.application.standard_runs import enqueue_run
 
     target = sha[:7] if sha else f"the latest commit on {branch}"
-    if project.is_upload and not sha and not project.versions.filter(channel=branch).exists():
-        # Nothing uploaded to this channel: no files a run could read.
+    if project.is_upload and not sha and not project.upload_commits.filter(branch=branch).exists():
+        # Nothing uploaded to this branch: no files a run could read.
         return BranchRun(
             branch=branch, commit_sha="", summary=None,
-            notice=f"No version has been uploaded to {branch} yet.",
+            notice=f"No commit has been uploaded to {branch} yet.",
         )
     if not sha:
         head = resolve_head_commit(project, branch)

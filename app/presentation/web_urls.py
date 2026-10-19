@@ -50,10 +50,10 @@ from app.presentation.views.project_views import (
 )
 from app.presentation.views.upload_views import (
     add_upload_project,
-    project_file_raw,
-    project_files,
+    commit_file_raw,
+    commit_files,
     project_overview_health,
-    upload_project_version,
+    upload_project_commit,
 )
 from app.presentation.views.stack_views import (
     CreateStackView,
@@ -283,17 +283,17 @@ urlpatterns = [
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
     path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
     path(
-        "projects/<uuid:pk>/versions/upload/",
-        upload_project_version,
-        name="upload_project_version",
+        "projects/<uuid:pk>/commits/upload/",
+        upload_project_commit,
+        name="upload_project_commit",
     ),
     path(
         "projects/<uuid:pk>/overview-health/",
         project_overview_health,
         name="project_overview_health",
     ),
-    path("projects/<uuid:pk>/files/", project_files, name="project_files"),
-    path("projects/<uuid:pk>/files/raw/", project_file_raw, name="project_file_raw"),
+    path("projects/<uuid:pk>/commits/files/", commit_files, name="commit_files"),
+    path("projects/<uuid:pk>/commits/files/raw/", commit_file_raw, name="commit_file_raw"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
         "projects/<uuid:pk>/run-standards/",

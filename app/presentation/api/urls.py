@@ -62,11 +62,6 @@ workspace_patterns = [
         views.UploadProjectCreateView.as_view(),
         name="api_upload_projects",
     ),
-    path(
-        "projects/<uuid:project_id>/versions/",
-        views.ProjectVersionsView.as_view(),
-        name="api_project_versions",
-    ),
     path("standards/", views.StandardListView.as_view(), name="api_standards"),
     path("standards/test/", views.StandardTestView.as_view(), name="api_standard_test"),
     path(

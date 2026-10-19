@@ -6,7 +6,7 @@ from pathlib import Path
 
 from providers.base import BaseProvider
 
-# Where the host mounts an upload project's version (read-only).
+# Where the host mounts an upload project's commit (read-only).
 PROJECT_ROOT = "/project"
 
 _LANGUAGES = {
@@ -24,10 +24,10 @@ _LANGUAGES = {
 
 
 class UploadProvider(BaseProvider):
-    """An upload project's files: one uploaded version (e.g. a built app's
+    """An upload project's files: one uploaded commit (e.g. a built app's
     dist), extracted and mounted at ``/project``. There is no repository
     behind it, so membership, contributors, topics and commit dates are
-    empty; ``ref`` is the version's digest."""
+    empty; ``ref`` is the commit's SHA."""
 
     def __init__(self, project_id: str, full_path: str = "", ref: str = "", root: str = PROJECT_ROOT) -> None:
         self.project_id = project_id
@@ -88,7 +88,7 @@ class UploadProvider(BaseProvider):
         return []
 
     def get_metadata(self) -> dict:
-        return {"name": self.full_path, "description": "", "web_url": "", "version": self.ref}
+        return {"name": self.full_path, "description": "", "web_url": "", "commit": self.ref}
 
     def get_file_last_commit_date(self, path: str) -> str | None:
         return None

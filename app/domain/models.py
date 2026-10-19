@@ -239,7 +239,7 @@ class Platform(models.TextChoices):
     GITLAB = "gitlab", "GitLab"
     # Not a Git platform: projects whose files arrive as uploaded archives
     # (e.g. a built app's dist) rather than from a repository. Each upload is
-    # a ``ProjectVersion``; see ``app.domain.uploads``.
+    # an ``UploadCommit``; see ``app.domain.uploads``.
     UPLOAD = "upload", "Upload"
 
     @classmethod
@@ -521,7 +521,7 @@ class Project(models.Model):
     @property
     def is_upload(self) -> bool:
         """True when the project's files arrive as uploaded archives (one
-        ``ProjectVersion`` each) instead of from a Git repository."""
+        ``UploadCommit`` each) instead of from a Git repository."""
         return self.platform == Platform.UPLOAD
 
     # --- Components -----------------------------------------------------------
@@ -1192,55 +1192,61 @@ class MarketplacePack(models.Model):
         return self.name
 
 
-class ProjectVersion(models.Model):
-    """One uploaded archive of an upload project's files (e.g. a built dist).
+class UploadCommit(models.Model):
+    """One commit of an upload project: an uploaded archive of its files
+    (e.g. a built dist).
 
-    An upload project has no repository, so a version plays the commit's part:
-    its ``digest`` (a 40-hex content hash, the width of a Git SHA) is what a
-    ``CommitCheck`` pins as its ``commit_sha``, and its ``channel`` is the
-    check's ``branch``. Branch health, commit history and polling a check
-    then work for uploads unchanged. Versions are kept forever; the archive
-    lives in the uploads storage under ``archive_key``.
+    An upload project has no repository, so each upload is its commit, in
+    the same terms: a ``sha`` (the archive's content hash, 40 hex characters
+    like a Git SHA), a ``message``, a ``branch`` and an ``author``. A
+    ``CommitCheck`` pins it by its ``sha`` like any commit, so branch health,
+    commit history and polling a check work for uploads unchanged. Commits
+    are kept forever; the archive lives in the uploads storage under
+    ``archive_key``.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
-        "Project", on_delete=models.CASCADE, related_name="versions"
+        "Project", on_delete=models.CASCADE, related_name="upload_commits"
     )
-    digest = models.CharField(max_length=40)
-    # The uploader's own name for the version (e.g. "1.4.2"); may be empty.
-    label = models.CharField(max_length=255, blank=True, default="")
-    channel = models.CharField(max_length=255)
+    sha = models.CharField(max_length=40)
+    message = models.TextField(blank=True, default="")
+    branch = models.CharField(max_length=255)
     archive_key = models.CharField(max_length=1024)
     size = models.BigIntegerField()
     file_count = models.IntegerField()
-    uploaded_by = models.CharField(max_length=255, blank=True, default="")
-    uploaded_by_user = models.ForeignKey(
+    author = models.CharField(max_length=255, blank=True, default="")
+    author_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="project_versions",
+        related_name="upload_commits",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "project_versions"
+        db_table = "upload_commits"
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["project", "digest"], name="unique_project_version_digest"
+                fields=["project", "sha"], name="unique_upload_commit_sha"
             ),
         ]
         indexes = [
             models.Index(
-                fields=["project", "channel", "-created_at"],
-                name="idx_project_version_channel",
+                fields=["project", "branch", "-created_at"],
+                name="idx_upload_commit_branch",
             ),
         ]
 
+    @property
+    def title(self) -> str:
+        """The message's first line, as a commit's title."""
+        return self.message.splitlines()[0] if self.message.strip() else ""
+
     def __str__(self):
-        return f"{self.project} @ {self.label or self.digest[:7]}"
+        return f"{self.project} @ {self.sha[:7]}"
 
 
 class CommitCheck(models.Model):

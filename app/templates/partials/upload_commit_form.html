@@ -1,0 +1,33 @@
+{% comment %}The Upload commit dialog's form on an upload project's page. Posts over HTMX and
+swaps itself; a successful upload answers with a fresh form and the commitUploaded event,
+which closes the dialog and reloads the Results tab and the overview card.{% endcomment %}
+<form id="upload-commit-form" class="space-y-4"
+      hx-post="{% url 'upload_project_commit' project.pk %}" hx-encoding="multipart/form-data"
+      hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  {% if error %}<div role="alert" class="alert alert-error text-sm" data-upload-error>{{ error }}</div>{% endif %}
+  <div class="form-control">
+    <label class="label" for="upload-archive"><span class="label-text">Archive</span></label>
+    <input type="file" name="archive" id="upload-archive" required
+           accept=".zip,.tar,.tgz,.gz,application/zip,application/gzip"
+           class="file-input file-input-bordered w-full">
+    <p class="text-xs opacity-60 mt-1">A .zip or .tar.gz of the build, up to 50 MB.</p>
+  </div>
+  <div class="form-control">
+    <label class="label" for="upload-message"><span class="label-text">Commit message</span></label>
+    <textarea name="message" id="upload-message" rows="3" class="textarea textarea-bordered w-full"
+              placeholder="e.g. Release 1.4.2: fix checkout">{{ message|default:'' }}</textarea>
+  </div>
+  <div class="form-control">
+    <label class="label" for="upload-branch"><span class="label-text">Branch</span></label>
+    <input type="text" name="branch" id="upload-branch" maxlength="255" value="{{ branch|default:'' }}"
+           placeholder="{{ project.default_branch }}" class="input input-bordered w-full">
+  </div>
+  <div class="modal-action mt-2">
+    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
+    <button type="submit" class="btn btn-primary">
+      <span class="loading loading-spinner loading-sm htmx-indicator"></span>
+      Upload and check
+    </button>
+  </div>
+</form>

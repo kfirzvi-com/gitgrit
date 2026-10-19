@@ -6,7 +6,7 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
 {% if project_has_score %}
   {% score_tone compliance_score project_score.failed as tone %}
   {# As tall as its content, not stretched to the About card beside it (long for a monorepo). #}
-  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} flex flex-col" data-overview-health{% if project.is_upload %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="versionUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
+  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} flex flex-col" data-overview-health{% if project.is_upload %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
     <div class="flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">
       {% score compliance_score failed=project_score.failed size="hero" data_attr="data-score-value" %}
       {% if health_breakdown.required_failed %}
@@ -34,16 +34,16 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
   </div>
 {% else %}
   {# No score: as tall as its content, not stretched to the About card beside it. #}
-  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-unknown" data-overview-health{% if project.is_upload %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="versionUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
+  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-unknown" data-overview-health{% if project.is_upload %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
     <div class="card-body items-center justify-center gap-6 py-10">
       {% if branch_head.outcome == "checking" or branch_head.outcome == "no_score" %}
         <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30" data-score-value>{% include "partials/no_grade.html" with subject=branch_head size="hero" %}</div>
       {% else %}
         <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
       {% endif %}
-      {% if project.is_upload and not project.versions.exists %}
-        <p class="text-base opacity-60 text-center">No versions uploaded yet. Upload the build's files to check them.</p>
-        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('upload_modal').showModal()">Upload a version</button>
+      {% if project.is_upload and not project.upload_commits.exists %}
+        <p class="text-base opacity-60 text-center">No commits uploaded yet. Upload the build's files to check them.</p>
+        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('upload_modal').showModal()">Upload a commit</button>
       {% elif attached_standards %}
         <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has a result on it (passed or failed).</p>
         {% include "partials/score_note.html" with score=None head=branch_head %}

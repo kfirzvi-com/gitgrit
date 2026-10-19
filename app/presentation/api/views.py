@@ -369,6 +369,9 @@ class ProjectHealthView(WorkspaceAPIView):
 
 
 class ProjectCommitsView(WorkspaceAPIView):
+    # GET takes no body; POST uploads a commit of an upload project.
+    parser_classes = [MultiPartParser]
+
     @extend_schema(
         operation_id="list_project_commits",
         tags=["health"],
@@ -389,6 +392,42 @@ class ProjectCommitsView(WorkspaceAPIView):
             _health.commits(
                 self.tenant, str(project_id), request.query_params.get("branch"), page
             )
+        )
+
+    @extend_schema(
+        operation_id="upload_project_commit",
+        tags=["uploads"],
+        summary="Upload a commit of an upload project and check it",
+        description=(
+            "Stores the archive as a commit and queues the standards whose events "
+            "include `upload` and whose Branch/Tag Filter matches the branch. Poll "
+            "`commits/<commit.sha>/` until `running` is 0 for the results. A "
+            "rejected archive (path outside the archive, links, too large) is a 400; "
+            "a Git project is a 404."
+        ),
+        request={"multipart/form-data": s.CommitUploadSerializer},
+        responses={202: s.CommitUploadResultSerializer},
+    )
+    def post(self, request, project_id, **_):
+        project = upload_service.get_upload_project(self.tenant, project_id)
+        body = s.CommitUploadSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        archive = body.validated_data["archive"]
+        limit = upload_service.DEFAULT_LIMITS.max_archive_bytes
+        if archive.size > limit:
+            raise exceptions.ValidationError(
+                {"archive": f"Archive is larger than {limit // (1024 * 1024)} MB."}
+            )
+        result = upload_service.upload_commit(
+            project,
+            archive.read(),
+            message=body.validated_data["message"],
+            branch=body.validated_data["branch"],
+            user=self.actor,
+            author=self.actor_name,
+        )
+        return Response(
+            upload_service.upload_result_dict(result), status=status.HTTP_202_ACCEPTED
         )
 
 
@@ -463,54 +502,4 @@ class UploadProjectCreateView(WorkspaceAPIView):
         return Response(
             _projects.serialize(result.project),
             status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
-        )
-
-
-class ProjectVersionsView(WorkspaceAPIView):
-    parser_classes = [MultiPartParser]
-
-    @extend_schema(
-        operation_id="list_project_versions",
-        tags=["uploads"],
-        summary="List an upload project's versions",
-        description="Newest first. Versions are kept forever.",
-        responses=s.VersionSerializer(many=True),
-    )
-    def get(self, request, project_id, **_):
-        project = upload_service.get_upload_project(self.tenant, project_id)
-        return Response(upload_service.list_versions(project))
-
-    @extend_schema(
-        operation_id="upload_project_version",
-        tags=["uploads"],
-        summary="Upload a version and check it",
-        description=(
-            "Stores the archive as a version and queues the standards whose events "
-            "include `upload` and whose Branch/Tag Filter matches the channel. Poll "
-            "`commits/<version.digest>/` until `running` is 0 for the results. A "
-            "rejected archive (path outside the archive, links, too large) is a 400."
-        ),
-        request={"multipart/form-data": s.VersionUploadSerializer},
-        responses={202: s.VersionUploadResultSerializer},
-    )
-    def post(self, request, project_id, **_):
-        project = upload_service.get_upload_project(self.tenant, project_id)
-        body = s.VersionUploadSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        archive = body.validated_data["archive"]
-        limit = upload_service.DEFAULT_LIMITS.max_archive_bytes
-        if archive.size > limit:
-            raise exceptions.ValidationError(
-                {"archive": f"Archive is larger than {limit // (1024 * 1024)} MB."}
-            )
-        result = upload_service.upload_version(
-            project,
-            archive.read(),
-            label=body.validated_data["label"],
-            channel=body.validated_data["channel"],
-            user=self.actor,
-            uploaded_by=self.actor_name,
-        )
-        return Response(
-            upload_service.upload_result_dict(result), status=status.HTTP_202_ACCEPTED
         )

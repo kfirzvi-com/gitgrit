@@ -1,4 +1,4 @@
-{% comment %}One folder (top-level ones start open) or file of the Files tab's tree; folders include
+{% comment %}One folder (top-level ones start open) or file of a commit's file tree; folders include
 this template for their children.{% endcomment %}
 {% if node.is_dir %}
   <li>
@@ -15,7 +15,7 @@ this template for their children.{% endcomment %}
   </li>
 {% else %}
   <li>
-    <a hx-get="{% url 'project_files' project.pk %}?version={{ version.digest }}&path={{ node.path|urlencode }}"
+    <a hx-get="{% url 'commit_files' project.pk %}?sha={{ commit.sha }}&path={{ node.path|urlencode }}"
        hx-target="#file-view" hx-swap="innerHTML" data-no-loader data-file="{{ node.path }}"
        class="gap-2 {% if file.path == node.path %}menu-active{% endif %}"
        onclick="this.closest('[data-file-tree]').querySelectorAll('.menu-active').forEach(function(a){a.classList.remove('menu-active')});this.classList.add('menu-active')">
