@@ -21,9 +21,9 @@
       <dd class="min-w-0 truncate">{{ project.get_lifecycle_display }}</dd>
       <dt class="text-base-content/60">Owner</dt>
       <dd class="min-w-0 truncate" title="{{ project.owner }}">{{ project.owner|default:"—" }}</dd>
-      {% if project.is_upload %}
+      {% if project.is_artifact %}
       <dt class="text-base-content/60">Commits</dt>
-      <dd class="min-w-0 truncate">{{ project.upload_commits.count }} uploaded</dd>
+      <dd class="min-w-0 truncate">{{ project.artifact_commits.count }} uploaded</dd>
       {% else %}
       <dt class="text-base-content/60">Webhook</dt>
       <dd class="min-w-0 flex flex-wrap items-center justify-between gap-2">

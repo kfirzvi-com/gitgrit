@@ -1,12 +1,12 @@
 {% comment %}One commit's summary in the Results tab: short SHA (linked to the platform when
-known; for an upload project it opens the commit's files) and the first line of its message, then author, date and how its standards did (or "Not
+known; for an artifact project it opens the commit's files) and the first line of its message, then author, date and how its standards did (or "Not
 checked"). One line on wide screens; on phones the details wrap under the title. Expects `row`
 (a CommitRow).{% endcomment %}
 <span class="flex flex-1 min-w-0 flex-col md:flex-row md:items-center gap-x-3 gap-y-1">
   <span class="flex items-center gap-3 min-w-0 md:flex-1">
     {% if row.url %}
       <a href="{{ row.url }}" target="_blank" rel="noopener" class="font-mono text-xs opacity-70 link link-hover shrink-0" onclick="event.stopPropagation()">{{ row.short_sha }}</a>
-    {% elif project.is_upload %}
+    {% elif project.is_artifact %}
       <button type="button" class="font-mono text-xs opacity-70 link link-hover shrink-0" title="Browse this commit's files"
               data-commit-files-url="{% url 'commit_files' project.pk %}?sha={{ row.sha }}">{{ row.short_sha }}</button>
     {% else %}

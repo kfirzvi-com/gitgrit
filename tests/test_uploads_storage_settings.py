@@ -1,4 +1,4 @@
-"""Where upload projects' archives are stored: S3 when a bucket is named,
+"""Where artifact projects' archives are stored: S3 when a bucket is named,
 else a local directory (gitgrit.settings.uploads_storage)."""
 from django.test import SimpleTestCase
 from django.utils.module_loading import import_string

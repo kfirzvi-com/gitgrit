@@ -1,8 +1,8 @@
-"""Rules for upload projects: what an uploaded archive may contain.
+"""Rules for artifact projects: what an uploaded archive may contain.
 
-An upload project's files arrive as an archive (zip or tar.gz) instead of
+An artifact project's files arrive as an archive (zip or tar.gz) instead of
 from a Git repository: e.g. a built app's dist, uploaded by hand or by the
-system that produces it. Each upload is a commit (``UploadCommit``).
+system that produces it. Each upload is a commit (``ArtifactCommit``).
 
 The archive is untrusted input. These rules decide what is accepted before
 anything is written to disk: every member path must stay inside the project

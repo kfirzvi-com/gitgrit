@@ -1,4 +1,4 @@
-"""Upload projects end to end, short of the container: creating them,
+"""Artifact projects end to end, short of the container: creating them,
 uploading commits, and running standards on a commit's files.
 
 The sandbox runner is mocked; what it is handed (the mounted directory and
@@ -11,7 +11,7 @@ from django.test import TestCase
 from model_bakery import baker
 
 from app import tasks
-from app.application import upload_service
+from app.application import artifact_service
 from app.application.commit_checks import branch_commits, branches, commit_results
 from app.application.errors import NotFoundError
 from app.application.standard_runs import enqueue_manual_run
@@ -19,10 +19,10 @@ from app.domain.models import (
     CommitCheck,
     Platform,
     PlatformConnection,
-    UploadCommit,
+    ArtifactCommit,
     StandardExecution,
 )
-from app.domain.uploads import UploadRejected
+from app.domain.artifacts import UploadRejected
 from tests.infrastructure.test_archives import make_zip
 from tests.support import defer_patch
 
@@ -41,29 +41,29 @@ class CreateUploadProjectTests(TestCase):
         self.tenant = baker.make("app.Tenant")
 
     def test_a_new_project_hangs_off_the_workspace_upload_connection(self):
-        result = upload_service.create_upload_project(
+        result = artifact_service.create_artifact_project(
             self.tenant, name="Storefront", external_id="ext-42", stack="Acme Web"
         )
 
         project = result.project
         self.assertTrue(result.created)
-        self.assertTrue(project.is_upload)
-        self.assertEqual(project.platform_connection.platform, Platform.UPLOAD)
+        self.assertTrue(project.is_artifact)
+        self.assertEqual(project.platform_connection.platform, Platform.ARTIFACT)
         self.assertEqual(project.root_component.stacks.get().name, "Acme Web")
 
     def test_creating_again_returns_the_same_project(self):
-        first = upload_service.create_upload_project(self.tenant, name="A", external_id="g1")
-        again = upload_service.create_upload_project(self.tenant, name="A", external_id="g1")
+        first = artifact_service.create_artifact_project(self.tenant, name="A", external_id="g1")
+        again = artifact_service.create_artifact_project(self.tenant, name="A", external_id="g1")
 
         self.assertFalse(again.created)
         self.assertEqual(again.project.pk, first.project.pk)
         self.assertEqual(
-            PlatformConnection.objects.filter(tenant=self.tenant, platform=Platform.UPLOAD).count(), 1
+            PlatformConnection.objects.filter(tenant=self.tenant, platform=Platform.ARTIFACT).count(), 1
         )
 
     def test_an_existing_stack_is_reused_by_name(self):
-        upload_service.create_upload_project(self.tenant, name="A", external_id="g1", stack="Web Team")
-        upload_service.create_upload_project(self.tenant, name="B", external_id="g2", stack="Web Team")
+        artifact_service.create_artifact_project(self.tenant, name="A", external_id="g1", stack="Web Team")
+        artifact_service.create_artifact_project(self.tenant, name="B", external_id="g2", stack="Web Team")
 
         self.assertEqual(self.tenant.stacks.filter(name="Web Team").count(), 1)
         self.assertEqual(self.tenant.stacks.get().components.count(), 2)
@@ -73,7 +73,7 @@ class CreateUploadProjectTests(TestCase):
         _upload_standard(self.tenant, criteria={"events": ["push"]})
         _upload_standard(self.tenant, draft=True, enabled=False)
 
-        project = upload_service.create_upload_project(self.tenant, name="A", external_id="g1").project
+        project = artifact_service.create_artifact_project(self.tenant, name="A", external_id="g1").project
 
         self.assertEqual(list(project.standards.all()), [on_upload])
 
@@ -81,7 +81,7 @@ class CreateUploadProjectTests(TestCase):
         _upload_standard(self.tenant)
         chosen = baker.make("app.Standard", tenant=self.tenant)
 
-        project = upload_service.create_upload_project(
+        project = artifact_service.create_artifact_project(
             self.tenant, name="A", external_id="g1", standard_ids=[str(chosen.pk)]
         ).project
 
@@ -90,13 +90,13 @@ class CreateUploadProjectTests(TestCase):
     def test_a_standard_from_another_workspace_is_not_found(self):
         foreign = baker.make("app.Standard")
         with self.assertRaises(NotFoundError):
-            upload_service.create_upload_project(
+            artifact_service.create_artifact_project(
                 self.tenant, name="A", external_id="g1", standard_ids=[str(foreign.pk)]
             )
 
     def test_the_project_triggers_no_dependency_analysis(self):
         with mock.patch("app.application.subscribers._enqueue_dependency_refresh") as refresh:
-            upload_service.create_upload_project(
+            artifact_service.create_artifact_project(
                 self.tenant, name="A", external_id="g1", stack="Web Team"
             )
         refresh.assert_not_called()
@@ -106,13 +106,13 @@ class UploadCommitTests(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
         self.standard = _upload_standard(self.tenant, code="CODE")
-        self.project = upload_service.create_upload_project(
+        self.project = artifact_service.create_artifact_project(
             self.tenant, name="Storefront", external_id="ext-42"
         ).project
 
     def _upload(self, data=BUILD_V1, **kw):
         with defer_patch() as configure:
-            result = upload_service.upload_commit(self.project, data, author="platform", **kw)
+            result = artifact_service.upload_commit(self.project, data, author="platform", **kw)
         return result, configure
 
     def test_an_upload_is_stored_and_checked_like_a_pushed_commit(self):
@@ -141,7 +141,7 @@ class UploadCommitTests(TestCase):
 
         self.assertFalse(again.created)
         self.assertEqual(again.commit.pk, first.commit.pk)
-        self.assertEqual(UploadCommit.objects.count(), 1)
+        self.assertEqual(ArtifactCommit.objects.count(), 1)
         self.assertEqual(CommitCheck.objects.filter(project=self.project).count(), 2)
 
     def test_an_upload_lands_on_the_branch_it_names(self):
@@ -162,13 +162,13 @@ class UploadCommitTests(TestCase):
     def test_a_rejected_archive_stores_nothing(self):
         with self.assertRaises(UploadRejected):
             self._upload(make_zip({"../escape.js": b"x"}))
-        self.assertFalse(UploadCommit.objects.exists())
+        self.assertFalse(ArtifactCommit.objects.exists())
         self.assertFalse(CommitCheck.objects.exists())
 
     def test_a_git_project_takes_no_uploads(self):
         git_project = baker.make("app.Project", tenant=self.tenant)
         with self.assertRaises(ValueError):
-            upload_service.upload_commit(git_project, BUILD_V1)
+            artifact_service.upload_commit(git_project, BUILD_V1)
 
     def test_a_manual_run_before_any_upload_queues_nothing(self):
         with defer_patch() as configure:
@@ -177,12 +177,12 @@ class UploadCommitTests(TestCase):
 
 
 class RunOnCommitTests(TestCase):
-    """The ``run_standards`` job on an upload project's commit."""
+    """The ``run_standards`` job on an artifact project's commit."""
 
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
         self.standard = _upload_standard(self.tenant, code="CODE")
-        self.project = upload_service.create_upload_project(
+        self.project = artifact_service.create_artifact_project(
             self.tenant, name="Storefront", external_id="ext-42"
         ).project
         self.seen = []
@@ -200,7 +200,7 @@ class RunOnCommitTests(TestCase):
 
     def _upload_and_run(self, data, **kw):
         with defer_patch() as configure:
-            upload_service.upload_commit(self.project, data, **kw)
+            artifact_service.upload_commit(self.project, data, **kw)
         job = configure.return_value.defer.call_args.kwargs
         with self._runner():
             tasks.run_standards.func(**job)
@@ -213,9 +213,9 @@ class RunOnCommitTests(TestCase):
         seen = self.seen[0]
         self.assertEqual(seen["files"], ["app.js", "index.html"])
         self.assertEqual(seen["index"], "<html>v1</html>")
-        self.assertEqual(seen["config"]["platform"], "upload")
+        self.assertEqual(seen["config"]["platform"], "artifact")
         self.assertNotIn("access_token", seen["config"])
-        self.assertEqual(seen["config"]["ref"], UploadCommit.objects.get().sha)
+        self.assertEqual(seen["config"]["ref"], ArtifactCommit.objects.get().sha)
 
     def test_the_extracted_files_are_removed_after_the_job(self):
         self._upload_and_run(BUILD_V1)
@@ -228,8 +228,8 @@ class RunOnCommitTests(TestCase):
 
     def test_a_run_on_a_branch_with_no_commit_is_an_error_not_a_crash(self):
         with defer_patch() as configure:
-            upload_service.upload_commit(self.project, BUILD_V1)
-        UploadCommit.objects.all().delete()  # gone before the job ran
+            artifact_service.upload_commit(self.project, BUILD_V1)
+        ArtifactCommit.objects.all().delete()  # gone before the job ran
         job = configure.return_value.defer.call_args.kwargs
         with self._runner():
             tasks.run_standards.func(**job)
@@ -245,13 +245,13 @@ class CommitHistoryTests(TestCase):
     def setUp(self):
         tenant = baker.make("app.Tenant")
         _upload_standard(tenant)
-        self.project = upload_service.create_upload_project(
+        self.project = artifact_service.create_artifact_project(
             tenant, name="Storefront", external_id="ext-42"
         ).project
         with defer_patch():
-            self.v1 = upload_service.upload_commit(self.project, BUILD_V1, message="1.0", author="platform").commit
-            self.v2 = upload_service.upload_commit(self.project, BUILD_V2, message="1.1", author="platform").commit
-            upload_service.upload_commit(self.project, make_zip({"x.js": b"x"}), branch="review")
+            self.v1 = artifact_service.upload_commit(self.project, BUILD_V1, message="1.0", author="platform").commit
+            self.v2 = artifact_service.upload_commit(self.project, BUILD_V2, message="1.1", author="platform").commit
+            artifact_service.upload_commit(self.project, make_zip({"x.js": b"x"}), branch="review")
 
     def test_upload_branches_are_the_branches(self):
         self.assertEqual(branches(self.project), ["main", "review"])
@@ -266,7 +266,7 @@ class CommitHistoryTests(TestCase):
     def test_a_new_upload_shows_at_once_despite_the_cached_list(self):
         branch_commits(self.project, "main")  # cached
         with defer_patch():
-            v3 = upload_service.upload_commit(self.project, make_zip({"y.js": b"y"}), message="1.2").commit
+            v3 = artifact_service.upload_commit(self.project, make_zip({"y.js": b"y"}), message="1.2").commit
         rows, _ = branch_commits(self.project, "main")
         self.assertEqual(rows[0].sha, v3.sha)
 

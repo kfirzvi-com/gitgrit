@@ -48,8 +48,8 @@ from app.presentation.views.project_views import (
     retry_webhook,
     run_project_standards,
 )
-from app.presentation.views.upload_views import (
-    add_upload_project,
+from app.presentation.views.artifact_views import (
+    add_artifact_project,
     commit_file_raw,
     commit_files,
     project_overview_health,
@@ -274,7 +274,7 @@ urlpatterns = [
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/add/", add_project_select, name="add_project_select"),
-    path("projects/add/upload/", add_upload_project, name="add_upload_project"),
+    path("projects/add/artifact/", add_artifact_project, name="add_artifact_project"),
     path(
         "projects/add/<uuid:connection_id>/",
         add_project_search,

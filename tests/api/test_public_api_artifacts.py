@@ -1,9 +1,9 @@
-"""Upload projects over the public API: how another system creates an upload
+"""Artifact projects over the public API: how another system creates an upload
 project and checks each build it uploads, with a workspace token."""
 from django.core.files.uploadedfile import SimpleUploadedFile
 from model_bakery import baker
 
-from app.domain.models import APIToken, Platform, UploadCommit
+from app.domain.models import APIToken, Platform, ArtifactCommit
 from tests.api.test_public_api import PublicAPITestCase
 from tests.infrastructure.test_archives import make_zip
 from tests.support import defer_patch
@@ -11,7 +11,7 @@ from tests.support import defer_patch
 BUILD = make_zip({"dist/index.html": b"<html></html>", "dist/app.js": b"start()"})
 
 
-class UploadAPITestCase(PublicAPITestCase):
+class ArtifactAPITestCase(PublicAPITestCase):
     def setUp(self):
         super().setUp()
         _, raw = APIToken.issue(name="ci-uploader", created_by=self.user, tenant=self.tenant)
@@ -26,7 +26,7 @@ class UploadAPITestCase(PublicAPITestCase):
 
     def create(self, **body):
         body = {"name": "Storefront", "external_id": "ext-42", "stack": "Acme Web", **body}
-        return self.send("post", f"{self.ws}/upload-projects/", body)
+        return self.send("post", f"{self.ws}/projects/", {"type": "artifact", **body})
 
     def upload(self, project_id, data=BUILD, **fields):
         return self.client.post(
@@ -36,17 +36,20 @@ class UploadAPITestCase(PublicAPITestCase):
         )
 
 
-class TestCreateUploadProject(UploadAPITestCase):
+class TestCreateArtifactProject(ArtifactAPITestCase):
     def test_creates_then_returns_the_same_project(self):
         first = self.create()
         assert first.status_code == 201
         body = first.json()
-        assert body["platform"] == Platform.UPLOAD
+        assert body["platform"] == Platform.ARTIFACT
         assert body["external_id"] == "ext-42"
 
         again = self.create()
         assert again.status_code == 200
         assert again.json()["id"] == body["id"]
+
+    def test_only_artifact_projects_are_created_here(self):
+        assert self.create(type="github").status_code == 400
 
     def test_a_name_is_required(self):
         assert self.create(name="").status_code == 400
@@ -56,7 +59,7 @@ class TestCreateUploadProject(UploadAPITestCase):
         assert r.status_code == 404
 
 
-class TestUploadCommit(UploadAPITestCase):
+class TestUploadCommit(ArtifactAPITestCase):
     def setUp(self):
         super().setUp()
         self.project_id = self.create().json()["id"]
@@ -96,7 +99,7 @@ class TestUploadCommit(UploadAPITestCase):
         r = self.upload(self.project_id, data=make_zip({"../../evil.js": b"x"}))
         assert r.status_code == 400
         assert "outside the archive" in r.json()["detail"]
-        assert not UploadCommit.objects.exists()
+        assert not ArtifactCommit.objects.exists()
 
     def test_a_missing_archive_is_400(self):
         r = self.client.post(

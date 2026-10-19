@@ -66,9 +66,9 @@ def _enqueue_dependency_refresh(project_id: str) -> None:
 def _on_project_event(event) -> None:
     from app.domain.models import Platform, Project
 
-    # An upload project's files are a build, not source: there is no
+    # An artifact project's files are a build, not source: there is no
     # dependency map to infer from them.
-    if Project.objects.filter(pk=event.project_id, platform=Platform.UPLOAD).exists():
+    if Project.objects.filter(pk=event.project_id, platform=Platform.ARTIFACT).exists():
         return
     _enqueue_dependency_refresh(event.project_id)
 

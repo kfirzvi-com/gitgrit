@@ -64,7 +64,7 @@ if content is None:
 ### `project.get_file_size(path: str) -> int | None`
 Returns a file's size in bytes, or `None` if it doesn't exist or the size is
 unknown. Works for binary files (images, audio, wasm) that `get_file_content`
-cannot return. Known for upload projects; `None` on Git repositories.
+cannot return. Known for artifact projects; `None` on Git repositories.
 
 **Example:**
 ```python

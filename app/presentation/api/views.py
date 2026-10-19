@@ -7,7 +7,7 @@ from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.application import upload_service
+from app.application import artifact_service
 from app.application.project_health_service import ProjectHealthService
 from app.application.errors import NotFoundError
 from app.application.project_management import AlreadyAdded, PlatformError
@@ -369,7 +369,7 @@ class ProjectHealthView(WorkspaceAPIView):
 
 
 class ProjectCommitsView(WorkspaceAPIView):
-    # GET takes no body; POST uploads a commit of an upload project.
+    # GET takes no body; POST uploads a commit of an artifact project.
     parser_classes = [MultiPartParser]
 
     @extend_schema(
@@ -397,7 +397,7 @@ class ProjectCommitsView(WorkspaceAPIView):
     @extend_schema(
         operation_id="upload_project_commit",
         tags=["uploads"],
-        summary="Upload a commit of an upload project and check it",
+        summary="Upload a commit of an artifact project and check it",
         description=(
             "Stores the archive as a commit and queues the standards whose events "
             "include `upload` and whose Branch/Tag Filter matches the branch. Poll "
@@ -409,16 +409,16 @@ class ProjectCommitsView(WorkspaceAPIView):
         responses={202: s.CommitUploadResultSerializer},
     )
     def post(self, request, project_id, **_):
-        project = upload_service.get_upload_project(self.tenant, project_id)
+        project = artifact_service.get_artifact_project(self.tenant, project_id)
         body = s.CommitUploadSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         archive = body.validated_data["archive"]
-        limit = upload_service.DEFAULT_LIMITS.max_archive_bytes
+        limit = artifact_service.DEFAULT_LIMITS.max_archive_bytes
         if archive.size > limit:
             raise exceptions.ValidationError(
                 {"archive": f"Archive is larger than {limit // (1024 * 1024)} MB."}
             )
-        result = upload_service.upload_commit(
+        result = artifact_service.upload_commit(
             project,
             archive.read(),
             message=body.validated_data["message"],
@@ -427,7 +427,7 @@ class ProjectCommitsView(WorkspaceAPIView):
             author=self.actor_name,
         )
         return Response(
-            upload_service.upload_result_dict(result), status=status.HTTP_202_ACCEPTED
+            artifact_service.upload_result_dict(result), status=status.HTTP_202_ACCEPTED
         )
 
 
@@ -472,34 +472,3 @@ class ProjectCheckView(WorkspaceAPIView):
             body.validated_data["sha"],
         )
         return Response(result, status=status.HTTP_202_ACCEPTED)
-
-
-class UploadProjectCreateView(WorkspaceAPIView):
-    @extend_schema(
-        operation_id="create_upload_project",
-        tags=["uploads"],
-        summary="Create an upload project",
-        description=(
-            "A project whose files arrive as uploaded archives instead of from Git "
-            "(e.g. a built app's dist). Idempotent on `external_id`: a repeat "
-            "returns the existing project with 200."
-        ),
-        request=s.UploadProjectCreateSerializer,
-        responses={201: s.ProjectSerializer, 200: s.ProjectSerializer},
-    )
-    def post(self, request, **_):
-        body = s.UploadProjectCreateSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        data = body.validated_data
-        result = upload_service.create_upload_project(
-            self.tenant,
-            name=data["name"],
-            external_id=data["external_id"],
-            stack=data["stack"],
-            description=data["description"],
-            standard_ids=data["standard_ids"],
-        )
-        return Response(
-            _projects.serialize(result.project),
-            status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
-        )

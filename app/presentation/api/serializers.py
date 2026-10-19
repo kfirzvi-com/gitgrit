@@ -74,9 +74,9 @@ class ProjectSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
     description = serializers.CharField()
-    platform = serializers.CharField(help_text="github, gitlab, or upload.")
+    platform = serializers.CharField(help_text="github, gitlab, or artifact.")
     external_id = serializers.CharField(
-        help_text="The platform's id for the repository; for an upload project, the caller's own."
+        help_text="The platform's id for the repository; for an artifact project, the caller's own."
     )
     full_path = serializers.CharField()
     web_url = serializers.CharField()
@@ -417,17 +417,46 @@ class RepositorySerializer(serializers.Serializer):
 
 
 class ProjectCreateSerializer(serializers.Serializer):
-    repository = serializers.CharField(help_text="The repository's path (`org/repo`) or platform id.")
+    """Either kind of project: a repository from a connection (the default),
+    or an artifact project, whose commits are uploaded builds."""
+
+    type = serializers.ChoiceField(
+        choices=["repository", "artifact"], required=False, default="repository",
+        help_text="`repository`: add a repository a connection reaches. `artifact`: create "
+        "a project whose commits are build archives you upload (`POST projects/<id>/commits/`).",
+    )
+    repository = serializers.CharField(
+        required=False, help_text="`repository` only (required): the repository's path (`org/repo`) or platform id."
+    )
     connection_id = serializers.UUIDField(
         required=False,
-        help_text="Which connection reaches it. Optional when only one connection can.",
+        help_text="`repository` only: which connection reaches it. Optional when only one connection can.",
     )
     lifecycle = serializers.CharField(required=False, default="development")
     owner = serializers.CharField(required=False, allow_blank=True, default="")
-    standards = serializers.ListField(
-        child=serializers.UUIDField(), required=False, default=list,
-        help_text="Workspace standards to attach. None are attached unless listed.",
+    name = serializers.CharField(max_length=255, required=False, help_text="`artifact` only (required).")
+    external_id = serializers.CharField(
+        max_length=255, required=False,
+        help_text="`artifact` only (required): your own id for the project. Creating it again with "
+        "the same id returns the existing project (200).",
     )
+    stack = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default="",
+        help_text="`artifact` only: the stack to put it in, found by name or created.",
+    )
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    standards = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_null=True, default=None,
+        help_text="Workspace standards to attach. Omitted: none for a repository; for an artifact "
+        "project, every published standard whose events include `upload`.",
+    )
+
+    def validate(self, data):
+        needed = ["name", "external_id"] if data["type"] == "artifact" else ["repository"]
+        missing = {f: "This field is required." for f in needed if not data.get(f, "").strip()}
+        if missing:
+            raise serializers.ValidationError(missing)
+        return data
 
 
 class ProjectUpdateSerializer(serializers.Serializer):
@@ -448,8 +477,9 @@ class ProjectDetailSerializer(ProjectSerializer):
     owner = serializers.CharField(allow_blank=True)
     connection_id = serializers.UUIDField()
     webhook = serializers.ChoiceField(
-        choices=["app", "active", "missing"],
-        help_text="`app`: events come through the GitHub App; `missing`: re-register from the project page.",
+        choices=["app", "active", "missing", "none"],
+        help_text="`app`: events come through the GitHub App; `missing`: re-register from the project page; "
+        "`none`: an artifact project, whose commits are uploaded instead.",
     )
     standards = AttachedStandardSerializer(many=True, help_text="Every attached standard, runnable or not.")
 
@@ -533,32 +563,7 @@ class MarketplaceUpdateSerializer(serializers.Serializer):
     name = serializers.CharField()
     version = serializers.IntegerField()
     runs = RunsSummarySerializer(allow_null=True)
-# --- Upload projects --------------------------------------------------------
-
-class UploadProjectCreateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=255)
-    external_id = serializers.CharField(
-        max_length=255,
-        help_text="Your own id for the project. Creating twice "
-        "with the same id returns the existing project.",
-    )
-    stack = serializers.CharField(
-        max_length=255,
-        required=False,
-        allow_blank=True,
-        default="",
-        help_text="Stack to put the project in, found by name or created.",
-    )
-    description = serializers.CharField(required=False, allow_blank=True, default="")
-    standard_ids = serializers.ListField(
-        child=serializers.UUIDField(),
-        required=False,
-        allow_null=True,
-        default=None,
-        help_text="Standards to attach. Omit to attach every published standard "
-        "whose events include `upload`.",
-    )
-
+# --- Artifact projects --------------------------------------------------------
 
 class CommitUploadSerializer(serializers.Serializer):
     archive = serializers.FileField(help_text="The project's files as a .zip or .tar.gz.")

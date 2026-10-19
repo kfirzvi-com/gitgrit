@@ -1,5 +1,5 @@
 """Reading uploaded archives (zip, or tar in any compression) under the
-rules in ``app.domain.uploads``.
+rules in ``app.domain.artifacts``.
 
 ``scan`` checks an archive without writing anything: it is what an upload
 request runs before the archive is stored. ``extract`` writes the files of
@@ -16,7 +16,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.domain.uploads import (
+from app.domain.artifacts import (
     DEFAULT_LIMITS,
     ArchiveLimits,
     UploadRejected,

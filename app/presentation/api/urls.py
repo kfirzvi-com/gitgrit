@@ -57,11 +57,6 @@ workspace_patterns = [
         views.ProjectCheckView.as_view(),
         name="api_project_checks",
     ),
-    path(
-        "upload-projects/",
-        views.UploadProjectCreateView.as_view(),
-        name="api_upload_projects",
-    ),
     path("standards/", views.StandardListView.as_view(), name="api_standards"),
     path("standards/test/", views.StandardTestView.as_view(), name="api_standard_test"),
     path(

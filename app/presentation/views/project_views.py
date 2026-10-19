@@ -300,10 +300,10 @@ def add_project_select(request):
         messages.error(request, "No active workspace.")
         return redirect("project_list")
 
-    # Upload projects are created through the API, never picked from a list.
+    # Artifact projects are created through the API, never picked from a list.
     connections = (
         PlatformConnection.objects.filter(tenant=tenant)
-        .exclude(platform=Platform.UPLOAD)
+        .exclude(platform=Platform.ARTIFACT)
         .order_by("created_at")
     )
     # Uploading a build needs no connection, so the page always has a choice.
@@ -586,8 +586,8 @@ def retry_webhook(request, pk):
         return redirect("project_list")
 
     project = get_object_or_404(Project, pk=pk, tenant=tenant)
-    if project.is_upload:
-        messages.error(request, "Upload projects receive no webhooks.")
+    if project.is_artifact:
+        messages.error(request, "Artifact projects receive no webhooks.")
         return redirect("project_detail", pk=project.pk)
 
     if project_management.register_webhook(project):

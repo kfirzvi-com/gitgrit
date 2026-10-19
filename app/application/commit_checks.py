@@ -118,7 +118,7 @@ def run_on_branch(project, branch: str, *, sha: str = "", committed_at=None, use
     from app.application.standard_runs import enqueue_run
 
     target = sha[:7] if sha else f"the latest commit on {branch}"
-    if project.is_upload and not sha and not project.upload_commits.filter(branch=branch).exists():
+    if project.is_artifact and not sha and not project.artifact_commits.filter(branch=branch).exists():
         # Nothing uploaded to this branch: no files a run could read.
         return BranchRun(
             branch=branch, commit_sha="", summary=None,

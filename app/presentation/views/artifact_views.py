@@ -1,4 +1,4 @@
-"""Upload projects in the web app: creating one by hand, uploading a commit
+"""Artifact projects in the web app: creating one by hand, uploading a commit
 from the project page, and browsing a commit's files.
 
 A commit's files are untrusted: whoever uploaded them built them. They are only
@@ -18,9 +18,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from app.application import upload_service
+from app.application import artifact_service
 from app.domain.models import Platform, Project, Stack
-from app.domain.uploads import DEFAULT_LIMITS, UploadRejected
+from app.domain.artifacts import DEFAULT_LIMITS, UploadRejected
 from app.presentation.htmx import toast
 from app.presentation.views.project_views import results_context
 
@@ -37,8 +37,8 @@ IMAGE_TYPES = {
 }
 
 
-def _upload_project(request, pk) -> Project:
-    return get_object_or_404(Project, pk=pk, tenant=request.tenant, platform=Platform.UPLOAD)
+def _artifact_project(request, pk) -> Project:
+    return get_object_or_404(Project, pk=pk, tenant=request.tenant, platform=Platform.ARTIFACT)
 
 
 def _archive_from(request):
@@ -53,8 +53,8 @@ def _archive_from(request):
 
 
 @login_required
-def add_upload_project(request):
-    """Create an upload project by hand, optionally with its first commit."""
+def add_artifact_project(request):
+    """Create an artifact project by hand, optionally with its first commit."""
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
@@ -73,12 +73,12 @@ def add_upload_project(request):
         except UploadRejected as exc:
             error = str(exc)
         if not error:
-            project = upload_service.create_manual_upload_project(
+            project = artifact_service.create_manual_artifact_project(
                 tenant, name=form["name"], stack=form["stack"], description=form["description"]
             )
             if data is not None:
                 try:
-                    upload_service.upload_commit(
+                    artifact_service.upload_commit(
                         project, data, message=form["message"],
                         user=request.user, author=request.user.username,
                     )
@@ -91,7 +91,7 @@ def add_upload_project(request):
             return redirect("project_detail", pk=project.pk)
     return render(
         request,
-        "pages/add_upload_project.html",
+        "pages/add_artifact_project.html",
         {"stacks": stacks, "form": form, "error": error},
     )
 
@@ -102,11 +102,11 @@ def upload_project_commit(request, pk):
     """The project page's Upload commit dialog (HTMX). On success the dialog
     closes and the Results tab and the overview card reload in place (the
     ``commitUploaded`` event)."""
-    project = _upload_project(request, pk)
+    project = _artifact_project(request, pk)
     message = request.POST.get("message", "").strip()
     branch = request.POST.get("branch", "").strip()
     try:
-        result = upload_service.upload_commit(
+        result = artifact_service.upload_commit(
             project, _archive_from(request), message=message, branch=branch,
             user=request.user, author=request.user.username,
         )
@@ -134,7 +134,7 @@ def upload_project_commit(request, pk):
 @login_required
 def project_overview_health(request, pk):
     """The Overview tab's health card on its own, so an upload can refresh it."""
-    project = _upload_project(request, pk)
+    project = _artifact_project(request, pk)
     return render(
         request,
         "partials/project_overview_health.html",
@@ -148,8 +148,8 @@ def commit_files(request, pk):
     a commit's SHA: its folder tree and, when ``path`` names a file, that
     file. A request aimed at the viewer (``HX-Target: file-view``) gets just
     the file."""
-    project = _upload_project(request, pk)
-    commit = upload_service.get_commit(project, request.GET.get("sha", ""))
+    project = _artifact_project(request, pk)
+    commit = artifact_service.get_commit(project, request.GET.get("sha", ""))
     if commit is None:
         raise Http404
     context = {"project": project, "commit": commit}
@@ -158,12 +158,12 @@ def commit_files(request, pk):
         context["file"] = _file_view(project, commit, path)
         if request.headers.get("HX-Target") == "file-view":
             return render(request, "partials/file_view.html", context)
-    context["tree"] = upload_service.commit_tree(commit)
+    context["tree"] = artifact_service.commit_tree(commit)
     return render(request, "partials/commit_files.html", context)
 
 
 def _file_view(project, commit, path: str) -> dict:
-    content = upload_service.commit_file(commit, path)
+    content = artifact_service.commit_file(commit, path)
     view = {"path": path, "missing": content is None}
     if content is None:
         return view
@@ -189,14 +189,14 @@ def _file_view(project, commit, path: str) -> dict:
 def commit_file_raw(request, pk):
     """One image of an uploaded commit, for the file viewer's preview.
     Nothing else is served raw (see the module docstring)."""
-    project = _upload_project(request, pk)
+    project = _artifact_project(request, pk)
     path = request.GET.get("path", "")
     extension = "." + path.rsplit(".", 1)[-1].lower() if "." in path else ""
     content_type = IMAGE_TYPES.get(extension)
-    commit = upload_service.get_commit(project, request.GET.get("sha", ""))
+    commit = artifact_service.get_commit(project, request.GET.get("sha", ""))
     if content_type is None or commit is None:
         raise Http404
-    content = upload_service.commit_file(commit, path)
+    content = artifact_service.commit_file(commit, path)
     if content is None:
         raise Http404
     response = HttpResponse(content, content_type=content_type)

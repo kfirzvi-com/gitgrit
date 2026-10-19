@@ -185,7 +185,7 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Upload projects' archives, one per uploaded commit, kept forever. Both the
+# Artifact projects' archives, one per uploaded commit, kept forever. Both the
 # web (which stores them) and the worker (which reads them) must see the same
 # store: in a deploy that is a private S3 bucket (GITGRIT_UPLOADS_BUCKET),
 # reached with the host's AWS role like SES, so no keys are configured. Without

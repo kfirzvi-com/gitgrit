@@ -60,13 +60,20 @@ class AddedProject:
 # --- connections -------------------------------------------------------------
 
 
+def _git_connections(tenant: Tenant):
+    """The workspace's Git platform connections. The artifact connection is
+    left out: it holds no credentials, reaches no repositories, and deleting
+    it would delete every artifact project."""
+    return PlatformConnection.objects.filter(tenant=tenant).exclude(platform=Platform.ARTIFACT)
+
+
 def list_connections(tenant: Tenant) -> list[PlatformConnection]:
-    return list(PlatformConnection.objects.filter(tenant=tenant).order_by("created_at"))
+    return list(_git_connections(tenant).order_by("created_at"))
 
 
 def get_connection(tenant: Tenant, connection_id) -> PlatformConnection:
     try:
-        return PlatformConnection.objects.get(id=connection_id, tenant=tenant)
+        return _git_connections(tenant).get(id=connection_id)
     except (PlatformConnection.DoesNotExist, ValidationError, ValueError):
         raise NotFoundError("Connection not found.")
 

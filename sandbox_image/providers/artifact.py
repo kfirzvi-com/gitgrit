@@ -6,7 +6,7 @@ from pathlib import Path
 
 from providers.base import BaseProvider
 
-# Where the host mounts an upload project's commit (read-only).
+# Where the host mounts an artifact project's commit (read-only).
 PROJECT_ROOT = "/project"
 
 _LANGUAGES = {
@@ -23,8 +23,8 @@ _LANGUAGES = {
 }
 
 
-class UploadProvider(BaseProvider):
-    """An upload project's files: one uploaded commit (e.g. a built app's
+class ArtifactProvider(BaseProvider):
+    """An artifact project's files: one uploaded commit (e.g. a built app's
     dist), extracted and mounted at ``/project``. There is no repository
     behind it, so membership, contributors, topics and commit dates are
     empty; ``ref`` is the commit's SHA."""

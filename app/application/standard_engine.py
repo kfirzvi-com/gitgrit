@@ -45,7 +45,7 @@ def resolve_llm_roles(tenant) -> dict:
 class StandardEngine:
     def __init__(self) -> None:
         self._runner = None
-        # Upload projects: commit SHA -> host directory holding that commit's
+        # Artifact projects: commit SHA -> host directory holding that commit's
         # extracted files, shared by every run of the job (see close()).
         self._commit_dirs: dict[str, str] = {}
 
@@ -147,11 +147,11 @@ class StandardEngine:
         )
 
     def _commit_dir(self, project: Project, read_at: str) -> str | None:
-        """The host directory holding the files of the upload project's
+        """The host directory holding the files of the artifact project's
         commit a run reads: the commit whose SHA ``read_at`` is, else the
         latest one on the branch it names. None when there is none.
         Extracted once per job, under the directory the sandbox can mount."""
-        commits = project.upload_commits.order_by("-created_at")
+        commits = project.artifact_commits.order_by("-created_at")
         commit = commits.filter(sha=read_at).first() if read_at else None
         if commit is None:
             commit = commits.filter(branch=read_at or project.default_branch).first()
@@ -188,9 +188,9 @@ class StandardEngine:
             "full_path": project.full_path,
             "ref": bare_ref(ref),
         }
-        # An upload project's files are mounted into the sandbox (see
+        # An artifact project's files are mounted into the sandbox (see
         # run_execution): no platform to call, no token to call it with.
-        if not project.is_upload:
+        if not project.is_artifact:
             # Route through the auth-method seam. For GitHub App connections the
             # installation token is scoped to this project's repository; PAT
             # connections return their stored token unchanged.
@@ -232,7 +232,7 @@ class StandardEngine:
         version = execution.standard_version
         code = version.code if version else standard.code
         config = {**input_config, "ref": read_at}
-        if not project.is_upload:
+        if not project.is_artifact:
             result = self.runner.run(code, config)
         elif project_dir := self._commit_dir(project, read_at):
             result = self.runner.run(code, config, project_dir=project_dir)

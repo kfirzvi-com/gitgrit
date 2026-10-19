@@ -10,7 +10,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 
-from app.application import marketplace_service
+from app.application import artifact_service, marketplace_service
 from app.application import project_management as pm
 from app.application.errors import NotFoundError
 from app.application.standard_service import StandardService
@@ -47,7 +47,9 @@ def _attached(standard) -> dict:
 
 
 def _project(p: Project) -> dict:
-    if p.platform_connection.auth_method == AuthMethod.GITHUB_APP:
+    if p.is_artifact:
+        webhook = "none"
+    elif p.platform_connection.auth_method == AuthMethod.GITHUB_APP:
         webhook = "app"
     else:
         webhook = "active" if p.webhook_id else "missing"
@@ -163,19 +165,36 @@ class ProjectsView(ProjectListView):
     @extend_schema(
         operation_id="create_project",
         tags=["projects"],
-        summary="Add a repository as a project",
+        summary="Add a project: a repository, or an artifact project",
         description=(
-            "Registers a webhook unless the connection is a GitHub App, reads the "
+            "`type: repository` (the default) adds a repository a connection reaches: "
+            "registers a webhook unless the connection is a GitHub App, reads the "
             "repository's languages, and queues the attached standards to run once. "
-            "409 when it's already a project."
+            "409 when it's already a project.\n\n"
+            "`type: artifact` creates a project whose commits are build archives you "
+            "upload with `POST projects/<id>/commits/`. Idempotent on `external_id`: "
+            "a repeat returns the existing project with 200."
         ),
         request=s.ProjectCreateSerializer,
-        responses={201: s.ProjectCreatedSerializer},
+        responses={201: s.ProjectCreatedSerializer, 200: s.ProjectCreatedSerializer},
     )
     def post(self, request, **_):
         body = s.ProjectCreateSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         data = body.validated_data
+        if data["type"] == "artifact":
+            created = artifact_service.create_artifact_project(
+                self.tenant,
+                name=data["name"],
+                external_id=data["external_id"],
+                stack=data["stack"],
+                description=data["description"],
+                standard_ids=data["standards"],
+            )
+            return Response(
+                {**_project(created.project), "runs": None},
+                status=status.HTTP_201_CREATED if created.created else status.HTTP_200_OK,
+            )
         connection, repo = self._locate(data["repository"], data.get("connection_id"))
         added = pm.add_project(
             self.tenant,
@@ -184,7 +203,7 @@ class ProjectsView(ProjectListView):
             repo,
             lifecycle=data["lifecycle"],
             owner=data["owner"],
-            standard_ids=data["standards"],
+            standard_ids=data["standards"] or [],
         )
         return Response(
             {**_project(added.project), "runs": added.runs}, status=status.HTTP_201_CREATED

@@ -1,4 +1,4 @@
-"""Where upload projects' archives live: Django's ``uploads`` storage
+"""Where artifact projects' archives live: Django's ``uploads`` storage
 (``settings.STORAGES``), keyed by workspace, project and commit SHA."""
 from __future__ import annotations
 

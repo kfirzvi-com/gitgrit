@@ -259,11 +259,11 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             context["can_delete_workspace"] = can_delete_workspace(
                 self.request.user, tenant
             )
-            # The upload connection holds no credentials and owns every
-            # upload project: nothing to edit, and removing it would delete them.
+            # The artifact connection holds no credentials and owns every
+            # artifact project: nothing to edit, and removing it would delete them.
             context["connections"] = (
                 PlatformConnection.objects.filter(tenant=tenant)
-                .exclude(platform=Platform.UPLOAD)
+                .exclude(platform=Platform.ARTIFACT)
                 .order_by("created_at")
             )
             context["platform_choices"] = Platform.git_choices()

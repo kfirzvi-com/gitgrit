@@ -1,7 +1,7 @@
-"""What an uploaded archive may contain (``app.domain.uploads``)."""
+"""What an uploaded archive may contain (``app.domain.artifacts``)."""
 from django.test import SimpleTestCase
 
-from app.domain.uploads import (
+from app.domain.artifacts import (
     ArchiveLimits,
     UploadRejected,
     check_totals,

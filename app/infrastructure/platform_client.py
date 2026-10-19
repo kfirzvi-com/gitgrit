@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import requests
 
-from app.domain.models import AuthMethod, Platform, PlatformConnection, UploadCommit
+from app.domain.models import AuthMethod, Platform, PlatformConnection, ArtifactCommit
 
 logger = logging.getLogger(__name__)
 
@@ -439,9 +439,9 @@ class GitLabClient(PlatformClient):
         )
 
 
-class UploadClient(PlatformClient):
-    """The upload connection's "platform": GitGrit itself. An upload
-    project's commits are its uploads (see ``UploadCommit``), each on a
+class ArtifactClient(PlatformClient):
+    """The artifact connection's "platform": GitGrit itself. An artifact
+    project's commits are its uploads (see ``ArtifactCommit``), each on a
     branch, so the project page's history reads them
     through the same interface as a Git platform's."""
 
@@ -449,7 +449,7 @@ class UploadClient(PlatformClient):
         return []
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
-        raise ValueError("Upload projects receive no webhooks.")
+        raise ValueError("Artifact projects receive no webhooks.")
 
     def delete_webhook(self, external_id: str, webhook_id: str) -> None:
         pass
@@ -458,7 +458,7 @@ class UploadClient(PlatformClient):
         return True
 
     def _commits(self, external_id: str):
-        return UploadCommit.objects.filter(
+        return ArtifactCommit.objects.filter(
             project__platform_connection=self.connection,
             project__external_id=external_id,
         ).order_by("-created_at")
@@ -492,6 +492,6 @@ def get_platform_client(connection: PlatformConnection) -> PlatformClient:
         return GitHubClient(connection)
     elif connection.platform == Platform.GITLAB:
         return GitLabClient(connection)
-    elif connection.platform == Platform.UPLOAD:
-        return UploadClient(connection)
+    elif connection.platform == Platform.ARTIFACT:
+        return ArtifactClient(connection)
     raise ValueError(f"Unknown platform: {connection.platform}")

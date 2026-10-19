@@ -1,4 +1,4 @@
-"""Upload projects in the web UI: creating one and uploading commits by
+"""Artifact projects in the web UI: creating one and uploading commits by
 hand, browsing a commit's files from the Results tab, no Git-only controls, and the upload
 connection never offered as something to edit, remove or import from."""
 import json
@@ -9,8 +9,8 @@ from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
-from app.application import upload_service
-from app.domain.models import CommitCheck, Project, UploadCommit
+from app.application import artifact_service
+from app.domain.models import CommitCheck, Project, ArtifactCommit
 from tests.infrastructure.test_archives import make_zip
 from tests.support import defer_patch
 
@@ -33,7 +33,7 @@ class UploadPageTestCase(TestCase):
         session["active_tenant_id"] = str(self.tenant.id)
         session.save()
         self.standard = baker.make("app.Standard", tenant=self.tenant, criteria={"events": ["upload"]})
-        self.project = upload_service.create_upload_project(
+        self.project = artifact_service.create_artifact_project(
             self.tenant, name="Storefront", external_id="ext-42"
         ).project
         patch = defer_patch()
@@ -102,7 +102,7 @@ class UploadCommitTests(UploadPageTestCase):
     def test_an_upload_is_stored_queued_and_announced(self):
         resp = self.upload(message="Release 1.0.0", branch="review")
 
-        commit = UploadCommit.objects.get()
+        commit = ArtifactCommit.objects.get()
         self.assertEqual(commit.message, "Release 1.0.0")
         self.assertEqual(commit.branch, "review")
         self.assertEqual(commit.author, "kfir")
@@ -119,7 +119,7 @@ class UploadCommitTests(UploadPageTestCase):
         self.assertIn("outside the archive", body)
         self.assertIn("Release 1.0.0</textarea>", body)  # what was typed is kept
         self.assertNotIn("HX-Trigger", resp)
-        self.assertFalse(UploadCommit.objects.exists())
+        self.assertFalse(ArtifactCommit.objects.exists())
 
     def test_without_an_archive_it_asks_for_one(self):
         resp = self.client.post(reverse("upload_project_commit", args=[self.project.pk]), {})
@@ -137,36 +137,36 @@ class UploadCommitTests(UploadPageTestCase):
 class AddUploadProjectTests(UploadPageTestCase):
     def test_the_add_page_offers_an_upload_but_not_the_upload_connection(self):
         page = self.client.get(reverse("add_project_select")).content.decode()
-        self.assertIn("data-add-upload-project", page)
-        self.assertNotIn(upload_service.UPLOAD_CONNECTION_NAME, page)
+        self.assertIn("data-add-artifact-project", page)
+        self.assertNotIn(artifact_service.ARTIFACT_CONNECTION_NAME, page)
 
     def test_creating_with_a_first_commit(self):
-        resp = self.client.post(reverse("add_upload_project"), {
+        resp = self.client.post(reverse("add_artifact_project"), {
             "name": "Checkout", "stack": "Web Team", "message": "First release",
             "archive": SimpleUploadedFile("checkout.zip", BUILD),
         })
 
         project = Project.objects.get(name="Checkout")
-        self.assertTrue(project.is_upload)
+        self.assertTrue(project.is_artifact)
         self.assertEqual(project.root_component.stacks.get().name, "Web Team")
-        self.assertEqual(project.upload_commits.get().message, "First release")
+        self.assertEqual(project.artifact_commits.get().message, "First release")
         self.assertRedirects(
             resp, reverse("project_detail", args=[project.pk]) + "#results",
             fetch_redirect_response=False,
         )
 
     def test_creating_without_an_archive(self):
-        self.client.post(reverse("add_upload_project"), {"name": "Checkout"})
+        self.client.post(reverse("add_artifact_project"), {"name": "Checkout"})
         project = Project.objects.get(name="Checkout")
-        self.assertFalse(project.upload_commits.exists())
+        self.assertFalse(project.artifact_commits.exists())
 
     def test_two_projects_of_the_same_name_stay_apart(self):
-        self.client.post(reverse("add_upload_project"), {"name": "Checkout"})
-        self.client.post(reverse("add_upload_project"), {"name": "Checkout"})
+        self.client.post(reverse("add_artifact_project"), {"name": "Checkout"})
+        self.client.post(reverse("add_artifact_project"), {"name": "Checkout"})
         self.assertEqual(Project.objects.filter(name="Checkout").count(), 2)
 
     def test_a_name_is_required(self):
-        resp = self.client.post(reverse("add_upload_project"), {"name": " "})
+        resp = self.client.post(reverse("add_artifact_project"), {"name": " "})
         self.assertIn("Give the project a name", resp.content.decode())
         self.assertFalse(Project.objects.filter(name="").exists())
 
@@ -176,7 +176,7 @@ class SettingsTests(UploadPageTestCase):
         baker.make("app.PlatformConnection", tenant=self.tenant, display_name="Acme GitHub")
         page = self.client.get(reverse("tenant_settings")).content.decode()
         self.assertIn("Acme GitHub", page)
-        self.assertNotIn(upload_service.UPLOAD_CONNECTION_NAME, page)
+        self.assertNotIn(artifact_service.ARTIFACT_CONNECTION_NAME, page)
 
 
 class CommitFilesTests(UploadPageTestCase):
@@ -185,7 +185,7 @@ class CommitFilesTests(UploadPageTestCase):
     def setUp(self):
         super().setUp()
         self.upload(message="Release 1.0.0")
-        self.commit = UploadCommit.objects.get()
+        self.commit = ArtifactCommit.objects.get()
         self.url = reverse("commit_files", args=[self.project.pk])
         self.raw_url = reverse("commit_file_raw", args=[self.project.pk])
 

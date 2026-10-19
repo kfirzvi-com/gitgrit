@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Upload a Build — GitGrit{% endblock %}
+{% block title %}New Artifact Project — GitGrit{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
   <a href="{% url 'add_project_select' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Add Project</a>
-  <h1 class="text-3xl font-bold mb-2">Upload a Build</h1>
-  <p class="text-sm opacity-70 mb-6">A project whose files you upload as an archive (for example a built app's dist) instead of importing a Git repository. Each upload is a commit, checked against the standards whose events include <code>upload</code>.</p>
+  <h1 class="text-3xl font-bold mb-2">New Artifact Project</h1>
+  <p class="text-sm opacity-70 mb-6">A project whose files are build artifacts you upload as an archive (for example a built app's dist) instead of a Git repository. Each upload is a commit, checked against the standards whose events include <code>upload</code>.</p>
 
   <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-xl" data-loading="UPLOADING">
     {% csrf_token %}

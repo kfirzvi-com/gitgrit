@@ -6,7 +6,7 @@ import zipfile
 
 from django.test import SimpleTestCase
 
-from app.domain.uploads import ArchiveLimits, UploadRejected
+from app.domain.artifacts import ArchiveLimits, UploadRejected
 from app.infrastructure import archives
 from tests.support import TmpPathMixin
 

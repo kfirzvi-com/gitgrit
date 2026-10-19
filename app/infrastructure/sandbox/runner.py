@@ -35,8 +35,8 @@ SANDBOX_TMP = "/tmp/gitgrit-sandbox"
 # bind and the environment dict below.
 CUSTOM_CA_MOUNT_PATH = "/etc/ssl/certs/custom-ca.pem"
 
-# Where an upload project's files appear inside the sandbox; the sandbox's
-# upload provider reads them from here.
+# Where an artifact project's files appear inside the sandbox; the sandbox's
+# artifact provider reads them from here.
 PROJECT_MOUNT_PATH = "/project"
 
 
@@ -64,7 +64,7 @@ class SandboxRunner(StandardRunner):
             standard_code: Python source defining an evaluate(project) function.
             input_config: Dict with platform, project_id, access_token — written
                 to /input.json inside the container.
-            project_dir: Host directory of an upload project's files, mounted
+            project_dir: Host directory of an artifact project's files, mounted
                 read-only at /project (under SANDBOX_TMP, so the host sees the
                 same path the web container wrote).
 
