@@ -117,6 +117,17 @@ def _grading(project, attachments, found: dict) -> ProjectGrading:
     )
 
 
+def critical_failed_count(executions, critical_standard_ids) -> int:
+    """How many counting critical results failed or errored: the results the
+    gate (``grading.is_gated``) turns into an F, so the count is above zero
+    exactly when the grade is F. Read from a grading's own rows, no query."""
+    return sum(
+        1
+        for ex in executions
+        if grading.is_gated([result_for(ex, critical=ex.standard_id in critical_standard_ids)])
+    )
+
+
 def grade_for_project(project: Project, exclude_execution_ids=()) -> ProjectGrading:
     """The project's grade, the executions it was read from, and the
     attachments that have nothing to read yet. ``exclude_execution_ids``

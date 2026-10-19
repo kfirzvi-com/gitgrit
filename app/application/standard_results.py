@@ -155,3 +155,41 @@ def attention_items(tenant) -> list[AttentionItem]:
 
     items.sort(key=rank, reverse=True)
     return items
+
+
+# --- Order on the Results tab -------------------------------------------------------
+
+RESULT_GROUPS = (
+    ("failed", "Failed standards"),
+    ("passed", "Passed standards"),
+    ("other", "Other"),
+)
+
+
+def group_results(results) -> list[tuple[str, str, list]]:
+    """A commit's results for the Results tab, as ``(key, heading, results)``
+    groups in display order, empty groups left out. Failed first (critical
+    ones on top, then failed before errored, then by name), errored results
+    count against the project so they sit with the failed; then passed; then
+    "Other" (running, anything else). Order only, nothing is graded here."""
+
+    def key_of(ex) -> str:
+        if ex.status in (Status.FAILED, Status.ERROR):
+            return "failed"
+        return "passed" if ex.status == Status.PASSED else "other"
+
+    def sort_key(ex):
+        return (
+            not ex.critical,
+            ex.status != Status.FAILED,
+            (ex.standard_name or "").lower(),
+        )
+
+    buckets = {key: [] for key, _ in RESULT_GROUPS}
+    for ex in results:
+        buckets[key_of(ex)].append(ex)
+    return [
+        (key, heading, sorted(buckets[key], key=sort_key))
+        for key, heading in RESULT_GROUPS
+        if buckets[key]
+    ]

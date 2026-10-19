@@ -77,9 +77,8 @@ class TestPickerShowsTheMark(TestCase):
         body = resp.content.decode()
         assert "checkAllCriticalStandardPicker(this)" in body
         assert "uncheckAllCriticalStandardPicker(this)" in body
-        assert 'class="select select-bordered standard-picker-critical-filter"' in body
-        assert '<option value="critical">' in body
-        assert '<option value="not-critical">' in body
+        assert 'data-filter-group="critical" value="critical" checked' in body
+        assert 'data-filter-group="critical" value="not-critical" checked' in body
 
 
 @pytest.mark.django_db
@@ -238,7 +237,7 @@ class TestProjectPageShowsTheGate(TestCase):
         assert resp.context["critical_standard_ids"] == {gate.pk}
         body = resp.content.decode()
         assert 'data-grade="F"' in body
-        assert "No secrets failing" in body
+        assert "No secrets failing" not in body
 
     def test_a_critical_attachment_with_no_run_on_its_branch_does_not_gate_yet(self):
         """A standard scoped to ``develop`` is graded on develop; until it
@@ -259,9 +258,9 @@ class TestProjectPageShowsTheGate(TestCase):
         assert resp.context["grade"].graded is False
         assert resp.context["not_evaluated_standards"] == [gate]
         body = resp.content.decode()
-        assert f'data-not-evaluated-standard="{gate.pk}"' in body
-        assert "not evaluated on develop, so it does not gate yet" in body
-        assert body.count("data-critical-chip") == 1
+        assert "data-not-evaluated" not in body
+        assert "Not evaluated yet" not in body
+        assert "not evaluated on develop" not in body
 
     def test_a_branch_scoped_critical_gates_on_its_own_branch(self):
         _, tenant = _login_member(self.client)

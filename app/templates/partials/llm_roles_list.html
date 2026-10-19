@@ -1,0 +1,6 @@
+{# The role forms; re-rendered via hx-swap-oob when providers change. #}
+<div id="llm-roles-list" class="space-y-3"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for role in llm_role_rows %}
+    {% include "partials/llm_role_row.html" %}
+  {% endfor %}
+</div>

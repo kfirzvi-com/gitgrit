@@ -45,6 +45,20 @@ PASS_RATE_BANDS: tuple[tuple[int, str], ...] = (
     (60, C),
 )
 
+# Letter -> 0-100 score, the one place the numbers live. Change a value here
+# and every reader follows; nothing else holds a copy. Today each number is
+# the middle of the letter's pass-rate band (A+ is exactly 100, F is 0).
+# Other options: the band floors (100, 90, 75, 60, 0, 0) for a strict
+# reading, or evenly spaced steps (100, 90, 80, 70, 60, 0) for easy math.
+SCORE_BY_LETTER: dict[str, int] = {
+    A_PLUS: 100,
+    A: 95,
+    B: 82,
+    C: 67,
+    D: 30,
+    F: 0,
+}
+
 REASON_PERFECT = "perfect"
 REASON_NO_RESULTS = "no results yet"
 
@@ -81,6 +95,12 @@ def tone_for(letter: str | None) -> str:
     """The tone of a letter: F is failing, D and C need attention, A+, A
     and B are good; anything else (no grade) is unknown."""
     return _TONE_BY_LETTER.get(letter, TONE_UNKNOWN)
+
+
+def score_for(letter: str | None) -> int | None:
+    """The 0-100 score of a letter (``SCORE_BY_LETTER``); ``None`` for no
+    grade, so an ungraded project never reads as a zero."""
+    return SCORE_BY_LETTER.get(letter)
 
 
 def worst_letter(letters) -> str:

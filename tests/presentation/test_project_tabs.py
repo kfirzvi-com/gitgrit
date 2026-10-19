@@ -70,7 +70,8 @@ class ProjectTabsTests(TestCase):
         self.assertNotIn("compliance_score", response.context)
         body = response.content.decode()
         self.assertIn('data-grade="D"', body)
-        self.assertIn("2 standards failing", body)
+        # The card names no standards: the grade reason stays out of it.
+        self.assertNotIn("2 standards failing", body)
         self.assertNotIn("33", body.split("data-overview-health", 1)[1].split("data-health-breakdown", 1)[0])
         self.assertIn("data-health-breakdown", body)
 

@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import escape
@@ -600,12 +601,62 @@ def _auto_provider_name(tenant, provider_type) -> str:
     return f"{label} {n}"
 
 
+def _render_llm_provider_update(
+    request, tenant, message="", error="", level="success", saved=False, **flags
+):
+    """HTMX reply for the provider add/edit forms. Errors stay inline in the
+    form; on success the providers table, role forms and model map are swapped
+    in place so nothing reloads."""
+    providers = list(LLMProvider.objects.filter(tenant=tenant).order_by("created_at"))
+    return render(
+        request,
+        "partials/llm_provider_update.html",
+        {
+            "message": message,
+            "error": error,
+            "level": level,
+            "saved": saved,
+            "is_admin": True,
+            "llm_providers": providers,
+            "llm_role_rows": [
+                _llm_role_row(tenant, value) for value, _ in LLMRole.Name.choices
+            ],
+            "llm_provider_models_map": {
+                str(p.id): list(p.available_models or []) for p in providers
+            },
+            **flags,
+        },
+    )
+
+
+def _htmx_admin_denied(request):
+    """For an HTMX provider form, the inline permission error (no redirect:
+    HTMX would swap a whole page into the form), else None."""
+    if request.htmx and request.tenant and not is_workspace_admin(request):
+        return _render_llm_provider_update(
+            request,
+            request.tenant,
+            error="You don't have permission to manage workspace settings.",
+        )
+    return None
+
+
 @login_required
 @require_POST
 def add_llm_provider(request):
+    htmx = bool(request.htmx)
+    denied = _htmx_admin_denied(request)
+    if denied:
+        return denied
     tenant, deny = _require_workspace_admin(request)
     if deny:
         return deny
+
+    def fail(text):
+        if htmx:
+            return _render_llm_provider_update(request, tenant, error=text)
+        messages.error(request, text)
+        return redirect("tenant_settings")
 
     provider_type = request.POST.get("provider_type", "")
     display_name = request.POST.get("display_name", "").strip()
@@ -613,11 +664,9 @@ def add_llm_provider(request):
     api_key = request.POST.get("api_key", "").strip()
 
     if provider_type not in LLMProviderType.values:
-        messages.error(request, "Invalid provider type.")
-        return redirect("tenant_settings")
+        return fail("Invalid provider type.")
     if not api_key:
-        messages.error(request, "API key is required.")
-        return redirect("tenant_settings")
+        return fail("API key is required.")
 
     if not display_name:
         display_name = _auto_provider_name(tenant, provider_type)
@@ -635,24 +684,33 @@ def add_llm_provider(request):
     provider.save()
 
     if models:
-        messages.success(
-            request,
+        level = "success"
+        text = (
             f'Provider "{display_name}" added — {len(models)} models '
-            f"this key can use.",
+            f"this key can use."
         )
     else:
+        level = "warning"
         why = f" The provider said: {found.reason}." if found.reason else ""
-        messages.warning(
-            request,
+        text = (
             f'Provider "{display_name}" added, but no models this key can '
-            f"use were found.{why} Add them manually via Edit.",
+            f"use were found.{why} Add them manually via Edit."
         )
+    if htmx:
+        return _render_llm_provider_update(
+            request, tenant, message=text, level=level, saved=True, reset_form=True
+        )
+    getattr(messages, level)(request, text)
     return redirect("tenant_settings")
 
 
 @login_required
 @require_POST
 def edit_llm_provider(request, provider_id):
+    htmx = bool(request.htmx)
+    denied = _htmx_admin_denied(request)
+    if denied:
+        return denied
     tenant, deny = _require_workspace_admin(request)
     if deny:
         return deny
@@ -674,7 +732,12 @@ def edit_llm_provider(request, provider_id):
         provider.available_models = manual
 
     provider.save()
-    messages.success(request, f'Provider "{provider.display_name}" updated.')
+    text = f'Provider "{provider.display_name}" updated.'
+    if htmx:
+        return _render_llm_provider_update(
+            request, tenant, message=text, saved=True, close_modal=True
+        )
+    messages.success(request, text)
     return redirect("tenant_settings")
 
 
@@ -731,12 +794,65 @@ def fetch_llm_models(request, provider_id):
     return HttpResponse(f'<span class="badge badge-warning"{title}>none found</span>')
 
 
+def _llm_role_row(tenant, role_name):
+    """The role form's data: the saved provider/model for ``role_name``."""
+    role = LLMRole.objects.filter(tenant=tenant, name=role_name).first()
+    return {
+        "name": role_name,
+        "label": dict(LLMRole.Name.choices).get(role_name, role_name),
+        "provider_id": str(role.provider_id) if role else "",
+        "model": role.model if role else "",
+    }
+
+
+def _render_llm_role_row(request, tenant, role_name, message="", error=""):
+    """The role form alone, for HTMX to swap in place after a Save."""
+    providers = list(LLMProvider.objects.filter(tenant=tenant).order_by("created_at"))
+    return render(
+        request,
+        "partials/llm_role_row.html",
+        {
+            "role": _llm_role_row(tenant, role_name),
+            "llm_providers": providers,
+            "llm_provider_models_map": {
+                str(p.id): list(p.available_models or []) for p in providers
+            },
+            "role_message": message,
+            "role_error": error,
+        },
+    )
+
+
 @login_required
 @require_POST
 def set_llm_role(request, role_name):
+    htmx = bool(request.htmx)
+    if htmx and role_name not in LLMRole.Name.values:
+        return HttpResponseBadRequest("Invalid role.")
+    if htmx and request.tenant and not is_workspace_admin(request):
+        # No redirect: HTMX would swap a whole page into the form.
+        return _render_llm_role_row(
+            request,
+            request.tenant,
+            role_name,
+            error="You don't have permission to manage workspace settings.",
+        )
     tenant, deny = _require_workspace_admin(request)
     if deny:
         return deny
+
+    def done(level, text):
+        if htmx:
+            is_error = level == "error"
+            return _render_llm_role_row(
+                request,
+                tenant,
+                role_name,
+                message="" if is_error else text,
+                error=text if is_error else "",
+            )
+        getattr(messages, level)(request, text)
+        return redirect("tenant_settings")
 
     if role_name not in LLMRole.Name.values:
         messages.error(request, "Invalid role.")
@@ -747,20 +863,15 @@ def set_llm_role(request, role_name):
 
     if not provider_id:
         LLMRole.objects.filter(tenant=tenant, name=role_name).delete()
-        messages.success(request, f'Cleared the "{role_name}" role.')
-        return redirect("tenant_settings")
+        return done("success", f'Cleared the "{role_name}" role.')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
     if not model:
-        messages.error(request, "Select a model for the role.")
-        return redirect("tenant_settings")
+        return done("error", "Select a model for the role.")
 
     LLMRole.objects.update_or_create(
         tenant=tenant,
         name=role_name,
         defaults={"provider": provider, "model": model},
     )
-    messages.success(
-        request, f'Role "{role_name}" set to {provider.display_name}/{model}.'
-    )
-    return redirect("tenant_settings")
+    return done("success", f'Role "{role_name}" set to {provider.display_name}/{model}.')
