@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 
+{% load project_tags %}
 {% block title %}Projects — GitGrit{% endblock %}
 
 {% block content %}
@@ -13,17 +14,46 @@
     {% for project in projects %}
       <a href="{% url 'project_detail' project.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
         <div class="card-body">
-          <h2 class="card-title text-lg">{{ project.name }}</h2>
-          <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
-          <div class="flex flex-wrap gap-2 mt-2">
-            <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-              {{ project.get_platform_display }}
-            </span>
-            <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-3" data-project-score>
+                <h2 class="card-title text-lg min-w-0">{{ project.name }}</h2>
+                {% if project.grade.graded %}
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base leading-none
+                              {% if project.grade.letter == 'A+' or project.grade.letter == 'A' or project.grade.letter == 'B' %}border-2 border-success text-success font-bold
+                              {% elif project.grade.letter == 'C' %}border-2 border-warning text-warning font-bold
+                              {% elif project.grade.letter == 'D' %}border-2 border-error/50 text-error/70 font-bold
+                              {% else %}border-4 border-error text-error bg-error/20 font-black{% endif %}"
+                       data-grade="{{ project.grade.letter }}" role="img" aria-label="Grade {{ project.grade.letter }}">{{ project.grade.letter }}</div>
+                  {% if project.grade.letter == 'F' %}
+                    <span class="inline-flex items-center gap-1 text-error text-sm font-semibold" data-failing>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 004.1 20.5h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+                      Failing
+                    </span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-sm opacity-60" data-no-grade>No results yet</span>
+                {% endif %}
+              </div>
+              <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
+                  {{ project.get_platform_display }}
+                </span>
+                <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+              </div>
+              {% if project.owner %}
+                <span class="text-sm text-gray-500">{{ project.owner }}</span>
+              {% endif %}
+            </div>
+            {% if project.last_run %}
+              <div class="shrink-0 text-right text-xs opacity-70" data-last-run>
+                <p>Last run:</p>
+                <p><time datetime="{{ project.last_run.created_at|date:'c' }}">{{ project.last_run.created_at|date:"j.n.y, H:i" }}</time></p>
+                <p>{{ project.last_run|trigger_label }}</p>
+              </div>
+            {% endif %}
           </div>
-          {% if project.owner %}
-            <span class="text-sm text-gray-500">{{ project.owner }}</span>
-          {% endif %}
           {% if project.description %}
             <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>
           {% endif %}

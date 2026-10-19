@@ -1,0 +1,3 @@
+{# Inline result of the provider add/edit forms. #}
+{% if error %}<span class="text-error text-sm" role="alert">{{ error }}</span>{% endif %}
+{% if message %}<span class="text-sm {% if level == 'warning' %}text-warning{% else %}text-success{% endif %}" role="status">{{ message }}</span>{% endif %}

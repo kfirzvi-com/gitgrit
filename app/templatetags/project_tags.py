@@ -34,3 +34,23 @@ def log_time(value):
     time_part = f"{hour}:{dt.minute:02d}:{dt.second:02d}.{dt.microsecond // 1000:03d} {ampm}"
     tz = dt.tzname() or ""
     return f"{date_part} {time_part} {tz}".strip()
+
+
+_TRIGGER_LABELS = {"manual": "Manual", "pull_request": "Pull request"}
+
+
+@register.filter
+def trigger_label(execution):
+    """A readable name for what started a run: 'Manual', 'Pull request',
+    'Push', 'Tag'. A push or create whose ref is a tag (webhook refs keep the
+    refs/tags/ prefix) reads 'Tag'; a create with any other ref stays
+    'Create', since the ref alone cannot say branch from tag."""
+    event_type = getattr(execution, "event_type", "") or ""
+    ref = getattr(execution, "ref", "") or ""
+    if event_type in _TRIGGER_LABELS:
+        return _TRIGGER_LABELS[event_type]
+    if event_type in ("push", "create"):
+        if ref.startswith("refs/tags/"):
+            return "Tag"
+        return "Push" if event_type == "push" else "Create"
+    return event_type.replace("_", " ").capitalize()
