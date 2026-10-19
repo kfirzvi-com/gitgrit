@@ -14,6 +14,31 @@ if content and "## Contributing" in content:
     # Has a contributing section
 ```
 
+### `project.get_file_size(path) -> int | None`
+
+Size of a file in bytes, including files you cannot read as text (images,
+audio, wasm). Known for [artifact projects](../getting-started/artifact-projects.md);
+`None` on Git repositories.
+
+```python
+too_big = [f for f in project.list_files() if (project.get_file_size(f) or 0) > 5_000_000]
+```
+
+### `project.read_file_lines(path, start=1, count=100) -> dict | None`
+
+Part of a file as numbered lines, for reading large or minified files a page at
+a time. Lines longer than 200 characters (a minified bundle is often one line)
+are first broken after `;`, `,`, braces or parentheses. Each call returns about
+5,000 characters at most and says where to continue (`next_start`, `None` at
+the end). This is how an LLM standard's model reads big files;
+`get_file_content` stays the raw file.
+
+```python
+page = project.read_file_lines("assets/app.js")
+# {"path": "assets/app.js", "total_lines": 2140,
+#  "lines": ["1: (function(){\"use strict\";", ...], "next_start": 61}
+```
+
 ### `project.list_files() -> list[str]`
 
 List all file paths in the repository.
@@ -100,3 +125,5 @@ date_str = project.get_file_last_commit_date("CLAUDE.md")
 - Execution timeout: **30 seconds**
 - Memory limit: **128 MB**
 - Only the `project` API is available — no filesystem, no imports beyond the standard library
+- For an [artifact project](../getting-started/artifact-projects.md), `project` reads the
+  uploaded commit's files; members, contributors, topics and commit dates are empty

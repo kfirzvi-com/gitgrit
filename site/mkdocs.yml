@@ -43,6 +43,7 @@ nav:
     - Workspaces & Members: getting-started/workspaces.md
     - Adding Projects: getting-started/projects.md
     - Command Line: getting-started/cli.md
+    - Artifact Projects: getting-started/artifact-projects.md
     - Writing Standards: getting-started/standards.md
   - Features:
     - Standard Marketplace: features/marketplace.md
