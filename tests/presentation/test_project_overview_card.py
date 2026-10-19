@@ -99,6 +99,35 @@ class TestOverviewCard(TestCase):
         assert f"{newest.created_at:%-d %b %Y}" in body
         assert "triggered by Tag" in body
 
+    def test_the_summary_card_has_no_grade_explanation_tooltip(self):
+        self._run("passed")
+
+        body = self._page().content.decode()
+
+        assert "About this grade" not in body
+        assert "any critical standard failing" not in body
+
+    def test_the_about_box_links_the_platform_to_the_repository(self):
+        self.project.platform = "github"
+        self.project.web_url = "https://github.com/acme/api"
+        self.project.save()
+
+        body = self._page().content.decode()
+
+        match = re.search(r"<a [^>]*data-repo-link[^>]*>", body)
+        assert match
+        tag = match.group(0)
+        assert 'href="https://github.com/acme/api"' in tag
+        assert 'target="_blank"' in tag
+        assert 'rel="noopener noreferrer"' in tag
+        assert f'aria-label="Open {self.project.name} on GitHub"' in tag
+
+    def test_the_about_box_shows_plain_text_without_a_repository_url(self):
+        self.project.web_url = ""
+        self.project.save()
+
+        assert "data-repo-link" not in self._page().content.decode()
+
     def test_an_empty_project_shows_the_dashed_circle_and_its_message(self):
         self.project.standards.add(_standard(self.tenant))
 
