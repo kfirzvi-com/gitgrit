@@ -36,6 +36,9 @@ dependencies = [
     # Email through the SES API with the host's AWS role (GITGRIT_EMAIL_BACKEND=ses):
     # no SMTP credentials to store. Pinned for the same reason as above.
     "django-ses==4.8.0",
+    # Upload projects' archives in S3 (GITGRIT_UPLOADS_BUCKET) with the host's
+    # AWS role, like SES above. Pinned for the same reason.
+    "django-storages[s3]==1.14.6",
 ]
 
 [dependency-groups]

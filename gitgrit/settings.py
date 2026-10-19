@@ -185,19 +185,44 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Upload projects' archives, one per uploaded commit, kept forever. A local
-# directory by default; a deploy must point it at a volume that both the web
-# (which stores uploads) and the worker (which reads them) mount.
+# Upload projects' archives, one per uploaded commit, kept forever. Both the
+# web (which stores them) and the worker (which reads them) must see the same
+# store: in a deploy that is a private S3 bucket (GITGRIT_UPLOADS_BUCKET),
+# reached with the host's AWS role like SES, so no keys are configured. Without
+# a bucket (local dev, air-gapped installs) it is a local directory.
+def uploads_storage(bucket: str, region: str, root: str) -> dict:
+    if bucket:
+        return {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": bucket,
+                "region_name": region,
+                # Objects are named by their content (the commit's SHA): the
+                # same name always holds the same bytes, and the app never
+                # deletes one, so its role has no s3:DeleteObject.
+                "file_overwrite": True,
+                "default_acl": None,
+                # Never handed to browsers: GitGrit serves every file itself.
+                "querystring_auth": False,
+            },
+        }
+    return {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": root},
+    }
+
+
 UPLOADS_ROOT = os.environ.get("GITGRIT_UPLOADS_ROOT", str(BASE_DIR / "var" / "uploads"))
 
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
-    "uploads": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-        "OPTIONS": {"location": UPLOADS_ROOT},
-    },
+    "uploads": uploads_storage(
+        os.environ.get("GITGRIT_UPLOADS_BUCKET", ""),
+        os.environ.get("GITGRIT_UPLOADS_REGION", "eu-north-1"),
+        UPLOADS_ROOT,
+    ),
 }
 
 CSRF_TRUSTED_ORIGINS = [SITE_URL]
