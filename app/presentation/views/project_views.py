@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Exists, OuterRef
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -22,7 +23,11 @@ from app.application.commit_checks import (
     commit_grade,
     waiting_for_commit,
 )
-from app.application.grading_service import grade_for_project
+from app.application.grading_service import (
+    critical_failed_count,
+    grade_for_project,
+    grades_for_tenant,
+)
 from app.application.standard_results import breakdown
 from app.domain.grading import tone_for
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
@@ -103,6 +108,31 @@ class ProjectListView(LoginRequiredMixin, ListView):
             return Project.objects.none()
         return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        tenant = self.request.tenant
+        if not tenant:
+            return context
+        # Two batched reads for the whole list, never one per project: every
+        # project's grade (the dashboard's read) and each project's newest run
+        # of a still-attached standard (what the project page calls "last run").
+        grades = grades_for_tenant(tenant)
+        attached = ProjectStandard.objects.filter(
+            project=OuterRef("project"), standard=OuterRef("standard")
+        )
+        latest_runs = {
+            ex.project_id: ex
+            for ex in StandardExecution.objects.filter(project__tenant=tenant)
+            .filter(Exists(attached))
+            .order_by("project_id", "-created_at")
+            .distinct("project_id")
+        }
+        for project in context["projects"]:
+            project_grading = grades.get(project.pk)
+            project.grade = project_grading.grade if project_grading else None
+            project.last_run = latest_runs.get(project.pk)
+        return context
+
 
 def results_context(project) -> dict:
     """What the project page's Overview and Standards tabs render: the
@@ -149,6 +179,9 @@ def results_context(project) -> dict:
     context["health_breakdown"] = breakdown(grading.executions)
     context["not_evaluated_standards"] = grading.not_evaluated
     context["critical_standard_ids"] = grading.critical_standard_ids
+    context["critical_failed_count"] = critical_failed_count(
+        grading.executions, grading.critical_standard_ids
+    )
 
     return context
 
@@ -675,5 +708,3 @@ def retry_webhook(request, pk):
         messages.error(request, "Webhook registration failed. Check your connection token.")
 
     return redirect("project_detail", pk=project.pk)
-
-
