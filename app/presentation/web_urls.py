@@ -48,6 +48,13 @@ from app.presentation.views.project_views import (
     retry_webhook,
     run_project_standards,
 )
+from app.presentation.views.upload_views import (
+    add_upload_project,
+    project_file_raw,
+    project_files,
+    project_overview_health,
+    upload_project_version,
+)
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
@@ -267,6 +274,7 @@ urlpatterns = [
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/add/", add_project_select, name="add_project_select"),
+    path("projects/add/upload/", add_upload_project, name="add_upload_project"),
     path(
         "projects/add/<uuid:connection_id>/",
         add_project_search,
@@ -274,6 +282,18 @@ urlpatterns = [
     ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
     path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
+    path(
+        "projects/<uuid:pk>/versions/upload/",
+        upload_project_version,
+        name="upload_project_version",
+    ),
+    path(
+        "projects/<uuid:pk>/overview-health/",
+        project_overview_health,
+        name="project_overview_health",
+    ),
+    path("projects/<uuid:pk>/files/", project_files, name="project_files"),
+    path("projects/<uuid:pk>/files/raw/", project_file_raw, name="project_file_raw"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
         "projects/<uuid:pk>/run-standards/",

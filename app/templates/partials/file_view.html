@@ -1,0 +1,24 @@
+{% comment %}One file of an upload project's version, in the Files tab: text (escaped, wrapped,
+since a minified bundle is one long line), an image preview, or a note for other binaries.{% endcomment %}
+<div class="rounded-2xl bg-base-200/50 overflow-hidden" data-file-view="{{ file.path }}">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-base-200">
+    <code class="text-sm break-all">{{ file.path }}</code>
+    {% if not file.missing %}
+      <span class="text-xs opacity-60 whitespace-nowrap">
+        {{ file.size|filesizeformat }}{% if file.text is not None %} · {{ file.lines }} line{{ file.lines|pluralize }}{% if file.longest_line > 500 %} · longest {{ file.longest_line }} chars (minified){% endif %}{% endif %}
+      </span>
+    {% endif %}
+  </div>
+  {% if file.missing %}
+    <p class="text-sm opacity-60 p-4">This version has no such file.</p>
+  {% elif file.image_url %}
+    <div class="p-4 flex justify-center bg-base-300/40">
+      <img src="{{ file.image_url }}" alt="{{ file.path }}" class="max-h-[30rem] max-w-full object-contain" style="image-rendering: auto">
+    </div>
+  {% elif file.binary %}
+    <p class="text-sm opacity-60 p-4">Binary file; not shown. Standards can still check its size with <code>project.get_file_size()</code>.</p>
+  {% else %}
+    <pre class="text-xs leading-relaxed p-4 max-h-[32rem] overflow-auto whitespace-pre-wrap break-all font-mono" data-file-text>{{ file.text }}</pre>
+    {% if file.truncated %}<p class="text-xs opacity-60 px-4 pb-3">Showing the first 512 KB.</p>{% endif %}
+  {% endif %}
+</div>

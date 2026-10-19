@@ -1,0 +1,35 @@
+{% comment %}The Upload version dialog's form on an upload project's page. Posts over HTMX and
+swaps itself; a successful upload answers with a fresh form and the versionUploaded event,
+which closes the dialog and reloads the Results, Overview and Files panels.{% endcomment %}
+<form id="upload-version-form" class="space-y-4"
+      hx-post="{% url 'upload_project_version' project.pk %}" hx-encoding="multipart/form-data"
+      hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  {% if error %}<div role="alert" class="alert alert-error text-sm" data-upload-error>{{ error }}</div>{% endif %}
+  <div class="form-control">
+    <label class="label" for="upload-archive"><span class="label-text">Archive</span></label>
+    <input type="file" name="archive" id="upload-archive" required
+           accept=".zip,.tar,.tgz,.gz,application/zip,application/gzip"
+           class="file-input file-input-bordered w-full">
+    <p class="text-xs opacity-60 mt-1">A .zip or .tar.gz of the build, up to 50 MB.</p>
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div class="form-control">
+      <label class="label" for="upload-label"><span class="label-text">Version</span></label>
+      <input type="text" name="label" id="upload-label" maxlength="255" value="{{ label|default:'' }}"
+             placeholder="e.g. 1.4.2" class="input input-bordered w-full">
+    </div>
+    <div class="form-control">
+      <label class="label" for="upload-channel"><span class="label-text">Channel</span></label>
+      <input type="text" name="channel" id="upload-channel" maxlength="255" value="{{ channel|default:'' }}"
+             placeholder="{{ project.default_branch }}" class="input input-bordered w-full">
+    </div>
+  </div>
+  <div class="modal-action mt-2">
+    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
+    <button type="submit" class="btn btn-primary">
+      <span class="loading loading-spinner loading-sm htmx-indicator"></span>
+      Upload and check
+    </button>
+  </div>
+</form>

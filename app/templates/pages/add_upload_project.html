@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Upload a Build — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="{% url 'add_project_select' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Add Project</a>
+  <h1 class="text-3xl font-bold mb-2">Upload a Build</h1>
+  <p class="text-sm opacity-70 mb-6">A project whose files you upload as an archive (for example a game's built dist) instead of importing a Git repository. Each upload is a version, checked against the standards whose events include <code>upload</code>.</p>
+
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-xl" data-loading="UPLOADING">
+    {% csrf_token %}
+    <div class="card-body space-y-4">
+      {% if error %}<div role="alert" class="alert alert-error text-sm" data-upload-error>{{ error }}</div>{% endif %}
+
+      <div class="form-control">
+        <label class="label" for="id_name"><span class="label-text">Name</span></label>
+        <input type="text" name="name" id="id_name" maxlength="255" required autofocus
+               value="{{ form.name }}" placeholder="e.g. Space Race" class="input input-bordered w-full">
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_stack"><span class="label-text">Stack</span></label>
+        <input type="text" name="stack" id="id_stack" maxlength="255" list="stack-names" autocomplete="off"
+               value="{{ form.stack }}" placeholder="e.g. the studio's name (optional)" class="input input-bordered w-full">
+        <datalist id="stack-names">{% for stack in stacks %}<option value="{{ stack.name }}">{% endfor %}</datalist>
+        <p class="text-xs opacity-60 mt-1">Pick an existing stack or type a new name to create one.</p>
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_description"><span class="label-text">Description</span></label>
+        <input type="text" name="description" id="id_description" value="{{ form.description }}"
+               placeholder="Optional" class="input input-bordered w-full">
+      </div>
+
+      <div class="divider my-0 text-xs opacity-60">First version (optional)</div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="form-control sm:col-span-2">
+          <label class="label" for="id_archive"><span class="label-text">Archive</span></label>
+          <input type="file" name="archive" id="id_archive" accept=".zip,.tar,.tgz,.gz,application/zip,application/gzip"
+                 class="file-input file-input-bordered w-full">
+        </div>
+        <div class="form-control">
+          <label class="label" for="id_label"><span class="label-text">Version</span></label>
+          <input type="text" name="label" id="id_label" maxlength="255" value="{{ form.label }}"
+                 placeholder="e.g. 1.0.0" class="input input-bordered w-full">
+        </div>
+      </div>
+      <p class="text-xs opacity-60 -mt-2">A .zip or .tar.gz, up to 50 MB. A single top-level folder (like <code>dist/</code>) is dropped, so <code>index.html</code> sits at the root.</p>
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'add_project_select' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create project</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -90,3 +90,16 @@ class ExtractTests(TmpPathMixin, SimpleTestCase):
         data = make_tgz({"big.bin": b"\0" * 10_000})
         with self.assertRaises(UploadRejected):
             archives.extract(data, self.tmp_path, ArchiveLimits(max_extracted_bytes=5_000))
+
+
+class ReadFileTests(SimpleTestCase):
+    def test_a_file_is_read_by_its_path_without_the_wrapping_folder(self):
+        self.assertEqual(archives.read_file(make_tgz(GAME), "assets/app.js"), b"console.log(1)")
+
+    def test_a_missing_file_is_none(self):
+        self.assertIsNone(archives.read_file(make_zip(GAME), "nope.js"))
+
+    def test_sizes_are_listed_per_file(self):
+        self.assertEqual(
+            archives.scan(make_zip(GAME)).sizes, {"index.html": 13, "assets/app.js": 14}
+        )

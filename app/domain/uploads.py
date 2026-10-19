@@ -105,3 +105,51 @@ def languages_from_paths(paths: list[str]) -> list[str]:
         if ext in _LANGUAGES
     )
     return [lang for lang, _ in counts.most_common()]
+
+
+@dataclass
+class TreeNode:
+    """A folder or file of an uploaded version, for browsing. A folder's
+    ``size`` and ``file_count`` cover everything under it."""
+
+    name: str
+    path: str
+    is_dir: bool
+    size: int = 0
+    file_count: int = 0
+    children: list["TreeNode"] | None = None
+
+    @property
+    def depth(self) -> int:
+        """0 for a top-level entry, 1 inside one folder, and so on."""
+        return self.path.count("/")
+
+
+def file_tree(sizes: dict[str, int]) -> TreeNode:
+    """The folder tree of a version's files (path -> size): folders first,
+    then files, each by name."""
+    root = TreeNode(name="", path="", is_dir=True, children=[])
+    folders = {"": root}
+    for path in sorted(sizes):
+        parent = root
+        parts = path.split("/")
+        for depth, part in enumerate(parts[:-1]):
+            folder_path = "/".join(parts[: depth + 1])
+            folder = folders.get(folder_path)
+            if folder is None:
+                folder = TreeNode(name=part, path=folder_path, is_dir=True, children=[])
+                folders[folder_path] = folder
+                parent.children.append(folder)
+            parent = folder
+        parent.children.append(TreeNode(name=parts[-1], path=path, is_dir=False, size=sizes[path]))
+
+    def finish(node: TreeNode) -> None:
+        for child in node.children:
+            if child.is_dir:
+                finish(child)
+        node.children.sort(key=lambda c: (not c.is_dir, c.name.lower()))
+        node.size = sum(c.size for c in node.children)
+        node.file_count = sum(c.file_count if c.is_dir else 1 for c in node.children)
+
+    finish(root)
+    return root

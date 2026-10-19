@@ -210,6 +210,8 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
             "notice": notice,
+            # An upload project's commits are its uploaded versions.
+            "unit": "version" if project.is_upload else "commit",
         },
     )
 
@@ -306,13 +308,7 @@ def add_project_select(request):
         .exclude(platform=Platform.UPLOAD)
         .order_by("created_at")
     )
-    if not connections.exists():
-        messages.warning(
-            request,
-            "Add a platform connection in workspace settings before adding projects.",
-        )
-        return redirect("tenant_settings")
-
+    # Uploading a build needs no connection, so the page always has a choice.
     return render(
         request,
         "pages/add_project.html",

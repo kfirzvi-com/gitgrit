@@ -6,6 +6,7 @@ from app.domain.uploads import (
     UploadRejected,
     check_totals,
     content_digest,
+    file_tree,
     languages_from_paths,
     member_path,
     strip_common_root,
@@ -81,3 +82,21 @@ class LanguagesTests(SimpleTestCase):
 
     def test_no_known_extension_means_no_language(self):
         self.assertEqual(languages_from_paths(["logo.png", "README"]), [])
+
+
+class FileTreeTests(SimpleTestCase):
+    def test_folders_come_first_and_carry_their_totals(self):
+        tree = file_tree({"index.html": 10, "assets/game.js": 300, "assets/img/logo.png": 50})
+
+        self.assertEqual([c.name for c in tree.children], ["assets", "index.html"])
+        assets = tree.children[0]
+        self.assertTrue(assets.is_dir)
+        self.assertEqual((assets.size, assets.file_count), (350, 2))
+        self.assertEqual([c.name for c in assets.children], ["img", "game.js"])
+        self.assertEqual(assets.children[0].children[0].path, "assets/img/logo.png")
+        self.assertEqual((tree.size, tree.file_count), (360, 3))
+
+    def test_depth_counts_folders(self):
+        tree = file_tree({"a/b/c.js": 1})
+        self.assertEqual(tree.children[0].depth, 0)
+        self.assertEqual(tree.children[0].children[0].depth, 1)

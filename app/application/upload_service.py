@@ -11,6 +11,7 @@ so the existing commit endpoints report its results.
 """
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 
 from django.db import IntegrityError, transaction
@@ -28,7 +29,14 @@ from app.domain.models import (
     Stack,
     Standard,
 )
-from app.domain.uploads import DEFAULT_LIMITS, UploadRejected, content_digest, languages_from_paths
+from app.domain.uploads import (
+    DEFAULT_LIMITS,
+    TreeNode,
+    UploadRejected,
+    content_digest,
+    file_tree,
+    languages_from_paths,
+)
 from app.infrastructure import archives, upload_storage
 
 UPLOAD_EVENT = "upload"
@@ -132,6 +140,20 @@ def create_upload_project(
             created=False,
         )
     return CreatedProject(project, created=True)
+
+
+def create_manual_upload_project(
+    tenant, *, name: str, stack: str = "", description: str = ""
+) -> Project:
+    """An upload project someone creates by hand in the web app. Nothing
+    outside GitGrit knows it, so it gets an id of its own."""
+    return create_upload_project(
+        tenant,
+        name=name,
+        external_id=f"manual-{uuid.uuid4().hex}",
+        stack=stack,
+        description=description,
+    ).project
 
 
 def get_upload_project(tenant, project_id) -> Project:
@@ -245,3 +267,24 @@ def upload_result_dict(result: UploadedVersion) -> dict:
         "queued": run["queued"],
         "message": run.get("message") or "No standard runs on uploads to this channel.",
     }
+
+
+# --- Browsing a version's files ---------------------------------------------
+
+
+def get_version(project: Project, digest: str = "") -> ProjectVersion | None:
+    """The version with ``digest``, or the newest one when ``digest`` is
+    empty. None when there is no such version."""
+    versions = project.versions.order_by("-created_at")
+    return versions.filter(digest=digest).first() if digest else versions.first()
+
+
+def version_tree(version: ProjectVersion) -> TreeNode:
+    """The version's folders and files, as the sandbox sees them."""
+    data = upload_storage.read_archive(version.archive_key)
+    return file_tree(archives.scan(data).sizes)
+
+
+def version_file(version: ProjectVersion, path: str) -> bytes | None:
+    """One file of the version, or None when it has no such file."""
+    return archives.read_file(upload_storage.read_archive(version.archive_key), path)

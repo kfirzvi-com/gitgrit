@@ -33,6 +33,7 @@ class Manifest:
     paths: list[str]  # project-relative, wrapping folder dropped
     total_bytes: int  # sum of the files' declared sizes
     root: str  # the wrapping folder dropped from every path ("" if none)
+    sizes: dict[str, int]  # declared size of each path in ``paths``
 
 
 @dataclass(frozen=True)
@@ -87,20 +88,37 @@ def scan(data: bytes, limits: ArchiveLimits = DEFAULT_LIMITS) -> Manifest:
         raise UploadRejected(
             f"Archive is larger than {limits.max_archive_bytes // (1024 * 1024)} MB."
         )
-    paths: list[str] = []
+    raw_paths: list[str] = []
+    raw_sizes: list[int] = []
     seen: set[str] = set()
     total = 0
     for member in _members(data):
         if member.path in seen:
             raise UploadRejected(f"Archive lists {member.path!r} twice.")
         seen.add(member.path)
-        paths.append(member.path)
+        raw_paths.append(member.path)
+        raw_sizes.append(member.size)
         total += member.size
-        check_totals(len(paths), total, limits)
-    if not paths:
+        check_totals(len(raw_paths), total, limits)
+    if not raw_paths:
         raise UploadRejected("Archive has no files.")
-    paths, root = strip_common_root(paths)
-    return Manifest(paths=paths, total_bytes=total, root=root)
+    paths, root = strip_common_root(raw_paths)
+    return Manifest(paths=paths, total_bytes=total, root=root, sizes=dict(zip(paths, raw_sizes)))
+
+
+def read_file(data: bytes, path: str, limits: ArchiveLimits = DEFAULT_LIMITS) -> bytes | None:
+    """The bytes of one file of the archive, by its project-relative path
+    (as ``scan`` lists it), or None when there is no such file. Reads at
+    most the extraction cap, like ``extract``."""
+    root = scan(data, limits).root
+    wanted = f"{root}/{path}" if root else path
+    for member in _members(data):
+        if member.path == wanted:
+            with member.open() as src:
+                content = src.read(limits.max_extracted_bytes + 1)
+            check_totals(1, len(content), limits)
+            return content
+    return None
 
 
 def extract(data: bytes, dest: Path, limits: ArchiveLimits = DEFAULT_LIMITS) -> list[str]:
