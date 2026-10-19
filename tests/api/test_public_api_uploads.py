@@ -1,6 +1,5 @@
-"""Upload projects over the public API: how a hosting platform (e.g. a web
-gaming platform) creates a project per game and checks each uploaded build
-with a workspace token."""
+"""Upload projects over the public API: how another system creates an upload
+project and checks each build it uploads, with a workspace token."""
 from django.core.files.uploadedfile import SimpleUploadedFile
 from model_bakery import baker
 
@@ -9,13 +8,13 @@ from tests.api.test_public_api import PublicAPITestCase
 from tests.infrastructure.test_archives import make_zip
 from tests.support import defer_patch
 
-GAME = make_zip({"dist/index.html": b"<html></html>", "dist/game.js": b"start()"})
+BUILD = make_zip({"dist/index.html": b"<html></html>", "dist/app.js": b"start()"})
 
 
 class UploadAPITestCase(PublicAPITestCase):
     def setUp(self):
         super().setUp()
-        _, raw = APIToken.issue(name="room-platform", created_by=self.user, tenant=self.tenant)
+        _, raw = APIToken.issue(name="ci-uploader", created_by=self.user, tenant=self.tenant)
         self.auth = {"Authorization": f"Bearer {raw}"}
         self.standard = baker.make(
             "app.Standard", tenant=self.tenant, name="No source maps",
@@ -26,13 +25,13 @@ class UploadAPITestCase(PublicAPITestCase):
         self.addCleanup(patch.stop)
 
     def create(self, **body):
-        body = {"name": "Space Race", "external_id": "game-42", "stack": "Acme Studio", **body}
+        body = {"name": "Storefront", "external_id": "ext-42", "stack": "Acme Web", **body}
         return self.send("post", f"{self.ws}/upload-projects/", body)
 
-    def upload(self, project_id, data=GAME, **fields):
+    def upload(self, project_id, data=BUILD, **fields):
         return self.client.post(
             f"{self.ws}/projects/{project_id}/versions/",
-            {"archive": SimpleUploadedFile("game.zip", data), **fields},
+            {"archive": SimpleUploadedFile("build.zip", data), **fields},
             headers=self.auth,
         )
 
@@ -43,7 +42,7 @@ class TestCreateUploadProject(UploadAPITestCase):
         assert first.status_code == 201
         body = first.json()
         assert body["platform"] == Platform.UPLOAD
-        assert body["external_id"] == "game-42"
+        assert body["external_id"] == "ext-42"
 
         again = self.create()
         assert again.status_code == 200
@@ -73,7 +72,7 @@ class TestUploadVersion(UploadAPITestCase):
         assert version["label"] == "1.0.0"
         assert version["channel"] == "main"
         assert version["file_count"] == 2
-        assert version["uploaded_by"] == "room-platform"
+        assert version["uploaded_by"] == "ci-uploader"
         assert len(version["digest"]) == 40
 
     def test_the_check_is_polled_at_the_digest(self):
@@ -113,7 +112,7 @@ class TestUploadVersion(UploadAPITestCase):
         _, raw = APIToken.issue(name="x", created_by=self.user, tenant=other)
         r = self.client.post(
             f"/api/v1/workspaces/{other.id}/projects/{self.project_id}/versions/",
-            {"archive": SimpleUploadedFile("game.zip", GAME)},
+            {"archive": SimpleUploadedFile("build.zip", BUILD)},
             headers={"Authorization": f"Bearer {raw}"},
         )
         assert r.status_code == 404

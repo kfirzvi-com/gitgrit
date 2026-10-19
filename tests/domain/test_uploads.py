@@ -69,10 +69,10 @@ class TotalsTests(SimpleTestCase):
 
 class DigestTests(SimpleTestCase):
     def test_the_digest_is_as_wide_as_a_git_sha_and_stable(self):
-        digest = content_digest(b"game")
+        digest = content_digest(b"build")
         self.assertEqual(len(digest), 40)
-        self.assertEqual(digest, content_digest(b"game"))
-        self.assertNotEqual(digest, content_digest(b"other game"))
+        self.assertEqual(digest, content_digest(b"build"))
+        self.assertNotEqual(digest, content_digest(b"other build"))
 
 
 class LanguagesTests(SimpleTestCase):
@@ -86,13 +86,13 @@ class LanguagesTests(SimpleTestCase):
 
 class FileTreeTests(SimpleTestCase):
     def test_folders_come_first_and_carry_their_totals(self):
-        tree = file_tree({"index.html": 10, "assets/game.js": 300, "assets/img/logo.png": 50})
+        tree = file_tree({"index.html": 10, "assets/app.js": 300, "assets/img/logo.png": 50})
 
         self.assertEqual([c.name for c in tree.children], ["assets", "index.html"])
         assets = tree.children[0]
         self.assertTrue(assets.is_dir)
         self.assertEqual((assets.size, assets.file_count), (350, 2))
-        self.assertEqual([c.name for c in assets.children], ["img", "game.js"])
+        self.assertEqual([c.name for c in assets.children], ["img", "app.js"])
         self.assertEqual(assets.children[0].children[0].path, "assets/img/logo.png")
         self.assertEqual((tree.size, tree.file_count), (360, 3))
 

@@ -24,7 +24,7 @@ _LANGUAGES = {
 
 
 class UploadProvider(BaseProvider):
-    """An upload project's files: one uploaded version (e.g. a game's built
+    """An upload project's files: one uploaded version (e.g. a built app's
     dist), extracted and mounted at ``/project``. There is no repository
     behind it, so membership, contributors, topics and commit dates are
     empty; ``ref`` is the version's digest."""

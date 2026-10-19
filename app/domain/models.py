@@ -238,7 +238,7 @@ class Platform(models.TextChoices):
     GITHUB = "github", "GitHub"
     GITLAB = "gitlab", "GitLab"
     # Not a Git platform: projects whose files arrive as uploaded archives
-    # (e.g. a game's built dist) rather than from a repository. Each upload is
+    # (e.g. a built app's dist) rather than from a repository. Each upload is
     # a ``ProjectVersion``; see ``app.domain.uploads``.
     UPLOAD = "upload", "Upload"
 
@@ -1193,7 +1193,7 @@ class MarketplacePack(models.Model):
 
 
 class ProjectVersion(models.Model):
-    """One uploaded archive of an upload project's files (e.g. a game's dist).
+    """One uploaded archive of an upload project's files (e.g. a built dist).
 
     An upload project has no repository, so a version plays the commit's part:
     its ``digest`` (a 40-hex content hash, the width of a Git SHA) is what a

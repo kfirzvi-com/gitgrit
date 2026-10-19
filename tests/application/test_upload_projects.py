@@ -26,8 +26,8 @@ from app.domain.uploads import UploadRejected
 from tests.infrastructure.test_archives import make_zip
 from tests.support import defer_patch
 
-GAME_V1 = make_zip({"dist/index.html": b"<html>v1</html>", "dist/game.js": b"start()"})
-GAME_V2 = make_zip({"dist/index.html": b"<html>v2</html>", "dist/game.js": b"start(2)"})
+BUILD_V1 = make_zip({"dist/index.html": b"<html>v1</html>", "dist/app.js": b"start()"})
+BUILD_V2 = make_zip({"dist/index.html": b"<html>v2</html>", "dist/app.js": b"start(2)"})
 PASSED = {"passed": True, "score": 100, "message": "OK", "details": {}}
 
 
@@ -42,14 +42,14 @@ class CreateUploadProjectTests(TestCase):
 
     def test_a_new_project_hangs_off_the_workspace_upload_connection(self):
         result = upload_service.create_upload_project(
-            self.tenant, name="Space Race", external_id="game-42", stack="Acme Studio"
+            self.tenant, name="Storefront", external_id="ext-42", stack="Acme Web"
         )
 
         project = result.project
         self.assertTrue(result.created)
         self.assertTrue(project.is_upload)
         self.assertEqual(project.platform_connection.platform, Platform.UPLOAD)
-        self.assertEqual(project.root_component.stacks.get().name, "Acme Studio")
+        self.assertEqual(project.root_component.stacks.get().name, "Acme Web")
 
     def test_creating_again_returns_the_same_project(self):
         first = upload_service.create_upload_project(self.tenant, name="A", external_id="g1")
@@ -62,10 +62,10 @@ class CreateUploadProjectTests(TestCase):
         )
 
     def test_an_existing_stack_is_reused_by_name(self):
-        upload_service.create_upload_project(self.tenant, name="A", external_id="g1", stack="Studio")
-        upload_service.create_upload_project(self.tenant, name="B", external_id="g2", stack="Studio")
+        upload_service.create_upload_project(self.tenant, name="A", external_id="g1", stack="Web Team")
+        upload_service.create_upload_project(self.tenant, name="B", external_id="g2", stack="Web Team")
 
-        self.assertEqual(self.tenant.stacks.filter(name="Studio").count(), 1)
+        self.assertEqual(self.tenant.stacks.filter(name="Web Team").count(), 1)
         self.assertEqual(self.tenant.stacks.get().components.count(), 2)
 
     def test_by_default_it_gets_the_published_standards_that_run_on_uploads(self):
@@ -97,7 +97,7 @@ class CreateUploadProjectTests(TestCase):
     def test_the_project_triggers_no_dependency_analysis(self):
         with mock.patch("app.application.subscribers._enqueue_dependency_refresh") as refresh:
             upload_service.create_upload_project(
-                self.tenant, name="A", external_id="g1", stack="Studio"
+                self.tenant, name="A", external_id="g1", stack="Web Team"
             )
         refresh.assert_not_called()
 
@@ -107,10 +107,10 @@ class UploadVersionTests(TestCase):
         self.tenant = baker.make("app.Tenant")
         self.standard = _upload_standard(self.tenant, code="CODE")
         self.project = upload_service.create_upload_project(
-            self.tenant, name="Space Race", external_id="game-42"
+            self.tenant, name="Storefront", external_id="ext-42"
         ).project
 
-    def _upload(self, data=GAME_V1, **kw):
+    def _upload(self, data=BUILD_V1, **kw):
         with defer_patch() as configure:
             result = upload_service.upload_version(self.project, data, uploaded_by="platform", **kw)
         return result, configure
@@ -168,7 +168,7 @@ class UploadVersionTests(TestCase):
     def test_a_git_project_takes_no_uploads(self):
         git_project = baker.make("app.Project", tenant=self.tenant)
         with self.assertRaises(ValueError):
-            upload_service.upload_version(git_project, GAME_V1)
+            upload_service.upload_version(git_project, BUILD_V1)
 
     def test_a_manual_run_before_any_upload_queues_nothing(self):
         with defer_patch() as configure:
@@ -183,7 +183,7 @@ class RunOnVersionTests(TestCase):
         self.tenant = baker.make("app.Tenant")
         self.standard = _upload_standard(self.tenant, code="CODE")
         self.project = upload_service.create_upload_project(
-            self.tenant, name="Space Race", external_id="game-42"
+            self.tenant, name="Storefront", external_id="ext-42"
         ).project
         self.seen = []
 
@@ -207,28 +207,28 @@ class RunOnVersionTests(TestCase):
         return StandardExecution.objects.filter(pk__in=job["execution_ids"])
 
     def test_the_sandbox_reads_the_version_files_mounted_from_disk(self):
-        executions = self._upload_and_run(GAME_V1)
+        executions = self._upload_and_run(BUILD_V1)
 
         self.assertEqual(executions.get().status, StandardExecution.Status.PASSED)
         seen = self.seen[0]
-        self.assertEqual(seen["files"], ["game.js", "index.html"])
+        self.assertEqual(seen["files"], ["app.js", "index.html"])
         self.assertEqual(seen["index"], "<html>v1</html>")
         self.assertEqual(seen["config"]["platform"], "upload")
         self.assertNotIn("access_token", seen["config"])
         self.assertEqual(seen["config"]["ref"], ProjectVersion.objects.get().digest)
 
     def test_the_extracted_files_are_removed_after_the_job(self):
-        self._upload_and_run(GAME_V1)
+        self._upload_and_run(BUILD_V1)
         self.assertFalse(Path(self.seen[0]["dir"]).exists())
 
     def test_each_version_is_read_at_its_own_files(self):
-        self._upload_and_run(GAME_V1)
-        self._upload_and_run(GAME_V2)
+        self._upload_and_run(BUILD_V1)
+        self._upload_and_run(BUILD_V2)
         self.assertEqual([s["index"] for s in self.seen], ["<html>v1</html>", "<html>v2</html>"])
 
     def test_a_run_on_a_channel_with_no_version_is_an_error_not_a_crash(self):
         with defer_patch() as configure:
-            upload_service.upload_version(self.project, GAME_V1)
+            upload_service.upload_version(self.project, BUILD_V1)
         ProjectVersion.objects.all().delete()  # gone before the job ran
         job = configure.return_value.defer.call_args.kwargs
         with self._runner():
@@ -236,7 +236,7 @@ class RunOnVersionTests(TestCase):
 
         execution = StandardExecution.objects.get()
         self.assertEqual(execution.status, StandardExecution.Status.ERROR)
-        self.assertIn("No version of Space Race has been uploaded", execution.message)
+        self.assertIn("No version of Storefront has been uploaded", execution.message)
 
 
 class VersionHistoryTests(TestCase):
@@ -246,11 +246,11 @@ class VersionHistoryTests(TestCase):
         tenant = baker.make("app.Tenant")
         _upload_standard(tenant)
         self.project = upload_service.create_upload_project(
-            tenant, name="Space Race", external_id="game-42"
+            tenant, name="Storefront", external_id="ext-42"
         ).project
         with defer_patch():
-            self.v1 = upload_service.upload_version(self.project, GAME_V1, label="1.0", uploaded_by="platform").version
-            self.v2 = upload_service.upload_version(self.project, GAME_V2, label="1.1", uploaded_by="platform").version
+            self.v1 = upload_service.upload_version(self.project, BUILD_V1, label="1.0", uploaded_by="platform").version
+            self.v2 = upload_service.upload_version(self.project, BUILD_V2, label="1.1", uploaded_by="platform").version
             upload_service.upload_version(self.project, make_zip({"x.js": b"x"}), channel="review")
 
     def test_channels_are_the_branches(self):

@@ -442,7 +442,7 @@ class UploadProjectCreateView(WorkspaceAPIView):
         summary="Create an upload project",
         description=(
             "A project whose files arrive as uploaded archives instead of from Git "
-            "(e.g. a game's built dist). Idempotent on `external_id`: a repeat "
+            "(e.g. a built app's dist). Idempotent on `external_id`: a repeat "
             "returns the existing project with 200."
         ),
         request=s.UploadProjectCreateSerializer,

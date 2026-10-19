@@ -38,18 +38,18 @@ def make_tgz(files: dict[str, bytes], symlinks: dict[str, str] | None = None) ->
     return buf.getvalue()
 
 
-GAME = {"dist/index.html": b"<html></html>", "dist/assets/app.js": b"console.log(1)"}
+BUILD = {"dist/index.html": b"<html></html>", "dist/assets/app.js": b"console.log(1)"}
 
 
 class ScanTests(SimpleTestCase):
     def test_a_zip_is_listed_without_its_wrapping_folder(self):
-        manifest = archives.scan(make_zip(GAME))
+        manifest = archives.scan(make_zip(BUILD))
         self.assertEqual(sorted(manifest.paths), ["assets/app.js", "index.html"])
         self.assertEqual(manifest.root, "dist")
         self.assertEqual(manifest.total_bytes, 13 + 14)
 
     def test_a_tar_gz_is_read_the_same_way(self):
-        manifest = archives.scan(make_tgz(GAME))
+        manifest = archives.scan(make_tgz(BUILD))
         self.assertEqual(sorted(manifest.paths), ["assets/app.js", "index.html"])
 
     def test_zip_slip_is_rejected(self):
@@ -64,7 +64,7 @@ class ScanTests(SimpleTestCase):
 
     def test_an_archive_over_the_size_cap_is_rejected(self):
         with self.assertRaisesMessage(UploadRejected, "larger than"):
-            archives.scan(make_zip(GAME), ArchiveLimits(max_archive_bytes=10))
+            archives.scan(make_zip(BUILD), ArchiveLimits(max_archive_bytes=10))
 
     def test_an_archive_expanding_past_the_cap_is_rejected(self):
         bomb = make_zip({"zeros.bin": b"\0" * 100_000})
@@ -82,7 +82,7 @@ class ScanTests(SimpleTestCase):
 
 class ExtractTests(TmpPathMixin, SimpleTestCase):
     def test_files_are_written_under_the_destination(self):
-        written = archives.extract(make_zip(GAME), self.tmp_path)
+        written = archives.extract(make_zip(BUILD), self.tmp_path)
         self.assertEqual(sorted(written), ["assets/app.js", "index.html"])
         self.assertEqual((self.tmp_path / "assets/app.js").read_bytes(), b"console.log(1)")
 
@@ -94,12 +94,12 @@ class ExtractTests(TmpPathMixin, SimpleTestCase):
 
 class ReadFileTests(SimpleTestCase):
     def test_a_file_is_read_by_its_path_without_the_wrapping_folder(self):
-        self.assertEqual(archives.read_file(make_tgz(GAME), "assets/app.js"), b"console.log(1)")
+        self.assertEqual(archives.read_file(make_tgz(BUILD), "assets/app.js"), b"console.log(1)")
 
     def test_a_missing_file_is_none(self):
-        self.assertIsNone(archives.read_file(make_zip(GAME), "nope.js"))
+        self.assertIsNone(archives.read_file(make_zip(BUILD), "nope.js"))
 
     def test_sizes_are_listed_per_file(self):
         self.assertEqual(
-            archives.scan(make_zip(GAME)).sizes, {"index.html": 13, "assets/app.js": 14}
+            archives.scan(make_zip(BUILD)).sizes, {"index.html": 13, "assets/app.js": 14}
         )

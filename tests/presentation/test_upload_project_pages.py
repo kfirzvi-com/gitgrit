@@ -14,9 +14,9 @@ from tests.infrastructure.test_archives import make_zip
 from tests.support import defer_patch
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
-GAME = make_zip({
+BUILD = make_zip({
     "dist/index.html": b"<html><script>alert(1)</script></html>",
-    "dist/assets/game.js": b"start()",
+    "dist/assets/app.js": b"start()",
     "dist/assets/logo.png": PNG,
     "dist/assets/icon.svg": b"<svg onload='alert(1)'/>",
 })
@@ -33,7 +33,7 @@ class UploadPageTestCase(TestCase):
         session.save()
         self.standard = baker.make("app.Standard", tenant=self.tenant, criteria={"events": ["upload"]})
         self.project = upload_service.create_upload_project(
-            self.tenant, name="Space Race", external_id="game-42"
+            self.tenant, name="Storefront", external_id="ext-42"
         ).project
         patch = defer_patch()
         self.configure = patch.start()
@@ -43,10 +43,10 @@ class UploadPageTestCase(TestCase):
         project = project or self.project
         return self.client.get(reverse("project_detail", args=[project.pk])).content.decode()
 
-    def upload(self, data=GAME, **fields):
+    def upload(self, data=BUILD, **fields):
         return self.client.post(
             reverse("upload_project_version", args=[self.project.pk]),
-            {"archive": SimpleUploadedFile("game.zip", data), **fields},
+            {"archive": SimpleUploadedFile("build.zip", data), **fields},
             headers={"HX-Request": "true"},
         )
 
@@ -126,7 +126,7 @@ class UploadVersionTests(UploadPageTestCase):
         git = baker.make("app.Project", tenant=self.tenant)
         resp = self.client.post(
             reverse("upload_project_version", args=[git.pk]),
-            {"archive": SimpleUploadedFile("game.zip", GAME)},
+            {"archive": SimpleUploadedFile("build.zip", BUILD)},
         )
         self.assertEqual(resp.status_code, 404)
 
@@ -139,13 +139,13 @@ class AddUploadProjectTests(UploadPageTestCase):
 
     def test_creating_with_a_first_version(self):
         resp = self.client.post(reverse("add_upload_project"), {
-            "name": "Moon Dash", "stack": "Nebula Games", "label": "0.1.0",
-            "archive": SimpleUploadedFile("moon.zip", GAME),
+            "name": "Checkout", "stack": "Web Team", "label": "0.1.0",
+            "archive": SimpleUploadedFile("checkout.zip", BUILD),
         })
 
-        project = Project.objects.get(name="Moon Dash")
+        project = Project.objects.get(name="Checkout")
         self.assertTrue(project.is_upload)
-        self.assertEqual(project.root_component.stacks.get().name, "Nebula Games")
+        self.assertEqual(project.root_component.stacks.get().name, "Web Team")
         self.assertEqual(project.versions.get().label, "0.1.0")
         self.assertRedirects(
             resp, reverse("project_detail", args=[project.pk]) + "#results",
@@ -153,14 +153,14 @@ class AddUploadProjectTests(UploadPageTestCase):
         )
 
     def test_creating_without_an_archive(self):
-        self.client.post(reverse("add_upload_project"), {"name": "Moon Dash"})
-        project = Project.objects.get(name="Moon Dash")
+        self.client.post(reverse("add_upload_project"), {"name": "Checkout"})
+        project = Project.objects.get(name="Checkout")
         self.assertFalse(project.versions.exists())
 
     def test_two_projects_of_the_same_name_stay_apart(self):
-        self.client.post(reverse("add_upload_project"), {"name": "Moon Dash"})
-        self.client.post(reverse("add_upload_project"), {"name": "Moon Dash"})
-        self.assertEqual(Project.objects.filter(name="Moon Dash").count(), 2)
+        self.client.post(reverse("add_upload_project"), {"name": "Checkout"})
+        self.client.post(reverse("add_upload_project"), {"name": "Checkout"})
+        self.assertEqual(Project.objects.filter(name="Checkout").count(), 2)
 
     def test_a_name_is_required(self):
         resp = self.client.post(reverse("add_upload_project"), {"name": " "})
@@ -185,7 +185,7 @@ class FilesTabTests(UploadPageTestCase):
 
     def test_the_tree_shows_the_files_without_the_wrapping_folder(self):
         page = self.client.get(self.url).content.decode()
-        for path in ("index.html", "assets/game.js", "assets/logo.png"):
+        for path in ("index.html", "assets/app.js", "assets/logo.png"):
             self.assertIn(f'data-file="{path}"', page)
         self.assertNotIn('data-folder="dist"', page)
         self.assertIn("4 files", page)
@@ -215,7 +215,7 @@ class FilesTabTests(UploadPageTestCase):
 
     def test_markup_and_svg_are_never_served_raw(self):
         raw_url = reverse("project_file_raw", args=[self.project.pk])
-        for path in ("index.html", "assets/icon.svg", "assets/game.js"):
+        for path in ("index.html", "assets/icon.svg", "assets/app.js"):
             with self.subTest(path=path):
                 resp = self.client.get(raw_url, {"version": self.version.digest, "path": path})
                 self.assertEqual(resp.status_code, 404)

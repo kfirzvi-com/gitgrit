@@ -539,7 +539,7 @@ class UploadProjectCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     external_id = serializers.CharField(
         max_length=255,
-        help_text="Your own id for the project (e.g. the game's id). Creating twice "
+        help_text="Your own id for the project. Creating twice "
         "with the same id returns the existing project.",
     )
     stack = serializers.CharField(
@@ -547,7 +547,7 @@ class UploadProjectCreateSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
         default="",
-        help_text="Stack to put the project in, found by name or created (e.g. the studio).",
+        help_text="Stack to put the project in, found by name or created.",
     )
     description = serializers.CharField(required=False, allow_blank=True, default="")
     standard_ids = serializers.ListField(

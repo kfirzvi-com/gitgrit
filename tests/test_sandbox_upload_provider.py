@@ -20,9 +20,9 @@ class UploadProviderTests(TmpPathMixin, SimpleTestCase):
         super().setUp()
         (self.tmp_path / "assets").mkdir()
         (self.tmp_path / "index.html").write_text("<html></html>")
-        (self.tmp_path / "assets/game.js").write_text("x" * 300)
+        (self.tmp_path / "assets/app.js").write_text("x" * 300)
         (self.tmp_path / "assets/logo.png").write_bytes(b"\x89PNG\xff\xfe")
-        self.provider = UploadProvider("game-42", full_path="Space Race", ref="abc", root=str(self.tmp_path))
+        self.provider = UploadProvider("ext-42", full_path="Storefront", ref="abc", root=str(self.tmp_path))
 
     def test_the_factory_picks_it_for_uploads_even_without_a_token(self):
         provider = create_provider(platform="upload", project_id="g", access_token=None)
@@ -30,7 +30,7 @@ class UploadProviderTests(TmpPathMixin, SimpleTestCase):
 
     def test_files_are_listed_relative_to_the_project(self):
         self.assertEqual(
-            self.provider.list_files(), ["assets/game.js", "assets/logo.png", "index.html"]
+            self.provider.list_files(), ["assets/app.js", "assets/logo.png", "index.html"]
         )
 
     def test_text_files_are_read_and_binaries_are_not(self):

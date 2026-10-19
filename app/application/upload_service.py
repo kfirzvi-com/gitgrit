@@ -1,11 +1,11 @@
 """Upload projects: projects whose files arrive as archives, not from Git.
 
-The use case they serve: a platform that hosts other people's builds (e.g. a
-web gaming platform receiving each studio's game dist) checks every upload
-against the workspace's standards. The platform calls the API with a
-workspace token: it creates one stack per studio and one upload project per
-game (idempotent on the platform's own game id), then uploads each new
-build as a version. Each version is checked like a pushed commit: an
+Any project can be one: its files are a build (a built web app's dist, a
+bundle, a release package) rather than a repository. A person uploads
+versions from the project page, or another system does it through the API
+with a workspace token: it creates the upload project (idempotent on its own
+id for it, in a stack found by name) and uploads each new build as a
+version. Each version is checked like a pushed commit: an
 ``upload`` event on the version's channel, pinned to the version's digest,
 so the existing commit endpoints report its results.
 """

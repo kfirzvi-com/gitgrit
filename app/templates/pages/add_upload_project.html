@@ -6,7 +6,7 @@
 <div class="max-w-2xl mx-auto">
   <a href="{% url 'add_project_select' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Add Project</a>
   <h1 class="text-3xl font-bold mb-2">Upload a Build</h1>
-  <p class="text-sm opacity-70 mb-6">A project whose files you upload as an archive (for example a game's built dist) instead of importing a Git repository. Each upload is a version, checked against the standards whose events include <code>upload</code>.</p>
+  <p class="text-sm opacity-70 mb-6">A project whose files you upload as an archive (for example a built app's dist) instead of importing a Git repository. Each upload is a version, checked against the standards whose events include <code>upload</code>.</p>
 
   <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-xl" data-loading="UPLOADING">
     {% csrf_token %}
@@ -16,13 +16,13 @@
       <div class="form-control">
         <label class="label" for="id_name"><span class="label-text">Name</span></label>
         <input type="text" name="name" id="id_name" maxlength="255" required autofocus
-               value="{{ form.name }}" placeholder="e.g. Space Race" class="input input-bordered w-full">
+               value="{{ form.name }}" placeholder="e.g. Storefront web app" class="input input-bordered w-full">
       </div>
 
       <div class="form-control">
         <label class="label" for="id_stack"><span class="label-text">Stack</span></label>
         <input type="text" name="stack" id="id_stack" maxlength="255" list="stack-names" autocomplete="off"
-               value="{{ form.stack }}" placeholder="e.g. the studio's name (optional)" class="input input-bordered w-full">
+               value="{{ form.stack }}" placeholder="Optional" class="input input-bordered w-full">
         <datalist id="stack-names">{% for stack in stacks %}<option value="{{ stack.name }}">{% endfor %}</datalist>
         <p class="text-xs opacity-60 mt-1">Pick an existing stack or type a new name to create one.</p>
       </div>

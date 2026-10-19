@@ -1,7 +1,7 @@
 """Upload projects in the web app: creating one by hand, uploading a version
 from the project page, and browsing a version's files.
 
-A version's files are untrusted: a game studio built them. They are only
+A version's files are untrusted: whoever uploaded them built them. They are only
 ever shown as escaped text inside GitGrit's own pages; the one raw endpoint
 serves raster images, under a sandboxing CSP, and never HTML, SVG or
 script, so nothing uploaded runs on GitGrit's origin.

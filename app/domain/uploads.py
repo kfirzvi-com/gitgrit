@@ -1,8 +1,8 @@
 """Rules for upload projects: what an uploaded archive may contain.
 
 An upload project's files arrive as an archive (zip or tar.gz) instead of
-from a Git repository: e.g. a game studio's built dist, uploaded by the
-platform that hosts the game. Each upload becomes a ``ProjectVersion``.
+from a Git repository: e.g. a built app's dist, uploaded by hand or by the
+system that produces it. Each upload becomes a ``ProjectVersion``.
 
 The archive is untrusted input. These rules decide what is accepted before
 anything is written to disk: every member path must stay inside the project
@@ -59,7 +59,7 @@ def member_path(name: str) -> str:
 
 def strip_common_root(paths: list[str]) -> tuple[list[str], str]:
     """Drop a single top-level directory every file sits in (``dist/``,
-    ``my-game-1.4/``), so a project reads the same whether it was archived
+    ``my-app-1.4/``), so a project reads the same whether it was archived
     from inside its folder or from outside it. Returns the stripped paths
     and the root that was dropped ("" when there was none)."""
     if not paths:
