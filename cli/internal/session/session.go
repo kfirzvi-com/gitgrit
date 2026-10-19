@@ -172,6 +172,12 @@ func Check(resp *http.Response, body []byte) error {
 	}
 	if json.Unmarshal(body, &d) == nil && d.Detail != "" {
 		detail = d.Detail
+	} else if !strings.Contains(resp.Header.Get("Content-Type"), "json") {
+		// An error page (Django's 500, a proxy's 502) says nothing useful.
+		detail = http.StatusText(resp.StatusCode)
+		if resp.StatusCode >= 500 {
+			detail += "; the server failed, not your request. Try again, or report it if it persists"
+		}
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		detail += " (log in again with `gitgrit auth login`, or check GITGRIT_TOKEN)"
