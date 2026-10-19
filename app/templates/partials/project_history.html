@@ -36,7 +36,10 @@ surfaces, sections by small-caps labels.{% endcomment %}
           </span>
         </div>
         <div class="space-y-1.5">
-          {% include "partials/health_breakdown.html" with counts=status_breakdown %}
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {% include "partials/health_breakdown.html" with counts=status_breakdown %}
+            {% include "partials/critical_failed.html" with summary=status_critical %}
+          </div>
           <p class="text-xs opacity-50">
             {% if is_default %}Grade{% else %}Grade on {{ branch }}{% endif %}
             {% if status_commits|length == 1 %}· from {{ status_commits.0 }}{% elif status_commits|length > 1 %}· from {{ status_commits|length }} commits (each standard's latest result){% endif %}
@@ -57,7 +60,18 @@ surfaces, sections by small-caps labels.{% endcomment %}
                 <details class="group rounded-xl open:bg-base-200/50" {% if row.sha == open_sha %}open{% endif %}>
                   <summary class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-base-200 list-none">
                     {% include "partials/project_history_commit_line.html" %}
-                    {% if row.score is not None %}<span class="w-10 text-right font-bold shrink-0">{{ row.score }}</span>{% endif %}
+                    <span class="w-10 shrink-0 flex justify-end">
+                      {% with letter=row.grade %}
+                        {% if letter %}
+                          <span class="inline-flex h-8 min-w-8 px-1 items-center justify-center rounded-full text-sm leading-none
+                                       {% if letter == 'A+' or letter == 'A' or letter == 'B' %}border-2 border-success text-success font-bold
+                                       {% elif letter == 'C' %}border-2 border-warning text-warning font-bold
+                                       {% elif letter == 'D' %}border-2 border-error/50 text-error/70 font-bold
+                                       {% else %}border-2 border-error text-error bg-error/20 font-black{% endif %}"
+                                data-commit-letter="{{ letter }}" role="img" aria-label="Commit grade {{ letter }}"{% if row.score is not None %} title="Score {{ row.score }}"{% endif %}>{{ letter }}</span>
+                        {% endif %}
+                      {% endwith %}
+                    </span>
                   </summary>
                   <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">
                     {% for key, heading, group in row.result_groups %}
