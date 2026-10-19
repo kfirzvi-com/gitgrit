@@ -8,7 +8,9 @@ The workspace and a stack are as good as their worst graded project.
 import re
 
 import pytest
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from model_bakery import baker
 
@@ -178,3 +180,48 @@ class TestWorkspaceGrade(TestCase):
         assert node["health"] == "attention"
         assert node["issues"] == ["failed — D (1 standard failing)"]
         assert "score" not in node
+
+
+@pytest.mark.django_db
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestProjectListBoxes(TestCase):
+    """Each project's box on the Projects list shows its letter and last run."""
+
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        _login_member(self.client, self.tenant)
+
+    def _project(self, name, status=None, critical=False, event_type="manual"):
+        project = baker.make("app.Project", tenant=self.tenant, name=name)
+        standard = baker.make("app.Standard", tenant=self.tenant, name=f"{name}-std")
+        _attach(project, standard, critical=critical)
+        if status is not None:
+            ex = _execution(project, standard, status)
+            StandardExecution.objects.filter(pk=ex.pk).update(event_type=event_type)
+        return project
+
+    def test_box_shows_letter_and_trigger_and_no_results_otherwise(self):
+        self._project("good", StandardExecution.Status.PASSED, event_type="pull_request")
+        self._project("failing", StandardExecution.Status.FAILED, critical=True)
+        self._project("fresh")
+
+        resp = self.client.get(reverse("project_list"))
+        html = resp.content.decode()
+
+        assert 'data-grade="A+"' in html
+        assert 'data-grade="F"' in html
+        assert "data-failing" in html  # F is not colour alone
+        assert "Pull request" in html
+        assert html.count("No results yet") == 1
+        assert html.count("data-last-run") == 2
+
+    def test_list_query_count_does_not_grow_with_projects(self):
+        self._project("one", StandardExecution.Status.PASSED)
+        self.client.get(reverse("project_list"))  # warm caches
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(reverse("project_list"))
+        for i in range(4):
+            self._project(f"more-{i}", StandardExecution.Status.PASSED)
+        with CaptureQueriesContext(connection) as many:
+            self.client.get(reverse("project_list"))
+        assert len(many) == len(few)
