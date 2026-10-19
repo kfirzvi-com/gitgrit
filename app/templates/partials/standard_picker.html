@@ -1,3 +1,4 @@
+{% load static %}
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
 {# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check), #}
 {# critical_standard_ids (set of pks whose attachment is marked critical), #}
@@ -5,16 +6,35 @@
 {# POST sends `standards` (attached ids) and `critical` (ids marked critical); a critical mark on an unattached row is ignored. #}
 <div class="standard-picker">
   <div class="flex gap-2 mb-2">
-    <input type="text" placeholder="Search standards by name, description, or tag..."
+    <input type="text" placeholder="Search standards, or try name:..., label:..., status:draft"
+           title="Plain text searches name, description and labels. Use category:value to search one column: name, description, label, status, critical, connected. Quote values with spaces: label:&quot;my label&quot;"
            class="input input-bordered w-full"
            oninput="filterStandardPicker(this)" autocomplete="off"
            onkeydown="if (event.key === 'Enter') event.preventDefault()">
-    <select class="select select-bordered standard-picker-critical-filter" title="Filter by Critical mark"
-            onchange="filterStandardPicker(this)">
-      <option value="all">All</option>
-      <option value="critical">Critical</option>
-      <option value="not-critical">Not critical</option>
-    </select>
+    <details class="dropdown dropdown-end standard-picker-filter">
+      <summary class="btn btn-outline" title="Filter by connection and Critical mark">
+        Filter<span class="standard-picker-filter-count badge badge-primary badge-sm hidden"></span>
+      </summary>
+      <ul class="dropdown-content menu z-10 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow">
+        <li class="menu-title">Connection</li>
+        <li><label class="label cursor-pointer justify-start gap-2">
+          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="connection" value="connected" checked
+                 onchange="filterStandardPicker(this)"> Connected</label></li>
+        <li><label class="label cursor-pointer justify-start gap-2">
+          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="connection" value="not-connected" checked
+                 onchange="filterStandardPicker(this)"> Not connected</label></li>
+        <li class="menu-title">Critical</li>
+        <li><label class="label cursor-pointer justify-start gap-2">
+          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="critical" value="critical" checked
+                 onchange="filterStandardPicker(this)"> Critical</label></li>
+        <li><label class="label cursor-pointer justify-start gap-2">
+          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="critical" value="not-critical" checked
+                 onchange="filterStandardPicker(this)"> Not critical</label></li>
+        <li class="mt-1 border-t border-base-300 pt-1">
+          <button type="button" class="link link-hover text-sm standard-picker-filter-reset"
+                  onclick="resetStandardPickerFilter(this)">Reset</button></li>
+      </ul>
+    </details>
   </div>
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
     <span class="flex flex-wrap items-center gap-2">
@@ -42,8 +62,8 @@
           <th>Description</th>
           <th>
             <button type="button" class="link link-hover font-semibold"
-                    title="Sort by first tag"
-                    onclick="sortStandardPicker(this, 'firstTag')">Tags</button>
+                    title="Sort by first label"
+                    onclick="sortStandardPicker(this, 'firstTag')">Labels</button>
           </th>
         </tr>
       </thead>
@@ -52,6 +72,9 @@
           <tr class="standard-picker-row"
               data-standard-search="{{ standard.name|lower }} {{ standard.description|lower }}{% for label in standard.labels.all %} {{ label.name|lower }}{% endfor %}"
               data-name="{{ standard.name|lower }}"
+              data-description="{{ standard.description|lower }}"
+              data-labels="{% for label in standard.labels.all %}{{ label.name|lower }}|{% endfor %}"
+              data-status="{% if standard.draft %}draft{% elif not standard.enabled %}disabled{% else %}active{% endif %}"
               data-first-tag="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}"
               data-draft="{% if standard.draft %}1{% endif %}"
               data-disabled="{% if not standard.enabled %}1{% endif %}">
@@ -88,8 +111,8 @@
               <div class="flex flex-wrap gap-1">
                 {% for label in standard.labels.all %}
                   <span class="badge badge-outline badge-sm cursor-pointer"
-                        title="Filter by this tag"
-                        data-tag="{{ label.name|lower }}"
+                        title="Search for this label"
+                        data-tag="{{ label.name }}"
                         onclick="filterStandardPickerByTag(this)">{{ label.name }}</span>
                 {% empty %}
                   <span class="text-sm opacity-40">—</span>
@@ -108,27 +131,71 @@
   </div>
   <div class="standard-desc-popover hidden fixed z-[100] max-w-sm rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-lg whitespace-pre-line"></div>
 </div>
+<script src="{% static 'app/standard-search.js' %}"></script>
 <script>
 // Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
 if (!window.filterStandardPicker) {
-  // The search box and the Critical filter (all / critical / not critical)
-  // compose: a row shows only when it matches both. The Critical filter reads
-  // the row's live checkbox, so unchecking a mark drops the row from the
-  // "critical" view on the next filter, not while it is being edited.
+  // The search box (plain text or category:value, see standard-search.js) and
+  // the Filter dropdown compose: a row shows only when it matches both. The
+  // Filter has two groups of checkboxes (Connection, Critical). Within a group
+  // checked boxes are OR'd; both or none checked = no restriction. Groups are
+  // AND'd. Connection and Critical read the row's live checkboxes, so a change
+  // drops the row from a filtered view on the next filter, not while it is
+  // being edited.
+  function filterRestrictions(picker) {
+    var out = {};
+    ['connection', 'critical'].forEach(function (group) {
+      var on = [];
+      picker.querySelectorAll('.standard-picker-filter input[data-filter-group="' + group + '"]').forEach(function (cb) {
+        if (cb.checked) on.push(cb.value);
+      });
+      // exactly one of the two boxes checked = restricts; else null (no restriction)
+      out[group] = on.length === 1 ? on[0] : null;
+    });
+    return out;
+  }
+
+  window.standardPickerFilterActive = function (picker) {
+    var r = filterRestrictions(picker);
+    return !!(r.connection || r.critical);
+  };
+
+  window.resetStandardPickerFilter = function (btn) {
+    var picker = btn.closest('.standard-picker');
+    picker.querySelectorAll('.standard-picker-filter input[type="checkbox"]').forEach(function (cb) {
+      cb.checked = true;
+    });
+    window.filterStandardPicker(btn);
+  };
+
   window.filterStandardPicker = function (control) {
     var picker = control.closest('.standard-picker');
     var input = picker.querySelector('input[type="text"]');
-    var select = picker.querySelector('.standard-picker-critical-filter');
-    var q = input.value.trim().toLowerCase();
-    var mode = select ? select.value : 'all';
+    var parsed = window.StandardSearch.parseStandardSearch(input.value);
+    var r = filterRestrictions(picker);
+    var count = (r.connection ? 1 : 0) + (r.critical ? 1 : 0);
+    var badge = picker.querySelector('.standard-picker-filter-count');
+    if (badge) {
+      badge.textContent = count ? '· ' + count : '';
+      badge.classList.toggle('hidden', !count);
+    }
     var anyVisible = false;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
-      var match = !q || row.dataset.standardSearch.indexOf(q) !== -1;
-      if (match && mode !== 'all') {
-        var critical = row.querySelector('input[name="critical"]');
-        var marked = !!(critical && critical.checked);
-        match = mode === 'critical' ? marked : !marked;
-      }
+      var critical = row.querySelector('input[name="critical"]');
+      var attach = row.querySelector('input[name="standards"]');
+      var marked = !!(critical && critical.checked);
+      var connected = !!(attach && attach.checked);
+      var match = window.StandardSearch.matchStandardRow(parsed, {
+        search: row.dataset.standardSearch,
+        name: row.dataset.name,
+        description: row.dataset.description,
+        labels: row.dataset.labels.split('|').filter(Boolean),
+        status: row.dataset.status,
+        critical: marked,
+        connected: connected
+      });
+      if (match && r.connection) match = (r.connection === 'connected') === connected;
+      if (match && r.critical) match = (r.critical === 'critical') === marked;
       row.classList.toggle('hidden', !match);
       if (match) anyVisible = true;
     });
@@ -136,12 +203,13 @@ if (!window.filterStandardPicker) {
     if (noMatch) noMatch.classList.toggle('hidden', anyVisible);
   };
 
-  // Tag chip click: filter to that tag; clicking a chip of the active tag clears the filter.
+  // Label chip click: search for that label (label:<name>) in the same search
+  // box; clicking a chip of the label already searched clears the search.
   window.filterStandardPickerByTag = function (chip) {
     var picker = chip.closest('.standard-picker');
     var input = picker.querySelector('input[type="text"]');
-    var tag = chip.dataset.tag;
-    input.value = input.value.trim().toLowerCase() === tag ? '' : tag;
+    var query = window.StandardSearch.labelSearchQuery(chip.dataset.tag);
+    input.value = input.value.trim().toLowerCase() === query.toLowerCase() ? '' : query;
     window.filterStandardPicker(input);
   };
 
@@ -174,7 +242,7 @@ if (!window.filterStandardPicker) {
 
   // Sets the `name` checkbox ("standards" = attach, "critical" = the mark)
   // of every row the filters currently leave visible (all of them when the
-  // search box is empty and the Critical filter is "all") to `checked`.
+  // search box is empty and no Filter restriction is active) to `checked`.
   // Hidden rows are left alone.
   function setVisibleStandardPickerRows(btn, name, checked) {
     var picker = pickerFor(btn);
