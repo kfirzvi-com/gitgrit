@@ -43,7 +43,8 @@ _SYSTEM_PROMPT = (
     "You are evaluating a software repository against an engineering standard. "
     "Use the provided tools to inspect the repository yourself: list files, read "
     "the ones that matter, and gather enough concrete evidence to make a fair "
-    "judgment. Do not assume — verify by reading. When you have enough evidence, "
+    "judgment. Do not assume — verify by reading. Read large or minified files "
+    "in pages with read_file_lines. When you have enough evidence, "
     "stop calling tools and return your final structured verdict."
 )
 
@@ -162,7 +163,10 @@ def _truncate_for_model(value, limit=MAX_TOOL_RESULT_CHARS):
     would otherwise accumulate in the conversation and blow provider rate
     limits, since every call re-sends the whole history."""
     if isinstance(value, str) and len(value) > limit:
-        return value[:limit] + f"\n…[truncated {len(value) - limit} chars]"
+        return value[:limit] + (
+            f"\n…[truncated {len(value) - limit} chars; read the rest in pages "
+            "with read_file_lines]"
+        )
     return value
 
 

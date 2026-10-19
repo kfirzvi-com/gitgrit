@@ -71,6 +71,13 @@ cannot return. Known for artifact projects; `None` on Git repositories.
 too_big = [f for f in project.list_files() if (project.get_file_size(f) or 0) > 5_000_000]
 ```
 
+### `project.read_file_lines(path: str, start: int = 1, count: int = 100) -> dict | None`
+Returns part of a file as numbered lines: `{"path", "total_lines", "lines", "next_start"}`
+(`next_start` is `None` at the end). Lines longer than 200 characters, such as a minified
+bundle's single line, are first broken after `;`, `,`, braces or parentheses, so a large
+file can be read page by page. Each call returns at most about 5,000 characters. Meant for
+LLM standards, whose model reads files through it; `get_file_content` stays the raw file.
+
 ### `project.get_languages() -> dict[str, float]`
 Returns a dict mapping language names to their percentage in the repo.
 
