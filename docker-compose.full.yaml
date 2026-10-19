@@ -29,7 +29,7 @@ x-gitgrit-service: &gitgrit-service
     - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
     # Operator CA bundle for self-hosted GitLab over the operator's TLS chain.
     - ${GITGRIT_CUSTOM_CA_FILE_PATH}:/etc/ssl/certs/custom-ca.pem:ro
-    # Artifact projects' archives (kept forever): web stores them, the worker
+    # Artifact projects' archives: web stores them, the worker
     # reads them, so both mount the same volume.
     - gitgrit_uploads:/var/lib/gitgrit/uploads
   environment:

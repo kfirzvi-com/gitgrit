@@ -1201,8 +1201,9 @@ class ArtifactCommit(models.Model):
     like a Git SHA), a ``message``, a ``branch`` and an ``author``. A
     ``CommitCheck`` pins it by its ``sha`` like any commit, so branch health,
     commit history and polling a check work for uploads unchanged. Commits
-    are kept forever; the archive lives in the uploads storage under
-    ``archive_key``.
+    are kept until their project is deleted; the archive lives in the
+    uploads storage under ``archive_key`` and goes with the commit
+    (``app.signals``).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

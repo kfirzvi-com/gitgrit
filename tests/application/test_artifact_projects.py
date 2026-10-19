@@ -7,6 +7,7 @@ the input config) is what these tests check.
 from pathlib import Path
 from unittest import mock
 
+from django.core.files.storage import storages
 from django.test import TestCase
 from model_bakery import baker
 
@@ -274,3 +275,39 @@ class CommitHistoryTests(TestCase):
         row = commit_results(self.project, self.v2.sha)
         self.assertTrue(row.checked)
         self.assertEqual(row.running, 1)  # queued, the worker has not run it yet
+
+
+class DeletingArchivesTests(TestCase):
+    """A deleted project's (or workspace's) archives leave the storage too."""
+
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        self.project = artifact_service.create_artifact_project(
+            self.tenant, name="Storefront", external_id="ext-42"
+        ).project
+        with defer_patch():
+            self.commit = artifact_service.upload_commit(self.project, BUILD_V1).commit
+        self.storage = storages["uploads"]
+
+    def test_deleting_the_project_deletes_its_archives(self):
+        self.assertTrue(self.storage.exists(self.commit.archive_key))
+        with self.captureOnCommitCallbacks(execute=True):
+            self.project.delete()
+        self.assertFalse(self.storage.exists(self.commit.archive_key))
+
+    def test_deleting_the_workspace_deletes_them_too(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.tenant.delete()
+        self.assertFalse(self.storage.exists(self.commit.archive_key))
+
+    def test_a_rolled_back_delete_keeps_the_archive(self):
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            self.project.delete()
+        self.assertEqual(len(callbacks), 1)  # only runs if the delete commits
+        self.assertTrue(self.storage.exists(self.commit.archive_key))
+
+    def test_a_storage_failure_is_logged_not_raised(self):
+        with mock.patch.object(type(self.storage), "delete", side_effect=OSError("down")), \
+                self.assertLogs("app.infrastructure.upload_storage", "ERROR"), \
+                self.captureOnCommitCallbacks(execute=True):
+            self.project.delete()

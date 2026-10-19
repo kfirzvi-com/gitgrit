@@ -185,11 +185,12 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Artifact projects' archives, one per uploaded commit, kept forever. Both the
-# web (which stores them) and the worker (which reads them) must see the same
-# store: in a deploy that is a private S3 bucket (GITGRIT_UPLOADS_BUCKET),
-# reached with the host's AWS role like SES, so no keys are configured. Without
-# a bucket (local dev, air-gapped installs) it is a local directory.
+# Artifact projects' archives, one per uploaded commit, kept until the project
+# is deleted. Both the web (which stores them) and the worker (which reads
+# them) must see the same store: in a deploy, a private S3 bucket
+# (GITGRIT_UPLOADS_BUCKET) reached with the host's AWS role like SES, so no
+# keys are configured. Without a bucket (local dev, air-gapped installs) it
+# is a local directory.
 def uploads_storage(bucket: str, region: str, root: str) -> dict:
     if bucket:
         return {
@@ -198,8 +199,8 @@ def uploads_storage(bucket: str, region: str, root: str) -> dict:
                 "bucket_name": bucket,
                 "region_name": region,
                 # Objects are named by their content (the commit's SHA): the
-                # same name always holds the same bytes, and the app never
-                # deletes one, so its role has no s3:DeleteObject.
+                # same name always holds the same bytes, so overwriting is a
+                # no-op and the name never changes on save.
                 "file_overwrite": True,
                 "default_acl": None,
                 # Never handed to browsers: GitGrit serves every file itself.

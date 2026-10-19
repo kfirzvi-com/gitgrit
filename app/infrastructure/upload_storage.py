@@ -2,8 +2,12 @@
 (``settings.STORAGES``), keyed by workspace, project and commit SHA."""
 from __future__ import annotations
 
+import logging
+
 from django.core.files.base import ContentFile
 from django.core.files.storage import storages
+
+logger = logging.getLogger(__name__)
 
 
 def _storage():
@@ -27,3 +31,12 @@ def save_archive(key: str, data: bytes) -> None:
 def read_archive(key: str) -> bytes:
     with _storage().open(key, "rb") as f:
         return f.read()
+
+
+def delete_archive(key: str) -> None:
+    """Remove the archive under ``key``. A failure is logged, not raised: the
+    commit it belonged to is already gone, so nothing would retry it."""
+    try:
+        _storage().delete(key)
+    except Exception:
+        logger.exception("Could not delete uploaded archive %s", key)

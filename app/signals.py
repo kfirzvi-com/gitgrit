@@ -1,12 +1,14 @@
 from allauth.account.signals import email_confirmed
 from django.contrib.auth.signals import user_logged_in
 from django.db.models import QuerySet
-from django.db.models.signals import post_save, pre_delete, pre_save
+from django.db import transaction
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 
 from app.application import superuser_service
 from app.application.access import confirm_access_request_email
 from app.application.membership_service import roster_of
-from app.domain.models import Component, Membership, Project, Tenant, User
+from app.domain.models import ArtifactCommit, Component, Membership, Project, Tenant, User
+from app.infrastructure import upload_storage
 from app.domain.workspace_roles import OWNER
 from app.workspace_access import leave_support_view
 
@@ -37,8 +39,17 @@ def create_root_component(sender, instance, created, raw=False, **kwargs):
     )
 
 
+def delete_artifact_archive(sender, instance, **kwargs):
+    """A deleted artifact commit takes its archive with it: deleting the
+    project or its workspace cascades here, one commit at a time. Removed
+    only once the deletion commits, so a rolled-back delete keeps its file."""
+    key = instance.archive_key
+    transaction.on_commit(lambda: upload_storage.delete_archive(key))
+
+
 user_logged_in.connect(reset_support_view)
 post_save.connect(create_root_component, sender=Project, dispatch_uid="project_root_component")
+post_delete.connect(delete_artifact_archive, sender=ArtifactCommit, dispatch_uid="artifact_commit_archive")
 
 
 # --- Invariant backstops ------------------------------------------------------
