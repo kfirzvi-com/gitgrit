@@ -191,6 +191,29 @@ def counts_toward_grade(execution, home_branch: str, default_branch: str | None 
     return is_home_branch_run(execution.ref, home_branch, default_branch)
 
 
+def standard_letter(score, passed: bool, critical: bool, status: str) -> str | None:
+    """The letter one standard's result shows on the Results tab, or ``None``
+    when it has none (the row shows a dash).
+
+    A critical standard is pass or fail only: A when it passed, F when it
+    failed or errored in its own run. Any other standard reads its 0-100
+    score through the pass-rate bands (A+ is not used for one standard, so
+    100 is an A); only a finished pass or fail carries a letter, and one
+    without a score has none. Running, skipped and (for a non-critical
+    standard) errored rows have none. Display only: grades are decided by
+    ``letter_for``."""
+    if critical:
+        if status == PASSED or (status == FAILED and passed):
+            return A
+        return F if status in (FAILED, ERROR) else None
+    if status not in (PASSED, FAILED) or score is None:
+        return None
+    for floor, letter in PASS_RATE_BANDS:
+        if score >= floor:
+            return A if letter == A_PLUS else letter
+    return D
+
+
 def letter_from_pass_rate(passed: int, total: int) -> str:
     """The A+…D band of ``passed`` out of ``total`` results."""
     if total <= 0:
