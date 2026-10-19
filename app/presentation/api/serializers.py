@@ -303,3 +303,139 @@ class RunCheckResultSerializer(serializers.Serializer):
     queued = serializers.IntegerField()
     already_running = serializers.IntegerField()
     message = serializers.CharField()
+
+
+# --- Connections, repositories, project management ------------------------
+
+class ConnectionSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    display_name = serializers.CharField()
+    platform = serializers.CharField()
+    auth_method = serializers.ChoiceField(choices=["pat", "github_app"])
+    base_url = serializers.CharField(allow_blank=True)
+    account_login = serializers.CharField(allow_null=True, help_text="GitHub App connections: the org or user.")
+    created_at = serializers.DateTimeField()
+
+
+class ConnectionCreateSerializer(serializers.Serializer):
+    platform = serializers.ChoiceField(choices=["github", "gitlab"])
+    access_token = serializers.CharField(trim_whitespace=True)
+    display_name = serializers.CharField(required=False, allow_blank=True, default="")
+    base_url = serializers.CharField(
+        required=False, allow_blank=True, default="",
+        help_text="Self-hosted GitLab/GitHub Enterprise. Empty for the public service.",
+    )
+
+
+class RepositorySerializer(serializers.Serializer):
+    external_id = serializers.CharField()
+    name = serializers.CharField()
+    full_path = serializers.CharField()
+    web_url = serializers.CharField()
+    default_branch = serializers.CharField(allow_null=True)
+    description = serializers.CharField(allow_null=True, allow_blank=True)
+    already_added = serializers.BooleanField()
+
+
+class ProjectCreateSerializer(serializers.Serializer):
+    repository = serializers.CharField(help_text="The repository's path (`org/repo`) or platform id.")
+    connection_id = serializers.UUIDField(
+        required=False,
+        help_text="Which connection reaches it. Optional when only one connection can.",
+    )
+    lifecycle = serializers.CharField(required=False, default="development")
+    owner = serializers.CharField(required=False, allow_blank=True, default="")
+    standards = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list,
+        help_text="Workspace standards to attach. None are attached unless listed.",
+    )
+
+
+class ProjectUpdateSerializer(serializers.Serializer):
+    """PATCH body — only the fields sent are changed."""
+
+    lifecycle = serializers.CharField(required=False)
+    owner = serializers.CharField(required=False, allow_blank=True)
+
+
+class AttachedStandardSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    enabled = serializers.BooleanField()
+    draft = serializers.BooleanField()
+
+
+class ProjectDetailSerializer(ProjectSerializer):
+    owner = serializers.CharField(allow_blank=True)
+    connection_id = serializers.UUIDField()
+    webhook = serializers.ChoiceField(
+        choices=["app", "active", "missing"],
+        help_text="`app`: events come through the GitHub App; `missing`: re-register from the project page.",
+    )
+    standards = AttachedStandardSerializer(many=True, help_text="Every attached standard, runnable or not.")
+
+
+class ProjectCreatedSerializer(ProjectDetailSerializer):
+    runs = RunsSummarySerializer(allow_null=True, help_text="The first run, when standards were attached.")
+
+
+class StandardIdsSerializer(serializers.Serializer):
+    standards = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+
+
+class ProjectStandardsChangeSerializer(serializers.Serializer):
+    standards = AttachedStandardSerializer(many=True)
+    runs = RunsSummarySerializer(allow_null=True)
+
+
+class StandardEnabledSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    enabled = serializers.BooleanField()
+    runs = RunsSummarySerializer(allow_null=True, help_text="Queued on its projects when turned on.")
+
+
+# --- Marketplace ------------------------------------------------------------
+
+class MarketplaceStandardSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    version = serializers.IntegerField()
+    labels = serializers.ListField(child=serializers.CharField())
+    installed_standard_id = serializers.UUIDField(
+        allow_null=True, help_text="This workspace's copy, when installed."
+    )
+    update_available = serializers.BooleanField()
+
+
+class MarketplacePackSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    icon = serializers.CharField(allow_blank=True)
+    standards = MarketplaceStandardSerializer(many=True)
+
+
+class MarketplaceSerializer(serializers.Serializer):
+    packs = MarketplacePackSerializer(many=True)
+    standards = MarketplaceStandardSerializer(many=True)
+
+
+class InstalledStandardSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    created = serializers.BooleanField(help_text="False when the workspace already had it.")
+
+
+class PackInstallSerializer(serializers.Serializer):
+    pack = serializers.CharField()
+    installed = InstalledStandardSerializer(many=True)
+    skipped = InstalledStandardSerializer(many=True, help_text="Already in the workspace.")
+
+
+class MarketplaceUpdateSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    version = serializers.IntegerField()
+    runs = RunsSummarySerializer(allow_null=True)

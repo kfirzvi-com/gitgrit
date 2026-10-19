@@ -20,6 +20,7 @@ from app.application.event_bus import publish
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
     AuthMethod,
+    Platform,
     PlatformConnection,
     Project,
     Stack,
@@ -65,6 +66,34 @@ def get_connection(tenant: Tenant, connection_id) -> PlatformConnection:
         return PlatformConnection.objects.get(id=connection_id, tenant=tenant)
     except (PlatformConnection.DoesNotExist, ValidationError, ValueError):
         raise NotFoundError("Connection not found.")
+
+
+def add_token_connection(
+    tenant: Tenant, platform: str, access_token: str, *, display_name: str = "", base_url: str = ""
+) -> PlatformConnection:
+    """Connect a platform with a personal access token. Unnamed connections
+    are called after the platform ("GitHub", then "GitHub 2", …)."""
+    access_token = access_token.strip()
+    if not access_token:
+        raise ValueError("Access token is required.")
+    if platform not in (Platform.GITHUB, Platform.GITLAB):
+        raise ValueError("Invalid platform.")
+    display_name = display_name.strip()
+    if not display_name:
+        base_name = {Platform.GITHUB: "GitHub", Platform.GITLAB: "GitLab"}[platform]
+        taken = set(
+            PlatformConnection.objects.filter(tenant=tenant).values_list("display_name", flat=True)
+        )
+        display_name, n = base_name, 2
+        while display_name in taken:
+            display_name, n = f"{base_name} {n}", n + 1
+    return PlatformConnection.objects.create(
+        tenant=tenant,
+        platform=platform,
+        display_name=display_name,
+        base_url=base_url.strip(),
+        access_token=access_token,
+    )
 
 
 # --- repositories ------------------------------------------------------------

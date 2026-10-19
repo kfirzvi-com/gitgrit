@@ -28,9 +28,130 @@ paths:
               schema:
                 $ref: '#/components/schemas/Me'
           description: ''
-  /api/v1/workspaces/{workspace_id}/projects/:
+  /api/v1/workspaces/{workspace_id}/connections/:
     get:
-      operationId: list_projects
+      operationId: list_connections
+      description: Tokens are never returned.
+      summary: List git platform connections
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - connections
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Connection'
+          description: ''
+    post:
+      operationId: create_connection
+      description: 'Owners and admins only. For GitHub, the GitHub App is recommended
+        instead: install it from workspace settings in the browser.'
+      summary: Connect a platform with an access token
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - connections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionCreateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connection'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/repositories/:
+    get:
+      operationId: list_repositories
+      description: Up to 25, filtered by `q` (matched against `org/repo`). 502 when
+        the platform refuses.
+      summary: Repositories a connection can reach
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - connections
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Repository'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/marketplace/:
+    get:
+      operationId: get_marketplace
+      description: Every pack and standard, with this workspace's install state.
+      summary: Browse the marketplace
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - marketplace
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Marketplace'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/marketplace/packs/{slug}/:
+    get:
+      operationId: get_marketplace_pack
       description: |-
         Scoped to the workspace named in the URL.
 
@@ -39,6 +160,128 @@ paths:
         cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
         404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
         is 400.
+      summary: A pack and its standards
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - marketplace
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplacePack'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/marketplace/packs/{slug}/install/:
+    post:
+      operationId: install_marketplace_pack
+      description: Standards the workspace already has are skipped. Installed standards
+        are enabled but attached to no project.
+      summary: Install every standard in a pack
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - marketplace
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackInstall'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/marketplace/standards/{slug}/install/:
+    post:
+      operationId: install_marketplace_standard
+      description: 'Returns the existing copy, with `created: false`, when already
+        installed.'
+      summary: Install one marketplace standard
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - marketplace
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstalledStandard'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/marketplace/standards/{slug}/update/:
+    post:
+      operationId: update_marketplace_standard
+      description: The new version is queued on every project it's attached to.
+      summary: Update an installed standard to the marketplace's latest version
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - marketplace
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplaceUpdate'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/:
+    get:
+      operationId: list_projects
+      description: 'The projects collection: listing (inherited) and adding.'
       summary: List projects
       parameters:
       - in: path
@@ -62,6 +305,144 @@ paths:
                 items:
                   $ref: '#/components/schemas/Project'
           description: ''
+    post:
+      operationId: create_project
+      description: Registers a webhook unless the connection is a GitHub App, reads
+        the repository's languages, and queues the attached standards to run once.
+        409 when it's already a project.
+      summary: Add a repository as a project
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectCreated'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/projects/{project_id}/:
+    get:
+      operationId: get_project
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Get a project with its attached standards
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+          description: ''
+    patch:
+      operationId: update_project
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Update a project's lifecycle or owner
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectUpdateRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+          description: ''
+    delete:
+      operationId: delete_project
+      description: Also removes its webhook from the platform (best effort).
+      summary: Remove a project
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/branches/:
     get:
       operationId: list_project_branches
@@ -281,6 +662,69 @@ paths:
                 items:
                   $ref: '#/components/schemas/ActiveStandard'
           description: ''
+    post:
+      operationId: attach_project_standards
+      description: Newly attached, enabled standards are queued to run on it.
+      summary: Attach standards to a project
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardIdsRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStandardsChange'
+          description: ''
+    delete:
+      operationId: detach_project_standards
+      description: 'A project''s standards: the active ones (inherited), attaching,
+        detaching.'
+      summary: Detach standards from a project
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/status/:
     get:
       operationId: get_project_status
@@ -531,6 +975,75 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/workspaces/{workspace_id}/standards/{standard_id}/disable/:
+    post:
+      operationId: disable_standard
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Turn a standard off
+      parameters:
+      - in: path
+        name: standard_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardEnabled'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/standards/{standard_id}/enable/:
+    post:
+      operationId: enable_standard
+      description: Queues it on every project it's attached to. 400 for a draft.
+      summary: Turn a standard on
+      parameters:
+      - in: path
+        name: standard_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - standards
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardEnabled'
+          description: ''
   /api/v1/workspaces/{workspace_id}/standards/test/:
     post:
       operationId: test_standard
@@ -605,6 +1118,31 @@ components:
       - last_execution
       - name
       - rules
+    AttachedStandard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        enabled:
+          type: boolean
+        draft:
+          type: boolean
+      required:
+      - draft
+      - enabled
+      - id
+      - name
+    AuthMethodEnum:
+      enum:
+      - pat
+      - github_app
+      type: string
+      description: |-
+        * `pat` - pat
+        * `github_app` - github_app
     Branch:
       type: object
       properties:
@@ -729,6 +1267,54 @@ components:
       - commits
       - has_more
       - page
+    Connection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        platform:
+          type: string
+        auth_method:
+          $ref: '#/components/schemas/AuthMethodEnum'
+        base_url:
+          type: string
+        account_login:
+          type: string
+          nullable: true
+          description: 'GitHub App connections: the org or user.'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - account_login
+      - auth_method
+      - base_url
+      - created_at
+      - display_name
+      - id
+      - platform
+    ConnectionCreateRequest:
+      type: object
+      properties:
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        access_token:
+          type: string
+          minLength: 1
+        display_name:
+          type: string
+          default: ''
+        base_url:
+          type: string
+          default: ''
+          description: Self-hosted GitLab/GitHub Enterprise. Empty for the public
+            service.
+      required:
+      - access_token
+      - platform
     EventsEnum:
       enum:
       - push
@@ -760,6 +1346,21 @@ components:
       - project
       - score
       - status
+    InstalledStandard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created:
+          type: boolean
+          description: False when the workspace already had it.
+      required:
+      - created
+      - id
+      - name
     LastExecution:
       type: object
       properties:
@@ -790,6 +1391,90 @@ components:
         * `warning` - warning
         * `critical` - critical
         * `unknown` - unknown
+    Marketplace:
+      type: object
+      properties:
+        packs:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplacePack'
+        standards:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceStandard'
+      required:
+      - packs
+      - standards
+    MarketplacePack:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        standards:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceStandard'
+      required:
+      - description
+      - icon
+      - name
+      - slug
+      - standards
+    MarketplaceStandard:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: integer
+        labels:
+          type: array
+          items:
+            type: string
+        installed_standard_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: This workspace's copy, when installed.
+        update_available:
+          type: boolean
+      required:
+      - description
+      - installed_standard_id
+      - labels
+      - name
+      - slug
+      - update_available
+      - version
+    MarketplaceUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: integer
+        runs:
+          allOf:
+          - $ref: '#/components/schemas/RunsSummary'
+          nullable: true
+      required:
+      - id
+      - name
+      - runs
+      - version
     MatchedByEnum:
       enum:
       - full_path
@@ -837,6 +1522,33 @@ components:
       - name
       - score
       - standard_id
+    PackInstall:
+      type: object
+      properties:
+        pack:
+          type: string
+        installed:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstalledStandard'
+        skipped:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstalledStandard'
+          description: Already in the workspace.
+      required:
+      - installed
+      - pack
+      - skipped
+    PatchedProjectUpdateRequest:
+      type: object
+      description: PATCH body — only the fields sent are changed.
+      properties:
+        lifecycle:
+          type: string
+          minLength: 1
+        owner:
+          type: string
     PatchedStandardUpdateRequest:
       type: object
       description: PATCH body — only the fields sent are changed.
@@ -875,6 +1587,14 @@ components:
           type: string
           minLength: 1
           default: Updated via API
+    PlatformEnum:
+      enum:
+      - github
+      - gitlab
+      type: string
+      description: |-
+        * `github` - github
+        * `gitlab` - gitlab
     Project:
       type: object
       properties:
@@ -914,6 +1634,163 @@ components:
       - platform
       - tags
       - web_url
+    ProjectCreateRequest:
+      type: object
+      properties:
+        repository:
+          type: string
+          minLength: 1
+          description: The repository's path (`org/repo`) or platform id.
+        connection_id:
+          type: string
+          format: uuid
+          description: Which connection reaches it. Optional when only one connection
+            can.
+        lifecycle:
+          type: string
+          minLength: 1
+          default: development
+        owner:
+          type: string
+          default: ''
+        standards:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Workspace standards to attach. None are attached unless listed.
+      required:
+      - repository
+    ProjectCreated:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        platform:
+          type: string
+        full_path:
+          type: string
+        web_url:
+          type: string
+        default_branch:
+          type: string
+        lifecycle:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+        connection_id:
+          type: string
+          format: uuid
+        webhook:
+          allOf:
+          - $ref: '#/components/schemas/WebhookEnum'
+          description: |-
+            `app`: events come through the GitHub App; `missing`: re-register from the project page.
+
+            * `app` - app
+            * `active` - active
+            * `missing` - missing
+        standards:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachedStandard'
+          description: Every attached standard, runnable or not.
+        runs:
+          allOf:
+          - $ref: '#/components/schemas/RunsSummary'
+          nullable: true
+          description: The first run, when standards were attached.
+      required:
+      - connection_id
+      - default_branch
+      - description
+      - full_path
+      - id
+      - languages
+      - lifecycle
+      - name
+      - owner
+      - platform
+      - runs
+      - standards
+      - tags
+      - web_url
+      - webhook
+    ProjectDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        platform:
+          type: string
+        full_path:
+          type: string
+        web_url:
+          type: string
+        default_branch:
+          type: string
+        lifecycle:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+        connection_id:
+          type: string
+          format: uuid
+        webhook:
+          allOf:
+          - $ref: '#/components/schemas/WebhookEnum'
+          description: |-
+            `app`: events come through the GitHub App; `missing`: re-register from the project page.
+
+            * `app` - app
+            * `active` - active
+            * `missing` - missing
+        standards:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachedStandard'
+          description: Every attached standard, runnable or not.
+      required:
+      - connection_id
+      - default_branch
+      - description
+      - full_path
+      - id
+      - languages
+      - lifecycle
+      - name
+      - owner
+      - platform
+      - standards
+      - tags
+      - web_url
+      - webhook
     ProjectHealth:
       type: object
       properties:
@@ -977,6 +1854,20 @@ components:
       required:
       - id
       - name
+    ProjectStandardsChange:
+      type: object
+      properties:
+        standards:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachedStandard'
+        runs:
+          allOf:
+          - $ref: '#/components/schemas/RunsSummary'
+          nullable: true
+      required:
+      - runs
+      - standards
     ProjectStatus:
       type: object
       properties:
@@ -1007,6 +1898,33 @@ components:
       - project
       - top_offenders
       - total_standards
+    Repository:
+      type: object
+      properties:
+        external_id:
+          type: string
+        name:
+          type: string
+        full_path:
+          type: string
+        web_url:
+          type: string
+        default_branch:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        already_added:
+          type: boolean
+      required:
+      - already_added
+      - default_branch
+      - description
+      - external_id
+      - full_path
+      - name
+      - web_url
     ResolvedProject:
       type: object
       properties:
@@ -1185,6 +2103,36 @@ components:
       - recent_executions
       - test_cases
       - updated_at
+    StandardEnabled:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        enabled:
+          type: boolean
+        runs:
+          allOf:
+          - $ref: '#/components/schemas/RunsSummary'
+          nullable: true
+          description: Queued on its projects when turned on.
+      required:
+      - enabled
+      - id
+      - name
+      - runs
+    StandardIdsRequest:
+      type: object
+      properties:
+        standards:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - standards
     StandardMutation:
       type: object
       properties:
@@ -1324,6 +2272,16 @@ components:
       - email
       - id
       - username
+    WebhookEnum:
+      enum:
+      - app
+      - active
+      - missing
+      type: string
+      description: |-
+        * `app` - app
+        * `active` - active
+        * `missing` - missing
     Workspace:
       type: object
       properties:
