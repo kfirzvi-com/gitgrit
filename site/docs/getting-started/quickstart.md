@@ -38,6 +38,17 @@ GitHub asks where to install GitGrit:
 ??? note "GitLab, or using a token instead"
     Pick **GitLab** (or GitHub) in the same form, paste a personal access token, and click **Add Connection**. **How to generate a token?** lists the permissions it needs.
 
+!!! tip "Prefer the terminal?"
+    Once GitHub is connected, steps 3 to 5 are three commands. Run them inside a clone of your repository:
+
+    ```sh
+    gitgrit marketplace install repo-hygiene
+    gitgrit project add --all-standards
+    gitgrit health
+    ```
+
+    See [Command Line](cli.md) to install the CLI and sign in.
+
 ## 3. Install standards
 
 A standard is a check that runs on every commit, like "has a README" or "has CI configured". Start from a ready-made pack: open **Marketplace**.
@@ -77,55 +88,20 @@ From now on every push re-runs the standards automatically. To run them on deman
 
 ## 6. Use it from your terminal
 
-The `gitgrit` CLI shows the same results from your terminal, scripts, and CI. Install it (`ggr` works as a short name) and sign in through your browser:
+The `gitgrit` CLI does all of the above from your terminal, scripts, and CI:
 
 ```sh
 curl -fsSL https://gitgrit.dev/install.sh | sh
 gitgrit auth login
-gitgrit workspace use "Acme"   # only if you're in several workspaces
+cd ~/src/your-repo
+gitgrit health
 ```
 
-Project commands work on the repository you're in:
-
-```console
-$ cd ~/src/auth-service
-$ gitgrit health
-gitgrit-demo-auth-service · project health
-Score 30 · critical · 1 passed, 4 failed, 0 errored
-
-STATUS    SCORE  STANDARD                   COMMIT   RAN     MESSAGE
-✓ passed  100    README Exists              1fc38e8  1m ago  README found: README.md
-✗ failed  0      License File               1fc38e8  1m ago  No LICENSE file found in repository
-✗ failed  50     GitGrit Badge in README    1fc38e8  1m ago  No GitGrit badge found in README. Add the compliance badge …
-✗ failed  0      CODEOWNERS File            1fc38e8  1m ago  No CODEOWNERS file found
-✗ failed  0      CI Configuration Required  1fc38e8  1m ago  No CI/CD configuration found
-```
-
-| Command | What it does |
-|---|---|
-| `gitgrit project list` | Projects in your workspace |
-| `gitgrit health` | This repo's health score, standard by standard |
-| `gitgrit check --wait` | Runs the standards on the branch's latest commit and exits 1 if any fail |
-| `gitgrit standard list` | Standards installed in your workspace |
-| `gitgrit standard test my_standard.py` | Dry-runs a standard you're writing, in the sandbox |
-
-Add `--json` to any command to get the raw API response.
-
-### In CI
-
-Create a workspace token in **Workspace Settings** → **API Tokens**, save it as the `GITGRIT_TOKEN` secret, and fail the build when standards fail:
-
-```yaml
-- run: curl -fsSL https://gitgrit.dev/install.sh | sh
-- run: ~/.local/bin/gitgrit check --branch "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --wait
-  env:
-    GITGRIT_TOKEN: ${{ secrets.GITGRIT_TOKEN }}
-```
-
-Use `--fail-under 80` to fail on the score instead of on any failing standard.
+To fail a CI build when standards fail, run `gitgrit check --wait` with a workspace token. [Command Line](cli.md) has every command and the CI setup.
 
 ## What's next?
 
+- [Command Line](cli.md): every command, and CI
 - [Workspaces & Members](workspaces.md): invite your team and set roles
 - [Writing Standards](standards.md): encode your own team's rules
 - [Standard Marketplace](../features/marketplace.md): Docker, Node.js, Python, security, and more
