@@ -24,6 +24,7 @@ from app.domain.grading import (
     neglect_cap,
     SCORE_BY_LETTER,
     reason_for,
+    standard_letter,
     score_for,
     unverified_transition,
 )
@@ -298,3 +299,26 @@ class ScoreForTests(SimpleTestCase):
 
     def test_the_table_covers_exactly_the_letters_a_grade_can_be(self):
         assert set(SCORE_BY_LETTER) == {"A+", "A", "B", "C", "D", "F"}
+
+
+class TestStandardLetter(SimpleTestCase):
+    def test_a_regular_standard_reads_its_score_through_the_pass_rate_bands(self):
+        for score, letter in [(100, "A"), (90, "A"), (89, "B"), (75, "B"), (74, "C"), (60, "C"), (59, "D"), (0, "D")]:
+            with self.subTest(score=score):
+                status = PASSED if score >= 75 else FAILED
+                self.assertEqual(standard_letter(score, status == PASSED, False, status), letter)
+
+    def test_a_critical_standard_is_a_when_passed_and_f_when_failed_or_errored(self):
+        self.assertEqual(standard_letter(100, True, True, PASSED), "A")
+        self.assertEqual(standard_letter(100, False, True, FAILED), "F")
+        self.assertEqual(standard_letter(0, False, True, ERROR), "F")
+
+    def test_a_critical_score_is_ignored(self):
+        self.assertEqual(standard_letter(40, True, True, PASSED), "A")
+
+    def test_running_skipped_errored_and_unscored_rows_have_no_letter(self):
+        self.assertIsNone(standard_letter(0, False, False, RUNNING))
+        self.assertIsNone(standard_letter(0, False, False, SKIPPED))
+        self.assertIsNone(standard_letter(0, False, False, ERROR))
+        self.assertIsNone(standard_letter(None, True, False, PASSED))
+        self.assertIsNone(standard_letter(0, False, True, RUNNING))

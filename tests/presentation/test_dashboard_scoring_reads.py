@@ -185,7 +185,7 @@ class TestWorkspaceGrade(TestCase):
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class TestProjectListBoxes(TestCase):
-    """Each project's box on the Projects list shows its letter and last run."""
+    """Each project's box on the Projects list shows its letter, no last run."""
 
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
@@ -200,7 +200,7 @@ class TestProjectListBoxes(TestCase):
             StandardExecution.objects.filter(pk=ex.pk).update(event_type=event_type)
         return project
 
-    def test_box_shows_letter_and_trigger_and_no_results_otherwise(self):
+    def test_box_shows_letter_and_no_results_otherwise_and_no_last_run(self):
         self._project("good", StandardExecution.Status.PASSED, event_type="pull_request")
         self._project("failing", StandardExecution.Status.FAILED, critical=True)
         self._project("fresh")
@@ -211,9 +211,9 @@ class TestProjectListBoxes(TestCase):
         assert 'data-grade="A+"' in html
         assert 'data-grade="F"' in html
         assert "data-failing" in html  # F is not colour alone
-        assert "Pull request" in html
         assert html.count("No results yet") == 1
-        assert html.count("data-last-run") == 2
+        assert "data-last-run" not in html
+        assert "Last run" not in html
 
     def test_list_query_count_does_not_grow_with_projects(self):
         self._project("one", StandardExecution.Status.PASSED)
