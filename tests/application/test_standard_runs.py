@@ -16,7 +16,7 @@ from model_bakery import baker
 
 from app import tasks
 from app.application.standard_runs import enqueue_run, expire_stale_runs
-from app.domain.models import StandardExecution
+from app.domain.models import ProjectStandard, StandardExecution
 from tests.support import NoPlatformLookupsMixin, defer_patch
 
 PASSED = {"passed": True, "score": 100, "message": "OK", "details": {}}
@@ -96,6 +96,8 @@ class RunStandardsTaskTests(NoPlatformLookupsMixin, TestCase):
         assert boom.status == StandardExecution.Status.ERROR
         assert boom.message == "sandbox exploded"
         assert boom.details == {"error": "sandbox exploded"}
+        # A job-level failure is GitGrit's, so it never moves the grade.
+        assert boom.error_origin == StandardExecution.ErrorOrigin.PLATFORM
         # Nothing is left hanging in RUNNING: rows the job never reached are
         # errored with the same failure (row order is the queryset's, so the
         # sibling is either its own PASSED result or that failure).
@@ -106,6 +108,32 @@ class RunStandardsTaskTests(NoPlatformLookupsMixin, TestCase):
             StandardExecution.Status.PASSED,
             StandardExecution.Status.ERROR,
         }
+
+    def test_error_origin_tells_the_sandboxs_failure_from_the_standards(self):
+        """The runner marks its own failures (unparseable output, Docker
+        error) ``error_origin: platform``; a standard that raised inside the
+        sandbox returns the same ``details.error`` without the marker and
+        stays the customer's error."""
+        ours = self._execution(self._standard("A"))
+        theirs = self._execution(self._standard("B"))
+        errored = {"passed": False, "score": 0, "message": "boom", "details": {"error": True}}
+
+        def run(code, _config):
+            if code == "A":
+                return {**errored, "error_origin": "platform"}
+            return dict(errored)
+
+        with _mocked_runner(run):
+            self._run([ours, theirs])
+
+        ours.refresh_from_db()
+        theirs.refresh_from_db()
+        assert ours.status == StandardExecution.Status.ERROR
+        assert ours.error_origin == StandardExecution.ErrorOrigin.PLATFORM
+        assert theirs.status == StandardExecution.Status.ERROR
+        assert theirs.error_origin == StandardExecution.ErrorOrigin.STANDARD
+        # The marker is not part of the standard's result contract.
+        assert "error_origin" not in ours.details
 
     def test_normal_run_records_one_result_per_running_row(self):
         passing = self._execution(self._standard("A"))
@@ -222,6 +250,7 @@ class StaleRunTests(TestCase):
         old.refresh_from_db()
         fresh.refresh_from_db()
         assert old.status == StandardExecution.Status.ERROR
+        assert old.error_origin == StandardExecution.ErrorOrigin.PLATFORM
         assert "30 minutes" in old.message
         assert old.details == {"error": old.message}
         assert fresh.status == StandardExecution.Status.RUNNING
@@ -258,6 +287,24 @@ class EnqueueRunTests(TestCase):
 
     def _standard(self, **kw):
         return baker.make("app.Standard", tenant=self.tenant, **kw)
+
+    def test_execution_snapshot_carries_the_attachments_critical_mark(self):
+        """The row remembers the mark it ran under; a standard with no
+        attachment (or one not marked) stays not critical."""
+        gate, plain, loose = self._standard(), self._standard(), self._standard()
+        self.project.standards.add(gate, plain)
+        ProjectStandard.objects.filter(project=self.project, standard=gate).update(
+            critical=True
+        )
+
+        with defer_patch():
+            enqueue_run(self.project, [gate, plain, loose])
+
+        by_standard = {
+            r.standard_id: r.critical
+            for r in StandardExecution.objects.filter(project=self.project)
+        }
+        assert by_standard == {gate.pk: True, plain.pk: False, loose.pk: False}
 
     def test_creates_a_running_row_per_standard_and_defers_the_job(self):
         s1, s2 = self._standard(), self._standard()

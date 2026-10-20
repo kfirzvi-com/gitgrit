@@ -15,7 +15,12 @@
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
       Workspace architecture
     </a>
-    <h1 class="text-3xl font-bold">{{ stack.name }}</h1>
+    <h1 class="text-3xl font-bold flex items-center gap-3">
+      {{ stack.name }}
+      {% if stack_grade %}
+        <span class="badge badge-lg font-bold {% if stack_grade_tone == 'good' %}badge-success{% elif stack_grade_tone == 'attention' %}badge-warning{% else %}badge-error{% endif %}" title="Worst project grade in this stack" data-stack-grade="{{ stack_grade }}">{{ stack_grade }}</span>
+      {% endif %}
+    </h1>
   </div>
   <div class="flex gap-2">
     <button type="button" class="btn btn-outline btn-sm"

@@ -1,10 +1,17 @@
-{# "Select all" / "Clear selection" for a standard_picker. Works inside the picker or #}
-{# anywhere in the same <form> (the JS falls back to the form's picker). size: btn-xs|btn-sm #}
-<div class="flex gap-2">
+{# "Select all" / "Clear selection" and "Check all critical" / "Uncheck all critical" for a #}
+{# standard_picker. Works inside the picker or anywhere in the same <form> (the JS falls back #}
+{# to the form's picker). Every button touches only the rows the filters leave visible. size: btn-xs|btn-sm #}
+<div class="flex flex-wrap gap-2">
   <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
           title="Check every standard currently listed (respects the search filter)"
           onclick="selectAllStandardPicker(this)">Select all</button>
   <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
           title="Uncheck every standard currently listed (respects the search filter)"
           onclick="clearAllStandardPicker(this)">Clear selection</button>
+  <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline btn-error"
+          title="Mark every standard currently listed critical (respects the search filter)"
+          onclick="checkAllCriticalStandardPicker(this)">Check all critical</button>
+  <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
+          title="Unmark every standard currently listed (respects the search filter)"
+          onclick="uncheckAllCriticalStandardPicker(this)">Uncheck all critical</button>
 </div>

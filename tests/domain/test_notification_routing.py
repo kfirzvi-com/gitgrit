@@ -40,6 +40,20 @@ class RoutingTests(TestCase):
                 self.assertEqual([type(a) for a in route.audience], [Admins, Triggerer])
                 self.assertEqual(route.channels, ("inbox",))
 
+    def test_could_not_verify_goes_to_every_member_on_the_inbox(self):
+        """Audience is every member: owner, admin and member all hear it; a
+        member of another workspace does not."""
+        outsider = baker.make("app.User")
+        baker.make("app.Membership", user=outsider, tenant=baker.make("app.Tenant"), role="owner")
+        route = route_for("grade.unverified")
+        self.assertIs(route, ROUTES["grade.unverified"])
+        self.assertEqual([type(a) for a in route.audience], [Team])
+        self.assertEqual(route.channels, ("inbox",))
+        n = Notification.grade_unverified(
+            project=self.project, standard_names=["No secrets"], standard_ids=["s1"], branch="main"
+        )
+        self.assertEqual(route.recipients(n), sorted(self.users.values()))
+
     def test_unknown_kind_falls_back_to_admins_on_the_inbox_and_warns(self):
         with self.assertLogs("app.domain.notifications.notification_routing", "WARNING"):
             self.assertIs(route_for("nope"), FALLBACK)

@@ -24,6 +24,7 @@ from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
 from app.application.standard_results import current_results, project_score
+from app.domain import grading
 from app.domain.models import CommitCheck, StandardExecution
 
 logger = logging.getLogger(__name__)
@@ -193,6 +194,34 @@ class CommitRow:
     @property
     def score(self) -> int | None:
         return project_score([r for r in self.results if r.status != Status.RUNNING])
+
+    @property
+    def verdict(self) -> grading.Grade:
+        """The commit's verdict: ``grading.letter_for`` over its rows, each
+        read as it was marked when it ran (the snapshot ``critical``) and
+        with no neglect cap: a commit verdict has no clock. Rows still
+        running do not count, so it is no grade while nothing finished."""
+        return commit_grade(self.results)
+
+    @property
+    def grade(self) -> str | None:
+        """The letter, or ``None`` while nothing finished."""
+        verdict = self.verdict
+        return verdict.letter if verdict.graded else None
+
+
+def commit_grade(executions) -> grading.Grade:
+    """The grade of one run's rows (a commit, a branch), each carrying its
+    own snapshot ``critical`` and ``error_origin``; no neglect cap."""
+    return grading.letter_for(
+        grading.Result(
+            status=r.status,
+            critical=r.critical,
+            error_origin=r.error_origin,
+            name=r.standard_name,
+        )
+        for r in executions
+    )
 
 
 def branches(project) -> list[str]:

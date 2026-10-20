@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
+from app.domain.grading import Grade
 from app.domain.models import DeliveryLog, InboxItem, Notification
 from app.domain.notifications import Kind, Severity
 
@@ -59,22 +60,25 @@ class NamedConstructorTests(TestCase):
         self.assertNotIn("triggered_by_user_ids", n.context)
         self.assertEqual(n.triggered_by_user_ids, [])
 
-    def test_standards_failing(self):
+    def test_standards_failing_body_says_letter_and_reason_not_a_score(self):
         n = Notification.standards_failing(
             project=self.project,
             failed_names=["README present", "Pinned CI"],
             failed_standard_ids=["s1", "s2"],
             execution_ids=["e1"],
-            score=66.6,
+            grade=Grade("B", "2 standards failing"),
             trigger="manual",
         )
 
         self.assertEqual(n.kind, Kind.STANDARDS_FAILING)
         self.assertEqual(n.severity, Severity.WARNING)
         self.assertEqual(n.title, "2 standards failed")
-        self.assertEqual(n.body, "README present, Pinned CI")
+        self.assertEqual(n.body, "Grade B — 2 standards failing: README present, Pinned CI")
+        self.assertNotIn("/100", n.body)
+        self.assertNotIn("%", n.body)
         self.assertEqual(n.url, reverse("project_detail", args=[self.project.pk]) + "#compliance")
-        self.assertEqual(n.context["score"], 67)
+        self.assertEqual(n.context["grade"], "B")
+        self.assertNotIn("score", n.context)
         self.assertEqual(n.context["failed_standard_ids"], ["s1", "s2"])
         self.assertEqual(n.context["trigger"], "manual")
 
@@ -83,7 +87,8 @@ class NamedConstructorTests(TestCase):
             project=self.project, failed_names=["Pinned CI"], failed_standard_ids=["s1"]
         )
         self.assertEqual(n.title, "1 standard failed")
-        self.assertNotIn("score", n.context)
+        self.assertEqual(n.body, "Pinned CI")
+        self.assertNotIn("grade", n.context)
 
     def test_standards_failing_names_at_most_three(self):
         n = Notification.standards_failing(
@@ -114,12 +119,58 @@ class NewKindConstructorTests(TestCase):
         self.project = baker.make("app.Project", name="Acme")
         self.actor = baker.make("app.User", first_name="Dana", last_name="Lee")
 
-    def test_project_turned_critical(self):
-        n = Notification.project_turned_critical(project=self.project, score_before=72.4, score_after=38.6)
+    def test_project_turned_critical_is_grade_dropped_to_f(self):
+        n = Notification.project_turned_critical(
+            project=self.project, letter_before="B", letter_after="F", reason="No secrets failing"
+        )
         self.assertEqual((n.kind, n.severity), (Kind.PROJECT_CRITICAL, Severity.CRITICAL))
-        self.assertEqual(n.title, "Score dropped to critical")
-        self.assertEqual(n.body, "From 72% to 39%.")
-        self.assertEqual(n.context["score"], 39)
+        self.assertEqual(n.title, "Grade dropped to F")
+        self.assertEqual(n.body, "No secrets failing")
+        self.assertEqual(n.url, reverse("project_detail", args=[self.project.pk]) + "#compliance")
+        self.assertEqual((n.context["grade"], n.context["grade_before"]), ("F", "B"))
+        self.assertNotIn("score", n.context)
+
+    def test_grade_unverified(self):
+        n = Notification.grade_unverified(
+            project=self.project,
+            standard_names=["No secrets"],
+            standard_ids=["s1"],
+            branch="main",
+            error="Traceback (most recent call last):\n  File x\nKeyError: 'GITHUB_TOKEN'",
+            execution_ids=["e1"],
+            trigger="push",
+            triggered_by_user_ids=["u1"],
+        )
+        self.assertEqual((n.kind, n.severity), (Kind.GRADE_UNVERIFIED, Severity.CRITICAL))
+        self.assertEqual(n.subject, "Acme")
+        self.assertEqual(n.title, "Could not verify No secrets")
+        self.assertEqual(n.body, "Grade F until it passes again on main: KeyError: 'GITHUB_TOKEN'")
+        self.assertEqual(n.url, reverse("project_detail", args=[self.project.pk]) + "#compliance")
+        self.assertEqual(n.context["standard_ids"], ["s1"])
+        self.assertEqual(n.context["execution_ids"], ["e1"])
+        self.assertEqual(n.context["grade"], "F")
+        self.assertEqual(n.context["trigger"], "push")
+        self.assertEqual(n.triggered_by_user_ids, ["u1"])
+
+    def test_grade_unverified_names_every_standard_and_speaks_plainly_of_known_errors(self):
+        n = Notification.grade_unverified(
+            project=self.project,
+            standard_names=["No secrets", "Pinned CI"],
+            standard_ids=["s1", "s2"],
+            branch="main",
+            error="HTTPError: 401 Bad credentials",
+        )
+        self.assertEqual(n.title, "Could not verify No secrets, Pinned CI")
+        self.assertEqual(
+            n.body,
+            "Grade F until they pass again on main: GitHub or GitLab refused GitGrit's access token.",
+        )
+
+    def test_grade_unverified_without_an_error_is_just_the_sentence(self):
+        n = Notification.grade_unverified(
+            project=self.project, standard_names=["No secrets"], standard_ids=["s1"], branch="main"
+        )
+        self.assertEqual(n.body, "Grade F until it passes again on main")
 
     def test_runs_timed_out(self):
         n = Notification.runs_timed_out(project=self.project, execution_ids=["a", "b"])

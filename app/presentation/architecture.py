@@ -12,8 +12,11 @@ Two graphs are produced here:
 
 Nodes are *components* (the deployable units inside a repository), so a
 monorepo's services appear individually and a plain repository appears as its
-single root component. Health is still scored per project (standards run per
+single root component. Health is still graded per project (standards run per
 repository), so every component of a repository shares its project's colour.
+
+Every read takes ``grades``, the ``grades_for_tenant`` map of project id to
+``ProjectGrading``, so one grade read serves the whole page.
 
 ``ComponentDependency`` / ``ExternalDependency`` are populated by the LLM agent
 per repo; **stack→stack edges are derived here at read time** by rolling up
@@ -26,8 +29,9 @@ from collections import Counter, defaultdict
 from django.db.models import Count, Max, Q
 from django.urls import reverse
 
+from app.application.grading_service import letter_for_projects
 from app.application.naming import canonical_key
-from app.application.standard_results import current_results
+from app.domain import grading
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
@@ -35,52 +39,57 @@ from app.domain.models import (
     Project,
     Stack,
 )
-from app.domain.health import (
-    CRITICAL,
-    HEALTHY_MIN,
-    WARNING,
-    project_level,
-    stack_level,
-)
+from app.domain.health import GOOD, project_level, stack_level
 
 MAX_TECHNOLOGIES = 8
 
 
-def latest_scores_by_project(tenant):
-    """Map each attached project/standard pair to its current result (see
-    ``app.application.standard_results``).
-
-    Returns ``{project_id: {standard_id: {"name", "score"}}}``. The standard
-    name is kept so health tooltips can name the specific standards dragging a
-    project down.
-    """
-    latest = defaultdict(dict)
-    for ex in current_results(Project.objects.filter(tenant=tenant)):
-        latest[ex.project_id][ex.standard_id] = {"name": ex.standard_name, "score": ex.score}
-    return latest
+def _letter(project_id, grades):
+    """A project's letter, or ``NO_GRADE`` when it has nothing evaluated."""
+    grading_ = grades.get(project_id)
+    return grading_.grade.letter if grading_ else grading.NO_GRADE
 
 
-def _project_score(project_id, latest):
-    results = latest.get(project_id, {})
-    if not results:
+def _not_passed(execution, critical_ids):
+    """The attention facts of a counting execution that did not pass:
+    ``(critical, failed, unverified)``; ``None`` when it passed."""
+    if execution.status == grading.PASSED:
         return None
-    return round(sum(r["score"] for r in results.values()) / len(results))
+    return (
+        execution.standard_id in critical_ids,
+        execution.status == grading.FAILED,
+        execution.status == grading.ERROR,
+    )
 
 
-def _project_issues(project_id, latest):
-    """Reasons a project needs attention — its lowest sub-threshold standards.
+def _project_issues(project_id, grades):
+    """Reasons a project needs attention: the standards that did not pass,
+    critical ones first, named without a percentage.
 
     Returns a list of short strings for the hover tooltip. Empty when the
-    project is healthy or has no results. Future signals (DORA deployment
-    frequency, failing high-severity standards) should append their own
-    reasons here so the tooltip stays the single explanation of node health.
+    project is good or has no results. Future signals (DORA deployment
+    frequency) should append their own reasons here so the tooltip stays
+    the single explanation of node health.
     """
-    results = latest.get(project_id, {})
-    low = sorted(
-        (r for r in results.values() if r["score"] < HEALTHY_MIN),
-        key=lambda r: r["score"],
-    )
-    return ["{} — {}%".format(r["name"], r["score"]) for r in low[:4]]
+    grading_ = grades.get(project_id)
+    if grading_ is None:
+        return []
+    issues = []
+    for ex in grading_.executions:
+        facts = _not_passed(ex, grading_.critical_standard_ids)
+        if facts is None:
+            continue
+        critical, _failed, unverified = facts
+        text = (
+            f"{ex.standard_name} — could not verify"
+            if unverified
+            else f"{ex.standard_name} failing"
+        )
+        if critical:
+            text += " (critical)"
+        issues.append((not critical, text))
+    issues.sort(key=lambda t: t[0])
+    return [text for _, text in issues[:4]]
 
 
 def _merge_tech(*lists):
@@ -133,32 +142,26 @@ def workspace_map_status(tenant):
     }
 
 
-def workspace_graph(tenant, latest):
+def workspace_graph(tenant, grades):
     stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
 
     stack_nodes = []
     for stack in stacks:
         components = list(stack.components.all())
-        # Health is per repository: score each distinct project once, however
+        # Health is per repository: grade each distinct project once, however
         # many of its components sit in this stack.
         projects = list({c.project_id: c.project for c in components}.values())
-        scores = [_project_score(p.id, latest) for p in projects]
-        known = [s for s in scores if s is not None]
-        score = round(sum(known) / len(known)) if known else None
+        letters = {p.id: _letter(p.id, grades) for p in projects}
+        letter = letter_for_projects(letters, grades)
 
         # Issues = the projects dragging the stack down (worst first), so the
         # hover explains which project to look at.
-        offenders = sorted(
-            (
-                (p, s, project_level(s))
-                for p, s in zip(projects, scores)
-            ),
-            key=lambda t: (t[1] if t[1] is not None else 999),
-        )
+        rank = {l: i for i, l in enumerate(grading.LETTER_ORDER)}
+        offenders = sorted(projects, key=lambda p: rank.get(letters[p.id], len(rank)))
         issues = [
-            "{} — {}% ({})".format(p.name, s, lvl)
-            for p, s, lvl in offenders
-            if lvl in (WARNING, CRITICAL)
+            "{} — {} ({})".format(p.name, letters[p.id], grades[p.id].grade.reason)
+            for p in offenders
+            if letters[p.id] in rank and project_level(letters[p.id]) != GOOD
         ]
 
         stack_nodes.append(
@@ -169,10 +172,11 @@ def workspace_graph(tenant, latest):
                 "component_count": len(components),
                 "project_count": len(projects),
                 "technologies": _technologies(components),
-                "score": score,
+                # The worst project letter, or null when no project is graded.
+                "grade": letter if letter != grading.NO_GRADE else None,
                 # Worst-of across projects, so a single failing project lights
-                # up the whole stack even when the average looks healthy.
-                "health": stack_level([project_level(s) for s in scores]),
+                # up the whole stack even when the others look good.
+                "health": stack_level([project_level(l) for l in letters.values()]),
                 "issues": issues,
                 # True while any member project's dependency analysis is queued
                 # or running — drives the "regenerating…" hint.
@@ -260,9 +264,9 @@ def workspace_graph(tenant, latest):
 # --- Per-stack graph --------------------------------------------------------
 
 
-def _component_node(component, latest, monorepo_projects):
+def _component_node(component, grades, monorepo_projects):
     project = component.project
-    score = _project_score(project.id, latest)
+    letter = _letter(project.id, grades)
     return {
         "id": str(component.id),
         "name": component.name,
@@ -276,9 +280,9 @@ def _component_node(component, latest, monorepo_projects):
         "monorepo": project.id in monorepo_projects,
         "lifecycle": project.get_lifecycle_display(),
         "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
-        "score": score,
-        "health": project_level(score),
-        "issues": _project_issues(project.id, latest),
+        "grade": letter if letter != grading.NO_GRADE else None,
+        "health": project_level(letter),
+        "issues": _project_issues(project.id, grades),
         "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),
     }
@@ -303,7 +307,7 @@ def _boundary_node(node_id, component):
     }
 
 
-def stack_graph(stack, latest):
+def stack_graph(stack, grades):
     """Build the architecture graph for a single stack.
 
     Node kinds:
@@ -332,7 +336,7 @@ def stack_graph(stack, latest):
         .values_list("pk", flat=True)
     )
 
-    components = [_component_node(c, latest, monorepo_projects) for c in internal]
+    components = [_component_node(c, grades, monorepo_projects) for c in internal]
     consumers = {}
     consuming = {}
     thirdparties = {}

@@ -1,5 +1,6 @@
 """attention_items(): the one "Needs attention" read behind the dashboard card
-and the notifications pane."""
+and the notifications pane, and current_results(): the one read of a project's
+current results on each standard's home branch."""
 from datetime import timedelta
 
 from django.test import TestCase
@@ -12,7 +13,7 @@ from app.application.standard_results import (
     current_results,
     project_score,
 )
-from app.domain.health import CRITICAL, WARNING
+from app.domain.health import ATTENTION, FAILING
 from app.domain.models import StandardExecution
 
 Status = StandardExecution.Status
@@ -23,17 +24,19 @@ class AttentionItemsTests(TestCase):
         self.tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=self.tenant, name="Acme")
 
-    def _standard(self, name, attach=True, project=None):
+    def _standard(self, name, attach=True, project=None, critical=False, **kwargs):
         project = project or self.project
-        standard = baker.make("app.Standard", tenant=project.tenant, name=name)
+        standard = baker.make("app.Standard", tenant=project.tenant, name=name, **kwargs)
         if attach:
             project.standards.add(standard)
+        if critical:
+            project.project_standards.filter(standard=standard).update(critical=True)
         return standard
 
-    def _result(self, standard, score, status=Status.FAILED, project=None, ago=None):
+    def _result(self, standard, status=Status.FAILED, project=None, ago=None, **kwargs):
         execution = baker.make(
             "app.StandardExecution", project=project or self.project, standard=standard,
-            standard_name=standard.name, score=score, status=status,
+            standard_name=standard.name, status=status, **kwargs,
         )
         if ago is not None:
             StandardExecution.objects.filter(pk=execution.pk).update(
@@ -43,72 +46,87 @@ class AttentionItemsTests(TestCase):
 
     def test_returns_typed_items_with_ids_not_urls(self):
         standard = self._standard("README present")
-        execution = self._result(standard, 20)
+        execution = self._result(standard)
 
         [item] = attention_items(self.tenant)
 
         self.assertIsInstance(item, AttentionItem)
-        self.assertEqual(item.level, CRITICAL)
+        self.assertEqual(item.level, ATTENTION)
+        self.assertIs(item.critical, False)
         self.assertEqual(item.project_id, self.project.pk)
         self.assertEqual(item.project_name, "Acme")
         self.assertEqual(item.standard_id, standard.pk)
         self.assertEqual(item.standard_name, "README present")
         self.assertEqual(item.execution_id, execution.pk)
-        self.assertEqual(item.score, 20)
         self.assertEqual(item.status, "Failed")
+        self.assertFalse(hasattr(item, "score"))
 
-    def test_levels_follow_the_score_thresholds(self):
-        self._result(self._standard("Critical"), 49)
-        self._result(self._standard("Warning"), 50)
-        self._result(self._standard("Healthy"), 80, status=Status.PASSED)
+    def test_a_passing_result_needs_no_attention_whatever_its_score(self):
+        self._result(self._standard("Low but passing"), status=Status.PASSED, score=10)
 
-        levels = {i.standard_name: i.level for i in attention_items(self.tenant)}
+        self.assertEqual(attention_items(self.tenant), [])
 
-        self.assertEqual(levels, {"Critical": CRITICAL, "Warning": WARNING})
+    def test_critical_first_then_failed_then_errored_then_newest(self):
+        # Created oldest-first in the opposite order of the expected rank, so
+        # recency alone cannot explain the result.
+        self._result(self._standard("Old errored"), status=Status.ERROR, ago=timedelta(days=3))
+        self._result(self._standard("New errored"), status=Status.ERROR, ago=timedelta(days=2))
+        self._result(self._standard("Failed"), ago=timedelta(days=1))
+        self._result(self._standard("Gate", critical=True))
 
-    def test_a_failed_run_that_scored_well_is_a_warning(self):
-        self._result(self._standard("Flaky"), 90, status=Status.ERROR)
+        items = attention_items(self.tenant)
 
-        [item] = attention_items(self.tenant)
-
-        self.assertEqual(item.level, WARNING)
+        self.assertEqual(
+            [i.standard_name for i in items], ["Gate", "Failed", "New errored", "Old errored"]
+        )
+        self.assertEqual([i.level for i in items], [FAILING, ATTENTION, ATTENTION, ATTENTION])
+        self.assertEqual([i.critical for i in items], [True, False, False, False])
+        self.assertEqual(items[2].status, "Could not verify")
 
     def test_only_the_latest_result_per_standard_counts(self):
         standard = self._standard("Pinned CI")
-        self._result(standard, 10, ago=timedelta(hours=1))
-        self._result(standard, 100, status=Status.PASSED)
+        self._result(standard, ago=timedelta(hours=1))
+        self._result(standard, status=Status.PASSED)
 
         self.assertEqual(attention_items(self.tenant), [])
 
     def test_in_flight_runs_do_not_hide_the_latest_finished_result(self):
         standard = self._standard("Pinned CI")
-        self._result(standard, 10, ago=timedelta(hours=1))
-        self._result(standard, 0, status=Status.RUNNING)
+        failed = self._result(standard, ago=timedelta(hours=1))
+        self._result(standard, status=Status.RUNNING)
 
         [item] = attention_items(self.tenant)
 
-        self.assertEqual(item.score, 10)
+        self.assertEqual(item.execution_id, failed.pk)
 
-    def test_detached_standards_are_ignored(self):
-        self._result(self._standard("Attached"), 20)
-        self._result(self._standard("Detached", attach=False), 5)
+    def test_platform_errors_are_absent_and_keep_the_previous_result(self):
+        standard = self._standard("Pinned CI")
+        self._result(standard, status=Status.PASSED, ago=timedelta(hours=1))
+        self._result(
+            standard, status=Status.ERROR,
+            error_origin=StandardExecution.ErrorOrigin.PLATFORM,
+        )
+
+        self.assertEqual(attention_items(self.tenant), [])
+
+    def test_pull_request_only_results_are_absent(self):
+        self._result(self._standard("On a PR"), ref="refs/heads/feature/x", event_type="pull_request")
+
+        self.assertEqual(attention_items(self.tenant), [])
+
+    def test_detached_disabled_and_draft_standards_are_ignored(self):
+        self._result(self._standard("Attached"))
+        self._result(self._standard("Detached", attach=False))
+        self._result(self._standard("Disabled", enabled=False))
+        self._result(self._standard("Draft", draft=True))
 
         names = [i.standard_name for i in attention_items(self.tenant)]
 
         self.assertEqual(names, ["Attached"])
 
-    def test_critical_first_then_newest(self):
-        self._result(self._standard("Old critical"), 10, ago=timedelta(days=2))
-        self._result(self._standard("New warning"), 60)
-        self._result(self._standard("New critical"), 10, ago=timedelta(hours=1))
-
-        names = [i.standard_name for i in attention_items(self.tenant)]
-
-        self.assertEqual(names, ["New critical", "Old critical", "New warning"])
-
     def test_other_workspaces_are_not_included(self):
         other = baker.make("app.Project", tenant=baker.make("app.Tenant"))
-        self._result(self._standard("Elsewhere", project=other), 10, project=other)
+        self._result(self._standard("Elsewhere", project=other), project=other)
 
         self.assertEqual(attention_items(self.tenant), [])
 
@@ -146,11 +164,11 @@ class HomeBranchTests(TestCase):
 
     def test_a_fix_on_a_feature_branch_does_not_hide_the_default_branch_failure(self):
         standard = self._standard()
-        self._run(standard, 10, ref="", ago=timedelta(hours=1))
+        failed = self._run(standard, 10, ref="", ago=timedelta(hours=1))
         self._run(standard, 100, ref="refs/heads/feature/fix", status=Status.PASSED)
 
         [item] = attention_items(self.tenant)
-        self.assertEqual(item.score, 10)
+        self.assertEqual(item.execution_id, failed.pk)
 
     def test_pull_request_runs_do_not_count(self):
         standard = self._standard()
@@ -202,6 +220,31 @@ class HomeBranchTests(TestCase):
         self.assertEqual(
             [r.pk for r in current_results([self.project], exclude_execution_ids=[newest.pk])],
             [errored.pk],
+        )
+
+    def test_platform_errors_can_be_left_out_so_the_previous_result_stays(self):
+        """GitGrit's own failures (stale sweep, job or sandbox error) are
+        ERROR rows marked platform-origin; with ``exclude_platform_errors``
+        the pair's previous result is current instead, through any number
+        of them, and a standard's own error still counts."""
+        standard = self._standard()
+        passed = self._run(standard, 100, status=Status.PASSED, ago=timedelta(hours=3))
+        for hours in (2, 1):
+            ours = self._run(standard, 0, status=Status.ERROR, ago=timedelta(hours=hours))
+            StandardExecution.objects.filter(pk=ours.pk).update(
+                error_origin=StandardExecution.ErrorOrigin.PLATFORM
+            )
+
+        self.assertEqual([r.pk for r in current_results([self.project])], [ours.pk])
+        self.assertEqual(
+            [r.pk for r in current_results([self.project], exclude_platform_errors=True)],
+            [passed.pk],
+        )
+
+        theirs = self._run(standard, 0, status=Status.ERROR)
+        self.assertEqual(
+            [r.pk for r in current_results([self.project], exclude_platform_errors=True)],
+            [theirs.pk],
         )
 
     def test_project_score_averages_and_handles_nothing(self):

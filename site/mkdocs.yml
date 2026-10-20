@@ -46,6 +46,7 @@ nav:
     - Writing Standards: getting-started/standards.md
   - Features:
     - Standard Marketplace: features/marketplace.md
+    - Grades: features/grades.md
     - Compliance Badges: features/badges.md
     - Standard Versioning: features/versioning.md
     - Analytics Dashboard: features/analytics.md

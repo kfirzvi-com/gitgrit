@@ -19,6 +19,7 @@ from pathlib import Path
 import docker
 from django.conf import settings
 
+from app.domain.grading import PLATFORM_ORIGIN
 from app.domain.standard_runner import StandardRunner
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ SANDBOX_TMP = "/tmp/gitgrit-sandbox"
 # Keep this as the single source of truth — referenced from both the volume
 # bind and the environment dict below.
 CUSTOM_CA_MOUNT_PATH = "/etc/ssl/certs/custom-ca.pem"
+
+# Marker on the result dict when the runner, not the standard, failed. Read by
+# ``StandardEngine.run_execution`` into ``StandardExecution.error_origin``.
+PLATFORM_ERROR_ORIGIN = PLATFORM_ORIGIN
 
 
 class SandboxRunner(StandardRunner):
@@ -60,7 +65,10 @@ class SandboxRunner(StandardRunner):
                 to /input.json inside the container.
 
         Returns:
-            Standard result dict with passed, score, message, details.
+            Standard result dict with passed, score, message, details. When
+            the sandbox itself failed (unparseable output, Docker error) the
+            dict also carries ``error_origin: "platform"``; a standard's own
+            result never has that key.
         """
         Path(SANDBOX_TMP).mkdir(parents=True, exist_ok=True)
         tmp_dir = tempfile.mkdtemp(prefix="run-", dir=SANDBOX_TMP)
@@ -153,6 +161,7 @@ class SandboxRunner(StandardRunner):
                 "score": 0,
                 "message": "Failed to parse standard output",
                 "details": {"error": True},
+                "error_origin": PLATFORM_ERROR_ORIGIN,
             }
         except Exception as exc:
             logger.exception("Sandbox execution failed")
@@ -161,6 +170,7 @@ class SandboxRunner(StandardRunner):
                 "score": 0,
                 "message": f"Sandbox error: {exc}",
                 "details": {"error": True},
+                "error_origin": PLATFORM_ERROR_ORIGIN,
             }
         finally:
             if container:

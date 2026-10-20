@@ -60,26 +60,36 @@ class TestBranchesAndHealth(HealthAPITestCase):
             {"name": "feature/x", "is_default": False},
         ]
 
-    def test_project_health(self):
+    def test_project_health_has_grade_reason_and_level_and_keeps_score(self):
         self.check(A, status=Status.FAILED, score=40)
         r = self.get(f"{self.p}/health/")
         assert r.status_code == 200
         body = r.json()
-        assert (body["branch"], body["score"], body["level"]) == (None, 40, "critical")
+        assert (body["branch"], body["score"], body["level"]) == (None, 40, "attention")
+        assert (body["grade"], body["reason"]) == ("D", "1 standard failing")
         assert (body["passed"], body["failed"], body["errored"]) == (0, 1, 0)
         assert body["results"][0]["commit_sha"] == A
         assert body["results"][0]["standard_name"] == "Pinned CI"
 
+    def test_a_failing_critical_standard_is_f_and_failing(self):
+        self.project.project_standards.update(critical=True)
+        self.check(A, status=Status.FAILED, score=40)
+        body = self.get(f"{self.p}/health/").json()
+        assert (body["grade"], body["reason"], body["level"]) == ("F", "Pinned CI failing", "failing")
+
     def test_a_branch_does_not_move_project_health_but_has_its_own(self):
         self.check(A, branch="main", score=100)
         self.check(C, branch="feature/x", status=Status.FAILED, score=10)
-        assert self.get(f"{self.p}/health/").json()["level"] == "healthy"
+        project = self.get(f"{self.p}/health/").json()
+        assert (project["grade"], project["level"]) == ("A+", "good")
         branch = self.get(f"{self.p}/health/", branch="feature/x").json()
-        assert (branch["branch"], branch["score"], branch["level"]) == ("feature/x", 10, "critical")
+        assert (branch["branch"], branch["score"], branch["level"]) == ("feature/x", 10, "attention")
+        assert branch["grade"] == "D"
 
     def test_no_results_is_unknown(self):
         body = self.get(f"{self.p}/health/").json()
-        assert (body["score"], body["level"], body["results"]) == (None, "unknown", [])
+        assert (body["score"], body["grade"], body["level"]) == (None, None, "unknown")
+        assert (body["reason"], body["results"]) == ("no results yet", [])
 
     def test_foreign_project_is_404(self):
         foreign = baker.make("app.Project", tenant=baker.make("app.Tenant"))
@@ -95,7 +105,9 @@ class TestCommits(HealthAPITestCase):
         assert (body["branch"], body["page"], body["has_more"]) == ("main", 1, False)
         checked, unchecked = body["commits"]
         assert (checked["sha"], checked["title"], checked["checked"]) == (A, "Fix CI", True)
-        assert (checked["score"], checked["level"], checked["failed"]) == (60, "warning", 1)
+        assert (checked["score"], checked["level"], checked["failed"]) == (60, "attention", 1)
+        assert (checked["grade"], checked["reason"]) == ("D", "1 standard failing")
+        assert (unchecked["grade"], unchecked["level"]) == (None, "unknown")
         assert checked["results"][0]["still_attached"] is True
         assert (unchecked["checked"], unchecked["results"]) == (False, [])
 
@@ -114,8 +126,19 @@ class TestCommits(HealthAPITestCase):
         assert r.status_code == 200
         body = r.json()
         assert body["running"] == 1
+        assert (body["grade"], body["level"]) == (None, "unknown")
         assert body["results"][0]["status"] == "running"
         assert body["results"][0]["score"] is None
+
+    def test_a_commit_is_graded_as_it_was_marked_when_it_ran(self):
+        # The standard was critical when the commit ran and is not any more:
+        # the commit's verdict reads its snapshot, the project's its mark.
+        ex = self.check(A, status=Status.FAILED, score=40)
+        StandardExecution.objects.filter(pk=ex.pk).update(critical=True)
+        commit = self.get(f"{self.p}/commits/{A}/").json()
+        project = self.get(f"{self.p}/health/").json()
+        assert (commit["grade"], commit["reason"]) == ("F", "Pinned CI failing")
+        assert project["grade"] == "D"
 
     def test_unchecked_commit_is_404(self):
         assert self.get(f"{self.p}/commits/{B}/").status_code == 404
@@ -155,3 +178,15 @@ class TestRunCheck(HealthAPITestCase):
         self.auth = {"Authorization": f"Bearer {make_oauth_token(self.user, scope='read')}"}
         assert self.send("post", f"{self.p}/checks/").status_code == 403
         assert self.get(f"{self.p}/health/").status_code == 200
+
+
+def test_serializer_choices_come_from_the_grading_constants():
+    from app.domain import grading
+    from app.presentation.api import serializers as s
+
+    assert s.GRADE_CHOICES == ["A+", "A", "B", "C", "D", "F"]
+    assert set(s.GRADE_CHOICES) == set(grading.LETTER_ORDER)
+    assert s.LEVEL_CHOICES == [
+        grading.TONE_GOOD, grading.TONE_ATTENTION, grading.TONE_FAILING, grading.TONE_UNKNOWN,
+    ]
+    assert {grading.tone_for(letter) for letter in grading.LETTER_ORDER} <= set(s.LEVEL_CHOICES)
