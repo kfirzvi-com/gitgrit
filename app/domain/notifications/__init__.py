@@ -32,7 +32,8 @@ class Kind:
     # Runs
     RUN_FAILED = "run.failed"  # GitGrit could not evaluate a project
     STANDARDS_FAILING = "standards.failing"  # a run left standards failing
-    PROJECT_CRITICAL = "project.critical"  # a project's score dropped to critical
+    PROJECT_CRITICAL = "project.critical"  # a project's grade dropped to F
+    GRADE_UNVERIFIED = "grade.unverified"  # a critical standard errored in its own run
     RUN_TIMED_OUT = "run.timed_out"  # runs nobody finished were expired
     CONNECTION_BROKEN = "connection.broken"  # the Git connection stopped working
     # Dependency map

@@ -6,6 +6,8 @@ Views return the service dicts as-is.
 """
 from rest_framework import serializers
 
+from app.domain import grading, levels
+
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 
 
@@ -97,19 +99,43 @@ class ProjectRefSerializer(serializers.Serializer):
 class OffenderSerializer(serializers.Serializer):
     standard_id = serializers.UUIDField()
     name = serializers.CharField()
+    level = serializers.ChoiceField(
+        choices=levels.level_choices(),
+        help_text=(
+            "The standard's level on this project. "
+            + "; ".join(
+                f"{r.level.value}"
+                f"{' (the default)' if r.level is levels.DEFAULT_LEVEL else ''}: "
+                f"{r.help}"
+                for r in levels.ordered_rules()
+            )
+            + "."
+        ),
+    )
+    status = serializers.ChoiceField(choices=["failed", "error"])
     score = serializers.IntegerField(allow_null=True)
     message = serializers.CharField()
     last_run = serializers.DateTimeField()
 
 
+GRADE_CHOICES = list(reversed(grading.LETTER_ORDER))
+
+
 class ProjectStatusSerializer(serializers.Serializer):
     project = ProjectRefSerializer()
-    overall_score = serializers.FloatField(allow_null=True)
-    grade = serializers.CharField(allow_null=True)
+    overall_score = serializers.FloatField(
+        allow_null=True, help_text="Mean of the counting results' scores; kept for older clients."
+    )
+    grade = serializers.ChoiceField(
+        choices=GRADE_CHOICES, allow_null=True, help_text="Null while nothing is evaluated."
+    )
+    reason = serializers.CharField(help_text="Why the grade is not one higher.")
     total_standards = serializers.IntegerField()
     passed = serializers.IntegerField()
     failed = serializers.IntegerField()
-    top_offenders = OffenderSerializer(many=True)
+    top_offenders = OffenderSerializer(
+        many=True, help_text="Results that did not pass: critical first, then failed, then errored."
+    )
 
 
 class LastExecutionSerializer(serializers.Serializer):
@@ -216,7 +242,14 @@ class MeSerializer(serializers.Serializer):
 
 # --- Health and commit checks ---------------------------------------------
 
-LEVEL_CHOICES = ["healthy", "warning", "critical", "unknown"]
+# The grade letter's tone (app.domain.health): A+/A/B good, C/D attention,
+# F failing, no grade unknown.
+LEVEL_CHOICES = [
+    grading.TONE_GOOD,
+    grading.TONE_ATTENTION,
+    grading.TONE_FAILING,
+    grading.TONE_UNKNOWN,
+]
 
 
 class RunCheckSerializer(serializers.Serializer):
@@ -252,8 +285,14 @@ class CheckResultSerializer(serializers.Serializer):
 
 
 class HealthSummaryFields(serializers.Serializer):
-    score = serializers.IntegerField(allow_null=True)
-    level = serializers.ChoiceField(choices=LEVEL_CHOICES)
+    score = serializers.IntegerField(
+        allow_null=True, help_text="Mean of the results' scores; kept for older clients."
+    )
+    grade = serializers.ChoiceField(
+        choices=GRADE_CHOICES, allow_null=True, help_text="Null while nothing finished."
+    )
+    reason = serializers.CharField(help_text="Why the grade is not one higher.")
+    level = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="The grade's tone.")
     passed = serializers.IntegerField()
     failed = serializers.IntegerField()
     errored = serializers.IntegerField()

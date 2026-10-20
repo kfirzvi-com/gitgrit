@@ -45,8 +45,8 @@ A standard can limit which events and branches it runs on. See [Writing Standard
 
 ## The project page
 
-- **Overview**: the health score and how many standards passed, failed or errored
+- **Overview**: the grade, one letter from A+ to F with its reason, from each attached standard's latest result on its home branch (see [Grades](../features/grades.md)), and how many standards passed, failed or errored
 - **Results**: results per branch and commit, with each standard's message
-- **Standards**: attach and detach standards
-- **Get your Badge**: an embeddable score badge for your README ([Compliance Badges](../features/badges.md))
+- **Standards**: attach and detach standards, and mark which ones are Critical
+- **Get your Badge**: an embeddable grade badge for your README ([Compliance Badges](../features/badges.md))
 - **Edit**: lifecycle and owner. **Remove** deletes the project, its results and its webhook.

@@ -213,10 +213,38 @@ class CommitRowTests(SimpleTestCase):
         ])
         self.assertEqual((row.running, row.score), (1, 100))
 
+    def test_grade_reads_each_rows_snapshot_critical_mark(self):
+        rows = [
+            mock.Mock(status=Status.PASSED, score=100, level="high", error_origin="standard",
+                      standard_name="a", created_at=None),
+            mock.Mock(status=Status.FAILED, score=0, level="critical", error_origin="standard",
+                      standard_name="Gate", created_at=None),
+        ]
+
+        row = CommitRow(sha="f" * 40, results=rows)
+
+        self.assertEqual((row.grade, row.verdict.reason), ("F", "Gate failing"))
+        rows[1].level = "high"
+        self.assertEqual((row.grade, row.verdict.reason), ("D", "1 standard failing"))
+
+    def test_grade_is_null_while_nothing_finished_and_never_capped(self):
+        running = CommitRow(sha="f" * 40, results=[
+            mock.Mock(status=Status.RUNNING, score=0, level="critical", error_origin="standard",
+                      standard_name="Gate", created_at=None),
+        ])
+        self.assertIsNone(running.grade)
+        # A commit's rows carry no neglect clock, so an old failure is a plain D.
+        old = CommitRow(sha="f" * 40, results=[
+            mock.Mock(status=Status.FAILED, score=0, level="high", error_origin="standard",
+                      standard_name="Old", created_at=timezone.now() - timedelta(days=60)),
+        ])
+        self.assertEqual((old.grade, old.verdict.reason), ("D", "1 standard failing"))
+
     def test_an_unchecked_commit(self):
         row = CommitRow(sha="f" * 40)
         self.assertFalse(row.checked)
         self.assertIsNone(row.score)
+        self.assertIsNone(row.grade)
         self.assertEqual(row.title, "")
 
 
@@ -319,6 +347,45 @@ class AttachmentsChangeOverTimeTests(TestCase):
 
         self.assertFalse(row.results[0].still_attached)
         self.assertEqual(row.not_run, [])
+
+
+    def _two_runs(self, sha, old, new):
+        """An earlier run of ``old`` and a later run of ``new`` on one commit."""
+        for standard, age in ((old, 2), (new, 1)):
+            check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=sha)
+            ex = baker.make("app.StandardExecution", project=self.project, standard=standard, status=Status.PASSED, standard_name=standard.name, commit_check=check)
+            StandardExecution.objects.filter(pk=ex.pk).update(created_at=timezone.now() - timedelta(hours=age))
+
+    def test_the_newest_commit_drops_a_detached_standard_once_a_newer_run_happened(self):
+        old, new = _standard(self.project, "Old"), _standard(self.project, "New")
+        self._two_runs("a" * 40, old, new)
+        self.project.standards.remove(old)
+
+        [row], _ = branch_commits(self.project, "main")
+
+        self.assertEqual([r.standard_name for r in row.results], ["New"])
+
+    def test_the_newest_commit_keeps_a_detached_standard_until_a_run_follows(self):
+        old = _standard(self.project, "Old")
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
+        baker.make("app.StandardExecution", project=self.project, standard=old, status=Status.PASSED, standard_name="Old", commit_check=check)
+        self.project.standards.remove(old)
+
+        [row], _ = branch_commits(self.project, "main")
+
+        self.assertEqual([r.standard_name for r in row.results], ["Old"])
+
+    def test_older_commits_keep_every_result_they_got(self):
+        old, new = _standard(self.project, "Old"), _standard(self.project, "New")
+        self._two_runs("b" * 40, old, new)
+        self.client_mock.list_commits.return_value = [
+            {"sha": "a" * 40, "message": "newest", "author": "", "date": "", "url": ""},
+            {"sha": "b" * 40, "message": "older", "author": "", "date": "", "url": ""},
+        ]
+
+        rows, _ = branch_commits(self.project, "main")
+
+        self.assertEqual({r.standard_name for r in rows[1].results}, {old.name, new.name})
 
 
 class StandardsForBranchTests(TestCase):

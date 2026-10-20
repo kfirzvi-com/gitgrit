@@ -33,9 +33,9 @@
     <h3 class="font-bold text-lg flex items-center gap-2 mb-2">
       <img src="{% static 'app/images/logo.svg' %}" alt="" class="h-5 w-auto"> Your GitGrit badge
     </h3>
-        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show the project's health score.</p>
+        <p class="text-sm opacity-70 mb-2">Embed this badge in your README to show the project's grade.</p>
         <div class="mb-3">
-          <img src="{% url 'project_badge' project.pk %}" alt="health score badge">
+          <img src="{% url 'project_badge' project.pk %}" alt="grade badge">
         </div>
         <div class="form-control">
           <label class="label"><span class="label-text text-xs opacity-70">Markdown</span></label>
@@ -65,8 +65,8 @@
 {# #components), #results (and #compliance, where notifications link) and     #}
 {# #standards. Results and Standards load their content when first opened     #}
 {# (the script sends their loaders "tab-open").                               #}
-<div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
-  <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
+<div class="tabs tabs-box tabs-lg bg-base-200 p-1 gap-1" role="tablist" data-project-tabs>
+  <input type="radio" name="project_tab" class="tab text-base font-semibold px-5 checked:bg-primary! checked:text-primary-content! checked:shadow-md" aria-label="Overview" data-tab="overview" checked>
   <div class="tab-content pt-6" id="overview">
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2">{% include "partials/project_overview_health.html" %}</div>
@@ -74,7 +74,7 @@
     </div>
   </div>
 
-  <input type="radio" name="project_tab" class="tab" aria-label="Results" data-tab="results">
+  <input type="radio" name="project_tab" class="tab text-base font-semibold px-5 checked:bg-primary! checked:text-primary-content! checked:shadow-md" aria-label="Results" data-tab="results">
   <div class="tab-content pt-6 scroll-mt-20" id="compliance">
     <div id="project-history" class="card bg-base-100 shadow-xl"
          hx-get="{% url 'project_history' project.pk %}" hx-trigger="tab-open once" hx-swap="outerHTML" data-tab-load data-no-loader>
@@ -82,7 +82,7 @@
     </div>
   </div>
 
-  <input type="radio" name="project_tab" class="tab" aria-label="Standards" data-tab="standards">
+  <input type="radio" name="project_tab" class="tab text-base font-semibold px-5 checked:bg-primary! checked:text-primary-content! checked:shadow-md" aria-label="Standards" data-tab="standards">
   <div class="tab-content pt-6" id="standards">
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body gap-4">

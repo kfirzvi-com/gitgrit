@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
 
+from app.application.project_health_service import ProjectHealthService
 from app.application.project_status_service import ProjectStatusService
 from app.domain.models import StandardExecution
 
@@ -37,25 +38,32 @@ class HealthIgnoresOtherBranchesTests(TestCase):
             standard_name="Pinned CI", score=0, status=Status.FAILED, ref="refs/heads/feature/wip",
         )
 
-    def test_project_page_scores_the_default_branch_but_lists_the_branch_run(self):
+    def test_project_page_grades_the_default_branch_but_lists_the_branch_run(self):
         response = self.client.get(reverse("project_detail", args=[self.project.pk]))
 
-        self.assertEqual(response.context["compliance_score"], 100)
+        self.assertEqual(response.context["grade"].letter, "A+")
         self.assertIn(self.branch_run, list(response.context["recent_executions"]))
 
-    def test_badge_scores_the_default_branch(self):
+    def test_badge_grades_the_default_branch(self):
         response = self.client.get(reverse("project_badge", args=[self.project.pk]))
 
-        self.assertIn("100%", response.content.decode())
+        self.assertIn(">A+<", response.content.decode())
 
     def test_dashboard_has_nothing_needing_attention(self):
+        baker.make("app.Stack", tenant=self.tenant)
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.context["attention_items"], [])
-        self.assertEqual(response.context["compliance_score"], 100)
+        self.assertEqual(response.context["workspace_grade"], "A+")
 
-    def test_project_status_service_scores_the_default_branch(self):
+    def test_project_status_service_grades_the_default_branch(self):
         status = ProjectStatusService().get_project_status(self.tenant, str(self.project.pk))
 
+        self.assertEqual((status["grade"], status["reason"]), ("A+", "perfect"))
         self.assertEqual(status["overall_score"], 100)
         self.assertEqual(status["failed"], 0)
+
+    def test_health_api_service_grades_the_default_branch(self):
+        health = ProjectHealthService().health(self.tenant, str(self.project.pk))
+
+        self.assertEqual((health["grade"], health["level"], health["score"]), ("A+", "good", 100))

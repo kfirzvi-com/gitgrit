@@ -12,8 +12,8 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import StandardExecution
+from app.application.grading_service import grades_for_tenant
 from app.application.standard_results import attention_items
-from app.presentation.architecture import latest_scores_by_project
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -40,6 +40,7 @@ def _passed_then_running(project, standard):
         project=project,
         standard=standard,
         standard_name=standard.name,
+        event_type="manual",
         score=100,
         status=StandardExecution.Status.PASSED,
     )
@@ -48,6 +49,7 @@ def _passed_then_running(project, standard):
         project=project,
         standard=standard,
         standard_name=standard.name,
+        event_type="manual",
         score=0,
         status=StandardExecution.Status.RUNNING,
     )
@@ -63,11 +65,12 @@ class TestRunningRowsDoNotMoveScores(TestCase):
         self.project.standards.add(self.standard)
         self.running = _passed_then_running(self.project, self.standard)
 
-    def test_project_page_score_ignores_the_running_row(self):
+    def test_project_page_grade_ignores_the_running_row(self):
         resp = self.client.get(reverse("project_detail", args=[self.project.pk]))
 
         assert resp.status_code == 200
-        assert resp.context["compliance_score"] == 100
+        assert resp.context["grade"].letter == "A+"
+        assert 'data-grade="A+"' in resp.content.decode()
         assert [ex.pk for ex in resp.context["latest_executions"]] != [
             self.running.pk
         ]
@@ -81,12 +84,12 @@ class TestRunningRowsDoNotMoveScores(TestCase):
             reverse("project_badge", args=[self.project.pk])
         ).content.decode()
 
-        assert "100%" in svg
+        assert ">A+<" in svg
 
-    def test_latest_scores_by_project_ignores_the_running_row(self):
-        latest = latest_scores_by_project(self.tenant)
+    def test_grades_for_tenant_ignores_the_running_row(self):
+        grades = grades_for_tenant(self.tenant)
 
-        assert latest[self.project.id][self.standard.id]["score"] == 100
+        assert grades[self.project.id].grade.letter == "A+"
 
     def test_attention_list_ignores_the_running_row(self):
         # A RUNNING row scores 0; without the exclusion it would show as

@@ -24,11 +24,19 @@ from django.utils.dateparse import parse_datetime
 
 from app.application.commit_checks import forget_platform_lists
 from app.application.event_bus import publish
-from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
+from app.application.standard_engine import StandardEngine
+from app.domain.refs import bare_ref, literal_ref
 from app.application.standard_service import version_to_run
 from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsTimedOut
 from app.domain.identity import resolve_user
-from app.domain.models import CommitCheck, Project, Standard, StandardExecution
+from app.domain.levels import DEFAULT_LEVEL
+from app.domain.models import (
+    CommitCheck,
+    Project,
+    ProjectStandard,
+    Standard,
+    StandardExecution,
+)
 from app.tasks import run_standards
 
 logger = logging.getLogger(__name__)
@@ -74,6 +82,7 @@ def expire_stale_runs() -> int:
         pk__in=[pk for pk, _, _ in rows], status=StandardExecution.Status.RUNNING
     ).update(
         status=StandardExecution.Status.ERROR,
+        error_origin=StandardExecution.ErrorOrigin.PLATFORM,
         message=message,
         details={"error": message},
     )
@@ -177,6 +186,14 @@ def enqueue_run(
 
     executions: list[StandardExecution] = []
     if to_run:
+        # Snapshot each attachment's level onto its row, so the commit
+        # verdict and the history read the level the run was graded under. A
+        # standard run without an attachment gets the default level.
+        level_of = dict(
+            ProjectStandard.objects.filter(
+                project=project, standard__in=to_run
+            ).values_list("standard_id", "level")
+        )
         # One savepoint for rows + job: a defer failure rolls the rows back
         # instead of aborting the caller's outer transaction (which would
         # poison every later write in it). The job lock serializes runs of
@@ -201,6 +218,7 @@ def enqueue_run(
                         standard_name=standard.name,
                         event_type=event_type,
                         status=StandardExecution.Status.RUNNING,
+                        level=level_of.get(standard.pk, DEFAULT_LEVEL.value),
                         triggered_by=triggered_by,
                         triggered_by_user=user,
                         ref=_ref(standard),

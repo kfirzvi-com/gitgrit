@@ -1,98 +1,227 @@
-"""Dashboard and badge scoring reads count only currently-attached standards.
+"""Dashboard, stack and badge reads show grade letters, one rule per test.
 
 Attachment defines which standards apply to a project; detaching (or deleting)
-a standard must also remove its execution history from the project's score, so
-old runs stop dragging the numbers. (The attention list's version of this rule
-is tested in tests/application/test_standard_results.py.)
+a standard removes its history from the project's grade. (The attention list's
+version of this rule is tested in tests/application/test_standard_results.py.)
+The workspace and a stack are as good as their worst graded project.
 """
+import re
+
 import pytest
-from django.test import TestCase
+from django.db import connection
+from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from model_bakery import baker
 
-from app.domain.models import StandardExecution
-from app.presentation.architecture import latest_scores_by_project
+from app.application.grading_service import grades_for_tenant
+from app.domain.models import Component, StandardExecution
+from app.presentation.architecture import workspace_graph
+
+NON_MANIFEST_STORAGES = {
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+    },
+}
 
 
-def _execution(project, standard, score, status=StandardExecution.Status.PASSED):
+def _execution(project, standard, status=StandardExecution.Status.PASSED, score=100):
+    """A manual run that read the default branch, so it counts."""
     return baker.make(
         "app.StandardExecution",
         project=project,
         standard=standard,
         standard_name=standard.name,
+        event_type="manual",
+        ref="",
         score=score,
         status=status,
     )
 
 
-@pytest.mark.django_db
-class TestLatestScoresByProject(TestCase):
-    def test_only_attached_standards_count(self):
-        tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        attached = baker.make("app.Standard", tenant=tenant)
-        detached = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(attached)
-        _execution(project, attached, score=90)
-        _execution(project, detached, score=10)
-
-        latest = latest_scores_by_project(tenant)
-
-        assert set(latest[project.id]) == {attached.id}
-        assert latest[project.id][attached.id]["score"] == 90
-
-    def test_deleted_standard_executions_are_excluded(self):
-        tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        standard = baker.make("app.Standard", tenant=tenant)
+def _attach(project, *standards, critical=False):
+    for standard in standards:
         project.standards.add(standard)
-        _execution(project, standard, score=10)
-        standard.delete()
+    if critical:
+        project.project_standards.filter(standard__in=standards).update(level="critical")
 
-        assert latest_scores_by_project(tenant) == {}
 
-    def test_attachment_is_per_project(self):
-        tenant = baker.make("app.Tenant")
-        with_standard = baker.make("app.Project", tenant=tenant)
-        without_standard = baker.make("app.Project", tenant=tenant)
-        standard = baker.make("app.Standard", tenant=tenant)
-        with_standard.standards.add(standard)
-        _execution(with_standard, standard, score=80)
-        _execution(without_standard, standard, score=80)
+def _login_member(client, tenant):
+    user = baker.make("app.User")
+    baker.make("app.Membership", user=user, tenant=tenant, role="owner")
+    client.force_login(user)
+    session = client.session
+    session["active_tenant_id"] = str(tenant.id)
+    session.save()
+    return user
 
-        latest = latest_scores_by_project(tenant)
 
-        assert with_standard.id in latest
-        assert without_standard.id not in latest
+def _stack_with(tenant, *projects, name="Stack"):
+    stack = baker.make("app.Stack", tenant=tenant, name=name)
+    for project in projects:
+        component, _ = Component.objects.get_or_create(
+            tenant=tenant, project=project, path="", defaults={"name": project.name}
+        )
+        baker.make("app.ComponentStack", component=component, stack=stack)
+    return stack
 
 
 @pytest.mark.django_db
 class TestProjectBadge(TestCase):
-    def test_badge_scores_only_attached_standards(self):
+    def test_badge_shows_the_letter_not_a_percentage(self):
         tenant = baker.make("app.Tenant")
         project = baker.make("app.Project", tenant=tenant)
         attached = baker.make("app.Standard", tenant=tenant)
         detached = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(attached)
-        _execution(project, attached, score=100)
-        _execution(
-            project, detached, score=0, status=StandardExecution.Status.FAILED
-        )
+        _attach(project, attached)
+        _execution(project, attached)
+        _execution(project, detached, StandardExecution.Status.FAILED, score=0)
 
         svg = self.client.get(
             reverse("project_badge", args=[project.id])
         ).content.decode()
 
-        assert "100%" in svg
+        assert ">A+<" in svg
+        assert re.search(r">\d+%<", svg) is None  # no percentage text
+        assert "#4caf50" in svg  # good tone
 
-    def test_badge_shows_no_data_when_nothing_attached(self):
+    def test_badge_f_is_red(self):
+        tenant = baker.make("app.Tenant")
+        project = baker.make("app.Project", tenant=tenant)
+        gate = baker.make("app.Standard", tenant=tenant)
+        _attach(project, gate, critical=True)
+        _execution(project, gate, StandardExecution.Status.FAILED)
+
+        svg = self.client.get(
+            reverse("project_badge", args=[project.id])
+        ).content.decode()
+
+        assert ">F<" in svg
+        assert "#f44336" in svg
+
+    def test_badge_shows_no_grade_when_nothing_attached(self):
         tenant = baker.make("app.Tenant")
         project = baker.make("app.Project", tenant=tenant)
         detached = baker.make("app.Standard", tenant=tenant)
-        _execution(project, detached, score=50)
+        _execution(project, detached)
 
         svg = self.client.get(
             reverse("project_badge", args=[project.id])
         ).content.decode()
 
-        assert "no data" in svg
+        assert "no grade" in svg
+
+
+@pytest.mark.django_db
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestWorkspaceGrade(TestCase):
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        _login_member(self.client, self.tenant)
+
+    def _project(self, name, letter_status, critical=False):
+        """A project whose single attached standard has the given status."""
+        project = baker.make("app.Project", tenant=self.tenant, name=name)
+        standard = baker.make("app.Standard", tenant=self.tenant, name=f"{name}-std")
+        _attach(project, standard, critical=critical)
+        if letter_status is not None:
+            _execution(project, standard, letter_status)
+        return project
+
+    def test_workspace_is_the_worst_graded_project_and_ungraded_are_ignored(self):
+        good = self._project("good", StandardExecution.Status.PASSED)
+        failing = self._project("failing", StandardExecution.Status.FAILED, critical=True)
+        ungraded = self._project("ungraded", None)
+        _stack_with(self.tenant, good, failing, ungraded)
+
+        resp = self.client.get(reverse("dashboard"))
+
+        assert resp.status_code == 200
+        assert resp.context["workspace_grade"] == "F"
+        assert resp.context["workspace_tone"] == "failing"
+        assert 'data-workspace-grade="F"' in resp.content.decode()
+        assert "% compliance" not in resp.content.decode()
+
+    def test_workspace_with_only_ungraded_projects_shows_no_letter(self):
+        ungraded = self._project("ungraded", None)
+        _stack_with(self.tenant, ungraded)
+
+        resp = self.client.get(reverse("dashboard"))
+
+        assert resp.context["workspace_grade"] is None
+        assert "data-workspace-grade" not in resp.content.decode()
+
+    def test_stack_page_and_list_show_the_worst_project_grade(self):
+        good = self._project("good", StandardExecution.Status.PASSED)
+        failed = self._project("failed", StandardExecution.Status.FAILED)
+        ungraded = self._project("ungraded", None)
+        stack = _stack_with(self.tenant, good, failed, ungraded, name="Mixed")
+        clean = _stack_with(self.tenant, good, name="Clean")
+
+        page = self.client.get(reverse("stack_detail", args=[stack.pk]))
+        listing = self.client.get(reverse("stack_list"))
+
+        assert page.context["stack_grade"] == "D"
+        assert page.context["stack_grade_tone"] == "attention"
+        assert 'data-stack-grade="D"' in page.content.decode()
+        by_name = {s.name: s for s in listing.context["stacks"]}
+        assert by_name["Mixed"].grade == "D"
+        assert by_name["Clean"].grade == "A+"
+        assert listing.content.decode().count("data-stack-grade=") == 2
+
+    def test_map_nodes_carry_grade_and_health_not_score(self):
+        failed = self._project("failed", StandardExecution.Status.FAILED)
+        _stack_with(self.tenant, failed, name="S")
+
+        graph = workspace_graph(self.tenant, grades_for_tenant(self.tenant))
+
+        node = graph["stacks"][0]
+        assert node["grade"] == "D"
+        assert node["health"] == "attention"
+        assert node["issues"] == ["failed — D (1 standard failing)"]
+        assert "score" not in node
+
+
+@pytest.mark.django_db
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestProjectListBoxes(TestCase):
+    """Each project's box on the Projects list shows its letter, no last run."""
+
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        _login_member(self.client, self.tenant)
+
+    def _project(self, name, status=None, critical=False, event_type="manual"):
+        project = baker.make("app.Project", tenant=self.tenant, name=name)
+        standard = baker.make("app.Standard", tenant=self.tenant, name=f"{name}-std")
+        _attach(project, standard, critical=critical)
+        if status is not None:
+            ex = _execution(project, standard, status)
+            StandardExecution.objects.filter(pk=ex.pk).update(event_type=event_type)
+        return project
+
+    def test_box_shows_letter_and_no_results_otherwise_and_no_last_run(self):
+        self._project("good", StandardExecution.Status.PASSED, event_type="pull_request")
+        self._project("failing", StandardExecution.Status.FAILED, critical=True)
+        self._project("fresh")
+
+        resp = self.client.get(reverse("project_list"))
+        html = resp.content.decode()
+
+        assert 'data-grade="A+"' in html
+        assert 'data-grade="F"' in html
+        assert "data-failing" in html  # F is not colour alone
+        assert html.count("No results yet") == 1
+        assert "data-last-run" not in html
+        assert "Last run" not in html
+
+    def test_list_query_count_does_not_grow_with_projects(self):
+        self._project("one", StandardExecution.Status.PASSED)
+        self.client.get(reverse("project_list"))  # warm caches
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(reverse("project_list"))
+        for i in range(4):
+            self._project(f"more-{i}", StandardExecution.Status.PASSED)
+        with CaptureQueriesContext(connection) as many:
+            self.client.get(reverse("project_list"))
+        assert len(many) == len(few)

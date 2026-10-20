@@ -22,34 +22,41 @@ from datetime import datetime
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 
-from app.application.standard_engine import literal_ref
-from app.domain.health import CRITICAL, HEALTHY, WARNING, level_from_score
+from app.domain.health import ATTENTION, FAILING
+from app.domain.levels import DEFAULT_LEVEL, rule_for
 from app.domain.models import Project, ProjectStandard, StandardExecution
+from app.domain.refs import home_branch
 
 Status = StandardExecution.Status
 FINISHED = (Status.PASSED, Status.FAILED, Status.ERROR)
 
 
-def home_branch(project, standard) -> str:
-    """The branch a standard's results count on for ``project``."""
-    criteria = standard.criteria or {}
-    return literal_ref(criteria.get("ref")) or project.default_branch
-
-
-def current_results(projects, statuses=FINISHED, exclude_execution_ids=(), branch=None):
+def current_results(
+    projects,
+    statuses=FINISHED,
+    exclude_execution_ids=(),
+    branch=None,
+    exclude_platform_errors=False,
+):
     """The latest result per attached (project, standard) pair on that pair's
     home branch, as ``StandardExecution`` rows with project and standard
     loaded. ``statuses`` picks which results count (finished ones by
     default); ``exclude_execution_ids`` leaves runs out, which gives the
     picture as it was before them. ``branch`` reads every pair on that branch
     instead of its home branch: a branch's own status, not the project's
-    health."""
+    health. ``exclude_platform_errors`` skips ERROR rows that were GitGrit's
+    own failure (a stale sweep, a job or sandbox error), so the pair's
+    previous result stays current: the grade reads this way."""
     pairs = ProjectStandard.objects.filter(project__in=projects).select_related(
         "project", "standard"
     )
     on_home_branch = Q()
     for pair in pairs:
-        home = branch if branch is not None else home_branch(pair.project, pair.standard)
+        home = (
+            branch
+            if branch is not None
+            else home_branch(pair.project.default_branch, pair.standard.criteria or {})
+        )
         refs = Q(ref=home) | Q(ref=f"refs/heads/{home}")
         if home == pair.project.default_branch:
             refs |= Q(ref="")
@@ -60,9 +67,15 @@ def current_results(projects, statuses=FINISHED, exclude_execution_ids=(), branc
     # again must not change the picture. Runs of the same commit (and runs
     # with no known commit date) go by when they ran.
     committed = Coalesce("commit_check__committed_at", "created_at")
+    rows = StandardExecution.objects.filter(on_home_branch, status__in=statuses).exclude(
+        pk__in=list(exclude_execution_ids)
+    )
+    if exclude_platform_errors:
+        rows = rows.exclude(
+            status=Status.ERROR, error_origin=StandardExecution.ErrorOrigin.PLATFORM
+        )
     return list(
-        StandardExecution.objects.filter(on_home_branch, status__in=statuses)
-        .exclude(pk__in=list(exclude_execution_ids))
+        rows
         .select_related("project", "standard", "commit_check")
         .order_by("project_id", "standard_id", committed.desc(), "-created_at")
         .distinct("project_id", "standard_id")
@@ -79,6 +92,32 @@ def breakdown(results) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class CriticalSummary:
+    """How many of a set of results are critical, and how many of those
+    failed or errored in their own run (the rows the F gate reads)."""
+
+    total: int
+    failed: int
+
+
+def critical_summary(results) -> CriticalSummary:
+    """Count critical results (a level shown as critical) in ``results``
+    (each read by its own snapshot ``level``) and how many of them failed or errored in their own run.
+    Running, skipped and platform-error rows do not count. Pure: reads only
+    what the rows already carry."""
+    total = failed = 0
+    for r in results:
+        if not rule_for(r.level).shown_as_critical or r.status not in FINISHED or (
+            r.status == Status.ERROR and r.error_origin == StandardExecution.ErrorOrigin.PLATFORM
+        ):
+            continue
+        total += 1
+        if r.status != Status.PASSED:
+            failed += 1
+    return CriticalSummary(total=total, failed=failed)
+
+
 def project_score(results) -> int | None:
     """The average score of a set of current results, rounded; None when
     there are none."""
@@ -88,48 +127,106 @@ def project_score(results) -> int | None:
 
 @dataclass(frozen=True)
 class AttentionItem:
-    """One current result that needs attention."""
+    """One current result that did not pass."""
 
-    level: str  # WARNING or CRITICAL
+    tone: str  # FAILING when the standard's level is shown as critical, else ATTENTION
+    standard_level: str  # the attachment's level (app.domain.levels)
     project_id: object
     project_name: str
     standard_id: object
     standard_name: str
     execution_id: object
-    score: int
-    status: str  # display label, e.g. "Failed"
+    status: str  # display label, e.g. "Failed" or "Could not verify"
     when: datetime
+
+    @property
+    def shown_as_critical(self) -> bool:
+        """Is the standard's level shown as critical?"""
+        return rule_for(self.standard_level).shown_as_critical
+
+    @property
+    def level_label(self) -> str:
+        return rule_for(self.standard_level).label
 
 
 def attention_items(tenant) -> list[AttentionItem]:
-    """Current results that need attention, critical first, then newest.
+    """Current results that need attention: the latest counting result per
+    (project, standard) that did not pass, ranked critical first (they make
+    the project an F), then failed, then errored, newest first within each.
 
-    A result needs attention when its score is below healthy, or when it
-    failed or errored at all (a failed run that still scored well is a
-    warning). Returns the full ranked list; screens decide how many to show.
+    Only results that move a grade are listed (``app.domain.grading``): the
+    standard is attached, enabled and not a draft; the run read the
+    standard's home branch; GitGrit's own failures are skipped, so the
+    pair's previous result stands. Returns the full ranked list; screens
+    decide how many to show.
     """
+    projects = Project.objects.filter(tenant=tenant)
+    level_of = {
+        (project_id, standard_id): level
+        for project_id, standard_id, level in ProjectStandard.objects.filter(
+            project__in=projects
+        ).values_list("project_id", "standard_id", "level")
+    }
     items = []
-    for ex in current_results(Project.objects.filter(tenant=tenant)):
-        level = level_from_score(ex.score)
-        failed = ex.status in (Status.FAILED, Status.ERROR)
-        if level == HEALTHY and not failed:
+    for ex in current_results(projects, exclude_platform_errors=True):
+        if not ex.standard.enabled or ex.standard.draft or ex.status == Status.PASSED:
             continue
-        if level == HEALTHY:
-            level = WARNING
+        standard_level = level_of.get((ex.project_id, ex.standard_id), DEFAULT_LEVEL.value)
+        unverified = ex.status == Status.ERROR
         items.append(
             AttentionItem(
-                level=level,
+                tone=FAILING if rule_for(standard_level).shown_as_critical else ATTENTION,
+                standard_level=standard_level,
                 project_id=ex.project_id,
                 project_name=ex.project.name,
                 standard_id=ex.standard_id,
                 standard_name=ex.standard_name,
                 execution_id=ex.id,
-                score=ex.score,
-                status=ex.get_status_display(),
+                status="Could not verify" if unverified else ex.get_status_display(),
                 when=ex.created_at,
             )
         )
 
-    rank = {CRITICAL: 2, WARNING: 1}
-    items.sort(key=lambda i: (rank.get(i.level, 0), i.when), reverse=True)
+    def rank(item):
+        return (item.shown_as_critical, item.status != "Could not verify", item.when)
+
+    items.sort(key=rank, reverse=True)
     return items
+
+
+# --- Order on the Results tab -------------------------------------------------------
+
+RESULT_GROUPS = (
+    ("failed", "Failed standards"),
+    ("passed", "Passed standards"),
+    ("other", "Other"),
+)
+
+
+def group_results(results) -> list[tuple[str, str, list]]:
+    """A commit's results for the Results tab, as ``(key, heading, results)``
+    groups in display order, empty groups left out. Failed first (critical
+    ones on top, then failed before errored, then by name), errored results
+    count against the project so they sit with the failed; then passed; then
+    "Other" (running, anything else). Order only, nothing is graded here."""
+
+    def key_of(ex) -> str:
+        if ex.status in (Status.FAILED, Status.ERROR):
+            return "failed"
+        return "passed" if ex.status == Status.PASSED else "other"
+
+    def sort_key(ex):
+        return (
+            not rule_for(ex.level).shown_as_critical,
+            ex.status != Status.FAILED,
+            (ex.standard_name or "").lower(),
+        )
+
+    buckets = {key: [] for key, _ in RESULT_GROUPS}
+    for ex in results:
+        buckets[key_of(ex)].append(ex)
+    return [
+        (key, heading, sorted(buckets[key], key=sort_key))
+        for key, heading in RESULT_GROUPS
+        if buckets[key]
+    ]

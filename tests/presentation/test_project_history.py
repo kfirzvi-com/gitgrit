@@ -54,9 +54,11 @@ class ProjectHistoryViewTests(TestCase):
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
         self.assertNotIn("%</span>", content)
-        self.assertIn("The project's health score", content)
+        self.assertIn("default branch (main)", content)
         self.assertNotIn("Latest results", content)
-        self.assertIn("Health score", content)
+        self.assertEqual(response.context["status_grade"], "D")
+        self.assertEqual(response.context["status_tone"], "attention")
+        self.assertRegex(content, r'text-warning" data-branch-grade>D</span>')
         self.assertIn("from aaaaaaa", content)
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
@@ -108,13 +110,77 @@ class ProjectHistoryViewTests(TestCase):
 
         response = self._get(branch="feature/x")
 
-        self.assertEqual(response.context["status_score"], 100)
+        self.assertEqual(response.context["status_grade"], "A+")
+        self.assertEqual(response.context["status_tone"], "good")
         self.assertFalse(response.context["is_default"])
-        self.assertIn("Only the default branch counts", response.content.decode())
+        content = response.content.decode()
+        self.assertRegex(content, r'text-success" data-branch-grade>A\+</span>')
+        self.assertIn("Only a standard's home branch moves the project's grade", content)
+        self.assertIn("This letter is for feature/x alone", content)
         self.platform.list_commits.assert_called_with(
             self.project.external_id, self.project.full_path, "feature/x", page=1,
             per_page=commit_checks.COMMITS_PER_PAGE,
         )
+
+    def _critical(self, name, status, sha="a" * 40, critical=True):
+        other = baker.make("app.Standard", tenant=self.tenant, name=name)
+        self.project.standards.add(other)
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=sha)
+        return baker.make(
+            "app.StandardExecution", project=self.project, standard=other, standard_name=name,
+            status=status, score=0, level="critical" if critical else "high", commit_check=check,
+        )
+
+    def test_the_top_summary_and_the_commit_count_failed_critical_standards(self):
+        self._check("a" * 40, status=Status.PASSED, score=100)
+        self._critical("Gate one", Status.FAILED)
+        self._critical("Gate two", Status.ERROR)
+        self._critical("Gate three", Status.PASSED)
+
+        content = self._get().content.decode()
+
+        self.assertEqual(content.count('data-results-critical-failed="2"'), 2)  # top + commit line
+        self.assertIn("2 critical failed", content)
+
+    def test_zero_critical_failed_is_muted_and_hidden_without_critical_standards(self):
+        self._critical("Gate", Status.PASSED)
+        content = self._get().content.decode()
+        self.assertIn('data-results-critical-failed="0"', content)
+        self.assertIn("0 critical failed", content)
+
+        other = baker.make("app.Project", tenant=self.tenant, default_branch="main")
+        self.project = other
+        self.project.standards.add(self.standard)
+        self._check("a" * 40, status=Status.PASSED, score=100)
+        self.assertNotIn("critical failed", self._get().content.decode())
+
+    def test_a_commit_shows_its_letter_not_its_score(self):
+        self._check("a" * 40, status=Status.PASSED, score=100)
+        self._critical("Gate", Status.FAILED)
+
+        content = self._get().content.decode()
+
+        self.assertIn('data-commit-letter="F"', content)  # a failed critical gates the commit
+        self.assertNotIn('class="w-10 text-right font-bold shrink-0"', content)
+
+    def test_a_passing_commit_shows_a_good_letter(self):
+        self._check("a" * 40, status=Status.PASSED, score=100)
+
+        content = self._get().content.decode()
+
+        self.assertIn('data-commit-letter="A+"', content)
+
+    def test_rows_show_letters_not_scores(self):
+        self._check("a" * 40, status=Status.PASSED, score=80)
+        self._critical("Gate", Status.FAILED)
+        self._critical("Slow", Status.ERROR, critical=False)
+
+        content = self._get().content.decode()
+
+        self.assertIn('data-standard-letter="B"', content)
+        self.assertIn('data-standard-letter="F"', content)
+        self.assertIn('data-standard-letter="none"', content)
+        self.assertNotRegex(content, r"font-semibold shrink-0\">\s*80\s*<")
 
     def test_it_polls_while_a_run_is_in_flight(self):
         self._check("a" * 40, status=Status.RUNNING)
@@ -216,3 +282,28 @@ class RunOnBranchViewTests(TestCase):
 
     def test_running_requires_post(self):
         self.assertEqual(self.client.get(reverse("run_on_branch", args=[self.project.pk])).status_code, 405)
+
+
+class RunDateTests(ProjectHistoryViewTests):
+    def test_each_result_shows_its_run_date_and_commits_show_a_date_not_an_age(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        old = self._check("a" * 40)
+        StandardExecution.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=9))
+        old.refresh_from_db()
+
+        content = self._get().content.decode()
+
+        self.assertIn(f"{old.created_at.day} {old.created_at:%b %Y}", content)
+        self.assertNotIn(" ago<", content)
+
+    def test_a_run_from_today_shows_the_time(self):
+        from django.utils import timezone
+
+        ex = self._check("a" * 40)
+        ex.refresh_from_db()
+
+        content = self._get().content.decode()
+
+        self.assertIn(f'data-run-date>{timezone.localtime(ex.created_at):%H:%M}<', content)

@@ -1,0 +1,69 @@
+{# Providers table; swapped in place after add/edit (hx-swap-oob when `oob`). #}
+<div id="llm-providers-table"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if llm_providers %}
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Base URL</th>
+            <th>Models</th>
+            <th>Status</th>
+            {% if is_admin %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for provider in llm_providers %}
+            <tr>
+              <td>{{ provider.display_name }}</td>
+              <td><span class="badge badge-neutral">{{ provider.get_provider_type_display }}</span></td>
+              <td class="text-sm opacity-70">{{ provider.base_url|default:"(default)" }}</td>
+              <td>
+                <span id="llm-models-{{ provider.id }}">
+                  {% if is_admin %}
+                    <button class="btn btn-ghost btn-xs"
+                            hx-post="{% url 'fetch_llm_models' provider.id %}"
+                            hx-target="#llm-models-{{ provider.id }}"
+                            hx-swap="innerHTML">
+                      {{ provider.available_models|length }} — fetch
+                    </button>
+                  {% else %}
+                    {{ provider.available_models|length }}
+                  {% endif %}
+                </span>
+              </td>
+              <td>
+                <span id="llm-status-{{ provider.id }}">
+                  <button class="btn btn-ghost btn-xs"
+                          hx-post="{% url 'test_llm_provider' provider.id %}"
+                          hx-target="#llm-status-{{ provider.id }}"
+                          hx-swap="innerHTML">
+                    Test
+                  </button>
+                </span>
+              </td>
+              {% if is_admin %}
+                <td class="flex gap-1">
+                  <button class="btn btn-ghost btn-xs"
+                          onclick="openEditProviderModal('{{ provider.id }}', '{{ provider.display_name|escapejs }}', '{{ provider.base_url|escapejs }}')">
+                    Edit
+                  </button>
+                  <form method="post" action="{% url 'remove_llm_provider' provider.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs text-error"
+                            onclick="return confirm('Remove {{ provider.display_name|escapejs }}? Roles using it will be unset.')">
+                      Remove
+                    </button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-sm opacity-70">No LLM providers configured yet.</p>
+  {% endif %}
+</div>

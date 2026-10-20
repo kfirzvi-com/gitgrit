@@ -18,11 +18,13 @@ from app.application import stack_service
 from app.application.errors import NotFoundError
 from app.application.event_bus import publish
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
+from app.domain.levels import parse_level
 from app.domain.models import (
     AuthMethod,
     Platform,
     PlatformConnection,
     Project,
+    ProjectStandard,
     Stack,
     Standard,
     Tenant,
@@ -154,13 +156,15 @@ def add_project(
     owner: str = "",
     stack_ids=(),
     standard_ids=(),
+    levels=None,
 ) -> AddedProject:
     """Make ``repo`` (a result of ``search_repositories``) a project.
 
     Attaches the given workspace standards and stacks, reads the repository's
     languages and topics, registers a webhook when the connection needs one
     (GitHub App connections get events through the App), and queues the
-    attached runnable standards to run once.
+    attached runnable standards to run once. ``levels`` (standard id ->
+    level) sets those attachments' levels before anything runs.
     """
     existing = Project.objects.filter(
         tenant=tenant, platform_connection=connection, external_id=str(repo["external_id"])
@@ -171,6 +175,8 @@ def add_project(
         raise ValueError(
             f"Unknown lifecycle {lifecycle!r}; one of: {', '.join(Project.Lifecycle.values)}."
         )
+    if levels is not None:
+        levels = parse_levels(levels)
 
     project = Project.objects.create(
         tenant=tenant,
@@ -190,6 +196,8 @@ def add_project(
         stack_service.add_project_to_stacks(tenant=tenant, project=project, stacks=stacks)
     standards = _workspace_standards(tenant, standard_ids)
     project.standards.set(standards)
+    if levels is not None:
+        ProjectStandard.set_levels(project, levels)
 
     _fetch_metadata(project)
     webhook_ok = True
@@ -274,15 +282,24 @@ def delete_project(tenant: Tenant, user: User | None, project_id) -> str:
 # --- attached standards ------------------------------------------------------
 
 
-def set_project_standards(project: Project, standard_ids) -> dict:
+def set_project_standards(project: Project, standard_ids, levels=None) -> dict:
     """Make exactly ``standard_ids`` the project's attached standards.
+
+    With ``levels`` (standard id -> level), every attachment's level is
+    rewritten from it before anything runs; without, attachments that stay
+    keep their levels.
 
     Newly attached runnable standards are queued to run. Returns
     ``{"standards", "runs"}``.
     """
+    if levels is not None:
+        levels = parse_levels(levels)
     standards = _workspace_standards(project.tenant, standard_ids)
     previously = set(project.standards.values_list("pk", flat=True))
+    # set() is a delta: attachments that stay keep their row and its level.
     project.standards.set(standards)
+    if levels is not None:
+        ProjectStandard.set_levels(project, levels)
     return {"standards": standards, "runs": run_newly_attached(project, standards, previously)}
 
 
@@ -314,6 +331,13 @@ def run_newly_attached(project: Project, standards, previously_attached_ids) -> 
         )
     )
     return results[0] if results else None
+
+
+def parse_levels(levels: dict) -> dict:
+    """``levels`` (standard id -> posted value) as standard id ->
+    ``StandardLevel``. Raises ``UnknownLevel`` (a ``ValueError``) on a value
+    that names no level, before anything is written."""
+    return {str(standard_id): parse_level(value) for standard_id, value in levels.items()}
 
 
 def _workspace_standards(tenant: Tenant, standard_ids) -> list[Standard]:

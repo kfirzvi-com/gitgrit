@@ -1,4 +1,4 @@
-"""The project page's three tabs: Overview (health score, its pass / fail /
+"""The project page's three tabs: Overview (the grade, its pass / fail /
 error breakdown, and About), Results (by commit, loaded when opened) and
 Standards (the embedded picker, loaded when opened).
 
@@ -56,18 +56,23 @@ class ProjectTabsTests(TestCase):
         self.assertLess(body.index('id="compliance"'), body.index('id="project-history"'))
         self.assertIn("compliance: \"results\"", body)
 
-    def test_overview_shows_the_score_without_a_percent_and_its_breakdown(self):
+    def test_overview_shows_the_grade_with_its_reason_and_breakdown(self):
         self._result(Status.PASSED, 100)
         self._result(Status.FAILED, 0)
         self._result(Status.ERROR, 0)
 
         response = self._page()
 
-        self.assertEqual(response.context["compliance_score"], 33)
+        self.assertEqual(response.context["grade"].letter, "D")
+        self.assertEqual(response.context["grade"].reason, "2 standards failing")
+        self.assertEqual(response.context["grade_tone"], "attention")
         self.assertEqual(response.context["health_breakdown"], {"passed": 1, "failed": 1, "errored": 1})
+        self.assertNotIn("compliance_score", response.context)
         body = response.content.decode()
-        self.assertIn("--value:33", body)
-        self.assertNotIn("33%", body)
+        self.assertIn('data-grade="D"', body)
+        # The card names no standards: the grade reason stays out of it.
+        self.assertNotIn("2 standards failing", body)
+        self.assertNotIn("33", body.split("data-overview-health", 1)[1].split("data-health-breakdown", 1)[0])
         self.assertIn("data-health-breakdown", body)
 
     def test_results_and_standards_load_when_first_opened(self):

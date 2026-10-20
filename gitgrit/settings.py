@@ -468,6 +468,12 @@ SPECTACULAR_SETTINGS = {
     "OAUTH2_TOKEN_URL": "/oauth/token/",
     "OAUTH2_REFRESH_URL": "/oauth/token/",
     "OAUTH2_SCOPES": None,  # taken from OAUTH2_PROVIDER["SCOPES"]
+    # A standard's level (app.domain.levels) shares the field name `level`
+    # with the health tone; name both enums so they never collide.
+    "ENUM_NAME_OVERRIDES": {
+        "LevelEnum": "app.presentation.api.serializers.LEVEL_CHOICES",
+        "StandardLevelEnum": "app.domain.levels.level_choices",
+    },
 }
 
 # OAuth 2.0 authorization server (django-oauth-toolkit). Clients are public

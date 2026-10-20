@@ -1,0 +1,16 @@
+{# HTMX reply after a provider add/edit: the form's own feedback plus, on success,
+   out-of-band swaps of the providers table, role forms and model map. #}
+{% include "partials/llm_provider_feedback.html" %}
+{% if saved %}
+  <div id="llm-providers-feedback" hx-swap-oob="true" aria-live="polite">
+    <div class="alert {% if level == 'warning' %}alert-warning{% else %}alert-success{% endif %} text-sm mb-3" role="status">{{ message }}</div>
+  </div>
+  {% include "partials/llm_providers_table.html" with oob=True %}
+  {% include "partials/llm_roles_list.html" with oob=True %}
+  {% include "partials/llm_models_map.html" with oob=True %}
+  <script>
+    if (window.llmPopulateAllRoles) window.llmPopulateAllRoles();
+    {% if close_modal %}var m = document.getElementById('edit-provider-modal'); if (m && m.open) m.close();{% endif %}
+    {% if reset_form %}var f = document.getElementById('add-provider-form'); if (f) f.reset();{% endif %}
+  </script>
+{% endif %}

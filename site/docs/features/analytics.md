@@ -15,7 +15,7 @@ At the top, you'll see counts for:
 
 ### Compliance Trend
 
-A 30-day line chart showing the average compliance score across all projects and standards. Helps you spot regressions or improvements over time.
+A 30-day line chart showing the average score across all projects and standards. Helps you spot regressions or improvements over time.
 
 ### Scores by Label
 
@@ -25,7 +25,7 @@ A horizontal bar chart showing average scores grouped by standard label (e.g., s
 
 ### Project Compliance
 
-All projects sorted by compliance score (lowest first), with language badges and a progress bar.
+All projects sorted by score (lowest first), with language badges and a progress bar.
 
 ### Top Failing Standards
 

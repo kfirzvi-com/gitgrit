@@ -341,7 +341,11 @@ class ProjectHealthView(WorkspaceAPIView):
             "Without `branch`: the project's health — each attached standard's "
             "latest result on its home branch (the default branch unless the "
             "standard's filter names one). With `branch`: that branch's health. "
-            "Levels: healthy ≥ 80, warning ≥ 50, critical below."
+            "`grade` is the letter (A+ to F, null while nothing is evaluated), "
+            "`reason` says why it is not one higher, and `level` is its tone: "
+            "good (A+, A, B), attention (C, D), failing (F), unknown (no grade). "
+            "Breaking change in this release: `level` was healthy, warning and "
+            "critical before; it is now good, attention and failing."
         ),
         parameters=[_BRANCH],
         responses=s.ProjectHealthSerializer,
