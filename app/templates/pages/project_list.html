@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 
-{% load project_tags %}
 {% block title %}Projects — GitGrit{% endblock %}
 
 {% block content %}
@@ -16,8 +15,19 @@
         <div class="card-body">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-3" data-project-score>
-                <h2 class="card-title text-lg min-w-0">{{ project.name }}</h2>
+              <h2 class="card-title text-lg min-w-0 break-words">{{ project.name }}</h2>
+              <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
+                  {{ project.get_platform_display }}
+                </span>
+                <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+              </div>
+              {% if project.owner %}
+                <span class="text-sm text-gray-500">{{ project.owner }}</span>
+              {% endif %}
+            </div>
+            <div class="flex w-20 shrink-0 flex-col items-center gap-1 text-center" data-project-score>
                 {% if project.grade.graded %}
                   <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base leading-none
                               {% if project.grade.letter == 'A+' or project.grade.letter == 'A' or project.grade.letter == 'B' %}border-2 border-success text-success font-bold
@@ -34,25 +44,7 @@
                 {% else %}
                   <span class="text-sm opacity-60" data-no-grade>No results yet</span>
                 {% endif %}
-              </div>
-              <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
-              <div class="flex flex-wrap gap-2 mt-2">
-                <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-                  {{ project.get_platform_display }}
-                </span>
-                <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
-              </div>
-              {% if project.owner %}
-                <span class="text-sm text-gray-500">{{ project.owner }}</span>
-              {% endif %}
             </div>
-            {% if project.last_run %}
-              <div class="shrink-0 text-right text-xs opacity-70" data-last-run>
-                <p>Last run:</p>
-                <p><time datetime="{{ project.last_run.created_at|date:'c' }}">{{ project.last_run.created_at|date:"j.n.y, H:i" }}</time></p>
-                <p>{{ project.last_run|trigger_label }}</p>
-              </div>
-            {% endif %}
           </div>
           {% if project.description %}
             <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>

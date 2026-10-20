@@ -91,6 +91,32 @@ def breakdown(results) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class CriticalSummary:
+    """How many of a set of results are critical, and how many of those
+    failed or errored in their own run (the rows the F gate reads)."""
+
+    total: int
+    failed: int
+
+
+def critical_summary(results) -> CriticalSummary:
+    """Count critical results in ``results`` (each read by its own snapshot
+    ``critical``) and how many of them failed or errored in their own run.
+    Running, skipped and platform-error rows do not count. Pure: reads only
+    what the rows already carry."""
+    total = failed = 0
+    for r in results:
+        if not r.critical or r.status not in FINISHED or (
+            r.status == Status.ERROR and r.error_origin == StandardExecution.ErrorOrigin.PLATFORM
+        ):
+            continue
+        total += 1
+        if r.status != Status.PASSED:
+            failed += 1
+    return CriticalSummary(total=total, failed=failed)
+
+
 def project_score(results) -> int | None:
     """The average score of a set of current results, rounded; None when
     there are none."""

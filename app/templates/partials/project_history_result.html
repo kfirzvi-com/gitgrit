@@ -1,8 +1,9 @@
 {% comment %}One standard's result as a line-free row linking to the run: a status dot, the
 standard's name (and version), the Critical chip when the run was graded under the mark (the row's
 own snapshot, so a standard unmarked or detached since still reads as it was), its message muted
-underneath, then an optional event column and the score. Expects `ex` (a StandardExecution);
-`show_event` adds the event column.{% endcomment %}
+underneath, then an optional event column and the letter. Expects `ex` (a StandardExecution);
+`show_event` adds the event column. The run date sits before the letter.{% endcomment %}
+{% load project_tags %}
 <a href="{% url 'standard_execution_detail' ex.id %}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200">
   <span class="h-2 w-2 rounded-full shrink-0 {% if ex.status == 'passed' %}bg-success{% elif ex.status == 'failed' %}bg-error{% elif ex.status == 'running' %}bg-info animate-pulse{% else %}bg-warning{% endif %}"
         title="{{ ex.get_status_display }}" aria-label="{{ ex.get_status_display }}" role="img"></span>
@@ -16,5 +17,6 @@ underneath, then an optional event column and the score. Expects `ex` (a Standar
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}
   </span>
   {% if show_event %}<span class="text-xs opacity-40 shrink-0 hidden sm:inline">{{ ex.event_type }}</span>{% endif %}
-  <span class="w-12 text-right text-sm font-semibold shrink-0">{% if ex.status != "running" %}{{ ex.score }}{% else %}<span class="text-xs font-normal opacity-60">running</span>{% endif %}</span>
+  <time class="text-xs opacity-50 shrink-0 whitespace-nowrap" datetime="{{ ex.created_at|date:'c' }}" data-run-date>{{ ex.created_at|short_date }}</time>
+  <span class="w-12 flex justify-end text-sm font-semibold shrink-0">{% if ex.status != "running" %}{% include "partials/standard_letter_badge.html" %}{% else %}<span class="text-xs font-normal opacity-60">running</span>{% endif %}</span>
 </a>

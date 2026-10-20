@@ -1274,6 +1274,14 @@ class StandardExecution(models.Model):
     def __str__(self):
         return f"{self.standard_name} — {self.status} ({self.project})"
 
+    @property
+    def letter(self) -> str | None:
+        """The letter the Results tab shows for this row (None: a dash),
+        read with the row's own critical snapshot."""
+        return grading.standard_letter(
+            self.score, self.status == self.Status.PASSED, self.critical, self.status
+        )
+
 
 class FeedbackReport(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -1,5 +1,5 @@
-{% comment %}One commit's summary in the Results tab: short SHA (linked to the platform when
-known) and the first line of its message, then author, age and how its standards did (or "Not
+{% load project_tags %}{% comment %}One commit's summary in the Results tab: short SHA (linked to the platform when
+known) and the first line of its message, then author, date and how its standards did (or "Not
 checked"). One line on wide screens; on phones the details wrap under the title. Expects `row`
 (a CommitRow).{% endcomment %}
 <span class="flex flex-1 min-w-0 flex-col md:flex-row md:items-center gap-x-3 gap-y-1">
@@ -13,14 +13,14 @@ checked"). One line on wide screens; on phones the details wrap under the title.
   </span>
   <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
     {% if row.author %}<span class="opacity-60">{{ row.author }}</span>{% endif %}
-    {% if row.date %}<span class="opacity-60 whitespace-nowrap">{{ row.date|timesince }} ago</span>{% endif %}
+    {% if row.date %}<span class="opacity-60 whitespace-nowrap">{{ row.date|short_date }}</span>{% endif %}
     {% if row.checked %}
       <span class="flex flex-wrap items-center gap-1.5">
         {% if row.running %}<span class="badge badge-soft badge-info badge-sm">{{ row.running }} running</span>{% endif %}
         {% if row.passed %}<span class="badge badge-soft badge-success badge-sm">{{ row.passed }} passed</span>{% endif %}
         {% if row.failed %}<span class="badge badge-soft badge-error badge-sm">{{ row.failed }} failed</span>{% endif %}
         {% if row.errored %}<span class="badge badge-soft badge-warning badge-sm">{{ row.errored }} error</span>{% endif %}
-        {% if row.not_run %}<span class="badge badge-ghost badge-sm" title="Current standards that did not run on this commit">{{ row.not_run|length }} not run</span>{% endif %}
+        {% include "partials/critical_failed.html" with summary=row.critical compact=True %}
       </span>
     {% else %}
       <span class="opacity-50">Not checked</span>

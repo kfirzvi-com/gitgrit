@@ -36,6 +36,17 @@ def log_time(value):
     return f"{date_part} {time_part} {tz}".strip()
 
 
+@register.filter
+def short_date(value):
+    """A date as a date, never "3 days ago": 'H:i' when it is today (in the
+    active timezone), else 'j M Y', e.g. '14:09' or '12 Oct 2026'."""
+    if not value:
+        return ""
+    value = timezone.localtime(value) if timezone.is_aware(value) else value
+    today = timezone.localdate()
+    return value.strftime("%H:%M") if value.date() == today else f"{value.day} {value:%b %Y}"
+
+
 _TRIGGER_LABELS = {"manual": "Manual", "pull_request": "Pull request"}
 
 

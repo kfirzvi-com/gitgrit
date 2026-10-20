@@ -23,7 +23,7 @@ from django.core.cache import caches
 from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
-from app.application.standard_results import current_results, group_results, project_score
+from app.application.standard_results import critical_summary, current_results, group_results, project_score
 from app.domain import grading
 from app.domain.models import CommitCheck, StandardExecution
 
@@ -196,6 +196,11 @@ class CommitRow:
         return project_score([r for r in self.results if r.status != Status.RUNNING])
 
     @property
+    def critical(self):
+        """How many critical standards this commit ran and how many failed."""
+        return critical_summary(self.results)
+
+    @property
     def result_groups(self) -> list:
         """The results as Failed / Passed / Other groups, see ``group_results``."""
         return group_results(self.results)
@@ -273,7 +278,13 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
     except Exception:
         logger.warning("Could not list commits of %s on %s", branch, project.name, exc_info=True)
         rows, has_more = _checked_commits(project, branch, page)
-    _attach_results(project, rows, applicable=StandardEngine().standards_for_branch(project, branch))
+    # On the branch's newest commit, a run after a standard was detached clears
+    # it from the results; older commits keep every result they ever got.
+    newest = rows[0].sha if rows and page == 1 else ""
+    _attach_results(
+        project, rows, applicable=StandardEngine().standards_for_branch(project, branch),
+        latest_run_only=newest,
+    )
     return rows, has_more
 
 
@@ -312,17 +323,21 @@ def _checked_commits(project, branch, page):
     return [CommitRow(sha=sha) for sha in window], len(shas) > start + COMMITS_PER_PAGE
 
 
-def _attach_results(project, rows, applicable=()) -> None:
+def _attach_results(project, rows, applicable=(), latest_run_only="") -> None:
     """Give each commit the latest result per standard across its checks.
     Standards attach and detach over time, so a commit's results are the
     standards that ran on it then: each result says whether its standard is
     still attached, and a checked commit lists the current standards that
-    did not run on it."""
+    did not run on it. The commit ``latest_run_only`` names (the branch's
+    newest) drops results of detached standards once a newer run has
+    happened on it: after the standards changed and a run covered the new
+    ones, the old ones leave its results. Older commits are left as they ran."""
     by_sha = {row.sha: row for row in rows}
     if not by_sha:
         return
     attached = set(project.standards.values_list("pk", flat=True))
     seen = set()
+    latest_check = {}
     executions = (
         StandardExecution.objects.filter(project=project, commit_check__commit_sha__in=by_sha)
         .select_related("commit_check", "standard", "standard_version")
@@ -331,7 +346,14 @@ def _attach_results(project, rows, applicable=()) -> None:
     for ex in executions:
         # Runs of standards deleted before archiving existed have no standard
         # left; tell them apart by name.
-        key = (ex.commit_check.commit_sha, ex.standard_id or ex.standard_name)
+        sha = ex.commit_check.commit_sha
+        if (
+            sha == latest_run_only
+            and latest_check.setdefault(sha, ex.commit_check_id) != ex.commit_check_id
+            and ex.standard_id not in attached
+        ):
+            continue
+        key = (sha, ex.standard_id or ex.standard_name)
         if key in seen:
             continue
         seen.add(key)
