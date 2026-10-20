@@ -197,6 +197,24 @@ func (e PlatformEnum) Valid() bool {
 	}
 }
 
+// Defines values for StandardLevelEnum.
+const (
+	Critical StandardLevelEnum = "critical"
+	High     StandardLevelEnum = "high"
+)
+
+// Valid indicates whether the value is a known member of the StandardLevelEnum enum.
+func (e StandardLevelEnum) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case High:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TokenTypeEnum.
 const (
 	Oauth          TokenTypeEnum = "oauth"
@@ -496,9 +514,13 @@ type NullEnum = interface{}
 
 // Offender defines model for Offender.
 type Offender struct {
-	// Critical Whether the standard gates this project (a failing critical standard is an F).
-	Critical   bool               `json:"critical"`
-	LastRun    time.Time          `json:"last_run"`
+	LastRun time.Time `json:"last_run"`
+
+	// Level The standard's level on this project. critical: A failing or unverified result makes the project grade an F; high (the default): Counts toward the project's pass rate.
+	//
+	// * `critical` - Critical
+	// * `high` - High
+	Level      StandardLevelEnum  `json:"level"`
 	Message    string             `json:"message"`
 	Name       string             `json:"name"`
 	Score      *int               `json:"score"`
@@ -838,6 +860,10 @@ type StandardEnabled struct {
 type StandardIdsRequest struct {
 	Standards []openapi_types.UUID `json:"standards"`
 }
+
+// StandardLevelEnum * `critical` - Critical
+// * `high` - High
+type StandardLevelEnum string
 
 // StandardMutation defines model for StandardMutation.
 type StandardMutation struct {

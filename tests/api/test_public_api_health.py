@@ -72,7 +72,7 @@ class TestBranchesAndHealth(HealthAPITestCase):
         assert body["results"][0]["standard_name"] == "Pinned CI"
 
     def test_a_failing_critical_standard_is_f_and_failing(self):
-        self.project.project_standards.update(critical=True)
+        self.project.project_standards.update(level="critical")
         self.check(A, status=Status.FAILED, score=40)
         body = self.get(f"{self.p}/health/").json()
         assert (body["grade"], body["reason"], body["level"]) == ("F", "Pinned CI failing", "failing")
@@ -134,7 +134,7 @@ class TestCommits(HealthAPITestCase):
         # The standard was critical when the commit ran and is not any more:
         # the commit's verdict reads its snapshot, the project's its mark.
         ex = self.check(A, status=Status.FAILED, score=40)
-        StandardExecution.objects.filter(pk=ex.pk).update(critical=True)
+        StandardExecution.objects.filter(pk=ex.pk).update(level="critical")
         commit = self.get(f"{self.p}/commits/{A}/").json()
         project = self.get(f"{self.p}/health/").json()
         assert (commit["grade"], commit["reason"]) == ("F", "Pinned CI failing")

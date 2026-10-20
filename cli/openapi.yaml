@@ -1555,10 +1555,14 @@ components:
           format: uuid
         name:
           type: string
-        critical:
-          type: boolean
-          description: Whether the standard gates this project (a failing critical
-            standard is an F).
+        level:
+          allOf:
+          - $ref: '#/components/schemas/StandardLevelEnum'
+          description: |-
+            The standard's level on this project. critical: A failing or unverified result makes the project grade an F; high (the default): Counts toward the project's pass rate.
+
+            * `critical` - Critical
+            * `high` - High
         status:
           $ref: '#/components/schemas/OffenderStatusEnum'
         score:
@@ -1570,8 +1574,8 @@ components:
           type: string
           format: date-time
       required:
-      - critical
       - last_run
+      - level
       - message
       - name
       - score
@@ -2242,6 +2246,14 @@ components:
             format: uuid
       required:
       - standards
+    StandardLevelEnum:
+      enum:
+      - critical
+      - high
+      type: string
+      description: |-
+        * `critical` - Critical
+        * `high` - High
     StandardMutation:
       type: object
       properties:

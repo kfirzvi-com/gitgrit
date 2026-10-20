@@ -26,6 +26,7 @@ from app.application.grading_service import (
 )
 from app.application.standard_results import breakdown, critical_summary
 from app.domain.grading import tone_for
+from app.domain.levels import UnknownLevel
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain.models import (
     PlatformConnection,
@@ -41,6 +42,18 @@ logger = logging.getLogger(__name__)
 def _flash_runs(request, runs):
     if runs:
         messages.info(request, runs["message"])
+
+
+LEVEL_FIELD = "level-"
+
+
+def _posted_levels(post) -> dict:
+    """The posted ``level-<standard id>`` selects, as standard id -> level."""
+    return {
+        key[len(LEVEL_FIELD):]: value
+        for key, value in post.items()
+        if key.startswith(LEVEL_FIELD)
+    }
 
 
 def _existing_owners(tenant):
@@ -117,9 +130,8 @@ def results_context(project) -> dict:
     context["latest_executions"] = grading.executions
     context["health_breakdown"] = breakdown(grading.executions)
     context["not_evaluated_standards"] = grading.not_evaluated
-    context["critical_standard_ids"] = grading.critical_standard_ids
     context["critical_failed_count"] = critical_failed_count(
-        grading.executions, grading.critical_standard_ids
+        grading.executions, grading.levels
     )
 
     return context
@@ -301,7 +313,7 @@ def add_project_search(request, connection_id):
                 owner=request.POST.get("owner", ""),
                 stack_ids=request.POST.getlist("stacks"),
                 standard_ids=request.POST.getlist("standards"),
-                critical_ids=request.POST.getlist("critical"),
+                levels=_posted_levels(request.POST),
             )
         except project_management.AlreadyAdded:
             messages.warning(request, f'"{repo["name"]}" is already added to this workspace.')
@@ -334,7 +346,7 @@ def add_project_search(request, connection_id):
             .prefetch_related("labels")
             .order_by("ordinal", "name"),
             "attached_standard_ids": set(),
-            "critical_standard_ids": set(),
+            "standard_levels": {},
         },
     )
 
@@ -482,10 +494,13 @@ def project_standards(request, pk):
             result = project_management.set_project_standards(
                 project,
                 request.POST.getlist("standards"),
-                critical_ids=request.POST.getlist("critical"),
+                levels=_posted_levels(request.POST),
             )
         except NotFoundError:
             messages.error(request, "One of those standards no longer exists. Please try again.")
+            return redirect(reverse("project_detail", args=[pk]) + "#standards")
+        except UnknownLevel as exc:
+            messages.error(request, str(exc))
             return redirect(reverse("project_detail", args=[pk]) + "#standards")
         standards = result["standards"]
         count = len(standards)
@@ -531,10 +546,8 @@ def project_standards(request, pk):
             "attached_standard_ids": set(
                 project.standards.values_list("pk", flat=True)
             ),
-            "critical_standard_ids": set(
-                project.project_standards.filter(critical=True).values_list(
-                    "standard_id", flat=True
-                )
+            "standard_levels": dict(
+                project.project_standards.values_list("standard_id", "level")
             ),
         },
     )

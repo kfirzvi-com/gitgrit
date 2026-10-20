@@ -1,18 +1,20 @@
-{% load static %}
+{% load static project_tags %}
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
 {# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check), #}
-{# critical_standard_ids (set of pks whose attachment is marked critical), #}
+{# standard_levels (dict pk -> level of the attachment; missing = the default level), #}
 {# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
-{# POST sends `standards` (attached ids) and `critical` (ids marked critical); a critical mark on an unattached row is ignored. #}
+{# POST sends `standards` (attached ids) and `level-<pk>` per row; a level on an unattached row is ignored. #}
+{# Levels, their labels and order come from app.domain.levels (the level_rules tag). #}
+{% level_rules as rules %}
 <div class="standard-picker">
   <div class="flex gap-2 mb-2">
     <input type="text" placeholder="Search standards, or try name:..., label:..., status:draft"
-           title="Plain text searches name, description and labels. Use category:value to search one column: name, description, label, status, critical, connected. Quote values with spaces: label:&quot;my label&quot;"
+           title="Plain text searches name, description and labels. Use category:value to search one column: name, description, label, status, level, connected. Quote values with spaces: label:&quot;my label&quot;"
            class="input input-bordered w-full"
            oninput="filterStandardPicker(this)" autocomplete="off"
            onkeydown="if (event.key === 'Enter') event.preventDefault()">
     <details class="dropdown dropdown-end standard-picker-filter">
-      <summary class="btn btn-outline" title="Filter by connection and Critical mark">
+      <summary class="btn btn-outline" title="Filter by connection and level">
         Filter<span class="standard-picker-filter-count badge badge-primary badge-sm hidden"></span>
       </summary>
       <ul class="dropdown-content menu z-10 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow">
@@ -23,13 +25,12 @@
         <li><label class="label cursor-pointer justify-start gap-2">
           <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="connection" value="not-connected" checked
                  onchange="filterStandardPicker(this)"> Not connected</label></li>
-        <li class="menu-title">Critical</li>
+        <li class="menu-title">Level</li>
+        {% for rule in rules %}
         <li><label class="label cursor-pointer justify-start gap-2">
-          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="critical" value="critical" checked
-                 onchange="filterStandardPicker(this)"> Critical</label></li>
-        <li><label class="label cursor-pointer justify-start gap-2">
-          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="critical" value="not-critical" checked
-                 onchange="filterStandardPicker(this)"> Not critical</label></li>
+          <input type="checkbox" class="checkbox checkbox-sm" data-filter-group="level" value="{{ rule.level }}" checked
+                 onchange="filterStandardPicker(this)"> {{ rule.label }}</label></li>
+        {% endfor %}
         <li class="mt-1 border-t border-base-300 pt-1">
           <button type="button" class="link link-hover text-sm standard-picker-filter-reset"
                   onclick="resetStandardPickerFilter(this)">Reset</button></li>
@@ -53,7 +54,7 @@
       <thead>
         <tr>
           <th class="w-8"></th>
-          <th class="w-20" title="A failing critical standard makes the project grade an F">Critical</th>
+          <th class="w-28" title="{% for rule in rules %}{{ rule.label }}: {{ rule.help }}{% if not forloop.last %}. {% endif %}{% endfor %}">Level</th>
           <th>
             <button type="button" class="link link-hover font-semibold"
                     title="Sort by name"
@@ -85,10 +86,14 @@
                      {% if standard.pk in attached_standard_ids %}checked{% endif %}>
             </td>
             <td>
-              <input type="checkbox" name="critical" value="{{ standard.pk }}"
-                     class="checkbox checkbox-sm checkbox-error"
-                     title="Critical: a failing result makes the project grade an F"
-                     {% if standard.pk in critical_standard_ids %}checked{% endif %}>
+              {% with current=standard_levels|level_of:standard.pk %}
+              <select name="level-{{ standard.pk }}" class="select select-bordered select-xs standard-picker-level"
+                      aria-label="Level of {{ standard.name }}">
+                {% for rule in rules %}
+                  <option value="{{ rule.level }}" title="{{ rule.help }}"{% if rule.level == current %} selected{% endif %}>{{ rule.label }}</option>
+                {% endfor %}
+              </select>
+              {% endwith %}
             </td>
             <td>
               <a href="{% url 'standard_detail' standard.pk %}" target="_blank" rel="noopener"
@@ -137,27 +142,28 @@
 if (!window.filterStandardPicker) {
   // The search box (plain text or category:value, see standard-search.js) and
   // the Filter dropdown compose: a row shows only when it matches both. The
-  // Filter has two groups of checkboxes (Connection, Critical). Within a group
-  // checked boxes are OR'd; both or none checked = no restriction. Groups are
-  // AND'd. Connection and Critical read the row's live checkboxes, so a change
+  // Filter has two groups of checkboxes (Connection, Level). Within a group
+  // checked boxes are OR'd; all or none checked = no restriction. Groups are
+  // AND'd. Connection and Level read the row's live controls, so a change
   // drops the row from a filtered view on the next filter, not while it is
   // being edited.
   function filterRestrictions(picker) {
     var out = {};
-    ['connection', 'critical'].forEach(function (group) {
-      var on = [];
+    ['connection', 'level'].forEach(function (group) {
+      var on = [], total = 0;
       picker.querySelectorAll('.standard-picker-filter input[data-filter-group="' + group + '"]').forEach(function (cb) {
+        total++;
         if (cb.checked) on.push(cb.value);
       });
-      // exactly one of the two boxes checked = restricts; else null (no restriction)
-      out[group] = on.length === 1 ? on[0] : null;
+      // some but not all boxes checked = restricts to those values; else null
+      out[group] = on.length && on.length < total ? on : null;
     });
     return out;
   }
 
   window.standardPickerFilterActive = function (picker) {
     var r = filterRestrictions(picker);
-    return !!(r.connection || r.critical);
+    return !!(r.connection || r.level);
   };
 
   window.resetStandardPickerFilter = function (btn) {
@@ -173,7 +179,7 @@ if (!window.filterStandardPicker) {
     var input = picker.querySelector('input[type="text"]');
     var parsed = window.StandardSearch.parseStandardSearch(input.value);
     var r = filterRestrictions(picker);
-    var count = (r.connection ? 1 : 0) + (r.critical ? 1 : 0);
+    var count = (r.connection ? 1 : 0) + (r.level ? 1 : 0);
     var badge = picker.querySelector('.standard-picker-filter-count');
     if (badge) {
       badge.textContent = count ? '· ' + count : '';
@@ -181,9 +187,9 @@ if (!window.filterStandardPicker) {
     }
     var anyVisible = false;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
-      var critical = row.querySelector('input[name="critical"]');
+      var select = row.querySelector('select.standard-picker-level');
       var attach = row.querySelector('input[name="standards"]');
-      var marked = !!(critical && critical.checked);
+      var level = select ? select.value : '';
       var connected = !!(attach && attach.checked);
       var match = window.StandardSearch.matchStandardRow(parsed, {
         search: row.dataset.standardSearch,
@@ -191,11 +197,11 @@ if (!window.filterStandardPicker) {
         description: row.dataset.description,
         labels: row.dataset.labels.split('|').filter(Boolean),
         status: row.dataset.status,
-        critical: marked,
+        level: level,
         connected: connected
       });
-      if (match && r.connection) match = (r.connection === 'connected') === connected;
-      if (match && r.critical) match = (r.critical === 'critical') === marked;
+      if (match && r.connection) match = r.connection.indexOf(connected ? 'connected' : 'not-connected') !== -1;
+      if (match && r.level) match = r.level.indexOf(level) !== -1;
       row.classList.toggle('hidden', !match);
       if (match) anyVisible = true;
     });
@@ -240,8 +246,7 @@ if (!window.filterStandardPicker) {
     return form ? form.querySelector('.standard-picker') : null;
   }
 
-  // Sets the `name` checkbox ("standards" = attach, "critical" = the mark)
-  // of every row the filters currently leave visible (all of them when the
+  // Sets the `name` checkbox ("standards" = attach) of every row the filters currently leave visible (all of them when the
   // search box is empty and no Filter restriction is active) to `checked`.
   // Hidden rows are left alone.
   function setVisibleStandardPickerRows(btn, name, checked) {
@@ -257,8 +262,17 @@ if (!window.filterStandardPicker) {
 
   window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'standards', true); };
   window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'standards', false); };
-  window.checkAllCriticalStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'critical', true); };
-  window.uncheckAllCriticalStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, 'critical', false); };
+
+  // Sets the level select of every row the filters leave visible to `level`.
+  window.setLevelStandardPicker = function (btn, level) {
+    var picker = pickerFor(btn);
+    if (!picker) return;
+    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      if (row.classList.contains('hidden')) return;
+      var select = row.querySelector('select.standard-picker-level');
+      if (select) select.value = level;
+    });
+  };
 
   window.updateStandardPickerCounts = function (picker) {
     var selected = 0, draft = 0, disabled = 0;

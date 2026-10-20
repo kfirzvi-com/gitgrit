@@ -9,7 +9,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from app.domain import grading
+from app.domain import grading, levels
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -646,12 +646,17 @@ class ProjectStandard(models.Model):
         on_delete=models.CASCADE,
         related_name="project_standards",
     )
-    # Does this standard gate this project: any failing or unverified
-    # critical result makes the grade an F. The mark lives only here, on the
-    # link, so the same standard can gate one project and not another; a
-    # standard itself has no severity. Every attachment starts not critical,
-    # and detaching deletes the row, so reattaching starts not critical too.
-    critical = models.BooleanField(default=False)
+    # How much this standard weighs on this project's grade
+    # (``app.domain.levels``): at a gating level (Critical) any failing or
+    # unverified result makes the grade an F. The level lives only here, on
+    # the link, so the same standard can gate one project and not another; a
+    # standard itself has no level. Every attachment starts at the default
+    # (High), and detaching deletes the row, so reattaching starts there too.
+    level = models.CharField(
+        max_length=levels.MAX_LENGTH,
+        choices=levels.level_choices(),
+        default=levels.DEFAULT_LEVEL.value,
+    )
     # The neglect clock: when this standard first failed (or errored in its
     # own run) on the project's default branch and has not passed since.
     # The engine sets it on the first counting failure, keeps it through
@@ -667,10 +672,28 @@ class ProjectStandard(models.Model):
             models.UniqueConstraint(
                 fields=["project", "standard"], name="unique_project_standard"
             ),
+            models.CheckConstraint(
+                condition=models.Q(level__in=[v for v, _ in levels.level_choices()]),
+                name="project_standard_level_known",
+            ),
         ]
 
     def __str__(self):
         return f"{self.project} — {self.standard}"
+
+    @classmethod
+    def set_levels(cls, project, levels_by_standard: dict) -> None:
+        """Set the level of each of ``project``'s attachments from
+        ``levels_by_standard`` (standard id -> ``StandardLevel``); an
+        attachment it does not name goes back to the default level, and a
+        level for a standard that is not attached is ignored."""
+        rows = cls.objects.filter(project=project)
+        by_level = {}
+        for standard_id in rows.values_list("standard_id", flat=True):
+            level = levels_by_standard.get(str(standard_id), levels.DEFAULT_LEVEL)
+            by_level.setdefault(level.value, []).append(standard_id)
+        for level, standard_ids in by_level.items():
+            rows.filter(standard_id__in=standard_ids).update(level=level)
 
 
 class StackDependency(models.Model):
@@ -1217,10 +1240,14 @@ class StandardExecution(models.Model):
         choices=ErrorOrigin.choices,
         default=ErrorOrigin.STANDARD,
     )
-    # The attachment's Critical mark when the row was created, so the commit
+    # The attachment's level when the row was created, so the commit
     # verdict and the history can read it without the attachment (a standard
     # detached after the run still explains its old verdict).
-    critical = models.BooleanField(default=False)
+    level = models.CharField(
+        max_length=levels.MAX_LENGTH,
+        choices=levels.level_choices(),
+        default=levels.DEFAULT_LEVEL.value,
+    )
     message = models.TextField(blank=True, default="")
     details = models.JSONField(default=dict, blank=True)
     # Chronological execution log (level/message/t_ms entries) captured from the
@@ -1270,6 +1297,12 @@ class StandardExecution(models.Model):
                 name="idx_standardexec_standard_date",
             ),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(level__in=[v for v, _ in levels.level_choices()]),
+                name="standard_execution_level_known",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.standard_name} — {self.status} ({self.project})"
@@ -1277,10 +1310,15 @@ class StandardExecution(models.Model):
     @property
     def letter(self) -> str | None:
         """The letter the Results tab shows for this row (None: a dash),
-        read with the row's own critical snapshot."""
+        read with the row's own level snapshot."""
         return grading.standard_letter(
-            self.score, self.status == self.Status.PASSED, self.critical, self.status
+            self.score, self.status == self.Status.PASSED, self.level, self.status
         )
+
+    @property
+    def rule(self) -> levels.LevelRule:
+        """The behavior of the run's level snapshot."""
+        return levels.rule_for(self.level)
 
 
 class FeedbackReport(models.Model):

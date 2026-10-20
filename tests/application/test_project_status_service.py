@@ -29,7 +29,7 @@ class TestGetProjectStatus(APITestCase):
         if attach:
             self.project.standards.add(standard)
         if critical:
-            self.project.project_standards.filter(standard=standard).update(critical=True)
+            self.project.project_standards.filter(standard=standard).update(level="critical")
         return standard
 
     def _run(self, standard, status=Status.PASSED, score=100, **kwargs):
@@ -106,8 +106,8 @@ class TestGetProjectStatus(APITestCase):
 
         offenders = result["top_offenders"]
         assert [o["name"] for o in offenders] == ["gate", "low", "high"]
-        assert offenders[0]["critical"] is True
-        assert offenders[1]["critical"] is False
+        assert offenders[0]["level"] == "critical"
+        assert offenders[1]["level"] == "high"
         assert offenders[0]["status"] == "failed"
 
     def test_uses_only_latest_execution_per_standard(self):

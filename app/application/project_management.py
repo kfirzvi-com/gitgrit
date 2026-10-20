@@ -9,7 +9,6 @@ a project added from the CLI is set up exactly like one added in the browser.
 """
 import logging
 import secrets
-import uuid
 from dataclasses import dataclass
 
 from django.conf import settings
@@ -19,6 +18,7 @@ from app.application import stack_service
 from app.application.errors import NotFoundError
 from app.application.event_bus import publish
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
+from app.domain.levels import parse_level
 from app.domain.models import (
     AuthMethod,
     Platform,
@@ -156,15 +156,15 @@ def add_project(
     owner: str = "",
     stack_ids=(),
     standard_ids=(),
-    critical_ids=(),
+    levels=None,
 ) -> AddedProject:
     """Make ``repo`` (a result of ``search_repositories``) a project.
 
     Attaches the given workspace standards and stacks, reads the repository's
     languages and topics, registers a webhook when the connection needs one
     (GitHub App connections get events through the App), and queues the
-    attached runnable standards to run once. ``critical_ids`` marks those
-    attachments Critical before anything runs.
+    attached runnable standards to run once. ``levels`` (standard id ->
+    level) sets those attachments' levels before anything runs.
     """
     existing = Project.objects.filter(
         tenant=tenant, platform_connection=connection, external_id=str(repo["external_id"])
@@ -175,6 +175,8 @@ def add_project(
         raise ValueError(
             f"Unknown lifecycle {lifecycle!r}; one of: {', '.join(Project.Lifecycle.values)}."
         )
+    if levels is not None:
+        levels = parse_levels(levels)
 
     project = Project.objects.create(
         tenant=tenant,
@@ -194,7 +196,8 @@ def add_project(
         stack_service.add_project_to_stacks(tenant=tenant, project=project, stacks=stacks)
     standards = _workspace_standards(tenant, standard_ids)
     project.standards.set(standards)
-    set_critical_marks(project, critical_ids)
+    if levels is not None:
+        ProjectStandard.set_levels(project, levels)
 
     _fetch_metadata(project)
     webhook_ok = True
@@ -279,21 +282,24 @@ def delete_project(tenant: Tenant, user: User | None, project_id) -> str:
 # --- attached standards ------------------------------------------------------
 
 
-def set_project_standards(project: Project, standard_ids, critical_ids=None) -> dict:
+def set_project_standards(project: Project, standard_ids, levels=None) -> dict:
     """Make exactly ``standard_ids`` the project's attached standards.
 
-    With ``critical_ids``, the Critical marks are rewritten from it before
-    anything runs; without, attachments that stay keep their marks.
+    With ``levels`` (standard id -> level), every attachment's level is
+    rewritten from it before anything runs; without, attachments that stay
+    keep their levels.
 
     Newly attached runnable standards are queued to run. Returns
     ``{"standards", "runs"}``.
     """
+    if levels is not None:
+        levels = parse_levels(levels)
     standards = _workspace_standards(project.tenant, standard_ids)
     previously = set(project.standards.values_list("pk", flat=True))
-    # set() is a delta: attachments that stay keep their row and its mark.
+    # set() is a delta: attachments that stay keep their row and its level.
     project.standards.set(standards)
-    if critical_ids is not None:
-        set_critical_marks(project, critical_ids)
+    if levels is not None:
+        ProjectStandard.set_levels(project, levels)
     return {"standards": standards, "runs": run_newly_attached(project, standards, previously)}
 
 
@@ -327,28 +333,11 @@ def run_newly_attached(project: Project, standards, previously_attached_ids) -> 
     return results[0] if results else None
 
 
-def set_critical_marks(project: Project, critical_ids) -> None:
-    """Write the Critical mark on the project's attachments from
-    ``critical_ids``: marked rows get True, every other attachment False.
-    Runs after ``standards.set()``, so an id with no surviving attachment
-    (a mark on an unattached row) is ignored, as is anything that is not
-    an id."""
-    critical_ids = _uuids(critical_ids)
-    rows = ProjectStandard.objects.filter(project=project)
-    rows.exclude(standard_id__in=critical_ids).update(critical=False)
-    rows.filter(standard_id__in=critical_ids).update(critical=True)
-
-
-def _uuids(values) -> list:
-    """The values that are UUIDs; anything else is ignored rather than
-    failing the query."""
-    ids = []
-    for value in values:
-        try:
-            ids.append(uuid.UUID(str(value)))
-        except (ValueError, AttributeError, TypeError):
-            continue
-    return ids
+def parse_levels(levels: dict) -> dict:
+    """``levels`` (standard id -> posted value) as standard id ->
+    ``StandardLevel``. Raises ``UnknownLevel`` (a ``ValueError``) on a value
+    that names no level, before anything is written."""
+    return {str(standard_id): parse_level(value) for standard_id, value in levels.items()}
 
 
 def _workspace_standards(tenant: Tenant, standard_ids) -> list[Standard]:

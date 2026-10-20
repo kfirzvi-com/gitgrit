@@ -43,7 +43,7 @@ def _attach(project, *standards, critical=False):
     for standard in standards:
         project.standards.add(standard)
     if critical:
-        project.project_standards.filter(standard__in=standards).update(critical=True)
+        project.project_standards.filter(standard__in=standards).update(level="critical")
 
 
 def _login_member(client, tenant):

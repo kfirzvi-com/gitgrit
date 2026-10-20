@@ -30,7 +30,7 @@ class AttentionItemsTests(TestCase):
         if attach:
             project.standards.add(standard)
         if critical:
-            project.project_standards.filter(standard=standard).update(critical=True)
+            project.project_standards.filter(standard=standard).update(level="critical")
         return standard
 
     def _result(self, standard, status=Status.FAILED, project=None, ago=None, **kwargs):
@@ -51,8 +51,8 @@ class AttentionItemsTests(TestCase):
         [item] = attention_items(self.tenant)
 
         self.assertIsInstance(item, AttentionItem)
-        self.assertEqual(item.level, ATTENTION)
-        self.assertIs(item.critical, False)
+        self.assertEqual(item.tone, ATTENTION)
+        self.assertIs(item.shown_as_critical, False)
         self.assertEqual(item.project_id, self.project.pk)
         self.assertEqual(item.project_name, "Acme")
         self.assertEqual(item.standard_id, standard.pk)
@@ -79,8 +79,8 @@ class AttentionItemsTests(TestCase):
         self.assertEqual(
             [i.standard_name for i in items], ["Gate", "Failed", "New errored", "Old errored"]
         )
-        self.assertEqual([i.level for i in items], [FAILING, ATTENTION, ATTENTION, ATTENTION])
-        self.assertEqual([i.critical for i in items], [True, False, False, False])
+        self.assertEqual([i.tone for i in items], [FAILING, ATTENTION, ATTENTION, ATTENTION])
+        self.assertEqual([i.shown_as_critical for i in items], [True, False, False, False])
         self.assertEqual(items[2].status, "Could not verify")
 
     def test_only_the_latest_result_per_standard_counts(self):

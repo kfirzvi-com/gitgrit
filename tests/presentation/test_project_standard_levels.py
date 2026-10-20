@@ -1,25 +1,27 @@
-"""The Critical mark on the project's standards table.
+"""The level (High / Critical) on the project's standards table.
 
-The picker shows the mark per row, the two forms (attach modal, add-project)
-post ``critical`` beside ``standards`` and the views write it on the surviving
-attachments, the project page shows the F a failing critical standard earns,
-names the branch a critical attachment that never ran on is waiting for, and
-the Results tab chips the rows that ran under the mark. One test per rule;
-the name says which.
+The picker shows a level select per row, the two forms (attach modal,
+add-project) post ``level-<id>`` beside ``standards`` and the views write it
+on the surviving attachments, the project page shows the F a failing critical
+standard earns, names the branch a critical attachment that never ran on is
+waiting for, and the Results tab chips the rows that ran at the Critical
+level. One test per rule; the name says which.
 
-Check-all / uncheck-all critical and the critical filter are browser-side
-(``standard_picker.html`` JS); the repo has no JS test runner, so these tests
-prove the controls are rendered and leave the behaviour to a manual check.
+"Set level" bulk buttons and the level filter are browser-side
+(``standard_picker.html`` JS); these tests prove the controls are rendered
+from the level rules and leave the behaviour to a manual check.
 """
 import re
 from unittest import mock
 
 import pytest
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from model_bakery import baker
 
 from app.application import commit_checks
+from app.domain import levels
 from app.domain.models import Project, ProjectStandard, StandardExecution
 from tests.presentation.test_project_standard_views import (
     NON_MANIFEST_STORAGES,
@@ -30,28 +32,37 @@ from tests.presentation.test_project_standard_views import (
 from tests.support import defer_patch
 
 
-def _critical_box_is_checked(body, standard_pk):
-    return re.search(
-        rf'<input[^>]*name="critical"[^>]*value="{standard_pk}"[^>]*checked', body
-    ) is not None
+def _selected_level(body, standard_pk):
+    """The selected option of the row's level select."""
+    select = re.search(
+        rf'<select name="level-{standard_pk}"[^>]*>(.*?)</select>', body, re.S
+    )
+    assert select, f"no level select for {standard_pk}"
+    chosen = re.search(r'<option value="([^"]+)"[^>]*\sselected', select.group(1))
+    return chosen.group(1) if chosen else None
 
 
-def _marks(project):
+def _levels(project):
     return {
-        row.standard_id: row.critical
+        row.standard_id: row.level
         for row in ProjectStandard.objects.filter(project=project)
     }
 
 
+def _level_data(levels):
+    """``{standard: level}`` as the posted ``level-<id>`` fields."""
+    return {f"level-{getattr(s, 'pk', s)}": level for s, level in levels.items()}
+
+
 @pytest.mark.django_db
-class TestPickerShowsTheMark(TestCase):
-    def test_the_table_shows_the_mark_per_row(self):
+class TestPickerShowsTheLevel(TestCase):
+    def test_the_table_shows_the_level_per_row(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         gate = _standard(tenant, name="Gate")
         plain = _standard(tenant, name="Plain")
         project.standards.add(gate, plain)
-        ProjectStandard.objects.filter(project=project, standard=gate).update(critical=True)
+        ProjectStandard.objects.filter(project=project, standard=gate).update(level="critical")
 
         resp = self.client.get(
             reverse("project_standards", args=[project.pk]),
@@ -59,12 +70,14 @@ class TestPickerShowsTheMark(TestCase):
         )
 
         body = resp.content.decode()
-        assert _critical_box_is_checked(body, gate.pk)
-        assert not _critical_box_is_checked(body, plain.pk)
+        assert _selected_level(body, gate.pk) == "critical"
+        assert _selected_level(body, plain.pk) == "high"
+        assert ">Level</th>" in body
 
-    def test_bulk_critical_buttons_and_filter_are_rendered(self):
-        """The JS behind them (only visible rows change; the filter shows
-        only marked rows and composes with the search) is checked by hand."""
+    def test_bulk_level_buttons_and_filter_are_rendered_per_level(self):
+        """One "Set level" button and one filter box per level in the rules
+        table. The JS behind them (only visible rows change; the filter
+        composes with the search) is checked by hand."""
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         _standard(tenant)
@@ -75,82 +88,113 @@ class TestPickerShowsTheMark(TestCase):
         )
 
         body = resp.content.decode()
-        assert "checkAllCriticalStandardPicker(this)" in body
-        assert "uncheckAllCriticalStandardPicker(this)" in body
-        assert 'data-filter-group="critical" value="critical" checked' in body
-        assert 'data-filter-group="critical" value="not-critical" checked' in body
+        for rule in levels.ordered_rules():
+            assert f"setLevelStandardPicker(this, '{rule.level}')" in body
+            assert f"Set level: {rule.label}" in body
+            assert f'data-filter-group="level" value="{rule.level}" checked' in body
+        assert "CriticalStandardPicker" not in body
 
 
 @pytest.mark.django_db
-class TestAttachFormWritesTheMark(TestCase):
-    def _post(self, project, standards, critical):
+class TestAttachFormWritesTheLevel(TestCase):
+    def _post(self, project, standards, levels=None):
         with defer_patch():
             resp = self.client.post(
                 reverse("project_standards", args=[project.pk]),
                 data={
                     "standards": [str(s.pk) for s in standards],
-                    "critical": [getattr(s, "pk", s) for s in critical],
+                    **_level_data(levels or {}),
                 },
             )
         assert resp.status_code == 302
         return resp
 
-    def test_resaving_the_table_keeps_marks(self):
+    def test_resaving_the_table_keeps_levels(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         gate, plain = _standard(tenant), _standard(tenant)
 
-        self._post(project, [gate, plain], critical=[gate])
-        assert _marks(project) == {gate.pk: True, plain.pk: False}
+        self._post(project, [gate, plain], {gate: "critical", plain: "high"})
+        assert _levels(project) == {gate.pk: "critical", plain.pk: "high"}
 
-        self._post(project, [gate, plain], critical=[gate])
-        assert _marks(project) == {gate.pk: True, plain.pk: False}
+        self._post(project, [gate, plain], {gate: "critical", plain: "high"})
+        assert _levels(project) == {gate.pk: "critical", plain.pk: "high"}
 
-    def test_unmarking_a_row_clears_it(self):
+    def test_setting_a_row_back_to_high(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         gate = _standard(tenant)
-        self._post(project, [gate], critical=[gate])
+        self._post(project, [gate], {gate: "critical"})
 
-        self._post(project, [gate], critical=[])
+        self._post(project, [gate], {gate: "high"})
 
-        assert _marks(project) == {gate.pk: False}
+        assert _levels(project) == {gate.pk: "high"}
 
-    def test_a_mark_on_an_unattached_row_is_ignored(self):
+    def test_a_row_with_no_level_posted_gets_the_default(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        gate = _standard(tenant)
+        self._post(project, [gate], {gate: "critical"})
+
+        self._post(project, [gate])
+
+        assert _levels(project) == {gate.pk: "high"}
+
+    def test_a_level_on_an_unattached_row_is_ignored(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         attached, loose = _standard(tenant), _standard(tenant)
 
-        self._post(project, [attached], critical=[loose])
+        self._post(project, [attached], {loose: "critical"})
 
-        assert _marks(project) == {attached.pk: False}
+        assert _levels(project) == {attached.pk: "high"}
         assert set(project.standards.all()) == {attached}
 
-    def test_a_posted_id_that_is_not_a_uuid_is_ignored(self):
+    def test_an_unknown_level_is_rejected_and_nothing_changes(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        gate, extra = _standard(tenant), _standard(tenant)
+        self._post(project, [gate], {gate: "critical"})
+
+        self._post(project, [gate, extra], {gate: "blocker"})
+
+        assert _levels(project) == {gate.pk: "critical"}
+        assert set(project.standards.all()) == {gate}
+
+    def test_a_level_for_an_unknown_id_is_ignored(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         gate = _standard(tenant)
 
-        self._post(project, [gate], critical=["not-an-id", gate])
+        self._post(project, [gate], {gate: "critical", "not-an-id": "critical"})
 
-        assert _marks(project) == {gate.pk: True}
+        assert _levels(project) == {gate.pk: "critical"}
 
-    def test_detach_then_reattach_resets_to_not_critical(self):
+    def test_the_database_rejects_an_unknown_level(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         gate = _standard(tenant)
-        self._post(project, [gate], critical=[gate])
+        self._post(project, [gate])
 
-        self._post(project, [], critical=[])
-        assert _marks(project) == {}
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            ProjectStandard.objects.filter(project=project).update(level="blocker")
 
-        self._post(project, [gate], critical=[])
-        assert _marks(project) == {gate.pk: False}
+    def test_detach_then_reattach_resets_to_high(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        gate = _standard(tenant)
+        self._post(project, [gate], {gate: "critical"})
+
+        self._post(project, [])
+        assert _levels(project) == {}
+
+        self._post(project, [gate])
+        assert _levels(project) == {gate.pk: "high"}
 
 
 @pytest.mark.django_db
-class TestAddProjectWritesTheMark(TestCase):
-    def test_add_project_sets_marks(self):
+class TestAddProjectWritesTheLevel(TestCase):
+    def test_add_project_sets_levels(self):
         _, tenant = _login_member(self.client)
         connection = baker.make(
             "app.PlatformConnection", tenant=tenant, platform="github", access_token="ghp_x"
@@ -162,7 +206,7 @@ class TestAddProjectWritesTheMark(TestCase):
         client.get_topics.return_value = []
         client.create_webhook.return_value = "hook-1"
         with mock.patch(
-            "app.presentation.views.project_views.get_platform_client",
+            "app.application.project_management.get_platform_client",
             return_value=client,
         ), defer_patch():
             resp = self.client.post(
@@ -175,16 +219,16 @@ class TestAddProjectWritesTheMark(TestCase):
                     "default_branch": "main",
                     "lifecycle": "development",
                     "standards": [str(gate.pk), str(plain.pk)],
-                    # A mark on an unattached row is ignored here too.
-                    "critical": [str(gate.pk), str(loose.pk)],
+                    # A level on an unattached row is ignored here too.
+                    **_level_data({gate: "critical", plain: "high", loose: "critical"}),
                 },
             )
 
         assert resp.status_code == 302
         project = Project.objects.get(tenant=tenant, external_id="42")
-        assert _marks(project) == {gate.pk: True, plain.pk: False}
+        assert _levels(project) == {gate.pk: "critical", plain.pk: "high"}
 
-    def test_add_project_picker_renders_with_no_marks(self):
+    def test_add_project_picker_renders_every_row_at_the_default(self):
         _, tenant = _login_member(self.client)
         connection = baker.make(
             "app.PlatformConnection", tenant=tenant, platform="github", access_token="ghp_x"
@@ -196,15 +240,14 @@ class TestAddProjectWritesTheMark(TestCase):
 
         assert resp.status_code == 200
         body = resp.content.decode()
-        assert f'name="critical" value="{s.pk}"' in body
-        assert not _critical_box_is_checked(body, s.pk)
+        assert _selected_level(body, s.pk) == "high"
 
 
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class TestProjectPageShowsTheGate(TestCase):
     def _mark(self, project, standard):
-        ProjectStandard.objects.filter(project=project, standard=standard).update(critical=True)
+        ProjectStandard.objects.filter(project=project, standard=standard).update(level="critical")
 
     def _run(self, project, standard, status, ref="", **kwargs):
         return baker.make(
@@ -234,7 +277,6 @@ class TestProjectPageShowsTheGate(TestCase):
         assert resp.context["grade"].letter == "F"
         assert resp.context["grade"].reason == "No secrets failing"
         assert resp.context["grade_tone"] == "failing"
-        assert resp.context["critical_standard_ids"] == {gate.pk}
         body = resp.content.decode()
         assert 'data-grade="F"' in body
         assert "No secrets failing" not in body
@@ -288,8 +330,8 @@ class TestProjectPageShowsTheGate(TestCase):
         plain = _standard(tenant, name="Readme")
         project.standards.add(gate, plain)
         check = baker.make("app.CommitCheck", project=project, branch="main", commit_sha="a" * 40)
-        marked = self._run(project, gate, "failed", commit_check=check, critical=True)
-        unmarked = self._run(project, plain, "passed", commit_check=check, critical=False)
+        marked = self._run(project, gate, "failed", commit_check=check, level="critical")
+        unmarked = self._run(project, plain, "passed", commit_check=check, level="high")
         platform = mock.Mock()
         platform.list_branches.return_value = ["main"]
         platform.list_commits.return_value = [

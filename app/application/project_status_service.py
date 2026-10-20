@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 
 from app.application.errors import NotFoundError
 from app.application.grading_service import grade_for_project
+from app.domain.levels import DEFAULT_LEVEL
 from app.domain.models import Project, StandardExecution, Tenant
 
 
@@ -30,7 +31,8 @@ class ProjectStatusService:
 
         grading_ = grade_for_project(project, exclude_execution_ids=exclude_execution_ids)
         latest = grading_.executions
-        critical_ids = grading_.critical_standard_ids
+        level_of = grading_.levels
+        critical_ids = grading_.standard_ids_where(lambda rule: rule.shown_as_critical)
 
         scores = [e.score for e in latest if e.score is not None]
         overall = sum(scores) / len(scores) if scores else None
@@ -60,7 +62,7 @@ class ProjectStatusService:
                 {
                     "standard_id": str(e.standard_id),
                     "name": e.standard_name,
-                    "critical": e.standard_id in critical_ids,
+                    "level": level_of.get(e.standard_id, DEFAULT_LEVEL.value),
                     "status": e.status,
                     "score": e.score,
                     "message": e.message,

@@ -41,7 +41,7 @@ class TestGradesForTenant(TestCase):
         standard = baker.make("app.Standard", tenant=self.tenant, **kwargs)
         project.standards.add(standard)
         if critical:
-            project.project_standards.filter(standard=standard).update(critical=True)
+            project.project_standards.filter(standard=standard).update(level="critical")
         return standard
 
     def test_agrees_with_grade_for_project(self):
@@ -83,7 +83,7 @@ class TestGradesForTenant(TestCase):
             assert tenant_wide.grade == single.grade, project
             assert [e.pk for e in tenant_wide.executions] == [e.pk for e in single.executions]
             assert [s.pk for s in tenant_wide.not_evaluated] == [s.pk for s in single.not_evaluated]
-            assert tenant_wide.critical_standard_ids == single.critical_standard_ids
+            assert tenant_wide.levels == single.levels
         assert grades[p1.pk].grade.letter == "A+"
         assert grades[p2.pk].grade.letter == "D"
         assert grades[p3.pk].grade.letter == NO_GRADE

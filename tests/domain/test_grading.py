@@ -45,7 +45,7 @@ def failing_for(days, status=FAILED, critical=False, name="Old", origin="standar
     """A not-passed result whose clock started ``days`` days ago."""
     return Result(
         status,
-        critical=critical,
+        level="critical" if critical else "high",
         error_origin=origin,
         name=name,
         first_failed_at=NOW - timedelta(days=days),
@@ -53,15 +53,15 @@ def failing_for(days, status=FAILED, critical=False, name="Old", origin="standar
 
 
 def passed(critical=False, name="s"):
-    return Result(PASSED, critical=critical, name=name)
+    return Result(PASSED, level="critical" if critical else "high", name=name)
 
 
 def failed(critical=False, name="s"):
-    return Result(FAILED, critical=critical, name=name)
+    return Result(FAILED, level="critical" if critical else "high", name=name)
 
 
 def errored(critical=False, origin="standard", name="s"):
-    return Result(ERROR, critical=critical, error_origin=origin, name=name)
+    return Result(ERROR, level="critical" if critical else "high", error_origin=origin, name=name)
 
 
 class TestLetterFromPassRate(SimpleTestCase):
@@ -306,19 +306,19 @@ class TestStandardLetter(SimpleTestCase):
         for score, letter in [(100, "A"), (90, "A"), (89, "B"), (75, "B"), (74, "C"), (60, "C"), (59, "D"), (0, "D")]:
             with self.subTest(score=score):
                 status = PASSED if score >= 75 else FAILED
-                self.assertEqual(standard_letter(score, status == PASSED, False, status), letter)
+                self.assertEqual(standard_letter(score, status == PASSED, "high", status), letter)
 
     def test_a_critical_standard_is_a_when_passed_and_f_when_failed_or_errored(self):
-        self.assertEqual(standard_letter(100, True, True, PASSED), "A")
-        self.assertEqual(standard_letter(100, False, True, FAILED), "F")
-        self.assertEqual(standard_letter(0, False, True, ERROR), "F")
+        self.assertEqual(standard_letter(100, True, "critical", PASSED), "A")
+        self.assertEqual(standard_letter(100, False, "critical", FAILED), "F")
+        self.assertEqual(standard_letter(0, False, "critical", ERROR), "F")
 
     def test_a_critical_score_is_ignored(self):
-        self.assertEqual(standard_letter(40, True, True, PASSED), "A")
+        self.assertEqual(standard_letter(40, True, "critical", PASSED), "A")
 
     def test_running_skipped_errored_and_unscored_rows_have_no_letter(self):
-        self.assertIsNone(standard_letter(0, False, False, RUNNING))
-        self.assertIsNone(standard_letter(0, False, False, SKIPPED))
-        self.assertIsNone(standard_letter(0, False, False, ERROR))
-        self.assertIsNone(standard_letter(None, True, False, PASSED))
-        self.assertIsNone(standard_letter(0, False, True, RUNNING))
+        self.assertIsNone(standard_letter(0, False, "high", RUNNING))
+        self.assertIsNone(standard_letter(0, False, "high", SKIPPED))
+        self.assertIsNone(standard_letter(0, False, "high", ERROR))
+        self.assertIsNone(standard_letter(None, True, "high", PASSED))
+        self.assertIsNone(standard_letter(0, False, "critical", RUNNING))

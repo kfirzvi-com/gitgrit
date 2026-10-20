@@ -1,4 +1,4 @@
-{% comment %}A standard's letter (A-D; F when a critical one failed) as a small badge, or a
+{% comment %}A standard's letter (A-D; A or F only at a level with a pass-or-fail letter, Critical) as a small badge, or a
 dash when the row has no letter (running, errored, skipped). The score number stays in the
 tooltip only. Expects `ex` (a StandardExecution).{% endcomment %}
 {% with letter=ex.letter %}
@@ -9,7 +9,7 @@ tooltip only. Expects `ex` (a StandardExecution).{% endcomment %}
                  {% elif letter == 'D' %}border-2 border-error/50 text-error/70 font-bold
                  {% else %}border-2 border-error text-error bg-error/20 font-black{% endif %}"
           data-standard-letter="{{ letter }}" role="img" aria-label="Letter {{ letter }}"
-          title="{% if ex.critical %}Critical: pass or fail only{% else %}Score {{ ex.score }}{% endif %}">{{ letter }}</span>
+          title="{% if ex.rule.pass_or_fail_letter %}{{ ex.get_level_display }}: pass or fail only{% else %}Score {{ ex.score }}{% endif %}">{{ letter }}</span>
   {% else %}
     <span class="opacity-40" data-standard-letter="none" title="No letter for this result">&mdash;</span>
   {% endif %}

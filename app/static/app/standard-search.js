@@ -9,7 +9,7 @@
     description: 'description', desc: 'description',
     label: 'label', labels: 'label', tag: 'label', tags: 'label',
     status: 'status',
-    critical: 'critical',
+    level: 'level',
     connected: 'connected', attached: 'connected'
   };
 
@@ -55,8 +55,9 @@
     return null;
   }
 
-  // row: {search, name, description, labels: [..], status, critical, connected}
-  // (strings lowercased, critical / connected booleans). All terms must match.
+  // row: {search, name, description, labels: [..], status, level, connected}
+  // (strings lowercased, level a value such as 'critical', connected a
+  // boolean). All terms must match.
   function matchStandardRow(parsed, row) {
     if (parsed.text && row.search.indexOf(parsed.text) === -1) return false;
     return parsed.fields.every(function (f) {
@@ -65,7 +66,7 @@
         case 'description': return row.description.indexOf(f.value) !== -1;
         case 'label': return row.labels.some(function (l) { return l.indexOf(f.value) !== -1; });
         case 'status': return row.status === f.value;
-        case 'critical': { var c = yesNo(f.value); return c === null ? false : row.critical === c; }
+        case 'level': return row.level === f.value;
         case 'connected': { var k = yesNo(f.value); return k === null ? false : row.connected === k; }
       }
       return false;

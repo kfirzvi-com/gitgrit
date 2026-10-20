@@ -27,7 +27,14 @@ A standard with no counting run yet on its home branch is listed on the project 
 
 ## The gate: critical standards
 
-In the project's standards table each attached standard has a **Critical** mark. The mark lives on the link between the project and the standard, so the same standard can gate one project and not another. Every attachment starts not critical; detaching and reattaching resets it.
+In the project's standards table each attached standard has a **level**:
+
+| Level | What it does |
+|---|---|
+| **High** (default) | counts toward the pass rate |
+| **Critical** | gates the grade: a failing or unverified result makes the project an F |
+
+Set it per row in the **Level** column, or for every listed row at once with **Set level: High** / **Set level: Critical**; the Filter and the `level:critical` search show one level. The level lives on the link between the project and the standard, so the same standard can gate one project and not another. Every attachment starts at High; detaching and reattaching resets it. The API's `top_offenders` carry each standard's `level`.
 
 A critical standard that fails makes the project an **F**, whatever the other standards say. The reason names it: `F — No secrets failing`.
 
@@ -37,7 +44,7 @@ A critical standard whose own run errors also makes the project an **F**, with t
 
 ### Each commit has a letter too
 
-The project page's history and the API's `/commits/` list grade every checked commit by the same rule over the standards that ran on it, each read as it was marked when it ran. A standard made critical later does not rewrite an old commit's verdict, and one detached later still explains it.
+The project page's history and the API's `/commits/` list grade every checked commit by the same rule over the standards that ran on it, each read at the level it ran under. A standard set to Critical later does not rewrite an old commit's verdict, and one detached later still explains it.
 
 ## Neglect caps
 
@@ -79,7 +86,7 @@ The reason says why the grade is not one higher, in this order:
 
 ## Breaking change in this release
 
-The API's `level` values were renamed: `healthy`, `warning` and `critical` are now `good`, `attention` and `failing` (and `unknown` when there is no grade). If you compare `level` in a script or a dashboard, update the values. `grade` and `reason` are new fields on `/health/` and on each commit.
+The API's `level` values were renamed: `healthy`, `warning` and `critical` are now `good`, `attention` and `failing` (and `unknown` when there is no grade). If you compare `level` in a script or a dashboard, update the values. On `top_offenders`, the boolean `critical` is replaced by `level` (`high` or `critical`): read `level == "critical"` where you read `critical`. `grade` and `reason` are new fields on `/health/` and on each commit.
 
 ## Release-day note
 
@@ -89,4 +96,4 @@ Grades replaced the compliance percentage. On the day of the change some project
 - partial scores no longer aggregate: a standard either passed or did not;
 - disabled and draft standards drop out.
 
-Every attachment starts not critical, so no project becomes an F by the change alone. Mark the standards that must hold as critical in the project's standards table to turn the gate on.
+Every attachment starts at High, so no project becomes an F by the change alone. Set the standards that must hold to Critical in the project's standards table to turn the gate on.

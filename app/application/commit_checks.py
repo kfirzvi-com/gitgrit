@@ -208,7 +208,7 @@ class CommitRow:
     @property
     def verdict(self) -> grading.Grade:
         """The commit's verdict: ``grading.letter_for`` over its rows, each
-        read as it was marked when it ran (the snapshot ``critical``) and
+        read at the level it ran under (the snapshot ``level``) and
         with no neglect cap: a commit verdict has no clock. Rows still
         running do not count, so it is no grade while nothing finished."""
         return commit_grade(self.results)
@@ -222,11 +222,11 @@ class CommitRow:
 
 def commit_grade(executions) -> grading.Grade:
     """The grade of one run's rows (a commit, a branch), each carrying its
-    own snapshot ``critical`` and ``error_origin``; no neglect cap."""
+    own snapshot ``level`` and ``error_origin``; no neglect cap."""
     return grading.letter_for(
         grading.Result(
             status=r.status,
-            critical=r.critical,
+            level=r.level,
             error_origin=r.error_origin,
             name=r.standard_name,
         )

@@ -29,6 +29,7 @@ from app.domain.refs import bare_ref, literal_ref
 from app.application.standard_service import version_to_run
 from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsTimedOut
 from app.domain.identity import resolve_user
+from app.domain.levels import DEFAULT_LEVEL
 from app.domain.models import (
     CommitCheck,
     Project,
@@ -185,13 +186,13 @@ def enqueue_run(
 
     executions: list[StandardExecution] = []
     if to_run:
-        # Snapshot each attachment's Critical mark onto its row, so the commit
-        # verdict and the history read the mark the run was graded under. A
-        # standard run without an attachment stays not critical.
-        critical_ids = set(
+        # Snapshot each attachment's level onto its row, so the commit
+        # verdict and the history read the level the run was graded under. A
+        # standard run without an attachment gets the default level.
+        level_of = dict(
             ProjectStandard.objects.filter(
-                project=project, standard__in=to_run, critical=True
-            ).values_list("standard_id", flat=True)
+                project=project, standard__in=to_run
+            ).values_list("standard_id", "level")
         )
         # One savepoint for rows + job: a defer failure rolls the rows back
         # instead of aborting the caller's outer transaction (which would
@@ -217,7 +218,7 @@ def enqueue_run(
                         standard_name=standard.name,
                         event_type=event_type,
                         status=StandardExecution.Status.RUNNING,
-                        critical=standard.pk in critical_ids,
+                        level=level_of.get(standard.pk, DEFAULT_LEVEL.value),
                         triggered_by=triggered_by,
                         triggered_by_user=user,
                         ref=_ref(standard),

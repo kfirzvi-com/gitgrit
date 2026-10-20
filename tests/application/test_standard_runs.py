@@ -288,23 +288,23 @@ class EnqueueRunTests(TestCase):
     def _standard(self, **kw):
         return baker.make("app.Standard", tenant=self.tenant, **kw)
 
-    def test_execution_snapshot_carries_the_attachments_critical_mark(self):
-        """The row remembers the mark it ran under; a standard with no
-        attachment (or one not marked) stays not critical."""
+    def test_execution_snapshot_carries_the_attachments_level(self):
+        """The row remembers the level it ran under; a standard with no
+        attachment gets the default level (High)."""
         gate, plain, loose = self._standard(), self._standard(), self._standard()
         self.project.standards.add(gate, plain)
         ProjectStandard.objects.filter(project=self.project, standard=gate).update(
-            critical=True
+            level="critical"
         )
 
         with defer_patch():
             enqueue_run(self.project, [gate, plain, loose])
 
         by_standard = {
-            r.standard_id: r.critical
+            r.standard_id: r.level
             for r in StandardExecution.objects.filter(project=self.project)
         }
-        assert by_standard == {gate.pk: True, plain.pk: False, loose.pk: False}
+        assert by_standard == {gate.pk: "critical", plain.pk: "high", loose.pk: "high"}
 
     def test_creates_a_running_row_per_standard_and_defers_the_job(self):
         s1, s2 = self._standard(), self._standard()

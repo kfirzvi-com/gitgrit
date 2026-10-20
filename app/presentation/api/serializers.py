@@ -6,7 +6,7 @@ Views return the service dicts as-is.
 """
 from rest_framework import serializers
 
-from app.domain import grading
+from app.domain import grading, levels
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 
@@ -99,8 +99,18 @@ class ProjectRefSerializer(serializers.Serializer):
 class OffenderSerializer(serializers.Serializer):
     standard_id = serializers.UUIDField()
     name = serializers.CharField()
-    critical = serializers.BooleanField(
-        help_text="Whether the standard gates this project (a failing critical standard is an F)."
+    level = serializers.ChoiceField(
+        choices=levels.level_choices(),
+        help_text=(
+            "The standard's level on this project. "
+            + "; ".join(
+                f"{r.level.value}"
+                f"{' (the default)' if r.level is levels.DEFAULT_LEVEL else ''}: "
+                f"{r.help}"
+                for r in levels.ordered_rules()
+            )
+            + "."
+        ),
     )
     status = serializers.ChoiceField(choices=["failed", "error"])
     score = serializers.IntegerField(allow_null=True)

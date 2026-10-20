@@ -128,7 +128,7 @@ class ProjectHistoryViewTests(TestCase):
         check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=sha)
         return baker.make(
             "app.StandardExecution", project=self.project, standard=other, standard_name=name,
-            status=status, score=0, critical=critical, commit_check=check,
+            status=status, score=0, level="critical" if critical else "high", commit_check=check,
         )
 
     def test_the_top_summary_and_the_commit_count_failed_critical_standards(self):

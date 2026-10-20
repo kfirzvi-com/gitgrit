@@ -29,7 +29,7 @@ class TestOverviewCard(TestCase):
         standard = _standard(self.tenant)
         self.project.standards.add(standard)
         if critical:
-            ProjectStandard.objects.filter(project=self.project, standard=standard).update(critical=True)
+            ProjectStandard.objects.filter(project=self.project, standard=standard).update(level="critical")
         kwargs.setdefault("event_type", "manual")
         return baker.make(
             "app.StandardExecution", project=self.project, standard=standard,

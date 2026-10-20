@@ -249,7 +249,7 @@ class TestCriticalGate(TestCase):
     def _attach(self, project, standard, *, critical=False):
         project.standards.add(standard)
         ProjectStandard.objects.filter(project=project, standard=standard).update(
-            critical=critical
+            level="critical" if critical else "high"
         )
 
     def _standard(self, name="s", *, critical=False, project=None, **kwargs):
@@ -280,8 +280,8 @@ class TestCriticalGate(TestCase):
 
         row = ProjectStandard.objects.get(project=self.project, standard=s)
 
-        assert row.critical is False
-        assert grade_for_project(self.project).critical_standard_ids == frozenset()
+        assert row.level == "high"
+        assert grade_for_project(self.project).standard_ids_where(lambda rule: rule.gates_grade) == frozenset()
 
     def test_any_critical_fail_is_an_f(self):
         for i in range(9):
@@ -293,7 +293,7 @@ class TestCriticalGate(TestCase):
 
         assert grading.grade.letter == "F"
         assert grading.grade.reason == "No secrets failing"
-        assert grading.critical_standard_ids == {gate.pk}
+        assert grading.standard_ids_where(lambda rule: rule.gates_grade) == {gate.pk}
 
     def test_critical_standard_origin_error_is_f_could_not_verify(self):
         gate = self._standard("No secrets", critical=True)
@@ -357,9 +357,9 @@ class TestCriticalGate(TestCase):
         shows F on the next read; the row's own snapshot stays as it was."""
         s = self._standard("Late gate")
         row = self._run(s, Status.FAILED)
-        assert row.critical is False
+        assert row.level == "high"
 
-        ProjectStandard.objects.filter(project=self.project, standard=s).update(critical=True)
+        ProjectStandard.objects.filter(project=self.project, standard=s).update(level="critical")
 
         assert grade_for_project(self.project).grade.letter == "F"
-        assert StandardExecution.objects.get(pk=row.pk).critical is False
+        assert StandardExecution.objects.get(pk=row.pk).level == "high"

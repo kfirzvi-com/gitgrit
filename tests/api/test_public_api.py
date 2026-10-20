@@ -209,7 +209,7 @@ class TestProjects(PublicAPITestCase):
         gate = baker.make("app.Standard", tenant=self.tenant, name="No secrets")
         lint = baker.make("app.Standard", tenant=self.tenant, name="Lint")
         self.project.standards.add(gate, lint)
-        self.project.project_standards.filter(standard=gate).update(critical=True)
+        self.project.project_standards.filter(standard=gate).update(level="critical")
         for standard, score in ((lint, 20), (gate, 90)):
             baker.make(
                 "app.StandardExecution", project=self.project, standard=standard,
@@ -220,9 +220,9 @@ class TestProjects(PublicAPITestCase):
 
         assert (body["grade"], body["reason"]) == ("F", "No secrets failing")
         assert body["overall_score"] == 55
-        assert [(o["name"], o["critical"], o["status"]) for o in body["top_offenders"]] == [
-            ("No secrets", True, "failed"),
-            ("Lint", False, "failed"),
+        assert [(o["name"], o["level"], o["status"]) for o in body["top_offenders"]] == [
+            ("No secrets", "critical", "failed"),
+            ("Lint", "high", "failed"),
         ]
 
     def test_other_workspace_project_is_404(self):

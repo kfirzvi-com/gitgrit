@@ -1,5 +1,5 @@
 """Standards table on the project page: label wording, smart search
-(`category:value`), label chip click, and the combined Filter dropdown (Connection + Critical groups).
+(`category:value`), label chip click, and the combined Filter dropdown (Connection + Level groups).
 
 The filtering runs in the browser. The pure parser/matcher lives in
 app/static/app/standard-search.js and is unit-tested by running it in node
@@ -15,7 +15,7 @@ from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
-from tests.presentation.test_project_critical_marks import (
+from tests.presentation.test_project_standard_levels import (
     _login_member,
     _project,
     _standard,
@@ -30,7 +30,7 @@ ROW = {
     "description": "finds keys",
     "labels": ["security", "my label"],
     "status": "active",
-    "critical": True,
+    "level": "critical",
     "connected": False,
 }
 
@@ -96,8 +96,10 @@ class TestSearchParser:
         assert not _matches("label:other")
         assert _matches("status:active")
         assert not _matches("status:draft")
-        assert _matches("critical:yes")
-        assert not _matches("critical:no")
+        assert _matches("level:critical")
+        assert _matches("level:Critical")
+        assert not _matches("level:high")
+        assert not _matches("critical:yes")
         assert _matches("connected:no")
         assert not _matches("connected:yes")
 
@@ -159,11 +161,11 @@ class TestPickerMarkup(TestCase):
         assert "<select" not in body.split("standard-picker-filter", 1)[1].split("</details>")[0]
         for group, values in (
             ("connection", ("connected", "not-connected")),
-            ("critical", ("critical", "not-critical")),
+            ("level", ("critical", "high")),
         ):
             for value in values:
                 assert f'data-filter-group="{group}" value="{value}" checked' in body
-        for text in ("Connection", "Not connected", "Not critical", "Reset"):
+        for text in ("Connection", "Not connected", "Level", "High", "Critical", "Reset"):
             assert text in body
         assert "standard-picker-filter-count" in body
         assert "resetStandardPickerFilter" in body

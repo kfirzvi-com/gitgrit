@@ -9,21 +9,22 @@ failure; the newest commit wins. The rows come from
 current results, so the grade never disagrees with the Results tab; then
 ``app.domain.grading`` decides the letter.
 
-A ``Result``'s ``critical`` is the attachment's *current* mark, not the
-execution's snapshot: flipping an attachment to critical while its latest
-result fails shows F on the next page load, and flipping it back lifts the
-gate, without a new run. The snapshot on ``StandardExecution.critical`` is
-for history, which must read a run as it was marked (a standard detached
+A ``Result``'s ``level`` is the attachment's *current* level, not the
+execution's snapshot: setting an attachment to Critical while its latest
+result fails shows F on the next page load, and setting it back lifts the
+gate, without a new run. The snapshot on ``StandardExecution.level`` is
+for history, which must read a run at the level it ran under (a standard detached
 after the run still explains its old verdict). The neglect clock
 ``first_failed_at`` is read the same way, off the attachment.
 """
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from app.application.standard_results import current_results
-from app.domain import grading
+from app.domain import grading, levels
 from app.domain.refs import home_branch
 from app.domain.models import Project, ProjectStandard, Standard, StandardExecution
 
@@ -37,8 +38,15 @@ class ProjectGrading:
     # Attached, enabled, non-draft standards with no counting result yet.
     # Each carries ``home_branch``, the branch it is waiting for a run on.
     not_evaluated: list[Standard]
-    # Ids of the standards whose attachment is marked critical.
-    critical_standard_ids: frozenset = frozenset()
+    # ``{standard_id: level}`` of every active attachment.
+    levels: dict = field(default_factory=dict)
+
+    def standard_ids_where(self, behavior: Callable[[levels.LevelRule], bool]) -> frozenset:
+        """Ids of the standards whose attachment's level rule has
+        ``behavior``, e.g. ``lambda rule: rule.gates_grade``."""
+        return frozenset(
+            sid for sid, level in self.levels.items() if behavior(levels.rule_for(level))
+        )
 
 
 def _active_attachments_by_project(projects) -> dict:
@@ -73,14 +81,14 @@ def _counting_results(projects, exclude_execution_ids=()) -> dict:
 
 def result_for(
     execution: StandardExecution,
-    critical: bool = False,
+    level: str = levels.DEFAULT_LEVEL.value,
     first_failed_at=None,
 ) -> grading.Result:
-    """``critical`` and ``first_failed_at`` are the attachment's current mark
+    """``level`` and ``first_failed_at`` are the attachment's current level
     and neglect clock (see the module doc)."""
     return grading.Result(
         status=execution.status,
-        critical=critical,
+        level=level,
         error_origin=execution.error_origin,
         name=execution.standard_name,
         first_failed_at=first_failed_at,
@@ -92,7 +100,7 @@ def _results(executions, attachments: dict):
         attachment = attachments.get(ex.standard_id)
         yield result_for(
             ex,
-            critical=bool(attachment and attachment.critical),
+            level=attachment.level if attachment else levels.DEFAULT_LEVEL.value,
             first_failed_at=attachment.first_failed_at if attachment else None,
         )
 
@@ -113,18 +121,20 @@ def _grading(project, attachments, found: dict) -> ProjectGrading:
         grade=grade,
         executions=executions,
         not_evaluated=not_evaluated,
-        critical_standard_ids=frozenset(a.standard_id for a in attachments if a.critical),
+        levels={a.standard_id: a.level for a in attachments},
     )
 
 
-def critical_failed_count(executions, critical_standard_ids) -> int:
+def critical_failed_count(executions, levels_by_standard) -> int:
     """How many counting critical results failed or errored: the results the
     gate (``grading.is_gated``) turns into an F, so the count is above zero
     exactly when the grade is F. Read from a grading's own rows, no query."""
     return sum(
         1
         for ex in executions
-        if grading.is_gated([result_for(ex, critical=ex.standard_id in critical_standard_ids)])
+        if grading.is_gated([
+            result_for(ex, level=levels_by_standard.get(ex.standard_id, levels.DEFAULT_LEVEL.value))
+        ])
     )
 
 

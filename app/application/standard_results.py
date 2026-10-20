@@ -23,6 +23,7 @@ from django.db.models import Q
 from django.db.models.functions import Coalesce
 
 from app.domain.health import ATTENTION, FAILING
+from app.domain.levels import DEFAULT_LEVEL, rule_for
 from app.domain.models import Project, ProjectStandard, StandardExecution
 from app.domain.refs import home_branch
 
@@ -101,13 +102,13 @@ class CriticalSummary:
 
 
 def critical_summary(results) -> CriticalSummary:
-    """Count critical results in ``results`` (each read by its own snapshot
-    ``critical``) and how many of them failed or errored in their own run.
+    """Count critical results (a level shown as critical) in ``results``
+    (each read by its own snapshot ``level``) and how many of them failed or errored in their own run.
     Running, skipped and platform-error rows do not count. Pure: reads only
     what the rows already carry."""
     total = failed = 0
     for r in results:
-        if not r.critical or r.status not in FINISHED or (
+        if not rule_for(r.level).shown_as_critical or r.status not in FINISHED or (
             r.status == Status.ERROR and r.error_origin == StandardExecution.ErrorOrigin.PLATFORM
         ):
             continue
@@ -128,8 +129,8 @@ def project_score(results) -> int | None:
 class AttentionItem:
     """One current result that did not pass."""
 
-    level: str  # FAILING when the standard is critical, else ATTENTION
-    critical: bool
+    tone: str  # FAILING when the standard's level is shown as critical, else ATTENTION
+    standard_level: str  # the attachment's level (app.domain.levels)
     project_id: object
     project_name: str
     standard_id: object
@@ -137,6 +138,15 @@ class AttentionItem:
     execution_id: object
     status: str  # display label, e.g. "Failed" or "Could not verify"
     when: datetime
+
+    @property
+    def shown_as_critical(self) -> bool:
+        """Is the standard's level shown as critical?"""
+        return rule_for(self.standard_level).shown_as_critical
+
+    @property
+    def level_label(self) -> str:
+        return rule_for(self.standard_level).label
 
 
 def attention_items(tenant) -> list[AttentionItem]:
@@ -151,21 +161,22 @@ def attention_items(tenant) -> list[AttentionItem]:
     decide how many to show.
     """
     projects = Project.objects.filter(tenant=tenant)
-    critical_pairs = set(
-        ProjectStandard.objects.filter(project__in=projects, critical=True).values_list(
-            "project_id", "standard_id"
-        )
-    )
+    level_of = {
+        (project_id, standard_id): level
+        for project_id, standard_id, level in ProjectStandard.objects.filter(
+            project__in=projects
+        ).values_list("project_id", "standard_id", "level")
+    }
     items = []
     for ex in current_results(projects, exclude_platform_errors=True):
         if not ex.standard.enabled or ex.standard.draft or ex.status == Status.PASSED:
             continue
-        critical = (ex.project_id, ex.standard_id) in critical_pairs
+        standard_level = level_of.get((ex.project_id, ex.standard_id), DEFAULT_LEVEL.value)
         unverified = ex.status == Status.ERROR
         items.append(
             AttentionItem(
-                level=FAILING if critical else ATTENTION,
-                critical=critical,
+                tone=FAILING if rule_for(standard_level).shown_as_critical else ATTENTION,
+                standard_level=standard_level,
                 project_id=ex.project_id,
                 project_name=ex.project.name,
                 standard_id=ex.standard_id,
@@ -177,7 +188,7 @@ def attention_items(tenant) -> list[AttentionItem]:
         )
 
     def rank(item):
-        return (item.critical, item.status != "Could not verify", item.when)
+        return (item.shown_as_critical, item.status != "Could not verify", item.when)
 
     items.sort(key=rank, reverse=True)
     return items
@@ -206,7 +217,7 @@ def group_results(results) -> list[tuple[str, str, list]]:
 
     def sort_key(ex):
         return (
-            not ex.critical,
+            not rule_for(ex.level).shown_as_critical,
             ex.status != Status.FAILED,
             (ex.standard_name or "").lower(),
         )

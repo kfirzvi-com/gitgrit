@@ -95,9 +95,9 @@ class ProjectHealthService:
         its home branch — or, with ``branch``, that branch's own health.
 
         The project's grade is the one the project page shows
-        (``grade_for_project``: attachments' current Critical marks and
-        neglect clocks). A branch's grade reads its rows as they were marked
-        when they ran, with no neglect cap, like a commit's."""
+        (``grade_for_project``: attachments' current levels and neglect
+        clocks). A branch's grade reads its rows at the level they ran
+        under, with no neglect cap, like a commit's."""
         project = self._project(tenant, project_id)
         if branch:
             results = commit_checks.branch_status(project, branch)

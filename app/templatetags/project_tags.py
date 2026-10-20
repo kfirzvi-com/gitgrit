@@ -5,7 +5,38 @@ from django import template
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 
+from app.domain import levels
+
 register = template.Library()
+
+
+@register.simple_tag
+def level_rules():
+    """Every standard level's rule (``app.domain.levels``), most severe
+    first: the options, bulk actions and filter of the standards table."""
+    return levels.ordered_rules()
+
+
+@register.filter
+def level_of(levels_by_standard, standard_id):
+    """The level ``standard_id`` has in ``levels_by_standard`` (a dict),
+    the default level when it has none."""
+    return (levels_by_standard or {}).get(standard_id, levels.DEFAULT_LEVEL.value)
+
+
+@register.filter
+def level_help(level):
+    """The one-line tooltip of a level value, from its rule."""
+    return levels.rule_for(level).help
+
+
+@register.simple_tag
+def critical_levels_help():
+    """The tooltip of the "N critical failed" count: what each level shown
+    as critical does, from its rule."""
+    return " ".join(
+        f"{r.label}: {r.help}." for r in levels.ordered_rules() if r.shown_as_critical
+    )
 
 
 @register.simple_tag

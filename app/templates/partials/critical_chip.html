@@ -1,3 +1,4 @@
-{# Read-only "Critical" chip for an attachment marked critical. Change the mark in the project's standards table. #}
+{# Read-only level chip ("Critical") for a result whose level is shown as critical; expects `ex` (a StandardExecution). Change the level in the project's standards table. #}
+{% load project_tags %}
 <span class="badge badge-error badge-outline badge-xs align-middle" data-critical-chip
-      title="Critical: a failing or unverified result makes the project grade an F">Critical</span>
+      title="{{ ex.get_level_display }}: {{ ex.level|level_help }}">{{ ex.get_level_display }}</span>

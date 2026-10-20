@@ -282,7 +282,7 @@ class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
 
     def _standard(self, name, critical):
         standard = baker.make("app.Standard", tenant=self.tenant, name=name)
-        ProjectStandard.objects.create(project=self.project, standard=standard, critical=critical)
+        ProjectStandard.objects.create(project=self.project, standard=standard, level="critical" if critical else "high")
         return standard
 
     def _result(self, standard, status, **kwargs):
@@ -360,7 +360,7 @@ class OnePicturePerRunTests(_PolicyTestCase):
         unverified = baker.make("app.Standard", tenant=self.tenant, name="Licences")
         rows = []
         for standard in (failing, unverified):
-            ProjectStandard.objects.create(project=self.project, standard=standard, critical=True)
+            ProjectStandard.objects.create(project=self.project, standard=standard, level="critical")
             baker.make(
                 "app.StandardExecution", project=self.project, standard=standard,
                 standard_name=standard.name, status=Status.PASSED, event_type="manual",
@@ -405,7 +405,7 @@ class GradeUnverifiedNotificationPolicyTests(_PolicyTestCase):
 
     def _standard(self, name, critical):
         standard = baker.make("app.Standard", tenant=self.tenant, name=name)
-        ProjectStandard.objects.create(project=self.project, standard=standard, critical=critical)
+        ProjectStandard.objects.create(project=self.project, standard=standard, level="critical" if critical else "high")
         return standard
 
     def _result(
@@ -508,11 +508,11 @@ class GradeUnverifiedNotificationPolicyTests(_PolicyTestCase):
         """Not critical when it errored, marked critical afterwards: no run,
         so nothing; the page shows "F — could not verify" on its own. The
         next error is a repeat, still silent."""
-        ProjectStandard.objects.filter(project=self.project).update(critical=False)
+        ProjectStandard.objects.filter(project=self.project).update(level="high")
         self._run(self._errored())
         self.assertFalse(self._notices().exists())
 
-        ProjectStandard.objects.filter(project=self.project).update(critical=True)
+        ProjectStandard.objects.filter(project=self.project).update(level="critical")
         self._run(self._errored())
         self.assertFalse(self._notices().exists())
 

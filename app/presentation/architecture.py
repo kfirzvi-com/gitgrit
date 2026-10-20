@@ -31,7 +31,7 @@ from django.urls import reverse
 
 from app.application.grading_service import letter_for_projects
 from app.application.naming import canonical_key
-from app.domain import grading
+from app.domain import grading, levels
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
@@ -50,13 +50,14 @@ def _letter(project_id, grades):
     return grading_.grade.letter if grading_ else grading.NO_GRADE
 
 
-def _not_passed(execution, critical_ids):
-    """The attention facts of a counting execution that did not pass:
-    ``(critical, failed, unverified)``; ``None`` when it passed."""
+def _not_passed(execution, rule):
+    """The attention facts of a counting execution that did not pass, read
+    with its attachment's level ``rule``: ``(shown_as_critical, failed,
+    unverified)``; ``None`` when it passed."""
     if execution.status == grading.PASSED:
         return None
     return (
-        execution.standard_id in critical_ids,
+        rule.shown_as_critical,
         execution.status == grading.FAILED,
         execution.status == grading.ERROR,
     )
@@ -76,7 +77,8 @@ def _project_issues(project_id, grades):
         return []
     issues = []
     for ex in grading_.executions:
-        facts = _not_passed(ex, grading_.critical_standard_ids)
+        rule = levels.rule_for(grading_.levels.get(ex.standard_id))
+        facts = _not_passed(ex, rule)
         if facts is None:
             continue
         critical, _failed, unverified = facts
@@ -86,7 +88,7 @@ def _project_issues(project_id, grades):
             else f"{ex.standard_name} failing"
         )
         if critical:
-            text += " (critical)"
+            text += f" ({rule.label.lower()})"
         issues.append((not critical, text))
     issues.sort(key=lambda t: t[0])
     return [text for _, text in issues[:4]]

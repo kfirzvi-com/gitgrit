@@ -12,8 +12,8 @@ speaks again.
 ``standard_results.current_results``): the pair's latest finished result on
 its home branch, newest commit first, GitGrit's own failures skipped. So a
 run on another branch, an older commit or a platform error never
-transitions, and critical is the attachment's *current* mark: a standard
-detached or unmarked between the run and this lookup stays quiet.
+transitions, and critical is the attachment's *current* level: a standard
+detached or set back to High between the run and this lookup stays quiet.
 """
 
 from __future__ import annotations
@@ -62,17 +62,19 @@ def pictures_for(event, project: Project) -> RunPictures:
 
 
 def unverified_transitions(pictures: RunPictures) -> list[StandardExecution]:
-    """This run's rows that just flipped a critical attachment into "could
-    not verify", in the standards' order. Empty when nothing transitioned:
-    no critical attachment's counting result is an own-code error of this
-    run, or every one that is was already errored before this run."""
+    """This run's rows that just flipped an attachment whose level alerts
+    when unverified (Critical) into "could not verify", in the standards'
+    order. Empty when nothing transitioned: no such attachment's counting
+    result is an own-code error of this run, or every one that is was
+    already errored before this run."""
     run_ids = set(pictures.run_ids)
     after = pictures.after
+    alerting_ids = after.standard_ids_where(lambda rule: rule.alerts_when_unverified)
     candidates = [
         ex
         for ex in after.executions
         if str(ex.pk) in run_ids
-        and ex.standard_id in after.critical_standard_ids
+        and ex.standard_id in alerting_ids
         and ex.status == StandardExecution.Status.ERROR
     ]
     if not candidates:
@@ -80,9 +82,10 @@ def unverified_transitions(pictures: RunPictures) -> list[StandardExecution]:
     before = {row.standard_id: row for row in pictures.before.executions}
     transitioned = []
     for row in candidates:
-        current = grading_service.result_for(row, critical=True)
+        level = after.levels[row.standard_id]
+        current = grading_service.result_for(row, level=level)
         earlier = before.get(row.standard_id)
-        previous = grading_service.result_for(earlier, critical=True) if earlier else None
+        previous = grading_service.result_for(earlier, level=level) if earlier else None
         if grading.unverified_transition(previous, current):
             transitioned.append(row)
     return transitioned

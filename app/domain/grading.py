@@ -1,5 +1,6 @@
 """Pure grade rules: the letter a project earns from its standards' own
-verdicts, and the gate a critical standard puts in front of it. No I/O, no ORM.
+verdicts, and the gate a gating level (``app.domain.levels``: Critical today)
+puts in front of it. No I/O, no ORM.
 
 A ``Result`` is the latest counting outcome of one attachment on the
 standard's home branch (the project's default branch, unless the standard's
@@ -14,6 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+from app.domain import levels
 
 # Execution statuses as stored on ``StandardExecution.status``.
 RUNNING = "running"
@@ -118,19 +121,25 @@ def worst_letter(letters) -> str:
 class Result:
     """The latest finished outcome of one attachment on its home branch.
 
-    ``name`` is the standard's name, so a reason can say which critical
-    standard is failing.
+    ``name`` is the standard's name, so a reason can say which gating
+    standard is failing. ``level`` is the attachment's level
+    (``app.domain.levels``); ``rule`` is what it does.
     ``first_failed_at`` lets the neglect cap count days without the database.
     """
 
     status: str
-    critical: bool = False
+    level: str = levels.DEFAULT_LEVEL.value
     error_origin: str = STANDARD_ORIGIN
     name: str = ""
     # The attachment's neglect clock: when this standard first failed on its
     # home branch and has not passed since (``None`` when it is not failing,
     # or has no clock, as a commit's rows have).
     first_failed_at: datetime | None = None
+
+    @property
+    def rule(self) -> levels.LevelRule:
+        """The behavior of this result's level."""
+        return levels.rule_for(self.level)
 
     @property
     def counts(self) -> bool:
@@ -191,18 +200,18 @@ def counts_toward_grade(execution, home_branch: str, default_branch: str | None 
     return is_home_branch_run(execution.ref, home_branch, default_branch)
 
 
-def standard_letter(score, passed: bool, critical: bool, status: str) -> str | None:
+def standard_letter(score, passed: bool, level: str | None, status: str) -> str | None:
     """The letter one standard's result shows on the Results tab, or ``None``
     when it has none (the row shows a dash).
 
-    A critical standard is pass or fail only: A when it passed, F when it
-    failed or errored in its own run. Any other standard reads its 0-100
+    A standard whose level has a pass-or-fail letter (Critical) is A when it
+    passed, F when it failed or errored in its own run. Any other standard reads its 0-100
     score through the pass-rate bands (A+ is not used for one standard, so
     100 is an A); only a finished pass or fail carries a letter, and one
     without a score has none. Running, skipped and (for a non-critical
     standard) errored rows have none. Display only: grades are decided by
     ``letter_for``."""
-    if critical:
+    if levels.rule_for(level).pass_or_fail_letter:
         if status == PASSED or (status == FAILED and passed):
             return A
         return F if status in (FAILED, ERROR) else None
@@ -226,22 +235,23 @@ def letter_from_pass_rate(passed: int, total: int) -> str:
 
 
 def is_gated(results) -> bool:
-    """Does any critical result fail, or error inside its own run?"""
+    """Does any result whose level gates the grade fail, or error inside its
+    own run?"""
     return any(
-        r.critical and r.counts and not r.passed for r in results
+        r.rule.gates_grade and r.counts and not r.passed for r in results
     )
 
 
 def _names(results) -> str:
-    return ", ".join(r.name or "a critical standard" for r in results)
+    return ", ".join(r.name or f"a {r.rule.label} standard" for r in results)
 
 
 def reason_for(results, letter: str, cap: str | None = None) -> str:
-    """Why the grade is not one higher, in this priority: a critical result
+    """Why the grade is not one higher, in this priority: a gating result
     failing or unverified, then a neglect cap (``cap`` is its sentence, Bet
     2), then how many standards are failing, then "perfect"."""
     counting = [r for r in results if r.counts]
-    gated = [r for r in counting if r.critical and not r.passed]
+    gated = [r for r in counting if r.rule.gates_grade and not r.passed]
     if gated:
         parts = []
         failing = [r for r in gated if not r.unverified]
@@ -255,7 +265,7 @@ def reason_for(results, letter: str, cap: str | None = None) -> str:
         return cap
     if not counting:
         return REASON_NO_RESULTS
-    failing_count = sum(1 for r in counting if not r.critical and not r.passed)
+    failing_count = sum(1 for r in counting if r.rule.in_pass_rate and not r.passed)
     if failing_count:
         return f"{failing_count} standard{'' if failing_count == 1 else 's'} failing"
     return REASON_PERFECT
@@ -300,9 +310,10 @@ def _worse(letter: str, cap: str | None) -> str:
 def letter_for(results, now: datetime | None = None) -> Grade:
     """The project grade and its reason.
 
-    Any critical result failed or errored (standard origin) is an F. Otherwise
-    the letter is the pass rate of the non-critical results; with none of
-    those, A+ when every critical result passed, else no grade. A neglect
+    Any gating result failed or errored (standard origin) is an F. Otherwise
+    the letter is the pass rate of the results whose level is in the pass
+    rate; with none of those, A+ when every other result passed, else no
+    grade. A neglect
     cap (a standard failing on its home branch for more than 14 or 30
     days, by its ``first_failed_at`` against ``now``) then lowers the letter
     to the cap, never raises it, and never applies behind the gate.
@@ -312,10 +323,10 @@ def letter_for(results, now: datetime | None = None) -> Grade:
     counting = [r for r in results if r.counts]
     if is_gated(counting):
         return Grade(F, reason_for(counting, F))
-    non_critical = [r for r in counting if not r.critical]
-    if non_critical:
+    in_rate = [r for r in counting if r.rule.in_pass_rate]
+    if in_rate:
         letter = letter_from_pass_rate(
-            sum(1 for r in non_critical if r.passed), len(non_critical)
+            sum(1 for r in in_rate if r.passed), len(in_rate)
         )
     elif counting:
         letter = A_PLUS
@@ -334,10 +345,11 @@ def letter_for(results, now: datetime | None = None) -> Grade:
 
 
 def unverified_transition(previous: Result | None, current: Result) -> bool:
-    """Should the could-not-verify alert go out: a critical result errored in
+    """Should the could-not-verify alert go out: a result whose level alerts
+    when unverified (Critical) errored in
     its own run when its previous counting result was not errored, or there
     was none. A repeat error is silent; after a pass the next error notifies
     again."""
-    if not (current.critical and current.unverified):
+    if not (current.rule.alerts_when_unverified and current.unverified):
         return False
     return previous is None or not previous.unverified

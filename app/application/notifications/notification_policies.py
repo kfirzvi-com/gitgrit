@@ -134,7 +134,7 @@ class ProjectTurnedCriticalNotificationPolicy:
         after = pictures.after
         if not notification_rules.turned_critical(before.letter, after.grade.letter):
             return
-        if not _critical_failing(after):
+        if not _gating_failing(after):
             return
         rows = _rows(event, project)
         raise_notification(
@@ -396,12 +396,12 @@ def _triggered_by(event) -> list[str]:
     return list(dict.fromkeys(str(u) for u in ids))
 
 
-def _critical_failing(picture) -> bool:
-    """Is a critical standard's counting result a failed verdict? (An F with
-    none is a could-not-verify F.)"""
+def _gating_failing(picture) -> bool:
+    """Is a counting result of a standard whose level gates the grade a
+    failed verdict? (An F with none is a could-not-verify F.)"""
+    gating_ids = picture.standard_ids_where(lambda rule: rule.gates_grade)
     return any(
-        ex.standard_id in picture.critical_standard_ids
-        and ex.status == StandardExecution.Status.FAILED
+        ex.standard_id in gating_ids and ex.status == StandardExecution.Status.FAILED
         for ex in picture.executions
     )
 

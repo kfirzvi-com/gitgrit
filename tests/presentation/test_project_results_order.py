@@ -16,7 +16,7 @@ Status = StandardExecution.Status
 
 
 def _ex(name, status, critical=False):
-    return SimpleNamespace(standard_name=name, status=status, critical=critical)
+    return SimpleNamespace(standard_name=name, status=status, level="critical" if critical else "high")
 
 
 class GroupResultsTests(SimpleTestCase):
@@ -75,7 +75,7 @@ class ResultsTabOrderTests(TestCase):
         self.project.standards.add(standard)
         return baker.make(
             "app.StandardExecution", project=self.project, standard=standard,
-            standard_name=name, status=status, critical=critical, score=0, commit_check=self.check,
+            standard_name=name, status=status, level="critical" if critical else "high", score=0, commit_check=self.check,
         )
 
     def _body(self):
