@@ -1,0 +1,2 @@
+{# Provider id -> models, read by the role dropdown JS. #}
+<div id="llm-models-map" hidden{% if oob %} hx-swap-oob="true"{% endif %}>{{ llm_provider_models_map|json_script:"llm-provider-models" }}</div>

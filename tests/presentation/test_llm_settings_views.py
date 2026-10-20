@@ -193,3 +193,230 @@ class TestSetLLMRole(TestCase):
         )
         assert resp.status_code == 302
         assert LLMRole.objects.count() == 0
+
+
+@pytest.mark.django_db
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class TestSetLLMRoleHtmx(TestCase):
+    URL = "/tenants/llm/roles/reasoning/set/"
+
+    def _login(self, role="admin"):
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role=role)
+        self.client.force_login(user)
+        provider = baker.make(
+            "app.LLMProvider",
+            tenant=tenant,
+            provider_type="anthropic",
+            display_name="Anthropic",
+            available_models=["m1", "m2"],
+            enabled=True,
+        )
+        return tenant, provider
+
+    def test_save_returns_the_form_with_a_success_message(self):
+        tenant, provider = self._login()
+        resp = self.client.post(
+            self.URL,
+            {"provider_id": str(provider.id), "model": "m1"},
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert 'id="llm-role-reasoning"' in body
+        assert "Role &quot;reasoning&quot; set to Anthropic/m1." in body
+        assert 'data-current-model="m1"' in body
+        assert "<html" not in body
+        role = LLMRole.objects.get(tenant=tenant, name="reasoning")
+        assert (role.provider_id, role.model) == (provider.id, "m1")
+
+    def test_missing_model_shows_the_error_inline_and_saves_nothing(self):
+        tenant, provider = self._login()
+        resp = self.client.post(
+            self.URL, {"provider_id": str(provider.id), "model": ""},
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        assert "Select a model for the role." in resp.content.decode()
+        assert not LLMRole.objects.filter(tenant=tenant).exists()
+
+    def test_clearing_returns_the_form_with_a_message(self):
+        tenant, provider = self._login()
+        LLMRole.objects.create(
+            tenant=tenant, name="reasoning", provider=provider, model="m1"
+        )
+        resp = self.client.post(
+            self.URL, {"provider_id": ""}, HTTP_HX_REQUEST="true"
+        )
+        assert resp.status_code == 200
+        assert "Cleared the" in resp.content.decode()
+        assert not LLMRole.objects.filter(tenant=tenant).exists()
+
+    def test_member_gets_an_inline_error_not_a_redirect(self):
+        tenant, provider = self._login(role="member")
+        resp = self.client.post(
+            self.URL,
+            {"provider_id": str(provider.id), "model": "m1"},
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        assert "permission" in resp.content.decode()
+        assert not LLMRole.objects.filter(tenant=tenant).exists()
+
+    def test_without_htmx_it_still_redirects(self):
+        tenant, provider = self._login()
+        resp = self.client.post(
+            self.URL, {"provider_id": str(provider.id), "model": "m1"}
+        )
+        assert resp.status_code == 302
+        assert LLMRole.objects.filter(tenant=tenant, name="reasoning").exists()
+
+
+@pytest.mark.django_db
+class TestProviderFormsHtmx(TestCase):
+    def _login(self, role="admin"):
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role=role)
+        self.client.force_login(user)
+        provider = baker.make(
+            "app.LLMProvider",
+            tenant=tenant,
+            provider_type="anthropic",
+            display_name="Anthropic",
+            available_models=["m1"],
+            api_key="sk-old",
+            enabled=True,
+        )
+        return tenant, provider
+
+    def _edit_url(self, provider):
+        return f"/tenants/llm/providers/{provider.id}/edit/"
+
+    # --- add ---------------------------------------------------------------
+
+    def test_add_returns_partial_with_table_roles_and_message(self):
+        tenant, _ = self._login()
+        with patch(DISCOVER, return_value=_found(["x1", "x2"])):
+            resp = self.client.post(
+                ADD_URL,
+                {"provider_type": "openai", "display_name": "Mine", "api_key": "sk-new"},
+                HTTP_HX_REQUEST="true",
+            )
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "<html" not in body
+        assert "added — 2 models" in body
+        assert 'id="llm-providers-table"' in body and "Mine" in body
+        assert 'id="llm-role-reasoning"' in body
+        assert 'id="llm-models-map"' in body and "x1" in body
+        assert "hx-swap-oob" in body
+        assert "sk-new" not in body
+        assert LLMProvider.objects.filter(tenant=tenant, display_name="Mine").exists()
+
+    def test_add_validation_error_is_inline_and_saves_nothing(self):
+        tenant, _ = self._login()
+        with patch(DISCOVER, return_value=_found([])):
+            resp = self.client.post(
+                ADD_URL, {"provider_type": "openai", "api_key": ""},
+                HTTP_HX_REQUEST="true",
+            )
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "API key is required." in body
+        assert "llm-providers-table" not in body
+        assert LLMProvider.objects.filter(tenant=tenant).count() == 1
+
+    def test_add_invalid_type_is_inline(self):
+        self._login()
+        resp = self.client.post(
+            ADD_URL, {"provider_type": "bogus", "api_key": "k"}, HTTP_HX_REQUEST="true"
+        )
+        assert resp.status_code == 200
+        assert "Invalid provider type." in resp.content.decode()
+
+    def test_add_member_gets_inline_error_not_a_redirect(self):
+        tenant, _ = self._login(role="member")
+        resp = self.client.post(
+            ADD_URL, {"provider_type": "openai", "api_key": "k"}, HTTP_HX_REQUEST="true"
+        )
+        assert resp.status_code == 200
+        assert "permission" in resp.content.decode()
+        assert LLMProvider.objects.filter(tenant=tenant).count() == 1
+
+    def test_add_without_htmx_still_redirects(self):
+        tenant, _ = self._login()
+        with patch(DISCOVER, return_value=_found(["x1"])):
+            resp = self.client.post(ADD_URL, {"provider_type": "openai", "api_key": "k"})
+        assert resp.status_code == 302
+        assert LLMProvider.objects.filter(tenant=tenant).count() == 2
+
+    # --- edit --------------------------------------------------------------
+
+    def test_edit_returns_partial_closes_modal_and_keeps_key_when_blank(self):
+        tenant, provider = self._login()
+        resp = self.client.post(
+            self._edit_url(provider),
+            {"display_name": "Renamed", "base_url": "", "api_key": "", "models": "a, b"},
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "<html" not in body
+        assert "Provider &quot;Renamed&quot; updated." in body
+        assert 'id="llm-providers-table"' in body and "Renamed" in body
+        assert 'id="llm-role-reasoning"' in body
+        assert "edit-provider-modal" in body and ".close()" in body
+        provider.refresh_from_db()
+        assert provider.display_name == "Renamed"
+        assert provider.available_models == ["a", "b"]
+        assert provider.api_key == "sk-old"
+
+    def test_edit_replaces_key_when_given_and_never_echoes_it(self):
+        _, provider = self._login()
+        resp = self.client.post(
+            self._edit_url(provider),
+            {"display_name": "", "api_key": "sk-fresh"},
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        assert "sk-fresh" not in resp.content.decode()
+        provider.refresh_from_db()
+        assert provider.api_key == "sk-fresh"
+
+    def test_edit_member_gets_inline_error_and_changes_nothing(self):
+        _, provider = self._login(role="member")
+        resp = self.client.post(
+            self._edit_url(provider), {"display_name": "Hacked"}, HTTP_HX_REQUEST="true"
+        )
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "permission" in body
+        assert ".close()" not in body
+        provider.refresh_from_db()
+        assert provider.display_name == "Anthropic"
+
+    def test_edit_other_workspace_provider_is_404(self):
+        self._login()
+        other = baker.make("app.LLMProvider", tenant=baker.make("app.Tenant"))
+        resp = self.client.post(
+            self._edit_url(other), {"display_name": "x"}, HTTP_HX_REQUEST="true"
+        )
+        assert resp.status_code == 404
+
+    def test_edit_without_htmx_still_redirects(self):
+        _, provider = self._login()
+        resp = self.client.post(self._edit_url(provider), {"display_name": "Plain"})
+        assert resp.status_code == 302
+        provider.refresh_from_db()
+        assert provider.display_name == "Plain"
+
+    @override_settings(STORAGES=NON_MANIFEST_STORAGES)
+    def test_settings_page_wires_both_forms_to_htmx(self):
+        self._login()
+        body = self.client.get("/tenants/settings/").content.decode()
+        assert 'id="add-provider-form"' in body and "hx-post" in body
+        assert 'id="edit-provider-feedback"' in body
+        assert 'id="llm-providers-table"' in body
+        assert 'id="llm-roles-list"' in body

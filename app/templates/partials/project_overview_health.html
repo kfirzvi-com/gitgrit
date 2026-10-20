@@ -1,51 +1,64 @@
 {% comment %}The Overview tab's health card: the project's grade (the letter and why it
-is not one higher), the passed / failed / error breakdown behind it, the attachments with
-nothing to read yet, and a way into the Results tab. Colours follow the grade's tone.{% endcomment %}
+is not one higher), the passed / failed / error breakdown behind it, and a way into the Results tab. Colours follow the grade's tone.{% endcomment %}
+{% load project_tags %}
 <div class="card bg-base-100 shadow-xl h-full" data-overview-health>
   <div class="card-body items-center justify-center gap-6 py-10">
     {% if grade.graded %}
-      <div class="relative flex items-center gap-6">
-        <div class="text-7xl font-bold leading-none {% if grade_tone == 'good' %}text-success{% elif grade_tone == 'attention' %}text-warning{% elif grade_tone == 'failing' %}text-error{% endif %}"
+      {% comment %}Grade colour by letter: A+/A/B green, C yellow, D light red (error at reduced
+      intensity), F strong red (thicker border, black weight, tinted fill).{% endcomment %}
+      <div class="relative">
+        <div class="flex h-28 w-28 items-center justify-center rounded-full text-5xl leading-none
+                    {% if grade.letter == 'A+' or grade.letter == 'A' or grade.letter == 'B' %}border-4 border-success text-success font-bold
+                    {% elif grade.letter == 'C' %}border-4 border-warning text-warning font-bold
+                    {% elif grade.letter == 'D' %}border-4 border-error/50 text-error/70 font-bold
+                    {% else %}border-8 border-error text-error bg-error/20 font-black{% endif %}"
              data-grade="{{ grade.letter }}" role="img" aria-label="Grade {{ grade.letter }}">{{ grade.letter }}</div>
-        <div>
-          <p class="font-medium" data-grade-reason>{{ grade.reason }}</p>
-          <p class="text-sm opacity-70">Based on {{ latest_executions|length }} standard{{ latest_executions|length|pluralize }}</p>
-        </div>
         <span class="tooltip tooltip-left absolute -top-1 -right-6 cursor-help opacity-50 hover:opacity-100"
               data-tip="The project's grade: any critical standard failing is an F; otherwise the share of standards passing their latest run on {{ project.default_branch }}, the default branch (or the branch a standard's Branch/Tag Filter names). A standard left failing for more than 14 days caps the grade at B, more than 30 at C."
               tabindex="0" aria-label="About this grade">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
         </span>
       </div>
-      {% include "partials/health_breakdown.html" with counts=health_breakdown %}
-      <a href="#results" class="link link-hover text-sm opacity-70" data-open-tab="results">See the results by commit →</a>
-    {% elif attached_standards %}
-      <p class="text-sm opacity-60">No results on {{ project.default_branch }} yet. The grade appears after a push to it or a manual run.</p>
-      <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
-    {% else %}
-      <p class="text-sm opacity-60">No standards attached. Pick the standards that apply to this project.</p>
-      <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
-    {% endif %}
-    {% if not_evaluated_standards %}
-      <div class="w-full text-sm" data-not-evaluated>
-        <p class="opacity-70">Not evaluated yet:</p>
-        <ul class="mt-1 space-y-1">
-          {% for standard in not_evaluated_standards %}
-            <li data-not-evaluated-standard="{{ standard.pk }}">
-              <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover">{{ standard.name }}</a>
-              {% if standard.pk in critical_standard_ids %}
-                {% include "partials/critical_chip.html" %}
-                <span class="text-xs opacity-70">not evaluated on {{ standard.home_branch }}, so it does not gate yet</span>
-              {% else %}
-                <span class="text-xs opacity-70">no result on {{ standard.home_branch }} yet</span>
-              {% endif %}
-              {% if standard.pk in running_standard_ids %}
-                <span class="loading loading-spinner loading-xs align-middle ml-1"></span>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ul>
+      <div class="text-center">
+        {% if critical_failed_count %}
+          <p class="inline-flex items-center gap-1.5 text-lg text-error font-semibold" data-critical-failed="{{ critical_failed_count }}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 004.1 20.5h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+            {{ critical_failed_count }} critical standard{{ critical_failed_count|pluralize }} failed
+          </p>
+        {% else %}
+          <p class="text-lg opacity-60" data-critical-failed="0">0 critical standards failed</p>
+        {% endif %}
+        <p class="text-base opacity-60">Based on {{ latest_executions|length }} standard{{ latest_executions|length|pluralize }}</p>
       </div>
+      <span class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-lg" data-health-breakdown>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-success"></span><b>{{ health_breakdown.passed }}</b> <span class="opacity-60">passed</span></span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-error"></span><b>{{ health_breakdown.failed }}</b> <span class="opacity-60">failed</span></span>
+        {% if health_breakdown.errored %}
+          {# Opens the Notification Center bell panel, where a could-not-run result is reported. #}
+          <a href="#notifications" class="link link-hover inline-flex items-center gap-1.5" data-notification-open data-errors-link>
+            <span class="h-2 w-2 rounded-full bg-warning"></span><b>{{ health_breakdown.errored }}</b> <span class="opacity-60">could not run</span>
+          </a>
+        {% else %}
+          <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-warning"></span><b>0</b> <span class="opacity-60">could not run</span></span>
+        {% endif %}
+      </span>
+      <div class="flex flex-col items-center gap-3 text-center text-base opacity-70" data-last-run>
+        <a href="#results" class="link link-hover" data-open-tab="results" data-results-link>See the <strong class="font-semibold underline">results</strong> by commit &rarr;</a>
+        {% with last=recent_executions.0 %}
+          {% if last %}
+            <p>Last run: <time datetime="{{ last.created_at|date:'c' }}">{{ last.created_at|date:"j M Y, H:i" }}</time> &middot; triggered by {{ last|trigger_label }}</p>
+          {% endif %}
+        {% endwith %}
+      </div>
+    {% else %}
+      <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
+      {% if attached_standards %}
+        <p class="text-base opacity-60 text-center">No results on {{ project.default_branch }} yet. The grade appears after a push to it or a manual run.</p>
+        <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
+      {% else %}
+        <p class="text-base opacity-60 text-center">No standards attached. Pick the standards that apply to this project.</p>
+        <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
+      {% endif %}
     {% endif %}
   </div>
 </div>

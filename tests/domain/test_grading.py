@@ -22,7 +22,9 @@ from app.domain.grading import (
     letter_for,
     letter_from_pass_rate,
     neglect_cap,
+    SCORE_BY_LETTER,
     reason_for,
+    score_for,
     unverified_transition,
 )
 
@@ -280,3 +282,19 @@ class TestNeglectCap(SimpleTestCase):
     def test_the_longest_failing_standard_names_the_reason(self):
         results = [passed()] * 9 + [failing_for(16, name="Newer"), failing_for(22, name="Older")]
         self.assertEqual(letter_for(results, now=NOW).reason, "Older failing for 22 days")
+
+
+class ScoreForTests(SimpleTestCase):
+    def test_every_letter_has_a_score_between_0_and_100_that_never_rises_as_the_letter_falls(self):
+        scores = [score_for(letter) for letter in ("A+", "A", "B", "C", "D", "F")]
+        assert all(0 <= s <= 100 for s in scores)
+        assert scores == sorted(scores, reverse=True)
+        assert score_for("A+") == 100 and score_for("F") == 0
+
+    def test_no_grade_and_unknown_letters_have_no_score(self):
+        assert score_for(NO_GRADE) is None
+        assert score_for(None) is None
+        assert score_for("Z") is None
+
+    def test_the_table_covers_exactly_the_letters_a_grade_can_be(self):
+        assert set(SCORE_BY_LETTER) == {"A+", "A", "B", "C", "D", "F"}

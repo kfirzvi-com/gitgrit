@@ -60,8 +60,11 @@ surfaces, sections by small-caps labels.{% endcomment %}
                     {% if row.score is not None %}<span class="w-10 text-right font-bold shrink-0">{{ row.score }}</span>{% endif %}
                   </summary>
                   <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">
-                    {% for ex in row.results %}
-                      {% include "partials/project_history_result.html" with show_event=True %}
+                    {% for key, heading, group in row.result_groups %}
+                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider opacity-50" data-result-group="{{ key }}">{{ heading }}</h4>
+                      {% for ex in group %}
+                        {% include "partials/project_history_result.html" with show_event=True %}
+                      {% endfor %}
                     {% endfor %}
                     {% for standard in row.not_run %}
                       <div class="flex items-center gap-3 px-3 py-1.5 opacity-60">
