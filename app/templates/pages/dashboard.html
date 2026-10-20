@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load project_tags %}
 {% load static %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
@@ -78,7 +79,7 @@
           {% if workspace_grade %}
             <span class="gg-tone-{{ workspace_tone }} gg-tone-text" title="Worst project grade" data-workspace-grade="{{ workspace_grade }}"><b>{{ workspace_grade }}</b> grade</span>
           {% endif %}
-          <span id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
+          <span id="map-updated"{% if map_updated_at %} {% local_title map_updated_at %}{% endif %}>last update: {% if map_updated_at %}{% local_time map_updated_at "date" %}{% else %}---{% endif %}</span>
         </div>
         <div class="flex items-center gap-1">
           {% if user.is_superuser %}

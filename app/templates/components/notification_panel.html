@@ -60,20 +60,6 @@ Included once by base.html for signed-in users with an active workspace.{% endco
       if (e.key === "Escape" && panel.dataset.open === "1") closePanel();
     });
 
-    // The year only when it is not this year, to keep the row's time column narrow.
-    var DATETIME = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
-    var DATETIME_YEAR = Object.assign({ year: "numeric" }, DATETIME);
-    var TIME = { hour: "2-digit", minute: "2-digit" };
-    function formatTimes(root) {
-      root.querySelectorAll("[data-local-time]").forEach(function (el) {
-        var scope = el.closest("[data-time-format]");
-        var date = new Date(el.dateTime);
-        el.textContent = scope && scope.dataset.timeFormat === "time"
-          ? date.toLocaleTimeString(undefined, TIME)
-          : date.toLocaleString(undefined, date.getFullYear() === new Date().getFullYear() ? DATETIME : DATETIME_YEAR);
-      });
-    }
-
     // Hover hint: after one second over a row, a small bubble follows the mouse.
     var hint = document.getElementById("hover-hint");
     var hintTimer = null;
@@ -97,10 +83,9 @@ Included once by base.html for signed-in users with an active workspace.{% endco
     }
 
     // htmx:load fires on each piece of swapped-in content, so fresh pane
-    // contents get the local time format and hover hints.
+    // contents get hover hints (static/app/local-time.js does the times).
     document.addEventListener("htmx:load", function (e) {
       if (!panel.contains(e.detail.elt)) return;
-      formatTimes(e.detail.elt);
       bindHints(e.detail.elt);
       hint.classList.add("hidden");
     });

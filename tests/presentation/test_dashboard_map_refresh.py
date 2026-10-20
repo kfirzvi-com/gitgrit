@@ -50,8 +50,12 @@ class DashboardMapRefreshTests(TestCase):
 
         self.assertEqual(response.context["map_updated_at"], self.new.deps_analyzed_at)
         self.assertFalse(response.context["map_analyzing"])
+        # The browser rewrites the date in the viewer's zone; the server sends it in a <time>.
+        local = timezone.localtime(self.new.deps_analyzed_at)
         self.assertContains(
-            response, "last update: " + date_format(timezone.localtime(self.new.deps_analyzed_at), "d/m/y")
+            response,
+            f'last update: <time datetime="{date_format(local, "c")}" data-local-time '
+            f'data-time-format="date">{date_format(local, "j M Y")}</time>',
         )
 
     def test_dashboard_disables_the_button_while_a_project_is_queued(self):

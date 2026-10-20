@@ -2,7 +2,8 @@ import json
 from datetime import datetime
 
 from django import template
-from django.utils import timezone
+from django.utils import dateformat, timezone
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from app.domain import grading, levels
@@ -104,3 +105,57 @@ def trigger_label(execution):
             return "Tag"
         return "Push" if event_type == "push" else "Create"
     return event_type.replace("_", " ").capitalize()
+
+
+# Server-rendered fallback per kind; static/app/local-time.js rewrites the text
+# into the viewer's zone. "log" is handled by the log_time filter.
+LOCAL_TIME_FORMATS = {
+    "datetime": "j M Y, H:i",
+    "date": "j M Y",
+    "time": "H:i",
+    "full": "j M Y, H:i T",
+}
+
+
+def _local_time_parts(value, fmt):
+    """Return (iso, fallback text) for an aware datetime or an ISO string. A
+    string keeps its own text as the datetime attribute; an unparsable one is
+    shown as-is."""
+    if isinstance(value, str):
+        iso = value
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return iso, iso
+    else:
+        iso = None
+    try:
+        value = timezone.localtime(value)
+    except ValueError:
+        pass  # naive datetime — render as-is
+    return iso or dateformat.format(value, "c"), dateformat.format(value, fmt)
+
+
+@register.simple_tag
+def local_time(value, kind="datetime", css_class=""):
+    """Render a <time> element that static/app/local-time.js shows in the
+    viewer's zone. `kind` is datetime, date, time, full or log. For datetime no
+    data-time-format is written, so a wrapping data-time-format still applies."""
+    if not value:
+        return ""
+    iso, fallback = _local_time_parts(value, LOCAL_TIME_FORMATS.get(kind, LOCAL_TIME_FORMATS["datetime"]))
+    if kind == "log":
+        fallback = log_time(value)
+    attrs = format_html(' data-time-format="{}"', kind) if kind != "datetime" else mark_safe("")
+    if css_class:
+        attrs += format_html(' class="{}"', css_class)
+    return format_html('<time datetime="{}" data-local-time{}>{}</time>', iso, attrs, fallback)
+
+
+@register.simple_tag
+def local_title(value):
+    """Attributes for a hover title that local-time.js rewrites into the viewer's zone."""
+    if not value:
+        return ""
+    iso, fallback = _local_time_parts(value, LOCAL_TIME_FORMATS["full"])
+    return format_html(' data-local-title="{}" title="{}"', iso, fallback)
