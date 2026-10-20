@@ -3,14 +3,14 @@ dash when the row has no letter (running, errored, skipped). The score number st
 tooltip only. Expects `ex` (a StandardExecution).{% endcomment %}
 {% with letter=ex.letter %}
   {% if letter %}
-    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-sm leading-none
-                 {% if letter == 'A' or letter == 'B' %}border-2 border-success text-success font-bold
-                 {% elif letter == 'C' %}border-2 border-warning text-warning font-bold
-                 {% elif letter == 'D' %}border-2 border-error/50 text-error/70 font-bold
-                 {% else %}border-2 border-error text-error bg-error/20 font-black{% endif %}"
-          data-standard-letter="{{ letter }}" role="img" aria-label="Letter {{ letter }}"
-          title="{% if ex.rule.pass_or_fail_letter %}{{ ex.get_level_display }}: pass or fail only{% else %}Score {{ ex.score }}{% endif %}">{{ letter }}</span>
+    {% if ex.rule.pass_or_fail_letter %}
+      {% include "partials/grade_letter.html" with letter=letter size="xs" data_attr="data-standard-letter" label="Letter" title=ex.get_level_display|add:": pass or fail only" %}
+    {% else %}
+      {% with score_text=ex.score|stringformat:"s" %}{% with score_title="Score "|add:score_text %}
+      {% include "partials/grade_letter.html" with letter=letter size="xs" data_attr="data-standard-letter" label="Letter" title=score_title %}
+      {% endwith %}{% endwith %}
+    {% endif %}
   {% else %}
-    <span class="opacity-40" data-standard-letter="none" title="No letter for this result">&mdash;</span>
+    {% include "partials/grade_letter.html" with letter="" size="xs" data_attr="data-standard-letter" none_label="No letter for this result" title="No letter for this result" %}
   {% endif %}
 {% endwith %}

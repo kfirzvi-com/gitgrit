@@ -1,3 +1,4 @@
+{% load project_tags %}
 {# The member list and invite form. Every action here swaps this panel in   #}
 {# place (HTMX); the plain form posts are the no-JS fallback. Confirmations #}
 {# go through the shared dialog in components/confirm_dialog.html.          #}
@@ -62,7 +63,7 @@
                       {% endif %}
                     </td>
                     <td class="text-sm" data-granted>
-                      <div title="{{ member.granted_at|date:'DATETIME_FORMAT' }}">{{ member.granted_at|timesince }} ago</div>
+                      <div {% local_title member.granted_at %}>{{ member.granted_at|timesince }} ago</div>
                       {% if member.granted_by %}
                         <div class="text-xs text-base-content/60">by {% if member.granted_by_id == user.pk %}you{% else %}{{ member.granted_by.email|default:member.granted_by.username }}{% endif %}</div>
                       {% endif %}
@@ -118,10 +119,10 @@
                     <td>{{ inv.email }}</td>
                     <td><span class="badge badge-ghost">{{ row.role_label }}</span></td>
                     <td class="text-sm">
-                      <div title="{{ inv.sent_at|date:'DATETIME_FORMAT' }}">{{ inv.sent_at|timesince }} ago</div>
+                      <div {% local_title inv.sent_at %}>{{ inv.sent_at|timesince }} ago</div>
                       <div class="text-xs text-base-content/60">
                         {% if inv.invited_by %}by {% if inv.invited_by_id == user.pk %}you{% else %}{{ inv.invited_by.email }}{% endif %} · {% endif %}
-                        {% if row.expired %}<span class="text-warning">expired</span>{% else %}expires {{ inv.expires_at|date:"j M" }}{% endif %}
+                        {% if row.expired %}<span class="text-warning">expired</span>{% else %}expires {% local_time inv.expires_at "date" %}{% endif %}
                       </div>
                     </td>
                     <td class="text-right whitespace-nowrap">

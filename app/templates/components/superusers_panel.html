@@ -1,3 +1,4 @@
+{% load project_tags %}
 {# Superusers: who they are, who made them one, and making or unmaking     #}
 {# one. Actions swap this panel in place; the rules are in                  #}
 {# app.domain.superusers.                                                   #}
@@ -20,7 +21,7 @@
           </td>
           <td class="text-sm">
             {% if su.superuser_granted_at %}
-              <div title="{{ su.superuser_granted_at|date:'DATETIME_FORMAT' }}">{{ su.superuser_granted_at|timesince }} ago</div>
+              <div {% local_title su.superuser_granted_at %}>{{ su.superuser_granted_at|timesince }} ago</div>
             {% endif %}
             <div class="text-xs text-base-content/60">
               {% if su.superuser_granted_by %}by {% if su.superuser_granted_by_id == user.pk %}you{% else %}{{ su.superuser_granted_by.email|default:su.superuser_granted_by.username }}{% endif %}

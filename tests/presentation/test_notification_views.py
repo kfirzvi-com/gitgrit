@@ -182,7 +182,7 @@ class TestNotificationViews(TestCase):
 
         content = self.client.get(reverse("notification_panel")).content.decode()
 
-        for severity, color in (("critical", "bg-error"), ("warning", "bg-warning"), ("info", "bg-info")):
+        for severity, color in (("critical", "gg-tone-failing"), ("warning", "gg-tone-attention"), ("info", "bg-info")):
             with self.subTest(severity=severity):
                 self.assertIn(f'data-severity="{severity}"', content)
                 self.assertIn(f'aria-label="{severity.title()}"', content)

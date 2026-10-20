@@ -289,8 +289,15 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
 
 
 def branch_status(project, branch: str) -> list:
-    """The latest finished result of each attached standard on ``branch``."""
-    return current_results([project], branch=branch)
+    """The latest finished result of each attached standard on ``branch``,
+    read like the project grade reads its home branch: only enabled,
+    non-draft standards, and GitGrit's own failures are skipped so the
+    standard keeps its previous result."""
+    return [
+        ex
+        for ex in current_results([project], branch=branch, exclude_platform_errors=True)
+        if ex.standard.enabled and not ex.standard.draft
+    ]
 
 
 def commit_results(project, sha: str) -> CommitRow:

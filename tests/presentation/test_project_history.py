@@ -54,11 +54,10 @@ class ProjectHistoryViewTests(TestCase):
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
         self.assertNotIn("%</span>", content)
-        self.assertIn("default branch (main)", content)
         self.assertNotIn("Latest results", content)
         self.assertEqual(response.context["status_grade"], "D")
-        self.assertEqual(response.context["status_tone"], "attention")
-        self.assertRegex(content, r'text-warning" data-branch-grade>D</span>')
+        self.assertEqual(response.context["status_tone"], "failing")
+        self.assertRegex(content, r'gg-tone-failing"[^>]*data-branch-grade="D"')
         self.assertIn("from aaaaaaa", content)
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
@@ -105,6 +104,59 @@ class ProjectHistoryViewTests(TestCase):
 
         self.assertIn("from 2 commits", content)
 
+    def test_the_default_branch_shows_the_project_grade_with_its_neglect_cap(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from app.application.grading_service import grade_for_project
+        from app.domain.models import ProjectStandard
+
+        self._check("a" * 40)  # Pinned CI fails
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
+        for i in range(3):
+            ok = baker.make("app.Standard", tenant=self.tenant, name=f"ok{i}")
+            self.project.standards.add(ok)
+            baker.make(
+                "app.StandardExecution", project=self.project, standard=ok, standard_name=ok.name,
+                status=Status.PASSED, score=100, commit_check=check,
+            )
+        # Failing for 40 days: the neglect cap holds the B (3 of 4 pass) at C.
+        ProjectStandard.objects.filter(project=self.project, standard=self.standard).update(
+            first_failed_at=timezone.now() - timedelta(days=40)
+        )
+
+        response = self._get()
+
+        self.assertEqual(response.context["status_grade"], "C")
+        self.assertEqual(response.context["status_grade"], grade_for_project(self.project).grade.letter)
+
+    def test_a_branch_leaves_out_disabled_and_draft_standards(self):
+        self._check("c" * 40, branch="feature/x", status=Status.PASSED, score=100, ref="feature/x")
+        check = baker.make("app.CommitCheck", project=self.project, branch="feature/x", commit_sha="c" * 40)
+        for name, flags in (("off", {"enabled": False}), ("wip", {"draft": True})):
+            standard = baker.make("app.Standard", tenant=self.tenant, name=name, **flags)
+            self.project.standards.add(standard)
+            baker.make(
+                "app.StandardExecution", project=self.project, standard=standard, standard_name=name,
+                status=Status.FAILED, score=0, commit_check=check, ref="feature/x",
+            )
+
+        response = self._get(branch="feature/x")
+
+        self.assertEqual(response.context["status_grade"], "A+")
+
+    def test_a_branch_keeps_the_previous_result_after_a_gitgrit_failure(self):
+        self._check("c" * 40, branch="feature/x", status=Status.PASSED, score=100, ref="feature/x")
+        failed = self._check("d" * 40, branch="feature/x", status=Status.ERROR, score=0, ref="feature/x")
+        StandardExecution.objects.filter(pk=failed.pk).update(
+            error_origin=StandardExecution.ErrorOrigin.PLATFORM
+        )
+
+        response = self._get(branch="feature/x")
+
+        self.assertEqual(response.context["status_grade"], "A+")
+
     def test_another_branch_shows_its_own_results_and_does_not_count(self):
         self._check("c" * 40, branch="feature/x", status=Status.PASSED, score=100, ref="refs/heads/feature/x")
 
@@ -114,9 +166,8 @@ class ProjectHistoryViewTests(TestCase):
         self.assertEqual(response.context["status_tone"], "good")
         self.assertFalse(response.context["is_default"])
         content = response.content.decode()
-        self.assertRegex(content, r'text-success" data-branch-grade>A\+</span>')
-        self.assertIn("Only a standard's home branch moves the project's grade", content)
-        self.assertIn("This letter is for feature/x alone", content)
+        self.assertRegex(content, r'gg-tone-good"[^>]*data-branch-grade="A\+"')
+        self.assertNotIn("data-score-info", content)
         self.platform.list_commits.assert_called_with(
             self.project.external_id, self.project.full_path, "feature/x", page=1,
             per_page=commit_checks.COMMITS_PER_PAGE,
@@ -125,6 +176,8 @@ class ProjectHistoryViewTests(TestCase):
     def _critical(self, name, status, sha="a" * 40, critical=True):
         other = baker.make("app.Standard", tenant=self.tenant, name=name)
         self.project.standards.add(other)
+        if critical:
+            self.project.project_standards.filter(standard=other).update(level="critical")
         check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=sha)
         return baker.make(
             "app.StandardExecution", project=self.project, standard=other, standard_name=name,

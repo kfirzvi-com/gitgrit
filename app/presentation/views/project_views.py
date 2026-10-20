@@ -158,8 +158,16 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
     if branch not in branch_names:
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
-    status = branch_status(project, branch)
-    grade = commit_grade(status)
+    if branch == project.default_branch:
+        # The default branch shows the project grade itself, so it always
+        # matches the Overview (home branches, current levels, neglect caps).
+        graded = grade_for_project(project)
+        status, grade = graded.executions, graded.grade
+        status_critical = critical_summary(status, graded.levels)
+    else:
+        status = branch_status(project, branch)
+        grade = commit_grade(status)
+        status_critical = critical_summary(status)
     # The score's results can come from several commits (a standard that did
     # not run on the newest one keeps its earlier result); the header says so.
     status_commits = list(dict.fromkeys(
@@ -183,7 +191,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "status_grade": grade.letter if grade.graded else None,
             "status_tone": tone_for(grade.letter),
             "status_breakdown": breakdown(status),
-            "status_critical": critical_summary(status),
+            "status_critical": status_critical,
             "status_commits": status_commits,
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),

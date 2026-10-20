@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load project_tags %}
 
 {% block title %}Workspace Settings — GitGrit{% endblock %}
 
@@ -279,7 +280,7 @@
                       <td><code class="font-mono text-sm">{{ token.prefix }}…</code></td>
                       <td class="text-sm opacity-70">
                         {{ token.created_by.email|default:"—" }}<br>
-                        <span class="text-xs">{{ token.created_at|date:"M j, Y" }}</span>
+                        <span class="text-xs">{% local_time token.created_at "date" %}</span>
                       </td>
                       <td class="text-sm opacity-70">
                         {% if token.last_used_at %}{{ token.last_used_at|timesince }} ago{% else %}Never{% endif %}

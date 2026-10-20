@@ -25,10 +25,11 @@ class TestWorstLetter(SimpleTestCase):
 
 class TestToneFor(SimpleTestCase):
     def test_bands(self):
-        for letter in ("A+", "A", "B"):
+        for letter in ("A+", "A"):
             self.assertEqual(tone_for(letter), TONE_GOOD)
-        for letter in ("C", "D"):
+        for letter in ("B", "C"):
             self.assertEqual(tone_for(letter), TONE_ATTENTION)
-        self.assertEqual(tone_for("F"), TONE_FAILING)
+        for letter in ("D", "F"):
+            self.assertEqual(tone_for(letter), TONE_FAILING)
         self.assertEqual(tone_for(NO_GRADE), TONE_UNKNOWN)
         self.assertEqual(tone_for(None), TONE_UNKNOWN)

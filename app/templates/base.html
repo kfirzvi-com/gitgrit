@@ -209,6 +209,8 @@
 
   {# Design tokens — single source of truth for all --gg-* variables #}
   <link href="{% static 'app/design-tokens.css' %}" rel="stylesheet" type="text/css" />
+  {# How a grade looks everywhere (letters, cards, tones) #}
+  <link href="{% static 'app/grades.css' %}" rel="stylesheet" type="text/css" />
 
   {% if airgapped %}
     <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
@@ -312,6 +314,7 @@
   {% if user.is_authenticated %}{% include "components/feedback_modal.html" %}{% endif %}
   {# For everyone: signed-out pages (the access request page) act in place too. #}
   {% include "components/confirm_dialog.html" %}{% include "components/toasts.html" %}
+  <script src="{% static 'app/local-time.js' %}"></script>
   {% if user.is_authenticated %}<script src="{% static 'app/attention.js' %}"></script>{% endif %}
   {% if user.is_authenticated and current_tenant %}{% include "components/notification_panel.html" %}{% endif %}
 </body>

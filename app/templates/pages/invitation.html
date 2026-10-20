@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load project_tags %}
 
 {% block title %}Invitation — GitGrit{% endblock %}
 
@@ -44,7 +45,7 @@
           {% include "components/sign_in_options.html" %}
         {% endwith %}
       {% endif %}
-      <p class="text-xs text-base-content/50">The invitation is valid until {{ invitation.expires_at|date:"j F Y" }}.</p>
+      <p class="text-xs text-base-content/50">The invitation is valid until {% local_time invitation.expires_at "date" %}.</p>
     {% endif %}
     </div>
   </div>

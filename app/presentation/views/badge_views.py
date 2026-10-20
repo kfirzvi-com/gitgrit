@@ -15,12 +15,14 @@ try:
 except Exception:
     _LOGO_DATA_URI = None
 
-# Badge colour per tone (see ``grading.tone_for``).
+# Badge colour per tone (see ``grading.tone_for``). The badge is an external
+# SVG, so it needs hex: these copy the --gg-grade-* tokens in
+# app/static/app/design-tokens.css (sRGB of the oklch values).
 _COLOR = {
-    grading.TONE_GOOD: "#4caf50",
-    grading.TONE_ATTENTION: "#ff9800",
-    grading.TONE_FAILING: "#f44336",
-    grading.TONE_UNKNOWN: "#9e9e9e",
+    grading.TONE_GOOD: "#00c584",       # --gg-success oklch(72% 0.177 163)
+    grading.TONE_ATTENTION: "#efa800",  # --gg-warning oklch(78% 0.170 80)
+    grading.TONE_FAILING: "#f14e46",    # --gg-error oklch(65% 0.200 27)
+    grading.TONE_UNKNOWN: "#51555e",    # --gg-text-dimmer oklch(45% 0.015 264)
 }
 
 

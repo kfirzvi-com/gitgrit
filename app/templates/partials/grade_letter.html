@@ -1,0 +1,9 @@
+{% comment %}A grade letter, the same everywhere: coloured by its tone (grades.css,
+grading.tone_for), or a dash when there is no letter. Parameters:
+  letter      the letter (A+ to F); empty, None or "—" shows the dash
+  size        xs | sm | md | lg (default md)
+  data_attr   the data attribute that carries the letter, e.g. "data-grade"
+  label       what the letter is, for screen readers (default "Grade")
+  title       optional hover text
+  none_label  hover and screen-reader text for the dash (default "No grade")
+Usage: {% include "partials/grade_letter.html" with letter=grade.letter size="lg" data_attr="data-grade" %}{% endcomment %}{% load project_tags %}{% if letter and letter != "—" %}<span class="gg-grade gg-grade-{{ size|default:'md' }} gg-tone-{{ letter|grade_tone }}"{% if data_attr %} {{ data_attr }}="{{ letter }}"{% endif %} role="img" aria-label="{{ label|default:'Grade' }} {{ letter }}"{% if title %} title="{{ title }}"{% endif %}>{{ letter }}</span>{% else %}<span class="gg-grade-none gg-grade-{{ size|default:'md' }}"{% if data_attr %} {{ data_attr }}="none"{% endif %} role="img" aria-label="{{ none_label|default:'No grade' }}">&mdash;</span>{% endif %}

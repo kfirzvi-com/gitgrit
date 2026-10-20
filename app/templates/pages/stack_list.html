@@ -16,7 +16,7 @@
           <h2 class="card-title text-lg">
             {{ stack.name }}
             {% if stack.grade %}
-              <span class="badge badge-sm font-bold {% if stack.grade_tone == 'good' %}badge-success{% elif stack.grade_tone == 'attention' %}badge-warning{% else %}badge-error{% endif %}" title="Worst project grade in this stack" data-stack-grade="{{ stack.grade }}">{{ stack.grade }}</span>
+              {% include "partials/grade_letter.html" with letter=stack.grade size="sm" data_attr="data-stack-grade" title="Worst project grade in this stack" %}
             {% endif %}
           </h2>
           {% if stack.description %}

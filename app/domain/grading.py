@@ -87,16 +87,16 @@ TONE_UNKNOWN = "unknown"
 _TONE_BY_LETTER = {
     A_PLUS: TONE_GOOD,
     A: TONE_GOOD,
-    B: TONE_GOOD,
+    B: TONE_ATTENTION,
     C: TONE_ATTENTION,
-    D: TONE_ATTENTION,
+    D: TONE_FAILING,
     F: TONE_FAILING,
 }
 
 
 def tone_for(letter: str | None) -> str:
-    """The tone of a letter: F is failing, D and C need attention, A+, A
-    and B are good; anything else (no grade) is unknown."""
+    """The tone of a letter: F and D are failing, C and B need attention,
+    A+ and A are good; anything else (no grade) is unknown."""
     return _TONE_BY_LETTER.get(letter, TONE_UNKNOWN)
 
 

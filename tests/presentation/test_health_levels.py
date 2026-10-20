@@ -16,9 +16,9 @@ class TestHealthFromLetter(SimpleTestCase):
         cases = {
             "A+": GOOD,
             "A": GOOD,
-            "B": GOOD,
+            "B": ATTENTION,
             "C": ATTENTION,
-            "D": ATTENTION,
+            "D": FAILING,
             "F": FAILING,
             "—": UNKNOWN,
             None: UNKNOWN,
