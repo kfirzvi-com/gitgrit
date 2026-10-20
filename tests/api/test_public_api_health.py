@@ -65,7 +65,7 @@ class TestBranchesAndHealth(HealthAPITestCase):
         r = self.get(f"{self.p}/health/")
         assert r.status_code == 200
         body = r.json()
-        assert (body["branch"], body["score"], body["level"]) == (None, 40, "attention")
+        assert (body["branch"], body["score"], body["level"]) == (None, 40, "failing")
         assert (body["grade"], body["reason"]) == ("D", "1 standard failing")
         assert (body["passed"], body["failed"], body["errored"]) == (0, 1, 0)
         assert body["results"][0]["commit_sha"] == A
@@ -83,7 +83,7 @@ class TestBranchesAndHealth(HealthAPITestCase):
         project = self.get(f"{self.p}/health/").json()
         assert (project["grade"], project["level"]) == ("A+", "good")
         branch = self.get(f"{self.p}/health/", branch="feature/x").json()
-        assert (branch["branch"], branch["score"], branch["level"]) == ("feature/x", 10, "attention")
+        assert (branch["branch"], branch["score"], branch["level"]) == ("feature/x", 10, "failing")
         assert branch["grade"] == "D"
 
     def test_no_results_is_unknown(self):
@@ -105,7 +105,7 @@ class TestCommits(HealthAPITestCase):
         assert (body["branch"], body["page"], body["has_more"]) == ("main", 1, False)
         checked, unchecked = body["commits"]
         assert (checked["sha"], checked["title"], checked["checked"]) == (A, "Fix CI", True)
-        assert (checked["score"], checked["level"], checked["failed"]) == (60, "attention", 1)
+        assert (checked["score"], checked["level"], checked["failed"]) == (60, "failing", 1)
         assert (checked["grade"], checked["reason"]) == ("D", "1 standard failing")
         assert (unchecked["grade"], unchecked["level"]) == (None, "unknown")
         assert checked["results"][0]["still_attached"] is True

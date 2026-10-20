@@ -101,14 +101,21 @@ class CriticalSummary:
     failed: int
 
 
-def critical_summary(results) -> CriticalSummary:
+def critical_summary(results, levels_by_standard=None) -> CriticalSummary:
     """Count critical results (a level shown as critical) in ``results``
-    (each read by its own snapshot ``level``) and how many of them failed or errored in their own run.
-    Running, skipped and platform-error rows do not count. Pure: reads only
-    what the rows already carry."""
+    and how many of them failed or errored in their own run. Each row is
+    read by its own snapshot ``level``, or, with ``levels_by_standard``
+    (standard id -> level), by its attachment's current level, as the
+    project grade reads it. Running, skipped and platform-error rows do not
+    count. Pure: reads only what it is given."""
     total = failed = 0
     for r in results:
-        if not rule_for(r.level).shown_as_critical or r.status not in FINISHED or (
+        level = (
+            levels_by_standard.get(r.standard_id, DEFAULT_LEVEL.value)
+            if levels_by_standard is not None
+            else r.level
+        )
+        if not rule_for(level).shown_as_critical or r.status not in FINISHED or (
             r.status == Status.ERROR and r.error_origin == StandardExecution.ErrorOrigin.PLATFORM
         ):
             continue

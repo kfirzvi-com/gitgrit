@@ -5,7 +5,7 @@ from django import template
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 
-from app.domain import levels
+from app.domain import grading, levels
 
 register = template.Library()
 
@@ -37,6 +37,14 @@ def critical_levels_help():
     return " ".join(
         f"{r.label}: {r.help}." for r in levels.ordered_rules() if r.shown_as_critical
     )
+
+
+@register.filter
+def grade_tone(letter):
+    """The tone of a grade letter (``grading.tone_for``): good, attention,
+    failing or unknown. Use it as ``gg-tone-{{ letter|grade_tone }}``
+    (``app/static/app/grades.css``)."""
+    return grading.tone_for(letter)
 
 
 @register.simple_tag

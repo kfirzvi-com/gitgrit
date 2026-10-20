@@ -73,7 +73,7 @@ A commit's letter has no clock: a commit verdict is never capped.
 
 The dashboard shows the workspace grade and each stack page shows the stack grade. Both are the **worst** project grade among their projects: one F project is an F stack. Projects with no grade are ignored, so an empty project never drags a stack down.
 
-Health colours on the architecture map, the badge and the API's `level` follow the letter: **F** is `failing` (red), **C** and **D** need `attention` (amber), **A+**, **A** and **B** are `good` (green), and no grade is `unknown` (grey).
+Health colours on the architecture map, the badge and the API's `level` follow the letter: **D** and **F** are `failing` (red), **B** and **C** need `attention` (amber), **A+** and **A** are `good` (green), and no grade is `unknown` (grey).
 
 ## The reason line
 

@@ -65,7 +65,7 @@ class ProjectTabsTests(TestCase):
 
         self.assertEqual(response.context["grade"].letter, "D")
         self.assertEqual(response.context["grade"].reason, "2 standards failing")
-        self.assertEqual(response.context["grade_tone"], "attention")
+        self.assertEqual(response.context["grade_tone"], "failing")
         self.assertEqual(response.context["health_breakdown"], {"passed": 1, "failed": 1, "errored": 1})
         self.assertNotIn("compliance_score", response.context)
         body = response.content.decode()

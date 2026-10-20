@@ -11,12 +11,12 @@ rest behind Show all (toggled by app/attention.js).{% endcomment %}
   </div>
   {% for item in attention_items %}
     <a href="{% url 'standard_execution_detail' item.execution_id %}"
-       class="flex items-start gap-3 -mx-2 px-2 py-2 rounded hover:bg-base-200 gg-health-{{ item.tone }}{% if forloop.counter > 3 %} hidden{% endif %}"{% if forloop.counter > 3 %} data-attention-extra{% endif %}>
-      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 {% if item.tone == 'failing' %}bg-error{% else %}bg-warning{% endif %}" title="{% if item.tone == 'failing' %}Failing{% else %}Needs attention{% endif %}"></span>
+       class="flex items-start gap-3 -mx-2 px-2 py-2 rounded hover:bg-base-200 gg-tone-{{ item.tone }}{% if forloop.counter > 3 %} hidden{% endif %}"{% if forloop.counter > 3 %} data-attention-extra{% endif %}>
+      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-dot" title="{% if item.tone == 'failing' %}Failing{% else %}Needs attention{% endif %}"></span>
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline justify-between gap-2">
           <span class="font-semibold truncate" title="{{ item.standard_name }}">{{ item.standard_name }}</span>
-          <span class="text-sm font-bold shrink-0 {% if item.tone == 'failing' %}text-error{% else %}text-warning{% endif %}">{% if item.shown_as_critical %}{{ item.level_label }} &middot; {% endif %}{{ item.status }}</span>
+          <span class="text-sm font-bold shrink-0 gg-tone-text">{% if item.shown_as_critical %}{{ item.level_label }} &middot; {% endif %}{{ item.status }}</span>
         </div>
         <div class="text-xs opacity-70 truncate">{{ item.project_name }} &middot; {{ item.when|timesince }} ago</div>
       </div>

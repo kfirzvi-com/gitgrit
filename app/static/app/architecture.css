@@ -29,10 +29,10 @@
 /* Health colour codes as CSS vars, for elements coloured in templates
    (e.g. the attention list). Kept in step with flow-common.js HEALTH_COLOR
    and app/domain/health.py. Diagram nodes set --gg-health inline. */
-.gg-health-good { --gg-health: #34d399; }
-.gg-health-attention { --gg-health: #fbbf24; }
-.gg-health-failing { --gg-health: #f87171; }
-.gg-health-unknown { --gg-health: #64748b; }
+.gg-health-good { --gg-health: var(--gg-grade-good); }
+.gg-health-attention { --gg-health: var(--gg-grade-attention); }
+.gg-health-failing { --gg-health: var(--gg-grade-failing); }
+.gg-health-unknown { --gg-health: var(--gg-grade-unknown); }
 
 /* Left health stripe — colour set per node via the --gg-health custom
    property (see flow-common.js healthProps). Independent of the node border

@@ -2,7 +2,7 @@
 
 Health is what points an engineering leader at the things that need attention.
 It derives from the project's grade letter (``app.domain.grading``): F is
-``failing``, D and C are ``attention``, A+, A and B are ``good``, and a
+``failing`` (so is D), C and B are ``attention``, A+ and A are ``good``, and a
 project with no grade is ``unknown``. It is structured as a set of *signals*
 so future inputs (DORA deployment frequency, for one) slot in without
 touching callers.

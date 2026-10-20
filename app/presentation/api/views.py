@@ -343,7 +343,7 @@ class ProjectHealthView(WorkspaceAPIView):
             "standard's filter names one). With `branch`: that branch's health. "
             "`grade` is the letter (A+ to F, null while nothing is evaluated), "
             "`reason` says why it is not one higher, and `level` is its tone: "
-            "good (A+, A, B), attention (C, D), failing (F), unknown (no grade). "
+            "good (A+, A), attention (B, C), failing (D, F), unknown (no grade). "
             "Breaking change in this release: `level` was healthy, warning and "
             "critical before; it is now good, attention and failing."
         ),

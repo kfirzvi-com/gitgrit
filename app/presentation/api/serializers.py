@@ -242,8 +242,8 @@ class MeSerializer(serializers.Serializer):
 
 # --- Health and commit checks ---------------------------------------------
 
-# The grade letter's tone (app.domain.health): A+/A/B good, C/D attention,
-# F failing, no grade unknown.
+# The grade letter's tone (app.domain.health): A+/A good, B/C attention,
+# D/F failing, no grade unknown.
 LEVEL_CHOICES = [
     grading.TONE_GOOD,
     grading.TONE_ATTENTION,

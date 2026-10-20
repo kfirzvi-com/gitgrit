@@ -31,6 +31,16 @@
   --gg-error:        oklch(65%   0.200 27);    /* red */
   --gg-info:         oklch(63%   0.158 200);   /* same as primary */
 
+  /* ── Grade tones ─────────────────────────────── */
+  /* The colour of a grade letter everywhere (cards, letters, map, legend).
+     Which letter has which tone: app/domain/grading.py tone_for.
+     How a grade looks: app/static/app/grades.css. The README badge is an
+     external SVG and copies these as hex in app/presentation/views/badge_views.py. */
+  --gg-grade-good:      var(--gg-success);    /* A+, A */
+  --gg-grade-attention: var(--gg-warning);    /* B, C */
+  --gg-grade-failing:   var(--gg-error);      /* D, F */
+  --gg-grade-unknown:   var(--gg-text-dimmer); /* no grade */
+
   /* ── Text ────────────────────────────────────── */
   --gg-text:         oklch(92%   0.010 264);   /* primary text — #e2e8f0 approx */
   --gg-text-dim:     oklch(60%   0.015 264);   /* secondary text — #8892a4 approx */

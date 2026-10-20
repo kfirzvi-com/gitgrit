@@ -23,16 +23,17 @@ window.GitGritFlow = (function () {
   // Health colour codes — single source of truth for node stripes (via the
   // --gg-health custom property) and legend swatches. Kept in step with the
   // levels in app/domain/health.py, which derive from the grade
-  // letter (F failing, D/C attention, A+/A/B good, no grade unknown).
+  // letter (F/D failing, B/C attention, A+/A good, no grade unknown).
+  // Colours are the --gg-grade-* tokens in design-tokens.css.
   var HEALTH_COLOR = {
-    good: "#34d399",
-    attention: "#fbbf24",
-    failing: "#f87171",
-    unknown: "#64748b",
+    good: "var(--gg-grade-good)",
+    attention: "var(--gg-grade-attention)",
+    failing: "var(--gg-grade-failing)",
+    unknown: "var(--gg-grade-unknown)",
   };
   var HEALTH_LABEL = {
-    good: "Good (A+ to B)",
-    attention: "Needs attention (C, D)",
+    good: "Good (A+, A)",
+    attention: "Needs attention (B, C)",
     failing: "Failing (F)",
     unknown: "No grade",
   };
@@ -50,10 +51,7 @@ window.GitGritFlow = (function () {
   // Badge colour for a node's grade letter, from the health level the server
   // derived from it (no thresholds here).
   function gradeBadgeClass(level) {
-    if (level === "good") return "badge-success";
-    if (level === "attention") return "badge-warning";
-    if (level === "failing") return "badge-error";
-    return "badge-ghost";
+    return "gg-grade gg-grade-xs gg-tone-" + (level || "unknown");
   }
 
   // Edge colours by kind — shared by both diagrams.

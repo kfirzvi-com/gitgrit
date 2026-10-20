@@ -1,0 +1,42 @@
+/*
+ * How a grade looks, everywhere it is shown: the one place for its visual
+ * settings. Colours come from the --gg-grade-* tokens (design-tokens.css);
+ * which letter gets which tone comes from app/domain/grading.py tone_for.
+ * Templates set the tone with the `grade_tone` filter (project_tags) and
+ * render letters with partials/grade_letter.html.
+ *
+ *   .gg-tone-<tone>   sets --gg-tone for the element and its children
+ *   .gg-grade         a grade letter in its tone (size: -xs -sm -md -lg)
+ *   .gg-grade-none    the dash shown when there is no grade
+ *   .gg-tone-card     a card with a side bar and a glow in its tone
+ *   .gg-tone-text     any text in the tone (e.g. "Failing", "B grade")
+ */
+
+.gg-tone-good      { --gg-tone: var(--gg-grade-good); }
+.gg-tone-attention { --gg-tone: var(--gg-grade-attention); }
+.gg-tone-failing   { --gg-tone: var(--gg-grade-failing); }
+.gg-tone-unknown   { --gg-tone: var(--gg-grade-unknown); }
+
+.gg-tone-dot { background-color: var(--gg-tone, var(--gg-grade-unknown)); }
+.gg-tone-text { color: var(--gg-tone, var(--gg-grade-unknown)); }
+
+.gg-grade {
+  color: var(--gg-tone, var(--gg-grade-unknown));
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.gg-grade-none { color: var(--gg-grade-unknown); font-weight: 700; line-height: 1; }
+
+.gg-grade-xs { font-size: 0.875rem; }  /* a standard's or a commit's row */
+.gg-grade-sm { font-size: 1.125rem; }  /* inline, e.g. the dashboard summary */
+.gg-grade-md { font-size: 1.875rem; }  /* a project card */
+.gg-grade-lg { font-size: 3rem; }      /* the project and branch grade */
+
+/* .card.gg-tone-card: beats the base `.card` border, which loads later. */
+.card.gg-tone-card, .gg-tone-card {
+  border-left: 4px solid var(--gg-tone, var(--gg-grade-unknown));
+  background-image: linear-gradient(105deg,
+    color-mix(in oklab, var(--gg-tone, transparent) 22%, transparent), transparent 70%);
+}
+.card.gg-tone-card.gg-tone-unknown, .gg-tone-card.gg-tone-unknown { background-image: none; }

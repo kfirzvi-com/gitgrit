@@ -76,7 +76,7 @@
           <span><b>{{ project_count }}</b> projects</span>
           <span><b>{{ standard_count }}</b> standards</span>
           {% if workspace_grade %}
-            <span class="{% if workspace_tone == 'good' %}text-success{% elif workspace_tone == 'attention' %}text-warning{% elif workspace_tone == 'failing' %}text-error{% endif %}" title="Worst project grade" data-workspace-grade="{{ workspace_grade }}"><b>{{ workspace_grade }}</b> grade</span>
+            <span class="gg-tone-{{ workspace_tone }} gg-tone-text" title="Worst project grade" data-workspace-grade="{{ workspace_grade }}"><b>{{ workspace_grade }}</b> grade</span>
           {% endif %}
           <span id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
         </div>

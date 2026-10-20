@@ -51,7 +51,7 @@ class TestOverviewCard(TestCase):
         body = response.content.decode()
         assert 'data-critical-failed="2"' in body
         assert "2 critical standards failed" in body
-        assert "text-error font-semibold" in body
+        assert "gg-tone-failing gg-tone-text font-semibold" in body
 
     def test_one_critical_reads_in_the_singular(self):
         self._run("failed", critical=True)
@@ -69,7 +69,7 @@ class TestOverviewCard(TestCase):
         body = response.content.decode()
         assert 'data-critical-failed="0"' in body
         assert "0 critical standards failed" in body
-        assert "text-error font-semibold" not in body
+        assert "gg-tone-failing gg-tone-text font-semibold" not in body
 
     def test_could_not_run_links_to_the_notification_panel_when_above_zero(self):
         self._run("passed")

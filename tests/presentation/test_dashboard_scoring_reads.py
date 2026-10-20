@@ -83,7 +83,7 @@ class TestProjectBadge(TestCase):
 
         assert ">A+<" in svg
         assert re.search(r">\d+%<", svg) is None  # no percentage text
-        assert "#4caf50" in svg  # good tone
+        assert "#00c584" in svg  # good tone (--gg-grade-good)
 
     def test_badge_f_is_red(self):
         tenant = baker.make("app.Tenant")
@@ -97,7 +97,7 @@ class TestProjectBadge(TestCase):
         ).content.decode()
 
         assert ">F<" in svg
-        assert "#f44336" in svg
+        assert "#f14e46" in svg  # failing tone (--gg-grade-failing)
 
     def test_badge_shows_no_grade_when_nothing_attached(self):
         tenant = baker.make("app.Tenant")
@@ -162,7 +162,7 @@ class TestWorkspaceGrade(TestCase):
         listing = self.client.get(reverse("stack_list"))
 
         assert page.context["stack_grade"] == "D"
-        assert page.context["stack_grade_tone"] == "attention"
+        assert page.context["stack_grade_tone"] == "failing"
         assert 'data-stack-grade="D"' in page.content.decode()
         by_name = {s.name: s for s in listing.context["stacks"]}
         assert by_name["Mixed"].grade == "D"
@@ -177,7 +177,7 @@ class TestWorkspaceGrade(TestCase):
 
         node = graph["stacks"][0]
         assert node["grade"] == "D"
-        assert node["health"] == "attention"
+        assert node["health"] == "failing"
         assert node["issues"] == ["failed — D (1 standard failing)"]
         assert "score" not in node
 
@@ -214,6 +214,25 @@ class TestProjectListBoxes(TestCase):
         assert html.count("No results yet") == 1
         assert "data-last-run" not in html
         assert "Last run" not in html
+
+    def test_card_and_letter_wear_the_grade_tone(self):
+        self._project("good", StandardExecution.Status.PASSED, event_type="pull_request")
+        self._project("failing", StandardExecution.Status.FAILED, critical=True)
+        self._project("weak", StandardExecution.Status.FAILED)  # D
+        fair = self._project("fair", StandardExecution.Status.FAILED)  # 3 of 4 pass: B
+        for i in range(3):
+            extra = baker.make("app.Standard", tenant=self.tenant, name=f"fair-ok{i}")
+            _attach(fair, extra)
+            _execution(fair, extra)
+        self._project("fresh")
+
+        html = self.client.get(reverse("project_list")).content.decode()
+
+        assert 'gg-tone-good" data-grade="A+"' in html
+        assert 'gg-tone-attention" data-grade="B"' in html
+        assert 'gg-tone-failing" data-grade="D"' in html
+        assert 'gg-tone-failing" data-grade="F"' in html
+        assert "gg-tone-card gg-tone-unknown" in html and "data-no-grade" in html
 
     def test_list_query_count_does_not_grow_with_projects(self):
         self._project("one", StandardExecution.Status.PASSED)
