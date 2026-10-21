@@ -3,9 +3,8 @@
 {# to run in the background; saving returns to this tab.                      #}
 <form method="post" action="{% url 'project_standards' project.pk %}">
   {% csrf_token %}
-  {% include "partials/standard_picker.html" with hide_bulk_actions=True %}
-  <div class="flex flex-wrap items-center justify-between gap-3 pt-4">
-    {% include "partials/standard_picker_bulk_actions.html" with size="btn-sm" %}
+  {% include "partials/standard_picker.html" %}
+  <div class="flex justify-end pt-4">
     <button type="submit" class="btn btn-primary btn-sm">Save</button>
   </div>
 </form>
