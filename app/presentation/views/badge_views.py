@@ -5,6 +5,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
 from app.application import scoring
+from app.domain.health import CRITICAL, HEALTHY, UNKNOWN, WARNING
+from app.domain.score_representation import SCORE_REPRESENTATION
 from app.domain.models import Project
 
 _LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "app" / "images" / "logo.svg"
@@ -21,34 +23,33 @@ def project_badge(request, pk):
 
     # The project's score: its newest scored commit on the default branch.
     commit_score = scoring.project_score(project)
-    score = commit_score.value if commit_score else None
-    results = list(commit_score.executions.all()) if commit_score else []
-    all_passed = bool(results) and all(ex.status == "passed" for ex in results)
+    represented = SCORE_REPRESENTATION.represent(
+        commit_score.value if commit_score else None,
+        failed=bool(commit_score and commit_score.failed),
+    )
 
-    svg = _render_badge(score, all_passed)
+    svg = _render_badge(represented)
 
     response = HttpResponse(svg, content_type="image/svg+xml")
     response["Cache-Control"] = "public, max-age=300"  # 5 min cache
     return response
 
 
-def _render_badge(score, all_passed):
-    """Render a shields.io-style SVG badge with the GitGrit logo as label."""
-    if score is None:
-        value = "no data"
-        color = "#9e9e9e"
-    elif all_passed:
-        value = f"{score}%"
-        color = "#4caf50"
-    elif score >= 80:
-        value = f"{score}%"
-        color = "#4caf50"
-    elif score >= 50:
-        value = f"{score}%"
-        color = "#ff9800"
-    else:
-        value = f"{score}%"
-        color = "#f44336"
+# A score's tone as the badge's colour. The badge is an external SVG, so it
+# needs hex values.
+_TONE_COLOR = {
+    HEALTHY: "#4caf50",
+    WARNING: "#ff9800",
+    CRITICAL: "#f44336",
+    UNKNOWN: "#9e9e9e",
+}
+
+
+def _render_badge(represented):
+    """Render a shields.io-style SVG badge with the GitGrit logo as label and
+    the project score as ``SCORE_REPRESENTATION`` shows it."""
+    value = represented.text
+    color = _TONE_COLOR.get(represented.tone, _TONE_COLOR[UNKNOWN])
 
     logo_size = 14
     label_width = logo_size + 12  # 6px padding each side

@@ -45,10 +45,17 @@ window.GitGritFlow = (function () {
     };
   }
 
-  function scoreBadgeClass(score) {
-    if (score >= 80) return "badge-success";
-    if (score >= 50) return "badge-warning";
-    return "badge-error";
+  // A score badge's colour from its node's health level: the server decides
+  // how a score reads (score_text) and which band it is in (health), so no
+  // threshold lives here.
+  var HEALTH_BADGE_CLASS = {
+    healthy: "badge-success",
+    warning: "badge-warning",
+    critical: "badge-error",
+    unknown: "badge-ghost",
+  };
+  function scoreBadgeClass(level) {
+    return HEALTH_BADGE_CLASS[level] || HEALTH_BADGE_CLASS.unknown;
   }
 
   // Edge colours by kind — shared by both diagrams.

@@ -1,12 +1,11 @@
 {% comment %}The Overview tab's health card: the project's score (its newest fully checked
 commit on the default branch), its results worst first, and a way into the Results tab, where
-the details (which standard failed and why) live.{% endcomment %}
+the details (which standard failed and why) live.{% endcomment %}{% load score_tags %}
 <div class="card bg-base-100 shadow-xl h-full" data-overview-health>
   <div class="card-body items-center justify-center gap-6 py-10">
     {% if compliance_score is not None %}
       <div class="relative">
-        <div class="text-7xl font-bold leading-none tabular-nums {% if compliance_score >= 80 %}text-success{% elif compliance_score >= 50 %}text-warning{% else %}text-error{% endif %}"
-             role="img" aria-label="Health score {{ compliance_score }} out of 100" data-score-value>{{ compliance_score }}</div>
+        {% score compliance_score failed=project_score.failed size="xl" data_attr="data-score-value" %}
         <span class="tooltip tooltip-left absolute -top-1 -right-6 cursor-help opacity-50 hover:opacity-100"
               data-tip="The score of the newest commit on {{ project.default_branch }} that every standard finished on: 0 when a Required standard failed or could not be verified, otherwise the average of the standards' scores, weighted by importance (Required and Major count twice as much as Minor)."
               tabindex="0" aria-label="About this score">

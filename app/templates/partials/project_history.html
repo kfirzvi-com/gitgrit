@@ -3,7 +3,7 @@ first), then that branch's score and breakdown, then its commits newest first: a
 opens to the latest result of each standard GitGrit ran on it (the newest checked one starts
 open), the others say "Not checked". Served by project_history, which the page loads after it renders; re-polls every
 5s while a run on the page is in flight. Line-free: rows are separated by spacing and hover
-surfaces, sections by small-caps labels.{% endcomment %}
+surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
 {% url 'project_history' project.pk as history_url %}
 {% url 'run_on_branch' project.pk as run_url %}
 <div id="project-history" class="card bg-base-100 shadow-xl scroll-mt-20"
@@ -28,7 +28,7 @@ surfaces, sections by small-caps labels.{% endcomment %}
     <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-5 sm:px-6 py-5" data-branch-status>
       {% if status_score is not None %}
         <div class="flex items-start gap-1">
-          <span class="text-5xl font-bold leading-none {% if status_score >= 80 %}text-success{% elif status_score >= 50 %}text-warning{% else %}text-error{% endif %}">{{ status_score }}</span>
+          {% score status_score failed=branch_score.failed size="lg" data_attr="data-branch-score" %}
           <span class="tooltip tooltip-right cursor-help opacity-50 hover:opacity-100"
                 data-tip="The score of the newest commit on {{ branch }} that every standard finished on ({{ status|length }} standard{{ status|length|pluralize }}): 0 when a Required standard failed or could not be verified, otherwise the average weighted by importance.{% if not is_default %} Only the default branch counts toward the project's score.{% endif %}"
                 data-score-info tabindex="0" aria-label="About this score">
@@ -59,8 +59,7 @@ surfaces, sections by small-caps labels.{% endcomment %}
                   <summary class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-base-200 list-none">
                     {% include "partials/project_history_commit_line.html" %}
                     {% if row.scored %}
-                      <span class="w-10 text-right font-bold shrink-0{% if row.failed_score %} text-error{% endif %}"
-                            {% if row.failed_score %}title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% if row.score is not None %}{{ row.score }}{% else %}—{% endif %}</span>
+                      <span class="w-10 text-right shrink-0"{% if row.failed_score %} title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% score row.score failed=row.failed_score %}</span>
                     {% elif row.running %}
                       <span class="text-xs opacity-60 shrink-0" data-commit-score="checking">checking…</span>
                     {% else %}

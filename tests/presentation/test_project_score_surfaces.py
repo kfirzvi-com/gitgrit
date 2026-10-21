@@ -28,7 +28,7 @@ class ProjectScoreSurfacesTests(TestCase):
     def test_the_badge_shows_zero_in_red(self):
         svg = self.client.get(reverse("project_badge", args=[self.project.pk])).content.decode()
 
-        assert "GitGrit compliance: 0%" in svg
+        assert "GitGrit compliance: 0" in svg
         assert "#f44336" in svg
 
     def test_a_component_shows_the_project_score_and_why(self):

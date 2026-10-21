@@ -46,8 +46,8 @@
         d.score != null
           ? h(
               "span",
-              { className: "badge badge-sm " + GF.scoreBadgeClass(d.score) },
-              d.score + "%"
+              { className: "badge badge-sm " + GF.scoreBadgeClass(d.health) },
+              d.score_text
             )
           : null
       ),

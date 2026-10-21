@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.domain import importance as importance_domain
+from app.domain.score_representation import SCORE_REPRESENTATION
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -1590,7 +1591,10 @@ class Notification(models.Model):
             kind=Kind.PROJECT_CRITICAL,
             severity=Severity.CRITICAL,
             title="Score dropped to critical",
-            body=f"From {round(score_before)}% to {round(score_after)}%.",
+            body=(
+                f"From {SCORE_REPRESENTATION.represent(score_before).text}"
+                f" to {SCORE_REPRESENTATION.represent(score_after).text}."
+            ),
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,
         )
