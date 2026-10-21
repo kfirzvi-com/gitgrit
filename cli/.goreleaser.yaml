@@ -33,6 +33,13 @@ archives:
 checksum:
   name_template: checksums.txt
 
+git:
+  # The publish workflow re-creates an `edge` tag on every main build. It is
+  # not a version: never read it as the current tag, or a second main build
+  # after a release fails to compute its snapshot version.
+  ignore_tags:
+    - edge
+
 snapshot:
   # Edge builds: the next patch after the last tag, plus the commit.
   version_template: "v{{ incpatch .Version }}-edge.{{ .ShortCommit }}"
