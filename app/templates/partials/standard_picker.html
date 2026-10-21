@@ -1,6 +1,6 @@
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
 {# Context: workspace_standards (labels prefetched; each with .importance), attached_standard_ids (set of pks to pre-check), #}
-{# importance_rules (app.domain.importance.ordered_rules(): one radio per importance in each row), #}
+{# importance_rules (app.domain.importance.ordered_rules(): each row's importance chip opens a menu of them), #}
 {# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
 <div class="standard-picker">
   <div class="flex flex-wrap gap-2 mb-2">
@@ -30,6 +30,11 @@
     </span>
     <span class="standard-picker-warning text-warning font-medium hidden"></span>
   </div>
+  {# Filled in by updateStandardPickerCounts: how many checked rows would fail the project. #}
+  <p class="standard-picker-gate gg-importance-gate hidden mb-2 text-sm">
+    {% include "partials/importance_icon.html" with value="required" %}
+    <span class="standard-picker-gate-text"></span>
+  </p>
   <div class="max-h-96 overflow-y-auto rounded-box border border-base-300">
     <table class="table table-pin-rows">
       <thead>
@@ -41,8 +46,7 @@
                     onclick="sortStandardPicker(this, 'name')">Name</button>
           </th>
           <th>
-            <span class="tooltip tooltip-bottom cursor-help"
-                  data-tip="How much the standard matters to this project.{% for rule in importance_rules %} {{ rule.label }}: {{ rule.help|lower }}.{% endfor %}">Importance</span>
+            <span title="How much the standard matters to this project">Importance</span>
           </th>
           <th>Description</th>
           <th>
@@ -74,25 +78,34 @@
               {% elif not standard.enabled %}
                 <span class="badge badge-error badge-sm align-middle">Disabled</span>
               {% endif %}
-              {# Shown by importance.css while the row is checked at an importance that fails the project. #}
-              {% for rule in importance_rules %}{% if rule.fails_project %}
-                <p class="gg-importance-note text-xs opacity-70 mt-0.5">{% include "partials/importance_lock.html" %} {{ rule.help }}.</p>
-              {% endif %}{% endfor %}
             </td>
             <td>
-              <div class="join" role="radiogroup" data-importance
-                   aria-label="Importance of {{ standard.name }}">
-                {% for rule in importance_rules %}
-                  <label class="join-item btn btn-xs gap-1 gg-importance gg-importance-{{ rule.importance.value }}"
-                         title="{{ rule.help }}">
-                    <input type="radio" name="importance-{{ standard.pk }}" value="{{ rule.importance.value }}"
-                           class="sr-only{% if rule.fails_project %} gg-importance-fails{% endif %}"
-                           onchange="filterStandardPicker(this)"
-                           {% if rule.importance.value == standard.importance %}checked{% endif %}>
-                    {% if rule.fails_project %}{% include "partials/importance_lock.html" %}{% endif %}
-                    {{ rule.label }}
-                  </label>
-                {% endfor %}
+              {# The chip shows the checked importance (importance.css); the menu holds the radios. #}
+              <div class="gg-importance" data-importance>
+                <button type="button" class="gg-importance-chip"
+                        popovertarget="importance-menu-{{ standard.pk }}"
+                        aria-label="Importance of {{ standard.name }}">
+                  {% for rule in importance_rules %}
+                    <span class="gg-importance-shown" data-for="{{ rule.importance.value }}">
+                      {% include "partials/importance_icon.html" with value=rule.importance.value %}{{ rule.label }}
+                    </span>
+                  {% endfor %}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
+                </button>
+                <div popover id="importance-menu-{{ standard.pk }}" class="gg-importance-menu"
+                     role="radiogroup" aria-label="Importance of {{ standard.name }}">
+                  {% for rule in importance_rules %}
+                    <label class="gg-importance-option">
+                      <input type="radio" name="importance-{{ standard.pk }}" value="{{ rule.importance.value }}"
+                             class="sr-only{% if rule.fails_project %} gg-importance-fails{% endif %}"
+                             onchange="pickStandardImportance(this)"
+                             {% if rule.importance.value == standard.importance %}checked{% endif %}>
+                      {% include "partials/importance_icon.html" with value=rule.importance.value %}
+                      <span><span class="font-medium">{{ rule.label }}</span>
+                        <span class="block text-xs opacity-70">{{ rule.help }}.</span></span>
+                    </label>
+                  {% endfor %}
+                </div>
               </div>
             </td>
             <td class="max-w-56">
@@ -207,6 +220,33 @@ if (!window.filterStandardPicker) {
 
   window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, true); };
 
+  // A row's importance menu: close it on a pick and refresh filter and counts.
+  window.pickStandardImportance = function (radio) {
+    var menu = radio.closest('[popover]');
+    if (menu && menu.hidePopover) menu.hidePopover();
+    var picker = radio.closest('.standard-picker');
+    window.filterStandardPicker(picker);
+    window.updateStandardPickerCounts(picker);
+  };
+
+  // Importance menus are popovers (top layer, so the scrolling table never
+  // clips them); place each one under its chip as it opens.
+  document.addEventListener('beforetoggle', function (event) {
+    var menu = event.target;
+    if (!menu.classList || !menu.classList.contains('gg-importance-menu') || event.newState !== 'open') return;
+    var chip = document.querySelector('[popovertarget="' + menu.id + '"]');
+    if (!chip) return;
+    var rect = chip.getBoundingClientRect();
+    var width = 288, height = 190;
+    menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) + 'px';
+    menu.style.top = (rect.bottom + height + 8 > window.innerHeight
+      ? Math.max(8, rect.top - height - 4) : rect.bottom + 4) + 'px';
+  }, true);
+  // A fixed menu would drift from its chip on scroll: close it instead.
+  window.addEventListener('scroll', function () {
+    document.querySelectorAll('.gg-importance-menu:popover-open').forEach(function (m) { m.hidePopover(); });
+  }, { capture: true, passive: true });
+
   // Sets the importance of every checked row the filters leave visible.
   window.setStandardPickerImportance = function (btn, value) {
     var picker = pickerFor(btn);
@@ -219,6 +259,7 @@ if (!window.filterStandardPicker) {
       if (radio) radio.checked = true;
     });
     window.filterStandardPicker(picker);
+    window.updateStandardPickerCounts(picker);
   };
   window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, false); };
 
@@ -232,6 +273,15 @@ if (!window.filterStandardPicker) {
       else if (row.dataset.disabled) disabled++;
     });
     picker.querySelector('.standard-picker-selected').textContent = selected;
+    // Checked rows at an importance that fails the project (Required).
+    var gating = picker.querySelectorAll('.standard-picker-row:has(input[name="standards"]:checked) .gg-importance-fails:checked').length;
+    var gate = picker.querySelector('.standard-picker-gate');
+    if (gate) {
+      gate.querySelector('.standard-picker-gate-text').textContent = gating === 1
+        ? '1 Required standard: if it fails, the project fails.'
+        : gating + ' Required standards: if any of them fails, the project fails.';
+      gate.classList.toggle('hidden', !gating);
+    }
     var warn = picker.querySelector('.standard-picker-warning');
     var inactive = draft + disabled;
     if (inactive) {

@@ -10,10 +10,14 @@
   <div class="dropdown dropdown-top">
     <div tabindex="0" role="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
          title="Set the importance of every checked standard currently listed (respects the search and filter)">Set importance</div>
-    <ul tabindex="0" class="dropdown-content menu z-10 w-40 rounded-box bg-base-200 p-1 shadow">
+    <ul tabindex="0" class="dropdown-content menu z-10 w-72 rounded-box bg-base-200 p-1 shadow">
       {% for rule in importance_rules %}
-        <li><button type="button" title="{{ rule.help }}" class="gg-importance-text gg-importance-{{ rule.importance.value }}"
-                    onclick="setStandardPickerImportance(this, '{{ rule.importance.value }}'); document.activeElement.blur()">{{ rule.label }}</button></li>
+        <li><button type="button" class="items-start"
+                    onclick="setStandardPickerImportance(this, '{{ rule.importance.value }}'); document.activeElement.blur()">
+          <span class="mt-0.5">{% include "partials/importance_icon.html" with value=rule.importance.value %}</span>
+          <span><span class="font-medium">{{ rule.label }}</span>
+            <span class="block text-xs opacity-70">{{ rule.help }}.</span></span>
+        </button></li>
       {% endfor %}
     </ul>
   </div>

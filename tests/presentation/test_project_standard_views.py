@@ -361,9 +361,11 @@ class TestStandardsTableImportance(TestCase):
         assert _selected_importance(body, unattached.pk) == "major"
         assert "Set importance" in body
         assert 'aria-label="Filter by importance"' in body
-        # Required carries the lock and the line saying what it means.
-        assert 'value="required"\n                           class="sr-only gg-importance-fails"' in body
+        # Required is marked as the importance that fails the project, and
+        # its menu option says so.
+        assert re.search(r'value="required"\s+class="sr-only gg-importance-fails"', body)
         assert "If it fails, the project fails." in body
+        assert "standard-picker-gate" in body
 
     def test_save_writes_the_posted_importances(self):
         _, tenant = _login_member(self.client)
