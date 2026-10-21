@@ -76,3 +76,10 @@
 
 .gg-importance-gate { display: flex; align-items: center; gap: 0.5rem; color: var(--gg-primary); }
 .gg-importance-gate.hidden { display: none; }
+
+/* A run that ran as Required (partials/required_chip.html). */
+.gg-importance-required-chip {
+  color: var(--gg-primary);
+  background-color: var(--gg-primary-glow);
+}
+.gg-importance-required-chip .gg-importance-icon { width: 0.75rem; height: 0.75rem; }

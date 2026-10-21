@@ -149,6 +149,32 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn('hx-trigger="tab-open once"', content)
         self.platform.list_commits.assert_not_called()
 
+    def test_results_are_grouped_with_a_required_chip_dates_and_did_not_run(self):
+        """Runs grouped worst first, a Required chip and a run date on each,
+        the commit's date instead of its age, and no "not run" badge; an
+        incomplete commit lists the expected standards that never ran."""
+        other = baker.make("app.Standard", tenant=self.tenant, name="Other")
+        self.project.standards.add(other)
+        check = baker.make(
+            "app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40,
+            expected_standard_ids=[str(self.standard.pk), str(other.pk)],
+        )
+        baker.make(
+            "app.StandardExecution", project=self.project, standard=self.standard,
+            standard_name="Pinned CI", status=Status.FAILED, score=0, commit_check=check,
+            importance="required",
+        )
+
+        content = self._get().content.decode()
+
+        self.assertIn('data-result-group="failed"', content)
+        self.assertIn("data-required-chip", content)
+        self.assertIn("data-run-date", content)
+        self.assertIn('data-result-group="did_not_run"', content)
+        self.assertIn("Expected, never ran", content)
+        self.assertNotIn(" not run</span>", content)
+        self.assertIn("1 Oct 2026", content)
+
 
 class RunOnBranchViewTests(TestCase):
     def setUp(self):
@@ -227,3 +253,4 @@ class RunOnBranchViewTests(TestCase):
 
     def test_running_requires_post(self):
         self.assertEqual(self.client.get(reverse("run_on_branch", args=[self.project.pk])).status_code, 405)
+

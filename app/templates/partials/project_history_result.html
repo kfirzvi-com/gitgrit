@@ -1,6 +1,6 @@
 {% comment %}One standard's result as a line-free row linking to the run: a status dot, the
-standard's name (and version), its message muted underneath, then an optional event column and
-the standard's score ("not scored" for an errored run, which the commit score leaves out unless
+standard's name (and version), the Required chip when it ran as Required, its message muted
+underneath, then an optional event column, when it ran, and the standard's score ("not scored" for an errored run, which the commit score leaves out unless
 the standard is Required). Expects `ex` (a StandardExecution); `show_event` adds the event
 column.{% endcomment %}{% load score_tags %}
 <a href="{% url 'standard_execution_detail' ex.id %}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200">
@@ -10,10 +10,12 @@ column.{% endcomment %}{% load score_tags %}
     <span class="flex items-baseline gap-2 min-w-0">
       <span class="text-sm font-medium truncate">{{ ex.standard_name }}</span>
       {% include "partials/project_history_version.html" %}
+      {% if ex.importance == 'required' %}{% include "partials/required_chip.html" %}{% endif %}
       {% if ex.standard is None or ex.standard.archived_at %}<span class="text-xs opacity-50">· deleted</span>{% elif ex.still_attached == False %}<span class="text-xs opacity-50">· no longer attached</span>{% endif %}
     </span>
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}
   </span>
   {% if show_event %}<span class="text-xs opacity-40 shrink-0 hidden sm:inline">{{ ex.event_type }}</span>{% endif %}
+  <time class="text-xs opacity-40 shrink-0 whitespace-nowrap hidden sm:inline" datetime="{{ ex.created_at|date:'c' }}" title="{{ ex.created_at|date:'j M Y, H:i' }} UTC" data-run-date>{{ ex.created_at|date:'j M, H:i' }}</time>
   <span class="w-12 text-right text-sm font-semibold shrink-0">{% if ex.status == "running" %}<span class="text-xs font-normal opacity-60">running</span>{% elif ex.status == "error" %}<span class="text-xs font-normal opacity-60" title="{% if ex.importance == 'required' %}Could not verify a Required standard: it fails the project{% else %}Errored: left out of the score{% endif %}" data-not-scored>{% if ex.importance == 'required' %}error{% else %}not scored{% endif %}</span>{% else %}{% score ex.score size="sm" toned=False %}{% endif %}</span>
 </a>

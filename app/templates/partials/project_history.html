@@ -67,16 +67,22 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
                     {% endif %}
                   </summary>
                   <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">
-                    {% for ex in row.results %}
-                      {% include "partials/project_history_result.html" with show_event=True %}
+                    {% for group in row.result_groups %}
+                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="{{ group.key }}">{{ group.heading }} · {{ group.runs|length }}</h4>
+                      {% for ex in group.runs %}
+                        {% include "partials/project_history_result.html" with show_event=True %}
+                      {% endfor %}
                     {% endfor %}
-                    {% for standard in row.not_run %}
-                      <div class="flex items-center gap-3 px-3 py-1.5 opacity-60">
-                        <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
-                        <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
-                        <span class="text-xs">Not run on this commit</span>
-                      </div>
-                    {% endfor %}
+                    {% if row.did_not_run %}
+                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="did_not_run">Did not run · {{ row.did_not_run|length }}</h4>
+                      {% for standard in row.did_not_run %}
+                        <div class="flex items-center gap-3 px-3 py-1.5 opacity-60" title="This commit's check expected it, but it never ran here">
+                          <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
+                          <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
+                          <span class="text-xs">Expected, never ran</span>
+                        </div>
+                      {% endfor %}
+                    {% endif %}
                     <div class="flex justify-end pt-2">
                       <button type="button" class="btn btn-ghost btn-xs"
                               hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'

@@ -26,7 +26,7 @@ from app.application.standard_engine import StandardEngine
 from app.application.scoring import commit_scores
 from app.domain.scoring import ExpectedStandards
 from app.application.standard_results import current_results
-from app.domain.models import CommitCheck, StandardExecution
+from app.domain.models import CommitCheck, Standard, StandardExecution
 
 logger = logging.getLogger(__name__)
 
@@ -158,8 +158,12 @@ class CommitRow:
     url: str = ""
     results: list = field(default_factory=list)
     # Current standards that apply to the branch but did not run on this
-    # commit (attached since, or skipped). Only filled for checked commits.
+    # commit (attached since, or skipped). Only filled for checked commits;
+    # the API lists them.
     not_run: list = field(default_factory=list)
+    # Standards the commit's newest check expected that never ran on it
+    # (ExpectedStandards.without_any_run): what an incomplete commit misses.
+    did_not_run: list = field(default_factory=list)
     # The commit's score (``app.application.scoring``): None until a check
     # completes it.
     commit_score: object = None
@@ -332,7 +336,17 @@ def _attach_results(project, rows, applicable=()) -> None:
         seen.add(key)
         ex.still_attached = ex.standard_id in attached
         by_sha[ex.commit_check.commit_sha].results.append(ex)
+    missing_by_sha = {}
     for row in rows:
         if row.results:
             ran = {r.standard_id for r in row.results}
             row.not_run = [s for s in applicable if s.pk not in ran]
+            expected = expected_by_sha.get(row.sha)
+            if expected:
+                missing_by_sha[row.sha] = expected.without_any_run(ran)
+    missing_ids = {i for ids in missing_by_sha.values() for i in ids}
+    names = {
+        str(s.pk): s for s in Standard.all_objects.filter(pk__in=missing_ids)
+    } if missing_ids else {}
+    for sha, ids in missing_by_sha.items():
+        by_sha[sha].did_not_run = [names[i] for i in ids if i in names]
