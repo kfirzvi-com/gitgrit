@@ -24,6 +24,7 @@ from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
 from app.application.scoring import commit_scores
+from app.domain.scoring import ExpectedStandards
 from app.application.standard_results import current_results
 from app.domain.models import CommitCheck, StandardExecution
 
@@ -300,15 +301,19 @@ def _attach_scores(project, rows, branch: str | None = None) -> None:
 
 
 def _attach_results(project, rows, applicable=()) -> None:
-    """Give each commit the latest result per standard across its checks.
-    Standards attach and detach over time, so a commit's results are the
-    standards that ran on it then: each result says whether its standard is
-    still attached, and a checked commit lists the current standards that
-    did not run on it."""
+    """Give each commit the latest result per standard across its checks,
+    for the standards its newest check expects
+    (``ExpectedStandards.lists_runs_of``): a standard detached since and
+    checked again without it drops off the commit. Each result says whether
+    its standard is still attached, and a checked commit lists the current
+    standards that did not run on it."""
     by_sha = {row.sha: row for row in rows}
     if not by_sha:
         return
     attached = set(project.standards.values_list("pk", flat=True))
+    expected_by_sha = {}
+    for check in CommitCheck.objects.filter(project=project, commit_sha__in=by_sha).order_by("created_at"):
+        expected_by_sha[check.commit_sha] = ExpectedStandards(tuple(check.expected_standard_ids))
     seen = set()
     executions = (
         StandardExecution.objects.filter(project=project, commit_check__commit_sha__in=by_sha)
@@ -320,6 +325,9 @@ def _attach_results(project, rows, applicable=()) -> None:
         # left; tell them apart by name.
         key = (ex.commit_check.commit_sha, ex.standard_id or ex.standard_name)
         if key in seen:
+            continue
+        expected = expected_by_sha.get(ex.commit_check.commit_sha)
+        if expected is not None and not expected.lists_runs_of(ex.standard_id):
             continue
         seen.add(key)
         ex.still_attached = ex.standard_id in attached

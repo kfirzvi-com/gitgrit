@@ -201,3 +201,22 @@ class StaleRunsTests(Fixture):
 
         commit_score = scoring.project_score(self.project)
         assert (commit_score.value, commit_score.failed, commit_score.reason) == (0, True, "could not verify B")
+
+
+class DetachedStandardDropsOffTests(Fixture):
+    def test_a_recheck_without_a_detached_standard_drops_it_from_the_commit(self):
+        from app.application.commit_checks import commit_results
+
+        first = self.check()
+        self.result(first, self.a)
+        self.result(first, self.b, Status.ERROR, 0)
+        scoring.score_check(first)
+        self.project.standards.remove(self.b)
+
+        recheck = self.check(expected=[self.a])
+        self.result(recheck, self.a, score=80)
+        scoring.score_check(recheck)
+
+        row = commit_results(self.project, "c1")
+        assert [r.standard_id for r in row.results] == [self.a.pk]
+        assert row.score == 80

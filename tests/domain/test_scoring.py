@@ -195,3 +195,13 @@ class BranchCommitTimelineTests(SimpleTestCase):
         assert read_on("main", ["feature"], "main") == "main"
         assert read_on(None, ["feature", "main"], "main") == "feature"
         assert read_on(None, [], "main") == "main"
+
+
+class ListedRunsTests(SimpleTestCase):
+    def test_a_commit_lists_only_the_standards_its_newest_check_expects(self):
+        expected = ExpectedStandards(("a",))
+        assert expected.lists_runs_of("a")
+        assert not expected.lists_runs_of("detached")
+
+    def test_checks_from_before_expectations_list_every_run(self):
+        assert ExpectedStandards(()).lists_runs_of("anything")

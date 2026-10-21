@@ -21,6 +21,14 @@ class ExpectedStandards:
     def __len__(self) -> int:
         return len(self.standard_ids)
 
+    def lists_runs_of(self, standard_id) -> bool:
+        """Does a commit whose newest check expects these standards list the
+        runs of ``standard_id``? Only the expected ones: a standard detached
+        (or no longer applying) since keeps its old run on record but is not
+        part of the commit any more. Checks recorded before expectations
+        existed list every run."""
+        return not self.standard_ids or str(standard_id) in self.standard_ids
+
     def without_finished_result(self, run_results) -> list[str]:
         """The expected standards with no finished run among ``run_results``:
         empty when the commit is complete."""
