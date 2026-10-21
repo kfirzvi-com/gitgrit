@@ -1,4 +1,4 @@
-{# "Select all" / "Clear selection" for a standard_picker. Works inside the picker or #}
+{# "Select all" / "Clear selection" / "Set importance" for a standard_picker. Works inside the picker or #}
 {# anywhere in the same <form> (the JS falls back to the form's picker). size: btn-xs|btn-sm #}
 <div class="flex gap-2">
   <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
@@ -7,4 +7,18 @@
   <button type="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
           title="Uncheck every standard currently listed (respects the search filter)"
           onclick="clearAllStandardPicker(this)">Clear selection</button>
+  <div class="dropdown dropdown-top">
+    <div tabindex="0" role="button" class="btn {{ size|default:'btn-xs' }} btn-outline"
+         title="Set the importance of every checked standard currently listed (respects the search and filter)">Set importance</div>
+    <ul tabindex="0" class="dropdown-content menu z-10 w-72 rounded-box bg-base-200 p-1 shadow">
+      {% for option in importance_options %}
+        <li><button type="button" class="items-start"
+                    onclick="setStandardPickerImportance(this, '{{ option.value }}'); document.activeElement.blur()">
+          <span class="mt-0.5">{% include "partials/importance_icon.html" with value=option.value %}</span>
+          <span><span class="font-medium">{{ option.label }}</span>
+            <span class="block text-xs opacity-70">{{ option.description }}.</span></span>
+        </button></li>
+      {% endfor %}
+    </ul>
+  </div>
 </div>

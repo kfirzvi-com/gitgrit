@@ -16,7 +16,7 @@ From the terminal: `gitgrit connection app` or `gitgrit connection add`. See [Co
 1. Go to **Projects** → **Add Project** and pick the connection. Right after connecting, you land here on your own.
 2. Search for the repository and click **Select**.
 3. Optionally set a **Lifecycle** and an **Owner**.
-4. Under **Attach standards**, pick the standards to run. **None are attached by default.**
+4. Under **Attach standards**, pick the standards to run and, if you like, their [importance](#importance). **None are attached by default.**
 5. Click **Add Project**.
 
 GitGrit then:
@@ -47,6 +47,25 @@ A standard can limit which events and branches it runs on. See [Writing Standard
 
 - **Overview**: the health score and how many standards passed, failed or errored
 - **Results**: results per branch and commit, with each standard's message
-- **Standards**: attach and detach standards
+- **Standards**: attach and detach standards and set their [importance](#importance)
 - **Get your Badge**: an embeddable score badge for your README ([Compliance Badges](../features/badges.md))
 - **Edit**: lifecycle and owner. **Remove** deletes the project, its results and its webhook.
+
+## Importance
+
+Each attached standard has an **importance**: how much it matters to this project.
+
+| Importance | Meaning |
+|---|---|
+| **Required** 🛑 | if it fails, the project fails |
+| **Major** (default) | counts fully toward this project's score |
+| **Minor** | counts less toward this project's score |
+
+Importance belongs to the attached standard, not to the standard itself, so the same standard can be Required on one project and Minor on another. Every attached standard starts at Major; detaching it and attaching it again starts over at Major.
+
+Set it in the project's **Standards** tab: click a row's importance in the **Importance** column and pick one, or check several rows and use **Set importance**, then click **Save**. Required standards show a stop sign, and a line above the table counts them. **Any importance** filters the table to the attached standards of one importance.
+
+The [API](https://app.gitgrit.dev/api/v1/docs/)'s list of a project's standards (`GET /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/`) returns each one's `importance`, and `PATCH /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/{standard_id}/` with `{"importance": "required"}` sets it.
+
+!!! note
+    Importance is recorded and shown today; it does not change the score yet.

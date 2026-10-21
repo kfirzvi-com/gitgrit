@@ -679,6 +679,48 @@ paths:
                 $ref: '#/components/schemas/ProjectStandardsChange'
           description: ''
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/{standard_id}/:
+    patch:
+      operationId: set_project_standard_importance
+      description: How much the standard matters to this project. The standard must
+        be attached.
+      summary: Set an attached standard's importance
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: standard_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedImportanceRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachedStandardImportance'
+          description: ''
     delete:
       operationId: detach_project_standard
       description: Its past results stay; it just stops running on the project.
@@ -1070,6 +1112,15 @@ components:
           type: string
         description:
           type: string
+        importance:
+          allOf:
+          - $ref: '#/components/schemas/ImportanceEnum'
+          description: |-
+            How much the standard matters to this project: required: if it fails, the project fails; major: counts fully toward this project's score; minor: counts less toward this project's score.
+
+            * `required` - Required
+            * `major` - Major
+            * `minor` - Minor
         rules:
           type: object
           additionalProperties: {}
@@ -1096,6 +1147,7 @@ components:
       - draft
       - enabled
       - id
+      - importance
       - labels
       - languages
       - last_execution
@@ -1117,6 +1169,20 @@ components:
       - draft
       - enabled
       - id
+      - name
+    AttachedStandardImportance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        importance:
+          $ref: '#/components/schemas/ImportanceEnum'
+      required:
+      - id
+      - importance
       - name
     AuthMethodEnum:
       enum:
@@ -1329,6 +1395,16 @@ components:
       - project
       - score
       - status
+    ImportanceEnum:
+      enum:
+      - required
+      - major
+      - minor
+      type: string
+      description: |-
+        * `required` - Required
+        * `major` - Major
+        * `minor` - Minor
     InstalledStandard:
       type: object
       properties:
@@ -1523,6 +1599,19 @@ components:
       - installed
       - pack
       - skipped
+    PatchedImportanceRequest:
+      type: object
+      description: PATCH body for an attached standard.
+      properties:
+        importance:
+          allOf:
+          - $ref: '#/components/schemas/ImportanceEnum'
+          description: |-
+            required: if it fails, the project fails; major: counts fully toward this project's score; minor: counts less toward this project's score.
+
+            * `required` - Required
+            * `major` - Major
+            * `minor` - Minor
     PatchedProjectUpdateRequest:
       type: object
       description: PATCH body — only the fields sent are changed.

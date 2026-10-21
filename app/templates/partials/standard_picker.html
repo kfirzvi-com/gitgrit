@@ -1,11 +1,23 @@
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
-{# Context: workspace_standards (queryset, labels prefetched), attached_standard_ids (set of pks to pre-check), #}
+{# Context: workspace_standards (labels prefetched; each with .importance), attached_standard_ids (set of pks to pre-check), #}
+{# importance_options (app.presentation.importance_text.options(): each row's importance chip opens a menu of them), #}
 {# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
 <div class="standard-picker">
-  <input type="text" placeholder="Search standards by name, description, or tag..."
-         class="input input-bordered w-full mb-2"
-         oninput="filterStandardPicker(this)" autocomplete="off"
-         onkeydown="if (event.key === 'Enter') event.preventDefault()">
+  <div class="flex flex-wrap gap-2 mb-2">
+    <input type="text" placeholder="Search standards by name, description, or tag..."
+           class="standard-picker-search input input-bordered flex-1 min-w-48"
+           oninput="filterStandardPicker(this)" autocomplete="off"
+           onkeydown="if (event.key === 'Enter') event.preventDefault()">
+    <select class="standard-picker-importance-filter select select-bordered w-auto"
+            aria-label="Filter by importance"
+            title="Show only the attached standards with this importance"
+            onchange="filterStandardPicker(this)">
+      <option value="">Any importance</option>
+      {% for option in importance_options %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
     <span class="flex flex-wrap items-center gap-2">
       <span class="opacity-70">
@@ -18,6 +30,11 @@
     </span>
     <span class="standard-picker-warning text-warning font-medium hidden"></span>
   </div>
+  {# Filled in by updateStandardPickerCounts: how many checked rows would fail the project. #}
+  <p class="standard-picker-gate gg-importance-gate hidden mb-2 text-sm">
+    {% include "partials/importance_icon.html" with value="required" %}
+    <span class="standard-picker-gate-text"></span>
+  </p>
   <div class="max-h-96 overflow-y-auto rounded-box border border-base-300">
     <table class="table table-pin-rows">
       <thead>
@@ -27,6 +44,9 @@
             <button type="button" class="link link-hover font-semibold"
                     title="Sort by name"
                     onclick="sortStandardPicker(this, 'name')">Name</button>
+          </th>
+          <th>
+            <span title="How much the standard matters to this project">Importance</span>
           </th>
           <th>Description</th>
           <th>
@@ -59,6 +79,35 @@
                 <span class="badge badge-error badge-sm align-middle">Disabled</span>
               {% endif %}
             </td>
+            <td>
+              {# The chip shows the checked importance (importance.css); the menu holds the radios. #}
+              <div class="gg-importance" data-importance>
+                <button type="button" class="gg-importance-chip"
+                        popovertarget="importance-menu-{{ standard.pk }}"
+                        aria-label="Importance of {{ standard.name }}">
+                  {% for option in importance_options %}
+                    <span class="gg-importance-shown" data-for="{{ option.value }}">
+                      {% include "partials/importance_icon.html" with value=option.value %}{{ option.label }}
+                    </span>
+                  {% endfor %}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
+                </button>
+                <div popover id="importance-menu-{{ standard.pk }}" class="gg-importance-menu"
+                     role="radiogroup" aria-label="Importance of {{ standard.name }}">
+                  {% for option in importance_options %}
+                    <label class="gg-importance-option">
+                      <input type="radio" name="importance-{{ standard.pk }}" value="{{ option.value }}"
+                             class="sr-only"
+                             onchange="pickStandardImportance(this)"
+                             {% if option.value == standard.importance %}checked{% endif %}>
+                      {% include "partials/importance_icon.html" with value=option.value %}
+                      <span><span class="font-medium">{{ option.label }}</span>
+                        <span class="block text-xs opacity-70">{{ option.description }}.</span></span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+            </td>
             <td class="max-w-56">
               {% if standard.description %}
                 <span class="block truncate text-sm opacity-70 cursor-help"
@@ -81,10 +130,10 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
+          <tr><td colspan="5"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
         {% endfor %}
         <tr class="standard-picker-no-match hidden">
-          <td colspan="4"><p class="text-sm opacity-70">No standards match your search.</p></td>
+          <td colspan="5"><p class="text-sm opacity-70">No standards match your search.</p></td>
         </tr>
       </tbody>
     </table>
@@ -94,12 +143,25 @@
 <script>
 // Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
 if (!window.filterStandardPicker) {
-  window.filterStandardPicker = function (input) {
-    var picker = input.closest('.standard-picker');
-    var q = input.value.trim().toLowerCase();
+  // A row's importance: the value of its checked radio.
+  function rowImportance(row) {
+    var chosen = row.querySelector('[data-importance] input:checked');
+    return chosen ? chosen.value : '';
+  }
+
+  // Search text and the importance filter together; the filter keeps only
+  // the checked rows with that importance.
+  window.filterStandardPicker = function (el) {
+    var picker = el.closest('.standard-picker');
+    var q = picker.querySelector('.standard-picker-search').value.trim().toLowerCase();
+    var wanted = picker.querySelector('.standard-picker-importance-filter').value;
     var anyVisible = false;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
       var match = !q || row.dataset.standardSearch.indexOf(q) !== -1;
+      if (match && wanted) {
+        var cb = row.querySelector('input[type="checkbox"]');
+        match = cb.checked && rowImportance(row) === wanted;
+      }
       row.classList.toggle('hidden', !match);
       if (match) anyVisible = true;
     });
@@ -110,7 +172,7 @@ if (!window.filterStandardPicker) {
   // Tag chip click: filter to that tag; clicking a chip of the active tag clears the filter.
   window.filterStandardPickerByTag = function (chip) {
     var picker = chip.closest('.standard-picker');
-    var input = picker.querySelector('input[type="text"]');
+    var input = picker.querySelector('.standard-picker-search');
     var tag = chip.dataset.tag;
     input.value = input.value.trim().toLowerCase() === tag ? '' : tag;
     window.filterStandardPicker(input);
@@ -157,6 +219,48 @@ if (!window.filterStandardPicker) {
   }
 
   window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, true); };
+
+  // A row's importance menu: close it on a pick and refresh filter and counts.
+  window.pickStandardImportance = function (radio) {
+    var menu = radio.closest('[popover]');
+    if (menu && menu.hidePopover) menu.hidePopover();
+    var picker = radio.closest('.standard-picker');
+    window.filterStandardPicker(picker);
+    window.updateStandardPickerCounts(picker);
+  };
+
+  // Importance menus are popovers (top layer, so the scrolling table never
+  // clips them); place each one under its chip as it opens.
+  document.addEventListener('beforetoggle', function (event) {
+    var menu = event.target;
+    if (!menu.classList || !menu.classList.contains('gg-importance-menu') || event.newState !== 'open') return;
+    var chip = document.querySelector('[popovertarget="' + menu.id + '"]');
+    if (!chip) return;
+    var rect = chip.getBoundingClientRect();
+    var width = 288, height = 190;
+    menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) + 'px';
+    menu.style.top = (rect.bottom + height + 8 > window.innerHeight
+      ? Math.max(8, rect.top - height - 4) : rect.bottom + 4) + 'px';
+  }, true);
+  // A fixed menu would drift from its chip on scroll: close it instead.
+  window.addEventListener('scroll', function () {
+    document.querySelectorAll('.gg-importance-menu:popover-open').forEach(function (m) { m.hidePopover(); });
+  }, { capture: true, passive: true });
+
+  // Sets the importance of every checked row the filters leave visible.
+  window.setStandardPickerImportance = function (btn, value) {
+    var picker = pickerFor(btn);
+    if (!picker) return;
+    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      if (row.classList.contains('hidden')) return;
+      var cb = row.querySelector('input[type="checkbox"]');
+      if (!cb || !cb.checked) return;
+      var radio = row.querySelector('[data-importance] input[value="' + value + '"]');
+      if (radio) radio.checked = true;
+    });
+    window.filterStandardPicker(picker);
+    window.updateStandardPickerCounts(picker);
+  };
   window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, false); };
 
   window.updateStandardPickerCounts = function (picker) {
@@ -169,6 +273,15 @@ if (!window.filterStandardPicker) {
       else if (row.dataset.disabled) disabled++;
     });
     picker.querySelector('.standard-picker-selected').textContent = selected;
+    // Checked rows that are Required.
+    var gating = picker.querySelectorAll('.standard-picker-row:has(input[name="standards"]:checked) [data-importance] input[value="required"]:checked').length;
+    var gate = picker.querySelector('.standard-picker-gate');
+    if (gate) {
+      gate.querySelector('.standard-picker-gate-text').textContent = gating === 1
+        ? '1 Required standard: if it fails, the project fails.'
+        : gating + ' Required standards: if any of them fails, the project fails.';
+      gate.classList.toggle('hidden', !gating);
+    }
     var warn = picker.querySelector('.standard-picker-warning');
     var inactive = draft + disabled;
     if (inactive) {

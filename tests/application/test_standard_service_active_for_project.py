@@ -131,3 +131,16 @@ def evaluate(project):
         last = result[0]["last_execution"]
         assert last["status"] == StandardExecution.Status.PASSED
         assert last["score"] == 100
+
+
+class TestActiveStandardImportance(APITestCase):
+    def test_each_active_standard_carries_its_importance_on_this_project(self):
+        tenant = baker.make("app.Tenant")
+        project = baker.make("app.Project", tenant=tenant, languages=[])
+        standard = baker.make("app.Standard", tenant=tenant, enabled=True, draft=False, criteria={})
+        project.standards.add(standard)
+        project.project_standards.update(importance="minor")
+
+        result = StandardService().list_active_for_project(tenant, str(project.id))
+
+        assert [r["importance"] for r in result] == ["minor"]

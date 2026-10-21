@@ -62,6 +62,27 @@ func (e EventsEnum) Valid() bool {
 	}
 }
 
+// Defines values for ImportanceEnum.
+const (
+	Major    ImportanceEnum = "major"
+	Minor    ImportanceEnum = "minor"
+	Required ImportanceEnum = "required"
+)
+
+// Valid indicates whether the value is a known member of the ImportanceEnum enum.
+func (e ImportanceEnum) Valid() bool {
+	switch e {
+	case Major:
+		return true
+	case Minor:
+		return true
+	case Required:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LevelEnum.
 const (
 	Critical LevelEnum = "critical"
@@ -193,14 +214,21 @@ func (e WebhookEnum) Valid() bool {
 
 // ActiveStandard defines model for ActiveStandard.
 type ActiveStandard struct {
-	Description   string             `json:"description"`
-	Draft         bool               `json:"draft"`
-	Enabled       bool               `json:"enabled"`
-	Id            openapi_types.UUID `json:"id"`
-	Labels        []string           `json:"labels"`
-	Languages     []string           `json:"languages"`
-	LastExecution *LastExecution     `json:"last_execution"`
-	Name          string             `json:"name"`
+	Description string             `json:"description"`
+	Draft       bool               `json:"draft"`
+	Enabled     bool               `json:"enabled"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Importance How much the standard matters to this project: required: if it fails, the project fails; major: counts fully toward this project's score; minor: counts less toward this project's score.
+	//
+	// * `required` - Required
+	// * `major` - Major
+	// * `minor` - Minor
+	Importance    ImportanceEnum `json:"importance"`
+	Labels        []string       `json:"labels"`
+	Languages     []string       `json:"languages"`
+	LastExecution *LastExecution `json:"last_execution"`
+	Name          string         `json:"name"`
 
 	// Rules Extracted enforcement rules: watched files, forbidden patterns, flags.
 	Rules map[string]interface{} `json:"rules"`
@@ -212,6 +240,17 @@ type AttachedStandard struct {
 	Enabled bool               `json:"enabled"`
 	Id      openapi_types.UUID `json:"id"`
 	Name    string             `json:"name"`
+}
+
+// AttachedStandardImportance defines model for AttachedStandardImportance.
+type AttachedStandardImportance struct {
+	Id openapi_types.UUID `json:"id"`
+
+	// Importance * `required` - Required
+	// * `major` - Major
+	// * `minor` - Minor
+	Importance ImportanceEnum `json:"importance"`
+	Name       string         `json:"name"`
 }
 
 // AuthMethodEnum * `pat` - pat
@@ -327,6 +366,11 @@ type Execution struct {
 	Status    string    `json:"status"`
 }
 
+// ImportanceEnum * `required` - Required
+// * `major` - Major
+// * `minor` - Minor
+type ImportanceEnum string
+
 // InstalledStandard defines model for InstalledStandard.
 type InstalledStandard struct {
 	// Created False when the workspace already had it.
@@ -415,6 +459,16 @@ type PackInstall struct {
 
 	// Skipped Already in the workspace.
 	Skipped []InstalledStandard `json:"skipped"`
+}
+
+// PatchedImportanceRequest PATCH body for an attached standard.
+type PatchedImportanceRequest struct {
+	// Importance required: if it fails, the project fails; major: counts fully toward this project's score; minor: counts less toward this project's score.
+	//
+	// * `required` - Required
+	// * `major` - Major
+	// * `minor` - Minor
+	Importance *ImportanceEnum `json:"importance,omitempty"`
 }
 
 // PatchedProjectUpdateRequest PATCH body — only the fields sent are changed.
@@ -799,6 +853,9 @@ type RunProjectCheckJSONRequestBody = RunCheckRequest
 // AttachProjectStandardsJSONRequestBody defines body for AttachProjectStandards for application/json ContentType.
 type AttachProjectStandardsJSONRequestBody = StandardIdsRequest
 
+// SetProjectStandardImportanceJSONRequestBody defines body for SetProjectStandardImportance for application/json ContentType.
+type SetProjectStandardImportanceJSONRequestBody = PatchedImportanceRequest
+
 // CreateStandardJSONRequestBody defines body for CreateStandard for application/json ContentType.
 type CreateStandardJSONRequestBody = StandardCreateRequest
 
@@ -959,6 +1016,11 @@ type ClientInterface interface {
 
 	// DetachProjectStandard request
 	DetachProjectStandard(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectStandardImportanceWithBody request with any body
+	SetProjectStandardImportanceWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectStandardImportance(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, body SetProjectStandardImportanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectStatus request
 	GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1320,6 +1382,30 @@ func (c *Client) AttachProjectStandards(ctx context.Context, workspaceId openapi
 
 func (c *Client) DetachProjectStandard(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDetachProjectStandardRequest(c.Server, workspaceId, projectId, standardId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectStandardImportanceWithBody(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectStandardImportanceRequestWithBody(c.Server, workspaceId, projectId, standardId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectStandardImportance(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, body SetProjectStandardImportanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectStandardImportanceRequest(c.Server, workspaceId, projectId, standardId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2572,6 +2658,67 @@ func NewDetachProjectStandardRequest(server string, workspaceId openapi_types.UU
 	return req, nil
 }
 
+// NewSetProjectStandardImportanceRequest calls the generic SetProjectStandardImportance builder with application/json body
+func NewSetProjectStandardImportanceRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, body SetProjectStandardImportanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectStandardImportanceRequestWithBody(server, workspaceId, projectId, standardId, "application/json", bodyReader)
+}
+
+// NewSetProjectStandardImportanceRequestWithBody generates requests for SetProjectStandardImportance with any type of body
+func NewSetProjectStandardImportanceRequestWithBody(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "standard_id", standardId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/projects/%s/standards/%s/", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetProjectStatusRequest generates requests for GetProjectStatus
 func NewGetProjectStatusRequest(server string, workspaceId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -3080,6 +3227,11 @@ type ClientWithResponsesInterface interface {
 
 	// DetachProjectStandardWithResponse request
 	DetachProjectStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DetachProjectStandardResponse, error)
+
+	// SetProjectStandardImportanceWithBodyWithResponse request with any body
+	SetProjectStandardImportanceWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectStandardImportanceResponse, error)
+
+	SetProjectStandardImportanceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, body SetProjectStandardImportanceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectStandardImportanceResponse, error)
 
 	// GetProjectStatusWithResponse request
 	GetProjectStatusWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectStatusResponse, error)
@@ -3805,6 +3957,36 @@ func (r DetachProjectStandardResponse) ContentType() string {
 	return ""
 }
 
+type SetProjectStandardImportanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AttachedStandardImportance
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectStandardImportanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectStandardImportanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectStandardImportanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4319,6 +4501,23 @@ func (c *ClientWithResponses) DetachProjectStandardWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseDetachProjectStandardResponse(rsp)
+}
+
+// SetProjectStandardImportanceWithBodyWithResponse request with arbitrary body returning *SetProjectStandardImportanceResponse
+func (c *ClientWithResponses) SetProjectStandardImportanceWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectStandardImportanceResponse, error) {
+	rsp, err := c.SetProjectStandardImportanceWithBody(ctx, workspaceId, projectId, standardId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectStandardImportanceResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectStandardImportanceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, standardId openapi_types.UUID, body SetProjectStandardImportanceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectStandardImportanceResponse, error) {
+	rsp, err := c.SetProjectStandardImportance(ctx, workspaceId, projectId, standardId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectStandardImportanceResponse(rsp)
 }
 
 // GetProjectStatusWithResponse request returning *GetProjectStatusResponse
@@ -5011,6 +5210,32 @@ func ParseDetachProjectStandardResponse(rsp *http.Response) (*DetachProjectStand
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ProjectStandardsChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectStandardImportanceResponse parses an HTTP response from a SetProjectStandardImportanceWithResponse call
+func ParseSetProjectStandardImportanceResponse(rsp *http.Response) (*SetProjectStandardImportanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectStandardImportanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AttachedStandardImportance
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

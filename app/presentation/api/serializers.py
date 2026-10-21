@@ -6,6 +6,9 @@ Views return the service dicts as-is.
 """
 from rest_framework import serializers
 
+from app.domain import importance
+from app.presentation import importance_text
+
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 
 
@@ -123,6 +126,10 @@ class ActiveStandardSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
     description = serializers.CharField()
+    importance = serializers.ChoiceField(
+        choices=importance.choices(),
+        help_text="How much the standard matters to this project: " + importance_text.help_text(),
+    )
     rules = serializers.DictField(
         help_text="Extracted enforcement rules: watched files, forbidden patterns, flags."
     )
@@ -381,6 +388,21 @@ class ProjectCreatedSerializer(ProjectDetailSerializer):
 
 class StandardIdsSerializer(serializers.Serializer):
     standards = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+
+
+class ImportanceSerializer(serializers.Serializer):
+    """PATCH body for an attached standard."""
+
+    importance = serializers.ChoiceField(
+        choices=importance.choices(),
+        help_text=importance_text.help_text(),
+    )
+
+
+class AttachedStandardImportanceSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    importance = serializers.ChoiceField(choices=importance.choices())
 
 
 class ProjectStandardsChangeSerializer(serializers.Serializer):

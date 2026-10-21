@@ -286,6 +286,27 @@ class ProjectStandardView(WorkspaceAPIView):
         project = pm.get_project(self.tenant, project_id)
         return _changed(pm.detach_standards(project, [standard_id]))
 
+    @extend_schema(
+        operation_id="set_project_standard_importance",
+        tags=["projects"],
+        summary="Set an attached standard's importance",
+        description="How much the standard matters to this project. The standard must be attached.",
+        request=s.ImportanceSerializer,
+        responses=s.AttachedStandardImportanceSerializer,
+    )
+    def patch(self, request, project_id, standard_id, **_):
+        body = s.ImportanceSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        project = pm.get_project(self.tenant, project_id)
+        attachment = pm.set_importance(project, standard_id, body.validated_data["importance"])
+        return Response(
+            {
+                "id": str(attachment.standard_id),
+                "name": attachment.standard.name,
+                "importance": attachment.importance,
+            }
+        )
+
 
 def _changed(result) -> Response:
     return Response({"standards": [_attached(x) for x in result["standards"]], "runs": result["runs"]})
