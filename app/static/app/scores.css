@@ -3,16 +3,14 @@
  * gg-tone-*-<tone> classes). From Michal's grade-card design.
  *
  *   .gg-score                 a score (partials/score.html)
- *   .gg-score-severe          an F: heavier and glowing, so it never reads as a D
+ *   .gg-score-severe          an F: heavier, so it never reads as a D
  *   .gg-tone-card             a card in its score's tone (--gg-card-tone, from
  *                             .gg-tone-card-<tone>): a glowing bar on the left
  *                             and a soft glow from the top-right corner
+ *                             (--gg-glow-radius, 260px by default)
  */
 .gg-score { line-height: 1; white-space: nowrap; }
-.gg-score-severe {
-  font-weight: 900;
-  text-shadow: 0 0 14px color-mix(in srgb, var(--gg-tone-severe) 60%, transparent);
-}
+.gg-score-severe { font-weight: 900; }
 
 .card.gg-tone-card, .gg-tone-card { position: relative; overflow: hidden; }
 .gg-tone-card::before,
@@ -28,15 +26,14 @@
   background: var(--gg-card-tone);
   box-shadow: 0 0 12px color-mix(in srgb, var(--gg-card-tone) 45%, transparent);
 }
-.gg-tone-card::after {              /* the glow behind the letter */
-  top: 0; right: 0;
-  width: 240px; height: 200px;
-  background: radial-gradient(circle at top right,
-    color-mix(in srgb, var(--gg-card-tone) 22%, transparent), transparent 70%);
+.gg-tone-card::after {              /* the glow from the top-right corner */
+  inset: 0;                         /* the whole card, so the glow fades out instead of being cut off */
+  background: radial-gradient(circle var(--gg-glow-radius, 260px) at top right,
+    color-mix(in srgb, var(--gg-card-tone) 22%, transparent), transparent);
 }
 .gg-tone-card-unknown::after {
-  background: radial-gradient(circle at top right,
-    color-mix(in srgb, var(--gg-card-tone) 12%, transparent), transparent 70%);
+  background: radial-gradient(circle var(--gg-glow-radius, 260px) at top right,
+    color-mix(in srgb, var(--gg-card-tone) 12%, transparent), transparent);
 }
 /* F: a wider bar and a stronger glow. */
 .gg-tone-card-severe::before {
@@ -44,12 +41,13 @@
   box-shadow: 0 0 18px color-mix(in srgb, var(--gg-card-tone) 70%, transparent);
 }
 .gg-tone-card-severe::after {
-  background: radial-gradient(circle at top right,
-    color-mix(in srgb, var(--gg-card-tone) 38%, transparent), transparent 75%);
+  background: radial-gradient(circle var(--gg-glow-radius, 260px) at top right,
+    color-mix(in srgb, var(--gg-card-tone) 38%, transparent), transparent);
 }
 
 /* The Overview (Michal's design): the grade scale chips above the cards, the
    big letter, and the muted failed / could-not-run / passed bar. */
+[data-overview-health] { --gg-glow-radius: 420px; }
 .gg-score-hero { font-size: clamp(4rem, 10vw, 7.5rem); font-weight: 800; }
 /* :where() keeps the base fill at zero specificity so gg-tone-bg-<tone> lights the current chip. */
 :where(.gg-chip) { background-color: var(--color-base-200); }
