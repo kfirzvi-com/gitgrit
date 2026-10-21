@@ -34,7 +34,8 @@
             <div class="w-20 shrink-0 flex flex-col items-center text-center" data-project-score>
               {% score project.commit_score.value failed=project.commit_score.failed size="card" %}
               {% if project.commit_score.failed %}
-                <span class="gg-required-failed mt-1.5 text-xs leading-tight text-left" data-project-failed>{% include "partials/importance_icon.html" with value="required" %}<span class="w-min">Project failed!</span></span>
+                {# The stop sign hangs to the left, so the two lines centre under the letter. #}
+                <span class="gg-required-failed relative mt-1.5 text-xs leading-tight" data-project-failed><span class="absolute right-full top-1/2 -translate-y-1/2 mr-1 flex">{% include "partials/importance_icon.html" with value="required" %}</span><span class="w-min text-center">Project failed!</span></span>
               {% endif %}
             </div>
           </div>
