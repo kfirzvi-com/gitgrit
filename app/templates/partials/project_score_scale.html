@@ -1,5 +1,5 @@
 {% comment %}The row above the Overview cards (Michal's design): every value the score can take,
-best first (A+ to F), the project's own lit in its colour, and how many standards it read.
+best first (A+ to F), the project's own lit in its colour.
 Display only; nothing when the representation has no short scale.{% endcomment %}
 {% load score_tags %}
 {% score_scale as scale %}
@@ -14,7 +14,5 @@ Display only; nothing when the representation has no short scale.{% endcomment %
         <span class="gg-chip">{{ step.text }}</span>
       {% endif %}
     {% endfor %}
-    <span class="ml-5 mr-1">Standards</span>
-    <span class="gg-chip gg-chip-value" data-standards-count>{{ latest_executions|length }}</span>
   </div>
 {% endif %}
