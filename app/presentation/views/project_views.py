@@ -21,6 +21,7 @@ from app.application.commit_checks import (
 from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
+from app.presentation import importance_text
 from app.domain.models import (
     PlatformConnection,
     Project,
@@ -42,7 +43,7 @@ IMPORTANCE_FIELD = "importance-"
 
 
 def _posted_importances(post) -> dict:
-    """The standards table's ``importance-<standard id>`` selects, as
+    """The standards table's ``importance-<standard id>`` choices, as
     standard id -> posted value."""
     return {
         key[len(IMPORTANCE_FIELD):]: value
@@ -62,13 +63,13 @@ def _picker_context(tenant, project=None) -> dict:
         Standard.objects.filter(tenant=tenant).prefetch_related("labels").order_by("ordinal", "name")
     )
     for standard in standards:
-        # The row's importance select: the attached standard's, else what
-        # attaching it would start at.
+        # The row's importance: the attached standard's, else what attaching
+        # it would start at.
         standard.importance = importances.get(standard.pk, importance.DEFAULT.value)
     return {
         "workspace_standards": standards,
         "attached_standard_ids": set(importances),
-        "importance_rules": importance.ordered_rules(),
+        "importance_options": importance_text.options(),
     }
 
 

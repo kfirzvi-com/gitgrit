@@ -7,6 +7,7 @@ Views return the service dicts as-is.
 from rest_framework import serializers
 
 from app.domain import importance
+from app.presentation import importance_text
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 
@@ -127,9 +128,7 @@ class ActiveStandardSerializer(serializers.Serializer):
     description = serializers.CharField()
     importance = serializers.ChoiceField(
         choices=importance.choices(),
-        help_text="How much the standard matters to this project: "
-        + "; ".join(f"{r.importance.value}: {r.help.lower()}" for r in importance.ordered_rules())
-        + ".",
+        help_text="How much the standard matters to this project: " + importance_text.help_text(),
     )
     rules = serializers.DictField(
         help_text="Extracted enforcement rules: watched files, forbidden patterns, flags."
@@ -396,8 +395,7 @@ class ImportanceSerializer(serializers.Serializer):
 
     importance = serializers.ChoiceField(
         choices=importance.choices(),
-        help_text="; ".join(f"{r.importance.value}: {r.help.lower()}" for r in importance.ordered_rules())
-        + ".",
+        help_text=importance_text.help_text(),
     )
 
 

@@ -9,7 +9,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from app.domain import importance as importance_rules
+from app.domain import importance as importance_domain
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -649,9 +649,9 @@ class ProjectStandard(models.Model):
         related_name="project_standards",
     )
     importance = models.CharField(
-        max_length=importance_rules.MAX_LENGTH,
-        choices=importance_rules.choices(),
-        default=importance_rules.DEFAULT.value,
+        max_length=importance_domain.MAX_LENGTH,
+        choices=importance_domain.choices(),
+        default=importance_domain.DEFAULT.value,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -662,7 +662,7 @@ class ProjectStandard(models.Model):
                 fields=["project", "standard"], name="unique_project_standard"
             ),
             models.CheckConstraint(
-                condition=models.Q(importance__in=[i.value for i in importance_rules.Importance]),
+                condition=models.Q(importance__in=[i.value for i in importance_domain.Importance]),
                 name="project_standard_importance_known",
             ),
         ]
@@ -670,19 +670,15 @@ class ProjectStandard(models.Model):
     def __str__(self):
         return f"{self.project} — {self.standard}"
 
-    @property
-    def importance_rule(self) -> importance_rules.ImportanceRule:
-        return importance_rules.rule_for(self.importance)
-
     @classmethod
     def set_importances(cls, project, importances: dict) -> None:
         """Set the importance of the project's attached standards from
         ``importances`` (standard id -> ``Importance``). Standards not
         attached to the project are ignored: importance only exists on an
         attachment."""
-        by_value: dict[importance_rules.Importance, list[str]] = {}
+        by_value: dict[importance_domain.Importance, list[str]] = {}
         for standard_id, value in importances.items():
-            by_value.setdefault(importance_rules.Importance(value), []).append(str(standard_id))
+            by_value.setdefault(importance_domain.Importance(value), []).append(str(standard_id))
         for value, standard_ids in by_value.items():
             cls.objects.filter(project=project, standard_id__in=standard_ids).update(
                 importance=value.value

@@ -1,6 +1,6 @@
 {# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
 {# Context: workspace_standards (labels prefetched; each with .importance), attached_standard_ids (set of pks to pre-check), #}
-{# importance_rules (app.domain.importance.ordered_rules(): each row's importance chip opens a menu of them), #}
+{# importance_options (app.presentation.importance_text.options(): each row's importance chip opens a menu of them), #}
 {# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
 <div class="standard-picker">
   <div class="flex flex-wrap gap-2 mb-2">
@@ -13,8 +13,8 @@
             title="Show only the attached standards with this importance"
             onchange="filterStandardPicker(this)">
       <option value="">Any importance</option>
-      {% for rule in importance_rules %}
-        <option value="{{ rule.importance.value }}">{{ rule.label }}</option>
+      {% for option in importance_options %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
       {% endfor %}
     </select>
   </div>
@@ -85,24 +85,24 @@
                 <button type="button" class="gg-importance-chip"
                         popovertarget="importance-menu-{{ standard.pk }}"
                         aria-label="Importance of {{ standard.name }}">
-                  {% for rule in importance_rules %}
-                    <span class="gg-importance-shown" data-for="{{ rule.importance.value }}">
-                      {% include "partials/importance_icon.html" with value=rule.importance.value %}{{ rule.label }}
+                  {% for option in importance_options %}
+                    <span class="gg-importance-shown" data-for="{{ option.value }}">
+                      {% include "partials/importance_icon.html" with value=option.value %}{{ option.label }}
                     </span>
                   {% endfor %}
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
                 </button>
                 <div popover id="importance-menu-{{ standard.pk }}" class="gg-importance-menu"
                      role="radiogroup" aria-label="Importance of {{ standard.name }}">
-                  {% for rule in importance_rules %}
+                  {% for option in importance_options %}
                     <label class="gg-importance-option">
-                      <input type="radio" name="importance-{{ standard.pk }}" value="{{ rule.importance.value }}"
-                             class="sr-only{% if rule.fails_project %} gg-importance-fails{% endif %}"
+                      <input type="radio" name="importance-{{ standard.pk }}" value="{{ option.value }}"
+                             class="sr-only"
                              onchange="pickStandardImportance(this)"
-                             {% if rule.importance.value == standard.importance %}checked{% endif %}>
-                      {% include "partials/importance_icon.html" with value=rule.importance.value %}
-                      <span><span class="font-medium">{{ rule.label }}</span>
-                        <span class="block text-xs opacity-70">{{ rule.help }}.</span></span>
+                             {% if option.value == standard.importance %}checked{% endif %}>
+                      {% include "partials/importance_icon.html" with value=option.value %}
+                      <span><span class="font-medium">{{ option.label }}</span>
+                        <span class="block text-xs opacity-70">{{ option.description }}.</span></span>
                     </label>
                   {% endfor %}
                 </div>
@@ -273,8 +273,8 @@ if (!window.filterStandardPicker) {
       else if (row.dataset.disabled) disabled++;
     });
     picker.querySelector('.standard-picker-selected').textContent = selected;
-    // Checked rows at an importance that fails the project (Required).
-    var gating = picker.querySelectorAll('.standard-picker-row:has(input[name="standards"]:checked) .gg-importance-fails:checked').length;
+    // Checked rows that are Required.
+    var gating = picker.querySelectorAll('.standard-picker-row:has(input[name="standards"]:checked) [data-importance] input[value="required"]:checked').length;
     var gate = picker.querySelector('.standard-picker-gate');
     if (gate) {
       gate.querySelector('.standard-picker-gate-text').textContent = gating === 1

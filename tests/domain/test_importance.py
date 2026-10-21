@@ -12,15 +12,13 @@ from app.domain.importance import Importance, UnknownImportance
 from app.domain.models import ProjectStandard
 
 
-class ImportanceRuleTests(SimpleTestCase):
+class ImportanceValueTests(SimpleTestCase):
     def test_most_important_first(self):
-        assert [r.label for r in importance.ordered_rules()] == ["Required", "Major", "Minor"]
-
-    def test_every_importance_has_a_rule(self):
-        assert set(importance.RULES) == set(Importance)
-
-    def test_only_required_fails_the_project(self):
-        assert [r.label for r in importance.ordered_rules() if r.fails_project] == ["Required"]
+        assert importance.choices() == [
+            ("required", "Required"),
+            ("major", "Major"),
+            ("minor", "Minor"),
+        ]
 
     def test_major_is_the_default(self):
         assert importance.DEFAULT is Importance.MAJOR
@@ -36,9 +34,6 @@ class ImportanceRuleTests(SimpleTestCase):
             importance.parse("critical")
         assert "required, major, minor" in str(raised.exception)
 
-    def test_an_unknown_stored_value_reads_as_the_default(self):
-        assert importance.rule_for("bogus").importance is importance.DEFAULT
-
 
 class AttachedStandardImportanceTests(TestCase):
     def setUp(self):
@@ -51,7 +46,6 @@ class AttachedStandardImportanceTests(TestCase):
 
         attachment = ProjectStandard.objects.get(project=self.project)
         assert attachment.importance == "major"
-        assert attachment.importance_rule.label == "Major"
 
     def test_the_same_standard_can_matter_differently_to_two_projects(self):
         other = baker.make("app.Project", tenant=self.tenant)
