@@ -7,6 +7,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.application import commit_checks
+from tests.support import score_commit
 from app.domain.models import StandardExecution
 
 Status = StandardExecution.Status
@@ -46,6 +47,7 @@ class ProjectHistoryViewTests(TestCase):
 
     def test_the_default_branch_is_shown_first_and_selected(self):
         self._check("a" * 40)
+        score_commit(self.project, "a" * 40)
 
         response = self._get()
 
@@ -54,10 +56,10 @@ class ProjectHistoryViewTests(TestCase):
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
         self.assertNotIn("%</span>", content)
-        self.assertIn("The project's health score", content)
+        self.assertIn("The score of the newest commit on main that every standard finished on", content)
         self.assertNotIn("Latest results", content)
-        self.assertIn("Health score", content)
-        self.assertIn("from aaaaaaa", content)
+        self.assertIn("Project score", content)
+        self.assertIn("From commit aaaaaaa", content)
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
         self._check("a" * 40)
@@ -89,22 +91,31 @@ class ProjectHistoryViewTests(TestCase):
         self.assertRegex(content, r'data-commit="b{40}">\s*<details[^>]*\bopen\b')
         self.assertNotIn("<details", content.split('data-commit="b')[0])
 
-    def test_a_score_from_several_commits_says_so(self):
-        self._check("b" * 40)
+    def test_a_commit_not_every_standard_finished_on_has_no_score(self):
+        self._check("b" * 40, status=Status.PASSED, score=100)
+        score_commit(self.project, "b" * 40)
         other = baker.make("app.Standard", tenant=self.tenant, name="Other")
         self.project.standards.add(other)
-        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
+        check = baker.make(
+            "app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40,
+            expected_standard_ids=[str(self.standard.pk), str(other.pk)],
+        )
         baker.make(
             "app.StandardExecution", project=self.project, standard=other, standard_name="Other",
             status=Status.PASSED, score=100, commit_check=check,
         )
 
-        content = self._get().content.decode()
+        response = self._get()
+        content = response.content.decode()
 
-        self.assertIn("from 2 commits", content)
+        # The branch keeps the older commit's score and says the newer one is incomplete.
+        self.assertEqual(response.context["branch_score"].commit_sha, "b" * 40)
+        self.assertIn('data-newer-commit="incomplete"', content)
+        self.assertIn('data-commit-score="incomplete"', content)
 
     def test_another_branch_shows_its_own_results_and_does_not_count(self):
         self._check("c" * 40, branch="feature/x", status=Status.PASSED, score=100, ref="refs/heads/feature/x")
+        score_commit(self.project, "c" * 40, branch="feature/x")
 
         response = self._get(branch="feature/x")
 

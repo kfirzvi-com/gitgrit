@@ -23,7 +23,8 @@ from django.core.cache import caches
 from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
-from app.application.standard_results import current_results, project_score
+from app.application.scoring import commit_scores
+from app.application.standard_results import current_results
 from app.domain.models import CommitCheck, StandardExecution
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,9 @@ class CommitRow:
     # Current standards that apply to the branch but did not run on this
     # commit (attached since, or skipped). Only filled for checked commits.
     not_run: list = field(default_factory=list)
+    # The commit's score (``app.application.scoring``): None until a check
+    # completes it.
+    commit_score: object = None
 
     @property
     def short_sha(self) -> str:
@@ -192,7 +196,15 @@ class CommitRow:
 
     @property
     def score(self) -> int | None:
-        return project_score([r for r in self.results if r.status != Status.RUNNING])
+        return self.commit_score.value if self.commit_score else None
+
+    @property
+    def scored(self) -> bool:
+        return self.commit_score is not None
+
+    @property
+    def failed_score(self) -> bool:
+        return bool(self.commit_score and self.commit_score.failed)
 
 
 def branches(project) -> list[str]:
@@ -240,6 +252,7 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
         logger.warning("Could not list commits of %s on %s", branch, project.name, exc_info=True)
         rows, has_more = _checked_commits(project, branch, page)
     _attach_results(project, rows, applicable=StandardEngine().standards_for_branch(project, branch))
+    _attach_scores(project, rows, branch)
     return rows, has_more
 
 
@@ -253,6 +266,7 @@ def commit_results(project, sha: str) -> CommitRow:
     latest result of each standard run on it, still RUNNING ones included."""
     row = CommitRow(sha=sha)
     _attach_results(project, [row])
+    _attach_scores(project, [row])
     return row
 
 
@@ -276,6 +290,13 @@ def _checked_commits(project, branch, page):
     start = (page - 1) * COMMITS_PER_PAGE
     window = shas[start : start + COMMITS_PER_PAGE]
     return [CommitRow(sha=sha) for sha in window], len(shas) > start + COMMITS_PER_PAGE
+
+
+def _attach_scores(project, rows, branch: str | None = None) -> None:
+    """Give each commit its latest score (on ``branch`` when given)."""
+    scores = commit_scores(project, [row.sha for row in rows], branch=branch)
+    for row in rows:
+        row.commit_score = scores.get(row.sha)
 
 
 def _attach_results(project, rows, applicable=()) -> None:

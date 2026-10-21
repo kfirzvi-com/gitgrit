@@ -10,6 +10,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import StandardExecution
+from tests.support import score_commit
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
@@ -36,9 +37,10 @@ class ProjectTabsTests(TestCase):
     def _result(self, status, score):
         standard = baker.make("app.Standard", tenant=self.tenant, enabled=True, draft=False)
         self.project.standards.add(standard)
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
         return baker.make(
             "app.StandardExecution", project=self.project, standard=standard,
-            standard_name=standard.name, status=status, score=score, ref="main",
+            standard_name=standard.name, status=status, score=score, ref="main", commit_check=check,
         )
 
     def test_renders_the_three_tabs_overview_first(self):
@@ -60,14 +62,17 @@ class ProjectTabsTests(TestCase):
         self._result(Status.PASSED, 100)
         self._result(Status.FAILED, 0)
         self._result(Status.ERROR, 0)
+        score_commit(self.project, "a" * 40)
 
         response = self._page()
 
-        self.assertEqual(response.context["compliance_score"], 33)
+        # The error is left out of the average: (100 + 0) / 2.
+        self.assertEqual(response.context["compliance_score"], 50)
         self.assertEqual(response.context["health_breakdown"], {"passed": 1, "failed": 1, "errored": 1})
         body = response.content.decode()
-        self.assertIn("--value:33", body)
-        self.assertNotIn("33%", body)
+        self.assertIn("--value:50", body)
+        self.assertNotIn(">50%", body)
+        self.assertIn("From commit aaaaaaa", body)
         self.assertIn("data-health-breakdown", body)
 
     def test_results_and_standards_load_when_first_opened(self):

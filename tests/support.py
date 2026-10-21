@@ -122,3 +122,25 @@ def running_executions(project=None):
     if project is not None:
         rows = rows.filter(project=project)
     return rows
+
+
+def score_commit(project, sha, branch=None):
+    """Score ``sha`` the way a finished check does: a check expecting every
+    standard with a result on the commit, scored by
+    ``app.application.scoring.score_check``. Returns the CommitScore."""
+    from app.application import scoring
+    from app.domain.models import CommitCheck, StandardExecution
+
+    branch = branch or project.default_branch
+    ids = sorted(
+        {
+            str(i)
+            for i in StandardExecution.objects.filter(
+                project=project, commit_check__commit_sha=sha, commit_check__branch=branch
+            ).values_list("standard_id", flat=True)
+        }
+    )
+    check = CommitCheck.objects.create(
+        project=project, branch=branch, commit_sha=sha, event_type="push", expected_standard_ids=ids
+    )
+    return scoring.score_check(check)

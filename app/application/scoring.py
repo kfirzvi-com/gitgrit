@@ -70,8 +70,10 @@ def commit_results(check: CommitCheck) -> list[StandardExecution]:
 def score_check(check: CommitCheck) -> CommitScore | None:
     """Score ``check``'s commit if the check has finished and the commit is
     complete. Returns the new score, or None (still running, no commit, or
-    incomplete: the commit keeps the score it had)."""
-    if not check.commit_sha:
+    incomplete: the commit keeps the score it had). A check that expects
+    nothing (none of its standards applies, or it predates expectations)
+    scores nothing."""
+    if not check.commit_sha or not check.expected_standard_ids:
         return None
     if check.executions.filter(status=Status.RUNNING).exists():
         return None
@@ -161,7 +163,7 @@ def commit_state(project, sha: str, branch: str) -> CommitState | None:
         .order_by("-created_at")
         .first()
     )
-    if check is None:
+    if check is None or not check.expected_standard_ids:
         return None
     expected = len(check.expected_standard_ids)
     if StandardExecution.objects.filter(
@@ -173,3 +175,39 @@ def commit_state(project, sha: str, branch: str) -> CommitState | None:
         return CommitState(COMPLETE, expected, expected)
     finished = expected - len(scoring.missing(check.expected_standard_ids, [_as_result(e) for e in commit_results(check)]))
     return CommitState(INCOMPLETE, expected, finished)
+
+
+def project_scores(projects) -> dict:
+    """Each project's score (project id -> CommitScore), read in one query,
+    with the scored results prefetched."""
+    projects = list(projects)
+    default_branch = {p.pk: p.default_branch for p in projects}
+    scores = _newest_first(
+        CommitScore.objects.filter(project__in=projects).select_related("commit_check")
+    ).prefetch_related("executions")
+    picked = {}
+    for score in scores:
+        if score.branch == default_branch[score.project_id]:
+            picked.setdefault(score.project_id, score)
+    return picked
+
+
+@dataclass(frozen=True)
+class NewerCommit:
+    """A commit newer than the scored one on the branch, not scored (yet)."""
+
+    sha: str
+    state: CommitState
+
+
+def newer_commit(project, branch: str, score: CommitScore | None) -> NewerCommit | None:
+    """The branch's newest checked commit when it is newer than ``score``'s
+    and has no score of its own: still checking, or incomplete."""
+    checks = CommitCheck.objects.filter(project=project, branch=branch).exclude(commit_sha="")
+    newest = checks.order_by(Coalesce("committed_at", "created_at").desc(), F("created_at").desc()).first()
+    if newest is None or (score and newest.commit_sha == score.commit_sha):
+        return None
+    if CommitScore.objects.filter(project=project, branch=branch, commit_sha=newest.commit_sha).exists():
+        return None
+    state = commit_state(project, newest.commit_sha, branch)
+    return NewerCommit(newest.commit_sha, state) if state else None

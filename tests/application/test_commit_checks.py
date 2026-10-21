@@ -17,7 +17,7 @@ from app.application.commit_checks import (
 from app.application.standard_engine import StandardEngine
 from app.application.standard_runs import enqueue_run
 from app.domain.models import CommitCheck, StandardExecution
-from tests.support import defer_patch
+from tests.support import defer_patch, score_commit
 
 Status = StandardExecution.Status
 
@@ -177,13 +177,15 @@ class BranchHistoryTests(TestCase):
         self._result("1" * 40, a, Status.FAILED, 0, ago=timedelta(hours=1))
         self._result("1" * 40, a, Status.PASSED, 100)
         self._result("1" * 40, b, Status.ERROR, 0)
+        score_commit(self.project, "1" * 40)
 
         rows, has_more = branch_commits(self.project, "main")
 
         checked, unchecked = rows
         self.assertEqual((checked.short_sha, checked.title, checked.author), ("1111111", "Do a thing", "Dana"))
         self.assertEqual((checked.passed, checked.failed, checked.errored), (1, 0, 1))
-        self.assertEqual(checked.score, 50)
+        # The commit's saved score: A's newest result; B's error is left out.
+        self.assertEqual(checked.score, 100)
         self.assertFalse(unchecked.checked)
         self.assertFalse(has_more)
 
@@ -206,11 +208,11 @@ class BranchHistoryTests(TestCase):
 
 
 class CommitRowTests(SimpleTestCase):
-    def test_a_running_result_does_not_move_the_score(self):
+    def test_a_running_result_does_not_move_the_saved_score(self):
         row = CommitRow(sha="f" * 40, results=[
             mock.Mock(status=Status.PASSED, score=100),
             mock.Mock(status=Status.RUNNING, score=0),
-        ])
+        ], commit_score=mock.Mock(value=100, failed=False))
         self.assertEqual((row.running, row.score), (1, 100))
 
     def test_an_unchecked_commit(self):
