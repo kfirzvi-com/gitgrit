@@ -47,7 +47,7 @@ class TestGetProjectStatus(APITestCase):
 
         result = self._status()
 
-        assert result["grade"] == "95"
+        assert result["grade"] == "A"
         assert result["display"]["tone"] == "healthy"
         assert result["overall_score"] == 95
         assert (result["total_standards"], result["passed"], result["failed"]) == (3, 3, 0)

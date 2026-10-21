@@ -73,7 +73,7 @@ class ProjectTabsTests(TestCase):
             {"required_failed": 0, "passed": 1, "failed": 1, "errored": 1, "failures": 1, "total": 3},
         )
         body = response.content.decode()
-        self.assertIn('data-score-value>50<', body)
+        self.assertIn('data-score-value>D<', body)
         self.assertIn("1 of 3 standards failed", body)
         self.assertNotIn(">50%", body)
         self.assertIn("From commit aaaaaaa", body)

@@ -87,7 +87,7 @@ class TestRunningRowsDoNotMoveScores(TestCase):
             reverse("project_badge", args=[self.project.pk])
         ).content.decode()
 
-        assert "GitGrit compliance: 100" in svg
+        assert "GitGrit compliance: A+" in svg
 
     def test_latest_scores_by_project_ignores_the_running_row(self):
         latest = latest_scores_by_project(self.tenant)

@@ -48,9 +48,9 @@ def _map_failure(error="boom", status=None, had_worked_before=True):
 
 
 class TurnedCriticalTests(TestCase):
-    def test_crossing_below_fifty_turns_critical(self):
+    def test_crossing_into_a_failing_band_turns_critical(self):
         self.assertTrue(rules.turned_critical(80, 40))
-        self.assertTrue(rules.turned_critical(50, 49))
+        self.assertTrue(rules.turned_critical(60, 59))
 
     def test_already_critical_or_no_score_did_not_drop(self):
         self.assertFalse(rules.turned_critical(30, 10))

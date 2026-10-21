@@ -15,10 +15,13 @@ class ScoreToneStyle:
     tone: ScoreTone
     color: str
 
+    # Michal's palette: A+/A mint, B yellow, C orange, D coral, F deep red.
     COLOR_BY_TONE = {
-        ScoreTone.HEALTHY: "#34d399",
-        ScoreTone.WARNING: "#fbbf24",
-        ScoreTone.CRITICAL: "#f87171",
+        ScoreTone.HEALTHY: "#00d390",
+        ScoreTone.WARNING: "#facc15",
+        ScoreTone.CAUTION: "#fb923c",
+        ScoreTone.CRITICAL: "#ff627d",
+        ScoreTone.SEVERE: "#ef4444",
         ScoreTone.UNKNOWN: "#64748b",
     }
 
@@ -38,11 +41,13 @@ class ScoreToneStyle:
     @classmethod
     def as_css(cls) -> str:
         """A custom property per tone and the classes that use it:
-        ``gg-tone-text-<tone>`` (text) and ``gg-tone-bg-<tone>`` (fills)."""
+        ``gg-tone-text-<tone>`` (text), ``gg-tone-bg-<tone>`` (fills) and
+        ``gg-tone-card-<tone>`` (a card's tone, for scores.css)."""
         rules = [":root { " + " ".join(f"--gg-tone-{s.tone}: {s.color};" for s in cls.every_tone()) + " }"]
         for s in cls.every_tone():
             rules.append(f".gg-tone-text-{s.tone} {{ color: var(--gg-tone-{s.tone}); }}")
             rules.append(f".gg-tone-bg-{s.tone} {{ background-color: var(--gg-tone-{s.tone}); }}")
+            rules.append(f".gg-tone-card-{s.tone} {{ --gg-card-tone: var(--gg-tone-{s.tone}); }}")
         return "\n".join(rules)
 
     @classmethod

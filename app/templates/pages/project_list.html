@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load score_tags %}
 
 {% block title %}Projects — GitGrit{% endblock %}
 
@@ -11,19 +12,32 @@
 {% if projects %}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for project in projects %}
-      <a href="{% url 'project_detail' project.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+      {# The card takes its score's tone: a glowing side bar and a corner glow (scores.css). #}
+      {% score_tone project.commit_score.value project.commit_score.failed as tone %}
+      <a href="{% url 'project_detail' project.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow gg-tone-card gg-tone-card-{{ tone }}" data-project-card="{{ tone }}">
         <div class="card-body">
-          <h2 class="card-title text-lg">{{ project.name }}</h2>
-          <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
-          <div class="flex flex-wrap gap-2 mt-2">
-            <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-              {{ project.get_platform_display }}
-            </span>
-            <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h2 class="card-title text-lg min-w-0 break-words">{{ project.name }}</h2>
+              <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
+                  {{ project.get_platform_display }}
+                </span>
+                <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
+              </div>
+              {% if project.owner %}
+                <span class="text-sm text-gray-500">{{ project.owner }}</span>
+              {% endif %}
+            </div>
+            {# A fixed-width column so the letters line up across cards. #}
+            <div class="-mr-3 w-14 shrink-0 flex flex-col items-center text-center" data-project-score>
+              {% score project.commit_score.value failed=project.commit_score.failed size="card" %}
+              {% if project.commit_score.failed %}
+                <span class="gg-tone-text-severe mt-1 block max-w-[3.5rem] text-[10px] font-bold leading-tight" data-project-failed>Project failed!</span>
+              {% endif %}
+            </div>
           </div>
-          {% if project.owner %}
-            <span class="text-sm text-gray-500">{{ project.owner }}</span>
-          {% endif %}
           {% if project.description %}
             <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>
           {% endif %}

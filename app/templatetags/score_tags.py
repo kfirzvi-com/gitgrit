@@ -18,6 +18,12 @@ from app.presentation.score_tones import ScoreToneStyle
 register = template.Library()
 
 
+def _value(value):
+    """A template's missing value (``""`` for a missing attribute, e.g. a
+    project with no score yet) is no score."""
+    return None if value in ("", None) else value
+
+
 @register.simple_tag
 def score_tone_styles():
     """The tones' colours for the whole page, from ``ScoreToneStyle``: CSS
@@ -31,18 +37,25 @@ def score_tone_styles():
 
 @register.inclusion_tag("partials/score.html")
 def score(value, failed=False, size="md", toned=True, data_attr=""):
-    """One score, shown the one way GitGrit shows scores. ``size``: sm, md,
+    """One score, shown the one way GitGrit shows scores. ``size``: sm, md, card,
     lg, xl. ``toned=False`` leaves it in the text colour (a standard's score
     beside its status dot)."""
     return {
-        "represented": SCORE_REPRESENTATION.represent(value, failed=bool(failed)),
+        "represented": SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)),
         "size": size,
         "toned": toned,
         "data_attr": data_attr,
     }
 
 
+@register.simple_tag
+def score_tone(value, failed=False):
+    """A score's tone (``SCORE_REPRESENTATION``), e.g. for a card's class:
+    ``{% score_tone value failed as tone %}``."""
+    return str(SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).tone)
+
+
 @register.filter
 def score_text(value):
     """The score's text alone ("82", "—")."""
-    return SCORE_REPRESENTATION.represent(value).text
+    return SCORE_REPRESENTATION.represent(_value(value)).text

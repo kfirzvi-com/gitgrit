@@ -277,7 +277,7 @@ class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
 
         n = Notification.objects.get()
         self.assertEqual(n.kind, "project.critical")
-        self.assertEqual(n.body, "From 90 to 20.")
+        self.assertEqual(n.body, "From A to D.")
 
     def test_a_project_that_was_already_critical_raises_nothing(self):
         standard = baker.make("app.Standard", tenant=self.tenant)

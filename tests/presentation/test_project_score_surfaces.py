@@ -26,11 +26,11 @@ class ProjectScoreSurfacesTests(TestCase):
         )
         score_commit(self.project, "a" * 40)
 
-    def test_the_badge_shows_zero_in_red(self):
+    def test_a_failed_project_reads_f_in_deep_red(self):
         svg = self.client.get(reverse("project_badge", args=[self.project.pk])).content.decode()
 
-        assert "GitGrit compliance: 0" in svg
-        assert ScoreToneStyle.for_tone("critical").color in svg
+        assert "GitGrit compliance: F" in svg
+        assert ScoreToneStyle.for_tone("severe").color in svg
 
     def test_a_component_shows_the_project_score_and_why(self):
         stack = baker.make("app.Stack", tenant=self.tenant)
@@ -40,4 +40,20 @@ class ProjectScoreSurfacesTests(TestCase):
         graph = stack_graph(stack, latest_scores_by_project(self.tenant))
         node = next(n for n in graph["components"] if n["id"] == str(component.id))
 
-        assert (node["score"], node["health"], node["issues"]) == (0, "critical", ["No secrets failing"])
+        assert (node["score"], node["score_text"], node["health"], node["issues"]) == (
+            0, "F", "severe", ["No secrets failing"]
+        )
+
+    def test_a_project_card_glows_in_its_letter_and_says_when_the_project_failed(self):
+        user = baker.make("app.User")
+        baker.make("app.Membership", user=user, tenant=self.tenant, role="owner")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(self.tenant.id)
+        session.save()
+
+        body = self.client.get(reverse("project_list")).content.decode()
+
+        assert 'gg-tone-card gg-tone-card-severe" data-project-card="severe"' in body
+        assert ">F</span>" in body
+        assert "Project failed!" in body

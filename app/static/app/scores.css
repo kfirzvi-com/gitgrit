@@ -1,0 +1,49 @@
+/* How a score looks beyond its colour (colours: ScoreToneStyle, written into
+ * the page by {% score_tone_styles %} as --gg-tone-<tone> and
+ * gg-tone-*-<tone> classes). From Michal's grade-card design.
+ *
+ *   .gg-score                 a score (partials/score.html)
+ *   .gg-score-severe          an F: heavier and glowing, so it never reads as a D
+ *   .gg-tone-card             a card in its score's tone (--gg-card-tone, from
+ *                             .gg-tone-card-<tone>): a glowing bar on the left
+ *                             and a soft glow from the top-right corner
+ */
+.gg-score { line-height: 1; white-space: nowrap; }
+.gg-score-severe {
+  font-weight: 900;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--gg-tone-severe) 60%, transparent);
+}
+
+.card.gg-tone-card, .gg-tone-card { position: relative; overflow: hidden; }
+.gg-tone-card::before,
+.gg-tone-card::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+}
+.gg-tone-card::before {             /* the side bar */
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+  background: var(--gg-card-tone);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--gg-card-tone) 45%, transparent);
+}
+.gg-tone-card::after {              /* the glow behind the letter */
+  top: 0; right: 0;
+  width: 240px; height: 200px;
+  background: radial-gradient(circle at top right,
+    color-mix(in srgb, var(--gg-card-tone) 22%, transparent), transparent 70%);
+}
+.gg-tone-card-unknown::after {
+  background: radial-gradient(circle at top right,
+    color-mix(in srgb, var(--gg-card-tone) 12%, transparent), transparent 70%);
+}
+/* F: a wider bar and a stronger glow. */
+.gg-tone-card-severe::before {
+  width: 6px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gg-card-tone) 70%, transparent);
+}
+.gg-tone-card-severe::after {
+  background: radial-gradient(circle at top right,
+    color-mix(in srgb, var(--gg-card-tone) 38%, transparent), transparent 75%);
+}

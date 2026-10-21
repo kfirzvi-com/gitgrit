@@ -15,36 +15,34 @@ across its projects (so one failing project can't hide behind a healthy
 average).
 """
 
-from app.domain.score_representation import SCORE_REPRESENTATION, ScoreRepresentation, ScoreTone
+from app.domain.score_representation import SCORE_REPRESENTATION, ScoreTone
 
-# Health levels are score tones (``ScoreTone``): one list, one set of
-# thresholds (on ``ScoreRepresentation``).
+# Health levels are score tones (``ScoreTone``): one list, and the
+# representation in use decides which one a score is in.
 HEALTHY = ScoreTone.HEALTHY
 WARNING = ScoreTone.WARNING
+CAUTION = ScoreTone.CAUTION
 CRITICAL = ScoreTone.CRITICAL
+SEVERE = ScoreTone.SEVERE
 UNKNOWN = ScoreTone.UNKNOWN
 
-# Severity order. UNKNOWN ranks lowest so a project with data always wins over
-# one without; CRITICAL ranks highest so worst-of surfaces it.
-_RANK = {UNKNOWN: 0, HEALTHY: 1, WARNING: 2, CRITICAL: 3}
 
-HEALTHY_MIN = ScoreRepresentation.HEALTHY_MIN
-
-
-def level_from_score(score):
-    """A score's health level: its tone (``SCORE_REPRESENTATION.tone``)."""
-    return SCORE_REPRESENTATION.tone(score)
+def level_from_score(score, failed: bool = False):
+    """A score's health level: its tone (``SCORE_REPRESENTATION.tone``);
+    ``failed`` marks a score a Required standard failed."""
+    return SCORE_REPRESENTATION.tone(score, failed=failed)
 
 
 def worst(levels):
-    """Worst (most severe) level among those given; UNKNOWN if none rank."""
-    ranked = [lvl for lvl in levels if lvl in _RANK]
+    """Worst (most severe, ``ScoreTone.severity``) level among those given;
+    UNKNOWN if none."""
+    ranked = [ScoreTone(lvl) for lvl in levels if lvl in set(ScoreTone)]
     if not ranked:
         return UNKNOWN
-    return max(ranked, key=lambda lvl: _RANK[lvl])
+    return max(ranked, key=lambda lvl: lvl.severity)
 
 
-def project_level(score):
+def project_level(score, failed: bool = False):
     """A project's overall health level.
 
     Extension point: combine more signals as they land, e.g.::
@@ -55,7 +53,7 @@ def project_level(score):
             severity_level(...),               # failing high-severity standards
         ])
     """
-    return level_from_score(score)
+    return level_from_score(score, failed=failed)
 
 
 def stack_level(project_levels):

@@ -12,6 +12,7 @@ from app.application.standard_results import (
     current_results,
     project_score,
 )
+from app.domain.score_representation import ScoreTone
 from app.domain.health import CRITICAL, WARNING
 from app.domain.models import StandardExecution
 
@@ -57,14 +58,15 @@ class AttentionItemsTests(TestCase):
         self.assertEqual(item.score, 20)
         self.assertEqual(item.status, "Failed")
 
-    def test_levels_follow_the_score_thresholds(self):
-        self._result(self._standard("Critical"), 49)
-        self._result(self._standard("Warning"), 50)
-        self._result(self._standard("Healthy"), 80, status=Status.PASSED)
+    def test_levels_follow_the_score_representation(self):
+        self._result(self._standard("D"), 59)
+        self._result(self._standard("C"), 60)
+        self._result(self._standard("B"), 80, status=Status.PASSED)
+        self._result(self._standard("A"), 95, status=Status.PASSED)
 
         levels = {i.standard_name: i.level for i in attention_items(self.tenant)}
 
-        self.assertEqual(levels, {"Critical": CRITICAL, "Warning": WARNING})
+        self.assertEqual(levels, {"D": CRITICAL, "C": ScoreTone.CAUTION, "B": WARNING})
 
     def test_a_failed_run_that_scored_well_is_a_warning(self):
         self._result(self._standard("Flaky"), 90, status=Status.ERROR)
