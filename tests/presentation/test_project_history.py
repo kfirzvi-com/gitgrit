@@ -56,7 +56,7 @@ class ProjectHistoryViewTests(TestCase):
         content = response.content.decode()
         self.assertIn('<option value="main" selected>main (default)</option>', content)
         self.assertNotIn("%</span>", content)
-        self.assertIn("The score of the newest commit on main that every standard finished on", content)
+        self.assertNotIn("About this score", content)
         self.assertNotIn("Latest results", content)
         self.assertIn("Project score", content)
         self.assertIn("From commit aaaaaaa", content)
