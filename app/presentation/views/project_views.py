@@ -18,6 +18,7 @@ from app.application.commit_checks import (
     waiting_for_commit,
 )
 from app.application import scoring
+from app.presentation.commit_results import CommitResultGrouping
 from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
@@ -159,6 +160,8 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
     if branch not in branch_names:
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
+    for row in rows:
+        row.result_groups = CommitResultGrouping.of(row.results)
     # The branch's score: its newest scored commit, and the results behind it.
     score = scoring.branch_score(project, branch)
     status = list(score.executions.select_related("commit_check")) if score else []

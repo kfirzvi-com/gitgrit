@@ -29,6 +29,12 @@ class ExpectedStandards:
         existed list every run."""
         return not self.standard_ids or str(standard_id) in self.standard_ids
 
+    def without_any_run(self, standard_ids_that_ran) -> list[str]:
+        """The expected standards that never ran on the commit at all (not
+        even one still running): what an incomplete commit is missing."""
+        ran = {str(i) for i in standard_ids_that_ran}
+        return [str(i) for i in self.standard_ids if str(i) not in ran]
+
     def without_finished_result(self, run_results) -> list[str]:
         """The expected standards with no finished run among ``run_results``:
         empty when the commit is complete."""

@@ -92,7 +92,7 @@ def _commit(project, row: commit_checks.CommitRow, branch: str) -> dict:
         **_summary(row.commit_score, finished),
         "commit_score": _commit_score(project, row.sha, branch, row.commit_score) if row.checked else None,
         "results": [_result(r) for r in row.results],
-        "not_run": [{"id": str(s.id), "name": s.name} for s in row.not_run],
+        "expected_but_never_ran": [{"id": str(s.id), "name": s.name} for s in row.expected_but_never_ran],
     }
 
 

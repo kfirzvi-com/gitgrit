@@ -1290,20 +1290,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CheckResult'
-        not_run:
+        expected_but_never_ran:
           type: array
           items:
             $ref: '#/components/schemas/StandardRef'
-          description: Standards that apply now but did not run on this commit.
+          description: Standards this commit's check expected that never ran on it.
       required:
       - author
       - checked
       - commit_score
       - date
       - errored
+      - expected_but_never_ran
       - failed
       - level
-      - not_run
       - passed
       - results
       - running

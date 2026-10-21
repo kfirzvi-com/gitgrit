@@ -360,8 +360,8 @@ class CommitSerializer(HealthSummaryFields):
     running = serializers.IntegerField(help_text="Checks still running on this commit.")
     commit_score = CommitScoreSerializer(allow_null=True, help_text="Null when the commit was never checked.")
     results = CheckResultSerializer(many=True)
-    not_run = StandardRefSerializer(
-        many=True, help_text="Standards that apply now but did not run on this commit."
+    expected_but_never_ran = StandardRefSerializer(
+        many=True, help_text="Standards this commit's check expected that never ran on it."
     )
 
 

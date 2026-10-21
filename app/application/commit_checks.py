@@ -26,7 +26,7 @@ from app.application.standard_engine import StandardEngine
 from app.application.scoring import commit_scores
 from app.domain.scoring import ExpectedStandards
 from app.application.standard_results import current_results
-from app.domain.models import CommitCheck, StandardExecution
+from app.domain.models import CommitCheck, Standard, StandardExecution
 
 logger = logging.getLogger(__name__)
 
@@ -157,9 +157,10 @@ class CommitRow:
     date: datetime | None = None
     url: str = ""
     results: list = field(default_factory=list)
-    # Current standards that apply to the branch but did not run on this
-    # commit (attached since, or skipped). Only filled for checked commits.
-    not_run: list = field(default_factory=list)
+    # The standards this commit's newest check expected that never ran on it
+    # (ExpectedStandards.without_any_run): what an incomplete commit is
+    # missing. Standards attached since the check are not part of the commit.
+    expected_but_never_ran: list = field(default_factory=list)
     # The commit's score (``app.application.scoring``): None until a check
     # completes it.
     commit_score: object = None
@@ -252,7 +253,7 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
     except Exception:
         logger.warning("Could not list commits of %s on %s", branch, project.name, exc_info=True)
         rows, has_more = _checked_commits(project, branch, page)
-    _attach_results(project, rows, applicable=StandardEngine().standards_for_branch(project, branch))
+    _attach_results(project, rows)
     _attach_scores(project, rows, branch)
     return rows, has_more
 
@@ -300,13 +301,13 @@ def _attach_scores(project, rows, branch: str | None = None) -> None:
         row.commit_score = scores.get(row.sha)
 
 
-def _attach_results(project, rows, applicable=()) -> None:
+def _attach_results(project, rows) -> None:
     """Give each commit the latest result per standard across its checks,
     for the standards its newest check expects
     (``ExpectedStandards.lists_runs_of``): a standard detached since and
     checked again without it drops off the commit. Each result says whether
-    its standard is still attached, and a checked commit lists the current
-    standards that did not run on it."""
+    its standard is still attached, and each checked commit lists the
+    expected standards that never ran on it (``expected_but_never_ran``)."""
     by_sha = {row.sha: row for row in rows}
     if not by_sha:
         return
@@ -332,7 +333,17 @@ def _attach_results(project, rows, applicable=()) -> None:
         seen.add(key)
         ex.still_attached = ex.standard_id in attached
         by_sha[ex.commit_check.commit_sha].results.append(ex)
+    # For each checked commit: the standards its newest check expected,
+    # minus those with a run on it (finished or still running).
+    never_ran_by_sha = {}
     for row in rows:
-        if row.results:
-            ran = {r.standard_id for r in row.results}
-            row.not_run = [s for s in applicable if s.pk not in ran]
+        expected = expected_by_sha.get(row.sha)
+        if row.results and expected:
+            never_ran_by_sha[row.sha] = expected.without_any_run(r.standard_id for r in row.results)
+    # One query for the standards' names (archived ones included).
+    never_ran_ids = {i for ids in never_ran_by_sha.values() for i in ids}
+    standards = (
+        {str(s.pk): s for s in Standard.all_objects.filter(pk__in=never_ran_ids)} if never_ran_ids else {}
+    )
+    for sha, ids in never_ran_by_sha.items():
+        by_sha[sha].expected_but_never_ran = [standards[i] for i in ids if i in standards]

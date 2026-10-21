@@ -29,15 +29,10 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
       {% if status_score is not None %}
         <div class="flex items-start gap-1">
           {% score status_score failed=branch_score.failed size="lg" data_attr="data-branch-score" %}
-          <span class="tooltip tooltip-right cursor-help opacity-50 hover:opacity-100"
-                data-tip="The score of the newest commit on {{ branch }} that every standard finished on ({{ status|length }} standard{{ status|length|pluralize }}): 0 when a Required standard failed or could not be verified, otherwise the average weighted by importance.{% if not is_default %} Only the default branch counts toward the project's score.{% endif %}"
-                data-score-info tabindex="0" aria-label="About this score">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
-          </span>
         </div>
         <div class="space-y-1.5">
           {% include "partials/health_breakdown.html" with counts=status_breakdown align="start" %}
-          <p class="text-xs opacity-50">{% if is_default %}Project score{% else %}Score on {{ branch }}{% endif %}</p>
+          <p class="text-xs opacity-50">{% if is_default %}Project score{% else %}Score on {{ branch }} · Only the default branch counts toward the project score{% endif %}</p>
           {% include "partials/score_note.html" with score=branch_score newer=newer_commit show_reason=True %}
         </div>
       {% else %}
@@ -67,16 +62,22 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
                     {% endif %}
                   </summary>
                   <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">
-                    {% for ex in row.results %}
-                      {% include "partials/project_history_result.html" with show_event=True %}
+                    {% for group in row.result_groups %}
+                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="{{ group.key }}">{{ group.heading }} · {{ group.runs|length }}</h4>
+                      {% for ex in group.runs %}
+                        {% include "partials/project_history_result.html" with show_event=True %}
+                      {% endfor %}
                     {% endfor %}
-                    {% for standard in row.not_run %}
-                      <div class="flex items-center gap-3 px-3 py-1.5 opacity-60">
-                        <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
-                        <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
-                        <span class="text-xs">Not run on this commit</span>
-                      </div>
-                    {% endfor %}
+                    {% if row.expected_but_never_ran %}
+                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="expected_but_never_ran">Did not run · {{ row.expected_but_never_ran|length }}</h4>
+                      {% for standard in row.expected_but_never_ran %}
+                        <div class="flex items-center gap-3 px-3 py-1.5 opacity-60" title="This commit's check expected it, but it never ran here">
+                          <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
+                          <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
+                          <span class="text-xs">Expected, never ran</span>
+                        </div>
+                      {% endfor %}
+                    {% endif %}
                     <div class="flex justify-end pt-2">
                       <button type="button" class="btn btn-ghost btn-xs"
                               hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'

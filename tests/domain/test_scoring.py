@@ -205,3 +205,8 @@ class ListedRunsTests(SimpleTestCase):
 
     def test_checks_from_before_expectations_list_every_run(self):
         assert ExpectedStandards(()).lists_runs_of("anything")
+
+
+class DidNotRunTests(SimpleTestCase):
+    def test_expected_standards_that_never_ran_on_the_commit(self):
+        assert ExpectedStandards(("a", "b", "c")).without_any_run(["a"]) == ["b", "c"]
