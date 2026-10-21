@@ -149,7 +149,7 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn('hx-trigger="tab-open once"', content)
         self.platform.list_commits.assert_not_called()
 
-    def test_results_are_grouped_with_a_required_chip_dates_and_did_not_run(self):
+    def test_results_are_grouped_with_importance_dates_and_what_never_ran(self):
         """Runs grouped worst first, the importance and a run date on each,
         the commit's date instead of its age, and no "not run" badge; an
         incomplete commit lists the expected standards that never ran."""
@@ -170,7 +170,7 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn('data-result-group="failed"', content)
         self.assertIn('data-importance-chip="required"', content)
         self.assertIn("data-run-date", content)
-        self.assertIn('data-result-group="did_not_run"', content)
+        self.assertIn('data-result-group="expected_but_never_ran"', content)
         self.assertIn("Expected, never ran", content)
         self.assertNotIn(" not run</span>", content)
         self.assertIn("1 Oct 2026", content)

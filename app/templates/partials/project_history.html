@@ -73,9 +73,9 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
                         {% include "partials/project_history_result.html" with show_event=True %}
                       {% endfor %}
                     {% endfor %}
-                    {% if row.did_not_run %}
-                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="did_not_run">Did not run · {{ row.did_not_run|length }}</h4>
-                      {% for standard in row.did_not_run %}
+                    {% if row.expected_but_never_ran %}
+                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="expected_but_never_ran">Did not run · {{ row.expected_but_never_ran|length }}</h4>
+                      {% for standard in row.expected_but_never_ran %}
                         <div class="flex items-center gap-3 px-3 py-1.5 opacity-60" title="This commit's check expected it, but it never ran here">
                           <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
                           <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>

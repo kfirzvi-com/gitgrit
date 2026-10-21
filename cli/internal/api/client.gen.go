@@ -327,7 +327,7 @@ type Commit struct {
 	// * `unknown` - unknown
 	Level LevelEnum `json:"level"`
 
-	// NotRun Standards that apply now but did not run on this commit.
+	// NotRun Standards this commit's check expected that never ran on it.
 	NotRun  []StandardRef `json:"not_run"`
 	Passed  int           `json:"passed"`
 	Results []CheckResult `json:"results"`

@@ -1294,7 +1294,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/StandardRef'
-          description: Standards that apply now but did not run on this commit.
+          description: Standards this commit's check expected that never ran on it.
       required:
       - author
       - checked

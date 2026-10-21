@@ -300,15 +300,19 @@ class AttachmentsChangeOverTimeTests(TestCase):
             {"sha": "a" * 40, "message": "m", "author": "", "date": "", "url": ""}
         ]
 
-    def test_a_commit_lists_current_standards_that_did_not_run_on_it(self):
+    def test_a_commit_lists_the_expected_standards_that_never_ran_on_it(self):
         ran = _standard(self.project, "Ran then")
-        _standard(self.project, "Attached since")
-        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
+        never_ran = _standard(self.project, "Expected, never ran")
+        _standard(self.project, "Attached since")  # not part of the commit
+        check = baker.make(
+            "app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40,
+            expected_standard_ids=[str(ran.pk), str(never_ran.pk)],
+        )
         baker.make("app.StandardExecution", project=self.project, standard=ran, status=Status.PASSED, commit_check=check)
 
         [row], _ = branch_commits(self.project, "main")
 
-        self.assertEqual([s.name for s in row.not_run], ["Attached since"])
+        self.assertEqual([s.name for s in row.expected_but_never_ran], ["Expected, never ran"])
         self.assertTrue(row.results[0].still_attached)
 
     def test_a_result_of_a_detached_standard_says_so(self):
@@ -320,7 +324,7 @@ class AttachmentsChangeOverTimeTests(TestCase):
         [row], _ = branch_commits(self.project, "main")
 
         self.assertFalse(row.results[0].still_attached)
-        self.assertEqual(row.not_run, [])
+        self.assertEqual(row.expected_but_never_ran, [])
 
 
 class StandardsForBranchTests(TestCase):
