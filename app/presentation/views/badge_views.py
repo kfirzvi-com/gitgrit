@@ -5,8 +5,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
 from app.application import scoring
-from app.domain.health import CRITICAL, HEALTHY, UNKNOWN, WARNING
 from app.domain.score_representation import SCORE_REPRESENTATION
+from app.presentation.score_tones import ScoreToneStyle
 from app.domain.models import Project
 
 _LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "app" / "images" / "logo.svg"
@@ -35,21 +35,12 @@ def project_badge(request, pk):
     return response
 
 
-# A score's tone as the badge's colour. The badge is an external SVG, so it
-# needs hex values.
-_TONE_COLOR = {
-    HEALTHY: "#4caf50",
-    WARNING: "#ff9800",
-    CRITICAL: "#f44336",
-    UNKNOWN: "#9e9e9e",
-}
-
-
 def _render_badge(represented):
     """Render a shields.io-style SVG badge with the GitGrit logo as label and
     the project score as ``SCORE_REPRESENTATION`` shows it."""
     value = represented.text
-    color = _TONE_COLOR.get(represented.tone, _TONE_COLOR[UNKNOWN])
+    # An external SVG needs the colour itself (hex), from ScoreToneStyle.
+    color = ScoreToneStyle.for_tone(represented.tone).color
 
     logo_size = 14
     label_width = logo_size + 12  # 6px padding each side

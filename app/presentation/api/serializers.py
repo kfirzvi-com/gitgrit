@@ -7,6 +7,7 @@ Views return the service dicts as-is.
 from rest_framework import serializers
 
 from app.domain import importance
+from app.domain.score_representation import ScoreTone
 from app.presentation import importance_text
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
@@ -105,7 +106,8 @@ class OffenderSerializer(serializers.Serializer):
     last_run = serializers.DateTimeField()
 
 
-LEVEL_CHOICES = ["healthy", "warning", "critical", "unknown"]
+# A project's health level and a score's colour band: the score tones.
+LEVEL_CHOICES = [tone.value for tone in ScoreTone]
 
 
 class ScoreDisplaySerializer(serializers.Serializer):

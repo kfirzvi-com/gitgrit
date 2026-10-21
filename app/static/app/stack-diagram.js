@@ -67,7 +67,7 @@
         d.score != null
           ? h(
               "span",
-              { className: "badge badge-sm " + GF.scoreBadgeClass(d.health) },
+              { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.health) },
               d.score_text
             )
           : null

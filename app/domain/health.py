@@ -15,28 +15,25 @@ across its projects (so one failing project can't hide behind a healthy
 average).
 """
 
-HEALTHY = "healthy"
-WARNING = "warning"
-CRITICAL = "critical"
-UNKNOWN = "unknown"
+from app.domain.score_representation import SCORE_REPRESENTATION, ScoreRepresentation, ScoreTone
+
+# Health levels are score tones (``ScoreTone``): one list, one set of
+# thresholds (on ``ScoreRepresentation``).
+HEALTHY = ScoreTone.HEALTHY
+WARNING = ScoreTone.WARNING
+CRITICAL = ScoreTone.CRITICAL
+UNKNOWN = ScoreTone.UNKNOWN
 
 # Severity order. UNKNOWN ranks lowest so a project with data always wins over
 # one without; CRITICAL ranks highest so worst-of surfaces it.
 _RANK = {UNKNOWN: 0, HEALTHY: 1, WARNING: 2, CRITICAL: 3}
 
-# Compliance-score thresholds (mirrors the score-badge thresholds).
-HEALTHY_MIN = 80
-WARNING_MIN = 50
+HEALTHY_MIN = ScoreRepresentation.HEALTHY_MIN
 
 
 def level_from_score(score):
-    if score is None:
-        return UNKNOWN
-    if score >= HEALTHY_MIN:
-        return HEALTHY
-    if score >= WARNING_MIN:
-        return WARNING
-    return CRITICAL
+    """A score's health level: its tone (``SCORE_REPRESENTATION.tone``)."""
+    return SCORE_REPRESENTATION.tone(score)
 
 
 def worst(levels):

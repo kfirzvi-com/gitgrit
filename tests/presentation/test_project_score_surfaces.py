@@ -5,6 +5,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import StandardExecution
+from app.presentation.score_tones import ScoreToneStyle
 from app.presentation.architecture import latest_scores_by_project, stack_graph
 from tests.support import score_commit
 
@@ -29,7 +30,7 @@ class ProjectScoreSurfacesTests(TestCase):
         svg = self.client.get(reverse("project_badge", args=[self.project.pk])).content.decode()
 
         assert "GitGrit compliance: 0" in svg
-        assert "#f44336" in svg
+        assert ScoreToneStyle.for_tone("critical").color in svg
 
     def test_a_component_shows_the_project_score_and_why(self):
         stack = baker.make("app.Stack", tenant=self.tenant)

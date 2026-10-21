@@ -25,3 +25,14 @@ class NumberScoreRepresentationTests(SimpleTestCase):
 
     def test_no_score_is_a_dash(self):
         assert SCORE_REPRESENTATION.represent(None) == RepresentedScore("—", "unknown", "No score yet")
+
+
+class ToneThresholdsTests(SimpleTestCase):
+    def test_health_levels_are_the_score_tones_from_one_set_of_thresholds(self):
+        from app.domain import health
+        from app.domain.score_representation import ScoreTone
+
+        assert health.level_from_score(80) is ScoreTone.HEALTHY
+        assert health.level_from_score(79) is ScoreTone.WARNING
+        assert health.level_from_score(None) is ScoreTone.UNKNOWN
+        assert health.CRITICAL is ScoreTone.CRITICAL

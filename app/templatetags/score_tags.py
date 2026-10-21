@@ -9,10 +9,24 @@ with the spoken form for screen readers and tooltips. ``score_text`` is the
 bare text, for places that are not HTML (titles, attributes).
 """
 from django import template
+from django.utils.html import json_script
+from django.utils.safestring import mark_safe
 
 from app.domain.score_representation import SCORE_REPRESENTATION
+from app.presentation.score_tones import ScoreToneStyle
 
 register = template.Library()
+
+
+@register.simple_tag
+def score_tone_styles():
+    """The tones' colours for the whole page, from ``ScoreToneStyle``: CSS
+    custom properties and ``gg-tone-*`` classes, and the same values as JSON
+    (``#gg-score-tones``) for the diagrams. Once, in base.html."""
+    return mark_safe(
+        f"<style>\n{ScoreToneStyle.as_css()}\n</style>\n"
+        + json_script(ScoreToneStyle.as_json(), "gg-score-tones")
+    )
 
 
 @register.inclusion_tag("partials/score.html")

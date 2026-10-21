@@ -209,6 +209,8 @@
 
   {# Design tokens — single source of truth for all --gg-* variables #}
   <link href="{% static 'app/design-tokens.css' %}" rel="stylesheet" type="text/css" />
+  {# Score tone colours, from ScoreToneStyle: CSS and the diagrams' JSON #}
+  {% load score_tags %}{% score_tone_styles %}
 
   {% if airgapped %}
     <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
