@@ -23,7 +23,7 @@ from django.db.models import Q
 from django.db.models.functions import Coalesce
 
 from app.application.standard_engine import literal_ref
-from app.domain.health import CRITICAL, HEALTHY, WARNING, level_from_score
+from app.domain.health import HEALTHY, WARNING, level_from_score
 from app.domain.models import Project, ProjectStandard, StandardExecution
 
 Status = StandardExecution.Status
@@ -107,7 +107,7 @@ def project_score(results) -> int | None:
 class AttentionItem:
     """One current result that needs attention."""
 
-    level: str  # WARNING or CRITICAL
+    level: str  # a ScoreTone that needs attention
     project_id: object
     project_name: str
     standard_id: object
@@ -147,6 +147,5 @@ def attention_items(tenant) -> list[AttentionItem]:
             )
         )
 
-    rank = {CRITICAL: 2, WARNING: 1}
-    items.sort(key=lambda i: (rank.get(i.level, 0), i.when), reverse=True)
+    items.sort(key=lambda i: (i.level.severity, i.when), reverse=True)
     return items

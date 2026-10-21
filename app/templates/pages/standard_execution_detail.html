@@ -11,7 +11,7 @@
     <h1 class="text-3xl font-bold">{{ execution.standard_name }}</h1>
     {% include "partials/execution_status_badge.html" with execution=execution %}
     {% if execution.status != 'running' %}
-      <span class="text-sm opacity-70">Score: {% score execution.score size="sm" toned=False %}</span>
+      <span class="text-sm opacity-70">Score: {% standard_result_score execution.score size="sm" toned=False %}</span>
     {% endif %}
   </div>
   {% if execution.status == 'running' %}

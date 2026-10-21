@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from app.application import scoring
 from app.application.errors import NotFoundError
 from app.domain.models import StandardExecution, Project, Tenant
-from app.domain.score_representation import SCORE_REPRESENTATION
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 
 
 class ProjectStatusService:
@@ -24,13 +24,13 @@ class ProjectStatusService:
         score = scoring.project_score(project, excluding=exclude_execution_ids)
         results = list(score.executions.all()) if score else []
         overall = score.value if score else None
-        represented = SCORE_REPRESENTATION.represent(overall, failed=bool(score and score.failed))
+        represented = COMMIT_SCORE_REPRESENTATION.represent(overall, failed=bool(score and score.failed))
         top_offenders = sorted(results, key=lambda e: e.score or 0)[:3]
 
         return {
             "project": {"id": str(project.id), "name": project.name},
             "overall_score": overall,
-            # The score as the app shows it (SCORE_REPRESENTATION).
+            # The score as the app shows it (COMMIT_SCORE_REPRESENTATION).
             "grade": represented.text,
             "display": represented.as_dict(),
             "score_failed": score.failed if score else False,

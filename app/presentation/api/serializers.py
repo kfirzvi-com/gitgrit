@@ -113,7 +113,7 @@ LEVEL_CHOICES = [tone.value for tone in ScoreTone]
 class ScoreDisplaySerializer(serializers.Serializer):
     """A score as the app shows it, so API clients can show it the same way."""
 
-    text = serializers.CharField(help_text='What the app shows, e.g. "82"; "—" when there is no score.')
+    text = serializers.CharField(help_text='What the app shows, e.g. "B"; "—" when there is no score.')
     tone = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="Its colour band.")
     spoken = serializers.CharField(help_text='The same in words, e.g. "Score 82 out of 100".')
 

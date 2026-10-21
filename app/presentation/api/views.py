@@ -345,7 +345,9 @@ class ProjectHealthView(WorkspaceAPIView):
             "makes the score 0; otherwise it is the average of the standards' "
             "scores weighted by importance (Required and Major 2, Minor 1). "
             "`newer_commit` is a newer commit with no score yet. "
-            "Levels: healthy ≥ 80, warning ≥ 50, critical below."
+            "`level` is the score's band as the app shows it: healthy (A+, A), "
+            "warning (B), caution (C), critical (D), severe (F: a Required "
+            "standard failed), unknown (no score)."
         ),
         parameters=[_BRANCH],
         responses=s.ProjectHealthSerializer,

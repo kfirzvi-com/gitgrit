@@ -1,24 +1,49 @@
-{% comment %}The Overview tab's health card: the project's score (its newest fully checked
-commit on the default branch), its results worst first, and a way into the Results tab, where
-the details (which standard failed and why) live.{% endcomment %}{% load score_tags %}
-<div class="card bg-base-100 shadow-xl h-full" data-overview-health>
-  <div class="card-body items-center justify-center gap-6 py-10">
-    {% if compliance_score is not None %}
-      <div class="relative">
-        {% score compliance_score failed=project_score.failed size="xl" data_attr="data-score-value" %}
+{% comment %}The Overview tab's score card (Michal's design): the project's score as a big
+letter, whether a Required standard failed it, the results bar and legend the Results tab shows
+too (partials/outcome_bar.html), and a footer with the last run and a way into the Results tab.
+The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
+{% load score_tags project_tags %}
+{% if compliance_score is not None %}
+  {% score_tone compliance_score project_score.failed as tone %}
+  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} h-full flex flex-col" data-overview-health>
+    <div class="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">
+      {% score compliance_score failed=project_score.failed size="hero" data_attr="data-score-value" %}
+      {% if health_breakdown.required_failed %}
+        <p class="gg-required-failed text-xl mt-4" data-required-failed="{{ health_breakdown.required_failed }}">{% include "partials/importance_icon.html" with value="required" %}{{ health_breakdown.required_failed }} Required standard{{ health_breakdown.required_failed|pluralize }} failed</p>
+      {% else %}
+        <p class="text-xl font-semibold mt-4" data-required-failed="0">No Required failures</p>
+      {% endif %}
+      <p class="text-sm opacity-60 mt-1">Based on {{ health_breakdown.total }} standard{{ health_breakdown.total|pluralize }}</p>
+      {% if newer_commit %}<div class="mt-1">{% include "partials/score_note.html" with score=None newer=newer_commit %}</div>{% endif %}
+
+      <div class="w-full max-w-lg mt-6 space-y-2.5" data-health-breakdown>
+        {% include "partials/outcome_bar.html" with counts=health_breakdown %}
       </div>
-      {% include "partials/health_breakdown.html" with counts=health_breakdown %}
-      <div class="text-center space-y-1">
-        {% include "partials/score_note.html" with score=project_score newer=newer_commit %}
-      </div>
-      <a href="#results" class="link link-hover text-sm opacity-70" data-open-tab="results">See the details in Results →</a>
-    {% elif attached_standards %}
-      <p class="text-sm opacity-60">No score on {{ project.default_branch }} yet: a commit gets one when every standard has finished on it.</p>
-      {% include "partials/score_note.html" with score=None newer=newer_commit %}
-      <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
-    {% else %}
-      <p class="text-sm opacity-60">No standards attached. Pick the standards that apply to this project.</p>
-      <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
-    {% endif %}
+    </div>
+
+    <div class="mt-auto flex flex-wrap items-center justify-between gap-2 px-6 sm:px-8 py-3.5 border-t border-base-content/10 text-[13px]" data-last-run>
+      {% with last=recent_executions.0 %}
+        {% if last %}
+          <span class="opacity-60 min-w-0 truncate">Last run: <time datetime="{{ last.created_at|date:'c' }}">{{ last.created_at|date:"j M Y, H:i" }}</time> &middot; {{ last|trigger_label }} run</span>
+        {% else %}
+          <span></span>
+        {% endif %}
+      {% endwith %}
+      <a href="#results" class="link link-hover text-primary" data-open-tab="results" data-results-link>See results by commit &rarr;</a>
+    </div>
   </div>
-</div>
+{% else %}
+  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-unknown h-full" data-overview-health>
+    <div class="card-body items-center justify-center gap-6 py-10">
+      <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
+      {% if attached_standards %}
+        <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has finished on it.</p>
+        {% include "partials/score_note.html" with score=None newer=newer_commit %}
+        <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
+      {% else %}
+        <p class="text-base opacity-60 text-center">No standards attached. Pick the standards that apply to this project.</p>
+        <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}

@@ -27,7 +27,7 @@ from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application import scoring
-from app.domain.score_representation import SCORE_REPRESENTATION
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, STANDARD_RESULT_REPRESENTATION
 from app.application.naming import canonical_key
 from app.application.standard_results import current_results
 from app.domain.models import (
@@ -38,9 +38,7 @@ from app.domain.models import (
     Stack,
 )
 from app.domain.health import (
-    CRITICAL,
-    HEALTHY_MIN,
-    WARNING,
+    HEALTHY,
     project_level,
     stack_level,
 )
@@ -71,21 +69,24 @@ def _project_score(project_id, latest):
 
 def _component_issues(commit_score):
     """Why a project needs attention: the Required standard that failed it,
-    else its lowest sub-threshold standards."""
+    else its lowest standards that are not healthy."""
     if commit_score is None:
         return []
     if commit_score.failed:
         return [commit_score.reason]
     low = sorted(
-        (e for e in commit_score.executions.all() if e.score < HEALTHY_MIN),
+        (e for e in commit_score.executions.all() if STANDARD_RESULT_REPRESENTATION.tone(e.score) is not HEALTHY),
         key=lambda e: e.score,
     )
-    return ["{} — {}".format(e.standard_name, _score_text(e.score)) for e in low[:4]]
+    return [
+        "{} — {}".format(e.standard_name, STANDARD_RESULT_REPRESENTATION.represent(e.score).text)
+        for e in low[:4]
+    ]
 
 
-def _score_text(value):
-    """A score as ``SCORE_REPRESENTATION`` shows it, for the diagrams."""
-    return SCORE_REPRESENTATION.represent(value).text
+def _score_text(value, failed: bool = False):
+    """A commit score as ``COMMIT_SCORE_REPRESENTATION`` shows it, for the diagrams."""
+    return COMMIT_SCORE_REPRESENTATION.represent(value, failed=failed).text
 
 
 def _merge_tech(*lists):
@@ -163,7 +164,7 @@ def workspace_graph(tenant, latest):
         issues = [
             "{} — {} ({})".format(p.name, _score_text(s), lvl)
             for p, s, lvl in offenders
-            if lvl in (WARNING, CRITICAL)
+            if lvl.needs_attention
         ]
 
         stack_nodes.append(
@@ -272,6 +273,7 @@ def _component_node(component, latest, monorepo_projects, project_scores):
     project = component.project
     commit_score = project_scores.get(project.id)
     score = commit_score.value if commit_score else None
+    failed = bool(commit_score and commit_score.failed)
     return {
         "id": str(component.id),
         "name": component.name,
@@ -286,8 +288,8 @@ def _component_node(component, latest, monorepo_projects, project_scores):
         "lifecycle": project.get_lifecycle_display(),
         "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
         "score": score,
-        "score_text": _score_text(score),
-        "health": project_level(score),
+        "score_text": _score_text(score, failed=failed),
+        "health": project_level(score, failed=failed),
         "issues": _component_issues(commit_score),
         "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),

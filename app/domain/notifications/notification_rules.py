@@ -4,7 +4,7 @@ policies make, as pure functions of the facts. Pure Python (no Django)."""
 from __future__ import annotations
 
 from app.domain.events import DependencyInferenceFailed, StandardRunFinished
-from app.domain.health import CRITICAL, UNKNOWN, level_from_score
+from app.domain.health import UNKNOWN, level_from_score
 
 # An AI provider answers with these when the key is wrong (401), the account
 # has no credit (402) or the key may not use the model (403).
@@ -36,10 +36,11 @@ def standards_failing(event: StandardRunFinished) -> bool:
 
 
 def turned_critical(score_before, score_after) -> bool:
-    """The project's score crossed into critical with this run. A project
-    that was already critical, or had no score yet, did not "drop"."""
+    """The project's score crossed into a failing band (critical or worse,
+    ``ScoreTone.is_failing``) with this run. A project that was already
+    failing, or had no score yet, did not "drop"."""
     before = level_from_score(score_before)
-    return before not in (CRITICAL, UNKNOWN) and level_from_score(score_after) == CRITICAL
+    return before is not UNKNOWN and not before.is_failing and level_from_score(score_after).is_failing
 
 
 def ai_provider_refused(event: DependencyInferenceFailed) -> bool:

@@ -1,59 +1,69 @@
 {# The project's About card: description, details, languages and tags, components. #}
-<div class="card bg-base-100 shadow-xl">
+{# Long values are cut with an ellipsis so nothing runs past the card.          #}
+<div class="card bg-base-100 shadow-xl h-full">
   <div class="card-body p-5 gap-4 text-sm">
     <h2 class="card-title text-base">About</h2>
     {% if project.description %}<p class="break-words opacity-80">{{ project.description }}</p>{% endif %}
-    <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-      <dt class="opacity-60">Platform</dt>
-      <dd>{{ project.get_platform_display }} · <span class="break-all">{{ project.full_path }}</span></dd>
-      <dt class="opacity-60">Default branch</dt>
-      <dd><code>{{ project.default_branch }}</code></dd>
-      <dt class="opacity-60">Lifecycle</dt>
-      <dd>{{ project.get_lifecycle_display }}</dd>
-      <dt class="opacity-60">Owner</dt>
-      <dd>{{ project.owner|default:"—" }}</dd>
-      <dt class="opacity-60">Connection</dt>
-      <dd>{{ project.platform_connection.display_name }}</dd>
-      <dt class="opacity-60">Webhook</dt>
-      <dd class="flex flex-wrap items-center gap-2">
+    <dl class="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 gap-y-3 items-center">
+      <dt class="text-base-content/60">Platform</dt>
+      <dd class="min-w-0 truncate">
+        {# Only the platform's name: the repository path is in the link's tooltip. #}
+        {% if project.web_url %}
+          <a href="{{ project.web_url }}" target="_blank" rel="noopener noreferrer" class="link link-hover inline-flex items-center gap-1" data-repo-link
+             aria-label="Open {{ project.name }} on {{ project.get_platform_display }}" title="{{ project.full_path }}">{{ project.get_platform_display }}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        {% else %}<span title="{{ project.full_path }}">{{ project.get_platform_display }}</span>{% endif %}
+      </dd>
+      <dt class="text-base-content/60">Default branch</dt>
+      <dd class="min-w-0 truncate font-mono" title="{{ project.default_branch }}">{{ project.default_branch }}</dd>
+      <dt class="text-base-content/60">Lifecycle</dt>
+      <dd class="min-w-0 truncate">{{ project.get_lifecycle_display }}</dd>
+      <dt class="text-base-content/60">Owner</dt>
+      <dd class="min-w-0 truncate" title="{{ project.owner }}">{{ project.owner|default:"—" }}</dd>
+      <dt class="text-base-content/60">Webhook</dt>
+      <dd class="min-w-0 flex flex-wrap items-center justify-between gap-2">
         {% if project.platform_connection.auth_method == "github_app" %}
-          <span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-50">via GitHub App</span>
+          <span class="inline-flex items-center gap-2 min-w-0"><span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-60 truncate">via GitHub App</span></span>
         {% elif project.webhook_id %}
-          <span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-50">ID: {{ project.webhook_id }}</span>
+          <span class="inline-flex items-center gap-2 min-w-0"><span class="badge badge-success badge-sm">Active</span><span class="text-xs opacity-60 truncate">ID: {{ project.webhook_id }}</span></span>
         {% else %}
-          <span class="badge badge-warning badge-sm">Not registered</span>
+          <span class="inline-flex items-center gap-2 text-warning"><span class="h-2 w-2 rounded-full bg-warning"></span>Not registered</span>
           <form method="post" action="{% url 'retry_webhook' project.pk %}" class="inline">
             {% csrf_token %}
-            <button type="submit" class="btn btn-xs btn-ghost">Register now</button>
+            <button type="submit" class="btn btn-xs btn-ghost border border-base-content/20 font-normal text-base-content/80">Register now</button>
           </form>
         {% endif %}
       </dd>
     </dl>
 
     {% if project.languages or project.tags %}
-      <div class="flex flex-wrap gap-1">
-        {% for lang in project.languages %}<span class="badge badge-outline badge-sm">{{ lang }}</span>{% endfor %}
-        {% for tag in project.tags %}<span class="badge badge-sm">{{ tag }}</span>{% endfor %}
+      <div>
+        <h3 class="font-semibold mb-2">{% if project.languages %}Languages{% if project.tags %} &amp; tags{% endif %}{% else %}Tags{% endif %}</h3>
+        <div class="flex flex-wrap gap-1.5">
+          {% for lang in project.languages %}<span class="badge badge-sm border-0 bg-base-200 text-base-content/80">{{ lang }}</span>{% endfor %}
+          {% for tag in project.tags %}<span class="badge badge-sm badge-ghost">{{ tag }}</span>{% endfor %}
+        </div>
       </div>
     {% endif %}
 
     <div class="scroll-mt-20" id="components">
-      <h3 class="font-semibold mb-1 flex items-center gap-2">
+      <h3 class="font-semibold mb-2 flex items-center gap-2">
         Components
         {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
       </h3>
       <ul class="space-y-2">
         {% for component in project.components.all %}
-          <li>
-            <div class="flex items-baseline gap-2">
-              <span class="font-medium">{{ component.name }}</span>
-              <span class="text-xs opacity-50 font-mono">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
+          <li class="bg-base-200 rounded-lg px-3.5 py-3 min-w-0">
+            <div class="flex items-baseline gap-2 min-w-0">
+              <span class="font-semibold truncate">{{ component.name }}</span>
+              <span class="text-xs opacity-60 font-mono truncate">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
             </div>
-            <div class="flex flex-wrap gap-1 mt-0.5">
+            <div class="flex flex-wrap gap-1 mt-1">
               {% for stack in component.stacks.all %}
                 <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
               {% empty %}
-                <span class="text-xs opacity-50">Not in any stack</span>
+                <span class="text-xs opacity-60">Not in any stack</span>
               {% endfor %}
             </div>
           </li>

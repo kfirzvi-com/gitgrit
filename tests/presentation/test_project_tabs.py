@@ -73,10 +73,12 @@ class ProjectTabsTests(TestCase):
             {"required_failed": 0, "passed": 1, "failed": 1, "errored": 1, "failures": 1, "total": 3},
         )
         body = response.content.decode()
-        self.assertIn('data-score-value>50<', body)
-        self.assertIn("1 of 3 standards failed", body)
+        self.assertIn('data-score-value>D<', body)
+        self.assertIn("No Required failures", body)
+        self.assertIn("Based on 3 standards", body)
         self.assertNotIn(">50%", body)
-        self.assertIn("From commit aaaaaaa", body)
+        self.assertIn("See results by commit", body)
+        self.assertIn('data-grade-scale', body)
         self.assertIn("data-health-breakdown", body)
 
     def test_results_and_standards_load_when_first_opened(self):
@@ -144,9 +146,29 @@ class OverviewRequiredFailuresTests(TestCase):
             {"required_failed": 2, "passed": 1, "failed": 1, "errored": 0, "failures": 3, "total": 4},
         )
         body = response.content.decode()
-        self.assertIn('data-outcome="required_failed"', body)
-        self.assertIn("3 of 4 standards failed", body)
-        self.assertIn('aria-label="3 failed (2 Required), 0 errors, 1 passed"', body)
-        self.assertIn('data-segment="required_failed"', body)
+        self.assertIn('data-required-failed="2"', body)
+        self.assertIn("2 Required standards failed", body)
+        self.assertIn('data-score-value>F<', body)
+        self.assertIn("gg-tone-card-severe", body)
+        self.assertIn('gg-chip gg-chip-current gg-tone-bg-severe" aria-current="true">F<', body)
         self.assertNotIn("data-score-reason", body)
-        self.assertIn("See the details in Results", body)
+
+    def test_the_overview_and_results_tabs_show_the_same_bar_and_legend(self):
+        overview = self.client.get(reverse("project_detail", args=[self.project.pk])).content.decode()
+        results = self.client.get(reverse("project_history", args=[self.project.pk]), HTTP_HX_REQUEST="true").content.decode()
+
+        for body in (overview, results):
+            with self.subTest(tab="overview" if body is overview else "results"):
+                self.assertIn('data-segment="required_failed"', body)
+                self.assertIn('data-segment="failed"', body)
+                self.assertRegex(body, r'data-legend="required_failed">\s*<span class="gg-importance-icon')
+                self.assertIn("<b>2</b> Required failed", body)
+                self.assertIn('<b>1</b> <span class="opacity-70">other failed', body)
+                self.assertIn('<b>0</b> <span class="opacity-70">could not run', body)
+
+    def test_the_results_tab_shows_each_standard_as_a_number_and_the_commit_as_a_letter(self):
+        body = self.client.get(reverse("project_history", args=[self.project.pk]), HTTP_HX_REQUEST="true").content.decode()
+
+        self.assertRegex(body, r'data-commit-score><span class="gg-score[^"]*"[^>]*>F</span>')
+        self.assertIn('aria-label="Score 50 out of 100"', body)
+        self.assertNotIn('aria-label="Grade D', body)

@@ -74,10 +74,10 @@ class TestBranchesAndHealth(HealthAPITestCase):
         assert (body["passed"], body["failed"], body["errored"]) == (0, 1, 0)
         assert body["results"][0]["commit_sha"] == A
         assert body["results"][0]["standard_name"] == "Pinned CI"
-        assert body["score_display"] == {"text": "40", "tone": "critical", "spoken": "Score 40 out of 100"}
+        assert body["score_display"] == {"text": "D", "tone": "critical", "spoken": "Grade D, score 40 out of 100"}
         assert body["commit_score"] == {
             "value": 40, "failed": False, "reason": "", "state": "complete",
-            "display": {"text": "40", "tone": "critical", "spoken": "Score 40 out of 100"},
+            "display": {"text": "D", "tone": "critical", "spoken": "Grade D, score 40 out of 100"},
             "standards": {"expected": 1, "finished": 1},
             "commit": {"sha": A, "branch": "main", "committed_at": None},
         }
@@ -141,7 +141,7 @@ class TestCommits(HealthAPITestCase):
         assert (body["branch"], body["page"], body["has_more"]) == ("main", 1, False)
         checked, unchecked = body["commits"]
         assert (checked["sha"], checked["title"], checked["checked"]) == (A, "Fix CI", True)
-        assert (checked["score"], checked["level"], checked["failed"]) == (60, "warning", 1)
+        assert (checked["score"], checked["level"], checked["failed"]) == (60, "caution", 1)
         assert checked["results"][0]["still_attached"] is True
         assert (unchecked["checked"], unchecked["results"]) == (False, [])
 

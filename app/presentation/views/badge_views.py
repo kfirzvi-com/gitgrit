@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
 from app.application import scoring
-from app.domain.score_representation import SCORE_REPRESENTATION
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.presentation.score_tones import ScoreToneStyle
 from app.domain.models import Project
 
@@ -23,7 +23,7 @@ def project_badge(request, pk):
 
     # The project's score: its newest scored commit on the default branch.
     commit_score = scoring.project_score(project)
-    represented = SCORE_REPRESENTATION.represent(
+    represented = COMMIT_SCORE_REPRESENTATION.represent(
         commit_score.value if commit_score else None,
         failed=bool(commit_score and commit_score.failed),
     )
@@ -37,7 +37,7 @@ def project_badge(request, pk):
 
 def _render_badge(represented):
     """Render a shields.io-style SVG badge with the GitGrit logo as label and
-    the project score as ``SCORE_REPRESENTATION`` shows it."""
+    the project score as ``COMMIT_SCORE_REPRESENTATION`` shows it."""
     value = represented.text
     # An external SVG needs the colour itself (hex), from ScoreToneStyle.
     color = ScoreToneStyle.for_tone(represented.tone).color

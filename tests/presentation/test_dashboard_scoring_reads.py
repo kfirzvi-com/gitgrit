@@ -91,7 +91,7 @@ class TestProjectBadge(TestCase):
             reverse("project_badge", args=[project.id])
         ).content.decode()
 
-        assert "GitGrit compliance: 100" in svg
+        assert "GitGrit compliance: A+" in svg
 
     def test_badge_shows_no_data_when_nothing_attached(self):
         tenant = baker.make("app.Tenant")

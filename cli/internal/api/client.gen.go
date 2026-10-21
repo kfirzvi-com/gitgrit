@@ -85,8 +85,10 @@ func (e ImportanceEnum) Valid() bool {
 
 // Defines values for LevelEnum.
 const (
+	Caution  LevelEnum = "caution"
 	Critical LevelEnum = "critical"
 	Healthy  LevelEnum = "healthy"
+	Severe   LevelEnum = "severe"
 	Unknown  LevelEnum = "unknown"
 	Warning  LevelEnum = "warning"
 )
@@ -94,9 +96,13 @@ const (
 // Valid indicates whether the value is a known member of the LevelEnum enum.
 func (e LevelEnum) Valid() bool {
 	switch e {
+	case Caution:
+		return true
 	case Critical:
 		return true
 	case Healthy:
+		return true
+	case Severe:
 		return true
 	case Unknown:
 		return true
@@ -326,7 +332,9 @@ type Commit struct {
 
 	// Level * `healthy` - healthy
 	// * `warning` - warning
+	// * `caution` - caution
 	// * `critical` - critical
+	// * `severe` - severe
 	// * `unknown` - unknown
 	Level   LevelEnum     `json:"level"`
 	Passed  int           `json:"passed"`
@@ -441,7 +449,9 @@ type LastExecution struct {
 
 // LevelEnum * `healthy` - healthy
 // * `warning` - warning
+// * `caution` - caution
 // * `critical` - critical
+// * `severe` - severe
 // * `unknown` - unknown
 type LevelEnum string
 
@@ -654,7 +664,9 @@ type ProjectHealth struct {
 
 	// Level * `healthy` - healthy
 	// * `warning` - warning
+	// * `caution` - caution
 	// * `critical` - critical
+	// * `severe` - severe
 	// * `unknown` - unknown
 	Level LevelEnum `json:"level"`
 
@@ -777,14 +789,16 @@ type ScoreDisplay struct {
 	// Spoken The same in words, e.g. "Score 82 out of 100".
 	Spoken string `json:"spoken"`
 
-	// Text What the app shows, e.g. "82"; "—" when there is no score.
+	// Text What the app shows, e.g. "B"; "—" when there is no score.
 	Text string `json:"text"`
 
 	// Tone Its colour band.
 	//
 	// * `healthy` - healthy
 	// * `warning` - warning
+	// * `caution` - caution
 	// * `critical` - critical
+	// * `severe` - severe
 	// * `unknown` - unknown
 	Tone LevelEnum `json:"tone"`
 }

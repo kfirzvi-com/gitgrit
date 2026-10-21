@@ -1,0 +1,18 @@
+{% comment %}The row above the Overview cards (Michal's design): every value the score can take,
+best first (A+ to F), the project's own lit in its colour.
+Display only; nothing when the representation has no short scale.{% endcomment %}
+{% load score_tags %}
+{% score_scale as scale %}
+{% if project_score and scale %}
+  <div class="flex flex-wrap items-center gap-2 text-xs text-base-content/60 mb-3" data-grade-scale>
+    <span class="mr-1">Grade</span>
+    {% score_text_of project_score.value project_score.failed as current_text %}
+    {% for step in scale %}
+      {% if step.text == current_text %}
+        <span class="gg-chip gg-chip-current gg-tone-bg-{{ step.tone }}" aria-current="true">{{ step.text }}</span>
+      {% else %}
+        <span class="gg-chip">{{ step.text }}</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}

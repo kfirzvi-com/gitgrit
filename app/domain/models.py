@@ -10,7 +10,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.domain import importance as importance_domain
-from app.domain.score_representation import SCORE_REPRESENTATION
+from app.domain.scoring import StandardRunResult, StandardRunStatus
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -1279,6 +1280,18 @@ class StandardExecution(models.Model):
     def __str__(self):
         return f"{self.standard_name} — {self.status} ({self.project})"
 
+    @property
+    def fails_the_commit(self) -> bool:
+        """This run fails its commit: a Required standard that failed or
+        errored (``scoring.StandardRunResult.fails_the_commit``)."""
+        return StandardRunResult(
+            standard_id=str(self.standard_id),
+            standard_name=self.standard_name,
+            status=StandardRunStatus(self.status),
+            standard_score=self.score,
+            importance=importance_domain.Importance(self.importance),
+        ).fails_the_commit
+
 
 class CommitScore(models.Model):
     """A commit's score, saved when one of its checks finishes and every
@@ -1592,8 +1605,8 @@ class Notification(models.Model):
             severity=Severity.CRITICAL,
             title="Score dropped to critical",
             body=(
-                f"From {SCORE_REPRESENTATION.represent(score_before).text}"
-                f" to {SCORE_REPRESENTATION.represent(score_after).text}."
+                f"From {COMMIT_SCORE_REPRESENTATION.represent(score_before).text}"
+                f" to {COMMIT_SCORE_REPRESENTATION.represent(score_after).text}."
             ),
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,

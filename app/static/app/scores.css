@@ -1,0 +1,61 @@
+/* How a score looks beyond its colour (colours: ScoreToneStyle, written into
+ * the page by {% score_tone_styles %} as --gg-tone-<tone> and
+ * gg-tone-*-<tone> classes). From Michal's grade-card design.
+ *
+ *   .gg-score                 a score (partials/score.html)
+ *   .gg-score-severe          an F: heavier, so it never reads as a D
+ *   .gg-tone-card             a card in its score's tone (--gg-card-tone, from
+ *                             .gg-tone-card-<tone>): a glowing bar on the left
+ */
+.gg-score { line-height: 1; white-space: nowrap; }
+.gg-score-severe { font-weight: 900; }
+
+.card.gg-tone-card, .gg-tone-card { position: relative; overflow: hidden; }
+.gg-tone-card::before {             /* the side bar */
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+  background: var(--gg-card-tone);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--gg-card-tone) 45%, transparent);
+}
+/* F: a wider bar with a stronger glow. */
+.gg-tone-card-severe::before {
+  width: 6px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gg-card-tone) 70%, transparent);
+}
+
+/* The Overview (Michal's design): the grade scale chips above the cards, the
+   big letter, and the muted failed / could-not-run / passed bar. */
+/* "A Required standard failed": bold, in the failed colour, behind the Required stop sign
+   (partials/importance_icon.html), sized to its text. */
+.gg-required-failed {
+  display: inline-flex; align-items: center; gap: 0.4em;
+  font-weight: 700;
+  color: var(--gg-tone-severe);
+}
+.gg-required-failed .gg-importance-icon { width: 1.15em; height: 1.15em; }
+.gg-score-hero { font-size: clamp(4rem, 10vw, 7.5rem); font-weight: 800; }
+/* :where() keeps the base fill at zero specificity so gg-tone-bg-<tone> lights the current chip. */
+:where(.gg-chip) { background-color: var(--color-base-200); }
+.gg-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
+  color: color-mix(in srgb, var(--color-base-content) 50%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.gg-chip-current { border-color: transparent; color: #0c0e13; }  /* lit by gg-tone-bg-<tone> */
+/* The results bar and legend (partials/outcome_bar.html): Required failures striped; a zero
+   in the legend goes grey and quiet but keeps readable text. */
+.gg-segment-required {
+  background-image: repeating-linear-gradient(135deg, transparent 0 3px, oklch(0% 0 0 / .4) 3px 5px);
+}
+.gg-status-zero { color: color-mix(in srgb, var(--color-base-content) 55%, transparent); }
+.gg-status-zero svg { color: inherit; opacity: 0.45; }

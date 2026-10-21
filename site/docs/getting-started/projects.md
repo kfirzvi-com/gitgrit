@@ -80,4 +80,19 @@ The **project's score** is the score of the newest commit on the default branch 
 
 Changing attachments or importance does not rescore anything: the next check does.
 
-In the API every score comes with a `display` object (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show that instead of formatting the number yourself, and your screens read like GitGrit's. `/status/`'s `grade` is the same as its `display.text`.
+### Letters
+
+GitGrit shows a commit's score, and so a branch's and a project's, as a letter. The number underneath stays the same, and the API returns both. Each standard's own result on a commit stays a number from 0 to 100.
+
+| Letter | Score |
+|---|---|
+| **A+** | 100 |
+| **A** | 90 or more |
+| **B** | 75 or more |
+| **C** | 60 or more |
+| **D** | below 60 |
+| **F** | a Required standard failed or could not be verified |
+
+An **F** always means the project failed; a low average is a D.
+
+In the API every commit score comes with a `display` object (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show that instead of formatting the number yourself, and your screens read like GitGrit's. `/status/`'s `grade` is the same as its `display.text`.

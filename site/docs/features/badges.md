@@ -10,12 +10,14 @@ Each project has a public badge endpoint that returns an SVG image:
 https://app.gitgrit.dev/badge/<project-id>.svg
 ```
 
-The badge shows your project's [score](../getting-started/projects.md#the-score) (its newest fully checked commit on the default branch), color-coded:
+The badge shows your project's [score](../getting-started/projects.md#the-score) (its newest fully checked commit on the default branch) as a [letter](../getting-started/projects.md#letters), in the letter's colour:
 
-- **Green** — score >= 80%
-- **Orange** — score >= 50%
-- **Red** — score < 50%, or 0% when a Required standard failed
-- **Gray** — no data yet
+- **A+ / A** — green
+- **B** — yellow
+- **C** — orange
+- **D** — red
+- **F** — deep red: a Required standard failed
+- **—** — gray: no score yet
 
 ## Adding a badge
 

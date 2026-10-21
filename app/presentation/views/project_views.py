@@ -91,6 +91,14 @@ class ProjectListView(LoginRequiredMixin, ListView):
             return Project.objects.none()
         return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Each card shows its project's score; read in one query.
+        scores = scoring.project_scores(context["projects"])
+        for project in context["projects"]:
+            project.commit_score = scores.get(project.pk)
+        return context
+
 
 def results_context(project) -> dict:
     """What the project page's Overview and Standards tabs render: the
