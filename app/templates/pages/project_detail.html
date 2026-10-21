@@ -68,9 +68,10 @@
 <div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
   <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
   <div class="tab-content pt-6" id="overview">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2">{% include "partials/project_overview_health.html" %}</div>
-      <div>{% include "partials/project_about.html" %}</div>
+    {% include "partials/project_score_scale.html" %}
+    <div class="grid grid-cols-1 min-[901px]:grid-cols-[3fr_2fr] gap-6">
+      <div class="min-w-0">{% include "partials/project_overview_health.html" %}</div>
+      <div class="min-w-0">{% include "partials/project_about.html" %}</div>
     </div>
   </div>
 

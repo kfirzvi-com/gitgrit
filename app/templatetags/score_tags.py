@@ -55,6 +55,19 @@ def score_tone(value, failed=False):
     return str(SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).tone)
 
 
+@register.simple_tag
+def score_scale():
+    """Every value ``SCORE_REPRESENTATION`` can show, best first, as
+    ``[{"text", "tone"}]`` (A+ to F for letters; empty for numbers)."""
+    return [{"text": text, "tone": str(tone)} for text, tone in SCORE_REPRESENTATION.scale()]
+
+
+@register.simple_tag
+def score_text_of(value, failed=False):
+    """A score's text with its failed flag: ``{% score_text_of v f as text %}``."""
+    return SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).text
+
+
 @register.filter
 def score_text(value):
     """The score's text alone ("82", "—")."""

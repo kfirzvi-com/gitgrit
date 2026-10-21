@@ -74,9 +74,11 @@ class ProjectTabsTests(TestCase):
         )
         body = response.content.decode()
         self.assertIn('data-score-value>D<', body)
-        self.assertIn("1 of 3 standards failed", body)
+        self.assertIn("No Required failures", body)
+        self.assertIn("Based on 3 standards", body)
         self.assertNotIn(">50%", body)
-        self.assertIn("From commit aaaaaaa", body)
+        self.assertIn("See results by commit", body)
+        self.assertIn('data-grade-scale', body)
         self.assertIn("data-health-breakdown", body)
 
     def test_results_and_standards_load_when_first_opened(self):
@@ -144,9 +146,9 @@ class OverviewRequiredFailuresTests(TestCase):
             {"required_failed": 2, "passed": 1, "failed": 1, "errored": 0, "failures": 3, "total": 4},
         )
         body = response.content.decode()
-        self.assertIn('data-outcome="required_failed"', body)
-        self.assertIn("3 of 4 standards failed", body)
-        self.assertIn('aria-label="3 failed (2 Required), 0 errors, 1 passed"', body)
-        self.assertIn('data-segment="required_failed"', body)
+        self.assertIn('data-required-failed="2"', body)
+        self.assertIn("2 Required standards failed", body)
+        self.assertIn('data-score-value>F<', body)
+        self.assertIn("gg-tone-card-severe", body)
+        self.assertIn('gg-chip gg-chip-current gg-tone-bg-severe" aria-current="true">F<', body)
         self.assertNotIn("data-score-reason", body)
-        self.assertIn("See the details in Results", body)

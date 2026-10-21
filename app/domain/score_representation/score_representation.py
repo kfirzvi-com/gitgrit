@@ -25,6 +25,12 @@ class ScoreRepresentation(ABC):
     def no_score_text(self) -> str:
         return "—"
 
+    def scale(self) -> list[tuple[str, ScoreTone]]:
+        """Every value this representation can show, best first, with its
+        band: what a scale of it (the Overview's grade row) lists. Empty
+        when it has no short scale (numbers)."""
+        return []
+
     @abstractmethod
     def text(self, value, *, failed: bool = False) -> str:
         """What the reader sees for a value."""

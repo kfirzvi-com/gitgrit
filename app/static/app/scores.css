@@ -47,3 +47,27 @@
   background: radial-gradient(circle at top right,
     color-mix(in srgb, var(--gg-card-tone) 38%, transparent), transparent 75%);
 }
+
+/* The Overview (Michal's design): the grade scale chips above the cards, the
+   big letter, and the muted failed / could-not-run / passed bar. */
+.gg-score-hero { font-size: clamp(4rem, 10vw, 7.5rem); font-weight: 800; }
+/* :where() keeps the base fill at zero specificity so gg-tone-bg-<tone> lights the current chip. */
+:where(.gg-chip) { background-color: var(--color-base-200); }
+.gg-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
+  color: color-mix(in srgb, var(--color-base-content) 50%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.gg-chip-current { border-color: transparent; color: #0c0e13; }  /* lit by gg-tone-bg-<tone> */
+.gg-chip-value { color: var(--color-base-content); }
+/* One bar, the same length whatever the count; every segment equally muted
+   so the letter stays the thing you look at. */
+.gg-status-bar { display: flex; gap: 3px; height: 10px; border-radius: 5px; overflow: hidden; }
+.gg-status-bar > span { opacity: 0.55; min-width: 4px; }
+.gg-status-zero { opacity: 0.45; }

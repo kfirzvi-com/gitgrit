@@ -33,6 +33,11 @@ class LetterScoreRepresentation(ScoreRepresentation):
                 return letter
         return self.LOWEST
 
+    def scale(self) -> list[tuple[str, ScoreTone]]:
+        """A+ to F, each with its band."""
+        letters = [letter for _, letter in self.BANDS] + [self.LOWEST, self.FAILED]
+        return [(letter, self.TONE_BY_LETTER[letter]) for letter in letters]
+
     def text(self, value, *, failed: bool = False) -> str:
         return self.letter(value, failed=failed)
 
