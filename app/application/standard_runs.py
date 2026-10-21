@@ -24,11 +24,12 @@ from django.utils.dateparse import parse_datetime
 
 from app.application.commit_checks import forget_platform_lists
 from app.application.event_bus import publish
+from app.application.scoring import expected_standards, score_checks
 from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
 from app.application.standard_service import version_to_run
 from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsTimedOut
 from app.domain.identity import resolve_user
-from app.domain.models import CommitCheck, Project, Standard, StandardExecution
+from app.domain.models import CommitCheck, Project, ProjectStandard, Standard, StandardExecution
 from app.tasks import run_standards
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,14 @@ def expire_stale_runs() -> int:
     )
     if changed:
         logger.warning("expired %d stale standard run(s)", changed)
+        # A check whose last run just expired has finished: score its commit.
+        score_checks(
+            set(
+                StandardExecution.objects.filter(pk__in=[pk for pk, _, _ in rows])
+                .exclude(commit_check=None)
+                .values_list("commit_check_id", flat=True)
+            )
+        )
         by_project = {}
         for pk, project_id, tenant_id in rows:
             by_project.setdefault((project_id, tenant_id), []).append(str(pk))
@@ -130,6 +139,7 @@ def enqueue_run(
     commit_sha: str = "",
     committed_at=None,
     skip_running: bool = True,
+    expected=None,
 ) -> dict | None:
     """Queue ``standards`` to run on ``project`` in the background.
 
@@ -142,6 +152,12 @@ def enqueue_run(
     ``commit_sha`` (a webhook event's commit, or one picked on the project
     page) pins that check to its commit, and ``committed_at`` records when it
     was made; without a commit the job pins the branch's head before it runs.
+
+    Each check records the standards its commit needs a finished result of
+    to be scored: ``expected`` (a webhook event's matching standards) or,
+    without it, the standards that apply to the check's branch
+    (``app.application.scoring.expected_standards``). Each execution records
+    its standard's importance on the project.
 
     With ``skip_running`` (manual and coverage-change runs), standards that
     already have an in-flight execution on this project are left alone and
@@ -192,7 +208,15 @@ def enqueue_run(
                     event_type=event_type,
                     triggered_by=triggered_by,
                     triggered_by_user=user,
+                    expected_standard_ids=(
+                        [str(s.pk) for s in expected]
+                        if expected is not None
+                        else expected_standards(project, branch)
+                    ),
                 )
+            importances = dict(
+                ProjectStandard.objects.filter(project=project).values_list("standard_id", "importance")
+            )
             executions = StandardExecution.objects.bulk_create(
                 [
                     StandardExecution(
@@ -206,6 +230,7 @@ def enqueue_run(
                         ref=_ref(standard),
                         commit_check=checks[_branch(project, _ref(standard))],
                         standard_version=version_to_run(standard),
+                        importance=importances.get(standard.pk, StandardExecution._meta.get_field("importance").default),
                     )
                     for standard in to_run
                 ]
@@ -343,6 +368,7 @@ def enqueue_for_event(
             commit_sha=event.commit_sha,
             committed_at=parse_datetime(event.committed_at) if event.committed_at else None,
             skip_running=False,
+            expected=standards,
         )
         if summary:
             queued.extend(summary["executions"])

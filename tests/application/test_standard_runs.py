@@ -125,6 +125,24 @@ class RunStandardsTaskTests(NoPlatformLookupsMixin, TestCase):
         assert failing.status == StandardExecution.Status.FAILED
         assert failing.score == 10
 
+    def test_a_finished_run_scores_its_complete_commit(self):
+        a, b = self._standard("A"), self._standard("B")
+        check = baker.make(
+            "app.CommitCheck", project=self.project, branch="main", commit_sha="c1",
+            event_type="push", expected_standard_ids=[str(a.pk), str(b.pk)],
+        )
+        rows = [self._execution(a), self._execution(b)]
+        StandardExecution.objects.filter(pk__in=[r.pk for r in rows]).update(commit_check=check)
+
+        def run(code, _config):
+            return dict(PASSED) if code == "A" else dict(FAILED)
+
+        with _mocked_runner(run):
+            self._run(rows)
+
+        commit_score = check.scores.get()
+        assert commit_score.value == 55  # (100 + 10) / 2
+
     def test_vanished_project_leaves_other_projects_rows_alone(self):
         # The job only ever touches executions of its own project: the input
         # config it builds carries that project's token and LLM keys, so a
