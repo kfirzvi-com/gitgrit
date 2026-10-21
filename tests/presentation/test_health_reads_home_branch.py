@@ -51,7 +51,7 @@ class HealthIgnoresOtherBranchesTests(TestCase):
     def test_badge_scores_the_default_branch(self):
         response = self.client.get(reverse("project_badge", args=[self.project.pk]))
 
-        self.assertIn("100%", response.content.decode())
+        self.assertIn("GitGrit compliance: 100%", response.content.decode())
 
     def test_dashboard_has_nothing_needing_attention(self):
         response = self.client.get(reverse("dashboard"))
