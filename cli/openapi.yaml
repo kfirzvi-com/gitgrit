@@ -538,7 +538,9 @@ paths:
     get:
       operationId: get_project_commit
       description: From what GitGrit recorded; 404 when the commit was never checked.
-        Poll this after `run_project_check` until `running` is 0.
+        Poll this after `run_project_check` until `running` is 0; `commit_score.state`
+        then says whether the commit is scored (`complete`) or not every expected
+        standard finished (`incomplete`).
       summary: One commit's checks
       parameters:
       - in: path
@@ -574,10 +576,13 @@ paths:
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/health/:
     get:
       operationId: get_project_health
-      description: 'Without `branch`: the project''s health — each attached standard''s
-        latest result on its home branch (the default branch unless the standard''s
-        filter names one). With `branch`: that branch''s health. Levels: healthy ≥
-        80, warning ≥ 50, critical below.'
+      description: 'Without `branch`: the project''s health — its score, the newest
+        commit on the default branch that every expected standard finished on (`commit_score`),
+        and the results behind it. With `branch`: that branch''s. A Required standard
+        that failed or could not be verified makes the score 0; otherwise it is the
+        average of the standards'' scores weighted by importance (Required and Major
+        2, Minor 1). `newer_commit` is a newer commit with no score yet. Levels: healthy
+        ≥ 80, warning ≥ 50, critical below.'
       summary: Project or branch health
       parameters:
       - in: query
@@ -1274,6 +1279,11 @@ components:
         running:
           type: integer
           description: Checks still running on this commit.
+        commit_score:
+          allOf:
+          - $ref: '#/components/schemas/CommitScore'
+          nullable: true
+          description: Null when the commit was never checked.
         results:
           type: array
           items:
@@ -1286,6 +1296,7 @@ components:
       required:
       - author
       - checked
+      - commit_score
       - date
       - errored
       - failed
@@ -1316,6 +1327,41 @@ components:
       - commits
       - has_more
       - page
+    CommitScore:
+      type: object
+      properties:
+        value:
+          type: integer
+          nullable: true
+          description: The commit's last complete score, 0-100; null until every expected
+            standard has finished on it.
+        failed:
+          type: boolean
+          description: 'A Required standard failed or could not be verified: the value
+            is 0.'
+        reason:
+          type: string
+          description: Why the value is 0; empty otherwise.
+        state:
+          allOf:
+          - $ref: '#/components/schemas/StateEnum'
+          description: |-
+            The commit's newest check: complete, in_progress or incomplete (finished without every expected standard).
+
+            * `complete` - complete
+            * `in_progress` - in_progress
+            * `incomplete` - incomplete
+        standards:
+          $ref: '#/components/schemas/StandardsProgress'
+        commit:
+          $ref: '#/components/schemas/ScoredCommitRef'
+      required:
+      - commit
+      - failed
+      - reason
+      - standards
+      - state
+      - value
     Connection:
       type: object
       properties:
@@ -1559,6 +1605,19 @@ components:
       - token_type
       - user
       - workspaces
+    NewerCommit:
+      type: object
+      properties:
+        sha:
+          type: string
+        state:
+          $ref: '#/components/schemas/StateEnum'
+        standards:
+          $ref: '#/components/schemas/StandardsProgress'
+      required:
+      - sha
+      - standards
+      - state
     Offender:
       type: object
       properties:
@@ -1882,9 +1941,19 @@ components:
         branch:
           type: string
           nullable: true
-          description: Null for the project's health (each standard's home branch).
+          description: Null for the project's health (its default branch).
         default_branch:
           type: string
+        commit_score:
+          allOf:
+          - $ref: '#/components/schemas/CommitScore'
+          nullable: true
+          description: The newest scored commit on the branch; null when none is.
+        newer_commit:
+          allOf:
+          - $ref: '#/components/schemas/NewerCommit'
+          nullable: true
+          description: 'A newer commit with no score yet: still checking, or incomplete.'
         running:
           type: boolean
         results:
@@ -1893,10 +1962,12 @@ components:
             $ref: '#/components/schemas/CheckResult'
       required:
       - branch
+      - commit_score
       - default_branch
       - errored
       - failed
       - level
+      - newer_commit
       - passed
       - project
       - results
@@ -1949,9 +2020,22 @@ components:
           type: number
           format: double
           nullable: true
+          description: 'The project''s score: its newest fully checked commit on the
+            default branch.'
         grade:
           type: string
           nullable: true
+        score_failed:
+          type: boolean
+          description: 'A Required standard failed or could not be verified: the score
+            is 0.'
+        reason:
+          type: string
+          description: Why the score is 0; empty otherwise.
+        commit_sha:
+          type: string
+          nullable: true
+          description: The commit the score is from.
         total_standards:
           type: integer
         passed:
@@ -1963,11 +2047,14 @@ components:
           items:
             $ref: '#/components/schemas/Offender'
       required:
+      - commit_sha
       - failed
       - grade
       - overall_score
       - passed
       - project
+      - reason
+      - score_failed
       - top_offenders
       - total_standards
     Repository:
@@ -2089,6 +2176,21 @@ components:
       - message
       - projects
       - queued
+    ScoredCommitRef:
+      type: object
+      properties:
+        sha:
+          type: string
+        branch:
+          type: string
+        committed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - branch
+      - committed_at
+      - sha
     StandardCreateRequest:
       type: object
       properties:
@@ -2307,6 +2409,28 @@ components:
       - message
       - passed
       - score
+    StandardsProgress:
+      type: object
+      properties:
+        expected:
+          type: integer
+          description: Standards the commit's newest check expects.
+        finished:
+          type: integer
+          description: Of those, how many have a finished result.
+      required:
+      - expected
+      - finished
+    StateEnum:
+      enum:
+      - complete
+      - in_progress
+      - incomplete
+      type: string
+      description: |-
+        * `complete` - complete
+        * `in_progress` - in_progress
+        * `incomplete` - incomplete
     StatusEnum:
       enum:
       - running

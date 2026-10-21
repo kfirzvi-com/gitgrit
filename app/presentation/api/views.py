@@ -338,9 +338,13 @@ class ProjectHealthView(WorkspaceAPIView):
         tags=["health"],
         summary="Project or branch health",
         description=(
-            "Without `branch`: the project's health — each attached standard's "
-            "latest result on its home branch (the default branch unless the "
-            "standard's filter names one). With `branch`: that branch's health. "
+            "Without `branch`: the project's health — its score, the newest commit "
+            "on the default branch that every expected standard finished on "
+            "(`commit_score`), and the results behind it. With `branch`: that "
+            "branch's. A Required standard that failed or could not be verified "
+            "makes the score 0; otherwise it is the average of the standards' "
+            "scores weighted by importance (Required and Major 2, Minor 1). "
+            "`newer_commit` is a newer commit with no score yet. "
             "Levels: healthy ≥ 80, warning ≥ 50, critical below."
         ),
         parameters=[_BRANCH],
@@ -383,7 +387,9 @@ class ProjectCommitView(WorkspaceAPIView):
         summary="One commit's checks",
         description=(
             "From what GitGrit recorded; 404 when the commit was never checked. "
-            "Poll this after `run_project_check` until `running` is 0."
+            "Poll this after `run_project_check` until `running` is 0; "
+            "`commit_score.state` then says whether the commit is scored "
+            "(`complete`) or not every expected standard finished (`incomplete`)."
         ),
         responses=s.CommitSerializer,
     )

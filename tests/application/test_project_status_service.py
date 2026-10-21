@@ -1,147 +1,81 @@
-from datetime import timedelta
-
+"""The /status/ snapshot reads the project's score: its newest scored commit
+on the default branch, with the results behind it."""
 import pytest
-from django.utils import timezone
 from model_bakery import baker
 from rest_framework.test import APITestCase
 
 from app.application.project_status_service import ProjectStatusService
 from app.domain.models import StandardExecution
+from tests.support import score_commit
 
-
-def _stamp(execution, when):
-    """Override auto_now_add created_at so order-sensitive tests are deterministic."""
-    StandardExecution.objects.filter(pk=execution.pk).update(created_at=when)
-    execution.refresh_from_db()
-    return execution
+Status = StandardExecution.Status
 
 
 class TestGetProjectStatus(APITestCase):
     def setUp(self):
         self.service = ProjectStatusService()
         self.tenant = baker.make("app.Tenant")
-        self.project = baker.make("app.Project", tenant=self.tenant)
+        self.project = baker.make("app.Project", tenant=self.tenant, default_branch="main")
+
+    def _commit(self, *results, sha="a" * 40, importance="major"):
+        """Score one commit with ``(score, status)`` results, one standard each."""
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=sha)
+        for score, status in results:
+            standard = baker.make("app.Standard", tenant=self.tenant)
+            self.project.standards.add(standard)
+            baker.make(
+                "app.StandardExecution", project=self.project, standard=standard,
+                standard_name=standard.name, score=score, status=status,
+                commit_check=check, importance=importance,
+            )
+        return score_commit(self.project, sha)
+
+    def _status(self):
+        return self.service.get_project_status(self.tenant, str(self.project.id))
 
     def test_empty_project_returns_unknown_grade(self):
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
+        result = self._status()
         assert result["grade"] == "unknown"
         assert result["overall_score"] is None
         assert result["total_standards"] == 0
         assert result["top_offenders"] == []
+        assert (result["score_failed"], result["commit_sha"]) == (False, None)
 
     def test_grade_excellent_when_all_scores_high(self):
-        for score in (95, 92, 98):
-            standard = baker.make("app.Standard", tenant=self.tenant)
-            self.project.standards.add(standard)
-            baker.make(
-                "app.StandardExecution",
-                project=self.project,
-                standard=standard,
-                score=score,
-                status=StandardExecution.Status.PASSED,
-            )
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        assert result["grade"] == "excellent"
-        assert result["overall_score"] == (95 + 92 + 98) / 3
-        assert result["total_standards"] == 3
-        assert result["passed"] == 3
-        assert result["failed"] == 0
+        self._commit((95, Status.PASSED), (92, Status.PASSED), (98, Status.PASSED))
 
-    def test_ignores_running_skipped_and_errored(self):
-        standard = baker.make("app.Standard", tenant=self.tenant)
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=standard,
-            score=80,
-            status=StandardExecution.Status.RUNNING,
-        )
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=baker.make("app.Standard", tenant=self.tenant),
-            score=80,
-            status=StandardExecution.Status.SKIPPED,
-        )
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=baker.make("app.Standard", tenant=self.tenant),
-            score=80,
-            status=StandardExecution.Status.ERROR,
-        )
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        assert result["total_standards"] == 0
-        assert result["grade"] == "unknown"
+        result = self._status()
+
+        assert result["grade"] == "excellent"
+        assert result["overall_score"] == 95
+        assert (result["total_standards"], result["passed"], result["failed"]) == (3, 3, 0)
+        assert result["commit_sha"] == "a" * 40
+
+    def test_a_failing_required_standard_makes_it_zero_with_the_reason(self):
+        self._commit((90, Status.FAILED), importance="required")
+
+        result = self._status()
+
+        assert (result["overall_score"], result["score_failed"]) == (0, True)
+        assert result["reason"].endswith("failing")
 
     def test_top_offenders_are_three_lowest_scoring(self):
-        scores = [95, 30, 70, 20, 55]
-        for score in scores:
-            standard = baker.make("app.Standard", tenant=self.tenant)
-            self.project.standards.add(standard)
-            baker.make(
-                "app.StandardExecution",
-                project=self.project,
-                standard=standard,
-                score=score,
-                status=StandardExecution.Status.FAILED,
-            )
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        offender_scores = [o["score"] for o in result["top_offenders"]]
+        self._commit(*[(s, Status.FAILED) for s in (95, 30, 70, 20, 55)])
+
+        offender_scores = [o["score"] for o in self._status()["top_offenders"]]
+
         assert offender_scores == [20, 30, 55]
 
-    def test_uses_only_latest_execution_per_standard(self):
-        standard = baker.make("app.Standard", tenant=self.tenant)
-        self.project.standards.add(standard)
-        now = timezone.now()
-        old = baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=standard,
-            score=10,
-            status=StandardExecution.Status.FAILED,
-        )
-        _stamp(old, now - timedelta(hours=2))
-        newer = baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=standard,
-            score=100,
-            status=StandardExecution.Status.PASSED,
-        )
-        _stamp(newer, now)
+    def test_excluding_a_run_gives_the_score_before_it(self):
+        before = self._commit((100, Status.PASSED), sha="a" * 40)
+        after = self._commit((0, Status.FAILED), sha="b" * 40)
+        run = list(after.executions.values_list("pk", flat=True))
 
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-        # Only the newer run counts: one standard, perfect score.
-        assert result["total_standards"] == 1
-        assert result["overall_score"] == 100
-        assert result["passed"] == 1
-        assert result["failed"] == 0
-
-    def test_detached_standard_executions_are_excluded_from_score(self):
-        attached = baker.make("app.Standard", tenant=self.tenant)
-        detached = baker.make("app.Standard", tenant=self.tenant)
-        self.project.standards.add(attached)
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=attached,
-            score=100,
-            status=StandardExecution.Status.PASSED,
-        )
-        baker.make(
-            "app.StandardExecution",
-            project=self.project,
-            standard=detached,
-            score=0,
-            status=StandardExecution.Status.FAILED,
+        result = self.service.get_project_status(
+            self.tenant, str(self.project.id), exclude_execution_ids=run
         )
 
-        result = self.service.get_project_status(self.tenant, str(self.project.id))
-
-        assert result["total_standards"] == 1
-        assert result["overall_score"] == 100
-        assert result["failed"] == 0
+        assert result["commit_sha"] == before.commit_sha
 
     def test_unknown_project_raises_value_error(self):
         with pytest.raises(ValueError):

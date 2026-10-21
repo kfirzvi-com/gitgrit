@@ -33,7 +33,7 @@ from app.domain.events import (
     StandardSaved,
 )
 from app.domain.models import Notification, StandardExecution
-from tests.support import deliver_defer_patch
+from tests.support import deliver_defer_patch, score_commit
 
 
 class _PolicyTestCase(TestCase):
@@ -67,6 +67,14 @@ class _PolicyTestCase(TestCase):
             score=score,
             **{"event_type": "manual", **kwargs},
         )
+
+    def _scored(self, rows, sha="a" * 40):
+        """Put ``rows`` on one checked commit of the default branch and score it."""
+        check = baker.make(
+            "app.CommitCheck", project=self.project, branch=self.project.default_branch, commit_sha=sha
+        )
+        StandardExecution.objects.filter(pk__in=[r.pk for r in rows]).update(commit_check=check)
+        return score_commit(self.project, sha)
 
     def _event(self, rows, passed=0, failed=0, errored=0, error=""):
         return StandardRunFinished(
@@ -195,6 +203,7 @@ class StandardsFailingNotificationPolicyTests(_PolicyTestCase):
             self._failed(20, "README present"),
             self._row(StandardExecution.Status.PASSED, 100),
         ]
+        self._scored(rows)
         self.policy.handle(self._event(rows, passed=1, failed=2))
 
         n = Notification.objects.get()
@@ -206,8 +215,9 @@ class StandardsFailingNotificationPolicyTests(_PolicyTestCase):
         self.assertEqual(n.context["trigger"], "manual")
 
     def test_the_count_is_this_runs_failures_not_the_projects(self):
-        self._failed(0, "Older failure")
+        older = self._failed(0, "Older failure")
         rows = [self._failed(40, "Pinned CI")]
+        self._scored([older, *rows])
         self.policy.handle(self._event(rows, failed=1))
 
         n = Notification.objects.get()
@@ -259,8 +269,9 @@ class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
     def test_a_run_that_drops_the_score_into_critical_raises_it(self):
         standard = baker.make("app.Standard", tenant=self.tenant)
         self.project.standards.add(standard)
-        self._attached_result(standard, 90, StandardExecution.Status.PASSED)
+        self._scored([self._attached_result(standard, 90, StandardExecution.Status.PASSED)], sha="a" * 40)
         new = self._attached_result(standard, 20, StandardExecution.Status.FAILED)
+        self._scored([new], sha="b" * 40)
 
         self.policy.handle(self._event([new], failed=1))
 
@@ -271,8 +282,9 @@ class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
     def test_a_project_that_was_already_critical_raises_nothing(self):
         standard = baker.make("app.Standard", tenant=self.tenant)
         self.project.standards.add(standard)
-        self._attached_result(standard, 30, StandardExecution.Status.FAILED)
+        self._scored([self._attached_result(standard, 30, StandardExecution.Status.FAILED)], sha="a" * 40)
         new = self._attached_result(standard, 10, StandardExecution.Status.FAILED)
+        self._scored([new], sha="b" * 40)
 
         self.policy.handle(self._event([new], failed=1))
 

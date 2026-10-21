@@ -118,14 +118,19 @@ def _newest_first(queryset):
     )
 
 
-def branch_score(project, branch: str) -> CommitScore | None:
-    """The score of the newest scored commit on ``branch``."""
-    return _newest_first(CommitScore.objects.filter(project=project, branch=branch)).first()
+def branch_score(project, branch: str, excluding=()) -> CommitScore | None:
+    """The score of the newest scored commit on ``branch``. ``excluding``
+    (execution ids) leaves out scores computed from those results, which
+    gives the branch's score as it was before a run."""
+    scores = CommitScore.objects.filter(project=project, branch=branch)
+    if excluding:
+        scores = scores.exclude(executions__in=list(excluding))
+    return _newest_first(scores).first()
 
 
-def project_score(project) -> CommitScore | None:
-    """The project's score: its default branch's."""
-    return branch_score(project, project.default_branch)
+def project_score(project, excluding=()) -> CommitScore | None:
+    """The project's score: its default branch's (see ``branch_score``)."""
+    return branch_score(project, project.default_branch, excluding=excluding)
 
 
 def commit_scores(project, shas, branch: str | None = None) -> dict[str, CommitScore]:
