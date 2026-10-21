@@ -36,7 +36,7 @@ surfaces, sections by small-caps labels.{% endcomment %}
           </span>
         </div>
         <div class="space-y-1.5">
-          {% include "partials/health_breakdown.html" with counts=status_breakdown %}
+          {% include "partials/health_breakdown.html" with counts=status_breakdown align="start" %}
           <p class="text-xs opacity-50">{% if is_default %}Project score{% else %}Score on {{ branch }}{% endif %}</p>
           {% include "partials/score_note.html" with score=branch_score newer=newer_commit show_reason=True %}
         </div>

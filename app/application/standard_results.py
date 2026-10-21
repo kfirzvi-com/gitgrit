@@ -85,11 +85,15 @@ def outcome_counts(results) -> dict:
     project), then the other standards that failed, errored and passed."""
     required = [r for r in results if r.importance == "required"]
     others = [r for r in results if r.importance != "required"]
-    return {
+    counts = {
         "required_failed": sum(1 for r in required if r.status in (Status.FAILED, Status.ERROR)),
         **breakdown(others),
         "passed": sum(1 for r in results if r.status == Status.PASSED),
     }
+    # Every failure, Required ones included, and every result.
+    counts["failures"] = counts["required_failed"] + counts["failed"]
+    counts["total"] = counts["failures"] + counts["errored"] + counts["passed"]
+    return counts
 
 
 def project_score(results) -> int | None:

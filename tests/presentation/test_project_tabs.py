@@ -70,10 +70,11 @@ class ProjectTabsTests(TestCase):
         self.assertEqual(response.context["compliance_score"], 50)
         self.assertEqual(
             response.context["health_breakdown"],
-            {"required_failed": 0, "passed": 1, "failed": 1, "errored": 1},
+            {"required_failed": 0, "passed": 1, "failed": 1, "errored": 1, "failures": 1, "total": 3},
         )
         body = response.content.decode()
-        self.assertIn("--value:50", body)
+        self.assertIn('data-score-value>50<', body)
+        self.assertIn("1 of 3 standards failed", body)
         self.assertNotIn(">50%", body)
         self.assertIn("From commit aaaaaaa", body)
         self.assertIn("data-health-breakdown", body)
@@ -140,9 +141,12 @@ class OverviewRequiredFailuresTests(TestCase):
 
         self.assertEqual(
             response.context["health_breakdown"],
-            {"required_failed": 2, "passed": 1, "failed": 1, "errored": 0},
+            {"required_failed": 2, "passed": 1, "failed": 1, "errored": 0, "failures": 3, "total": 4},
         )
         body = response.content.decode()
         self.assertIn('data-outcome="required_failed"', body)
+        self.assertIn("3 of 4 standards failed", body)
+        self.assertIn('aria-label="3 failed (2 Required), 0 errors, 1 passed"', body)
+        self.assertIn('data-segment="required_failed"', body)
         self.assertNotIn("data-score-reason", body)
         self.assertIn("See the details in Results", body)
