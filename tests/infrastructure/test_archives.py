@@ -103,3 +103,10 @@ class ReadFileTests(SimpleTestCase):
         self.assertEqual(
             archives.scan(make_zip(BUILD)).sizes, {"index.html": 13, "assets/app.js": 14}
         )
+
+
+class ArchiveExtensionTests(SimpleTestCase):
+    def test_the_format_names_the_extension(self):
+        self.assertEqual(archives.archive_extension(make_zip(BUILD)), ".zip")
+        self.assertEqual(archives.archive_extension(make_tgz(BUILD)), ".tar.gz")
+        self.assertEqual(archives.archive_extension(b"plain tar bytes"), ".tar")

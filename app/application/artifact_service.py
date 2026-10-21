@@ -16,6 +16,7 @@ import uuid
 from dataclasses import dataclass
 
 from django.db import IntegrityError, transaction
+from django.utils.text import slugify
 
 from app.application import stack_service
 from app.application.commit_checks import forget_platform_lists
@@ -282,3 +283,9 @@ def commit_tree(commit: ArtifactCommit) -> TreeNode:
 def commit_file(commit: ArtifactCommit, path: str) -> bytes | None:
     """One file of the commit, or None when it has no such file."""
     return archives.read_file(upload_storage.read_archive(commit.archive_key), path)
+
+
+def commit_archive(commit: ArtifactCommit) -> tuple[bytes, str]:
+    """The commit's archive as uploaded, and a file name for downloading it."""
+    data = upload_storage.read_archive(commit.archive_key)
+    return data, f"{slugify(commit.project.name) or 'project'}-{commit.sha[:7]}{archives.archive_extension(data)}"

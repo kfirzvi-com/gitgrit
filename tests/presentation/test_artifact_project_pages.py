@@ -253,3 +253,47 @@ class CommitFilesTests(UploadPageTestCase):
         session["active_tenant_id"] = str(tenant.id)
         session.save()
         self.assertEqual(self.client.get(self.url, {"sha": self.commit.sha}).status_code, 404)
+
+
+class CommitDownloadTests(UploadPageTestCase):
+    def setUp(self):
+        super().setUp()
+        self.upload(message="Release 1.0.0")
+        self.commit = ArtifactCommit.objects.get()
+        self.url = reverse("commit_download", args=[self.project.pk])
+
+    def test_the_whole_archive_downloads_as_uploaded(self):
+        resp = self.client.get(self.url, {"sha": self.commit.sha})
+        self.assertEqual(resp.content, BUILD)
+        self.assertEqual(
+            resp["Content-Disposition"], f'attachment; filename="storefront-{self.commit.sha[:7]}.zip"'
+        )
+        self.assertEqual(resp["Content-Type"], "application/octet-stream")
+
+    def test_one_file_downloads_as_an_attachment_never_a_page(self):
+        resp = self.client.get(self.url, {"sha": self.commit.sha, "path": "index.html"})
+        self.assertEqual(resp.content, b"<html><script>alert(1)</script></html>")
+        self.assertEqual(resp["Content-Disposition"], 'attachment; filename="index.html"')
+        self.assertEqual(resp["Content-Type"], "application/octet-stream")
+        self.assertEqual(resp["X-Content-Type-Options"], "nosniff")
+        self.assertIn("sandbox", resp["Content-Security-Policy"])
+
+    def test_the_files_view_offers_both_downloads(self):
+        files_url = reverse("commit_files", args=[self.project.pk])
+        page = self.client.get(files_url, {"sha": self.commit.sha, "path": "index.html"}).content.decode()
+        self.assertIn("data-download-archive", page)
+        self.assertIn("data-download-file", page)
+
+    def test_a_missing_file_or_commit_is_404(self):
+        self.assertEqual(self.client.get(self.url, {"sha": self.commit.sha, "path": "nope"}).status_code, 404)
+        self.assertEqual(self.client.get(self.url, {"sha": "f" * 40}).status_code, 404)
+
+    def test_another_workspace_cannot_download(self):
+        other = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=other, tenant=tenant, role="owner")
+        self.client.force_login(other)
+        session = self.client.session
+        session["active_tenant_id"] = str(tenant.id)
+        session.save()
+        self.assertEqual(self.client.get(self.url, {"sha": self.commit.sha}).status_code, 404)

@@ -50,6 +50,7 @@ from app.presentation.views.project_views import (
 )
 from app.presentation.views.artifact_views import (
     add_artifact_project,
+    commit_download,
     commit_file_raw,
     commit_files,
     project_overview_health,
@@ -294,6 +295,7 @@ urlpatterns = [
     ),
     path("projects/<uuid:pk>/commits/files/", commit_files, name="commit_files"),
     path("projects/<uuid:pk>/commits/files/raw/", commit_file_raw, name="commit_file_raw"),
+    path("projects/<uuid:pk>/commits/files/download/", commit_download, name="commit_download"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
         "projects/<uuid:pk>/run-standards/",

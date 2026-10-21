@@ -2,13 +2,17 @@
 SHA: the folder tree (what the sandbox sees: the archive's wrapping folder is dropped) and a
 viewer for one file. Served by commit_files.{% endcomment %}
 <div class="space-y-4" data-commit-files="{{ commit.sha }}">
-  <div class="pr-8">
-    <h3 class="font-bold text-lg break-words">{{ commit.title|default:"Uploaded commit" }}</h3>
-    <p class="text-sm opacity-60" data-commit-summary>
-      <code>{{ commit.sha|slice:":7" }}</code> · {{ commit.branch }}
-      · {% if commit.author %}{{ commit.author }}, {% endif %}{{ commit.created_at|timesince }} ago
-      · {{ tree.file_count }} file{{ tree.file_count|pluralize }} · {{ tree.size|filesizeformat }}
-    </p>
+  <div class="pr-8 flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h3 class="font-bold text-lg break-words">{{ commit.title|default:"Uploaded commit" }}</h3>
+      <p class="text-sm opacity-60" data-commit-summary>
+        <code>{{ commit.sha|slice:":7" }}</code> · {{ commit.branch }}
+        · {% if commit.author %}{{ commit.author }}, {% endif %}{{ commit.created_at|timesince }} ago
+        · {{ tree.file_count }} file{{ tree.file_count|pluralize }} · {{ tree.size|filesizeformat }}
+      </p>
+    </div>
+    <a href="{% url 'commit_download' project.pk %}?sha={{ commit.sha }}" download
+       class="btn btn-sm btn-outline gap-2 shrink-0" data-download-archive><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"/></svg>Download archive</a>
   </div>
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
     <nav class="lg:col-span-2 rounded-2xl bg-base-200/50 p-3 max-h-[32rem] overflow-auto text-sm" aria-label="Files" data-file-tree>

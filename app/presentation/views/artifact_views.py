@@ -16,6 +16,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from app.application import artifact_service
@@ -203,4 +204,28 @@ def commit_file_raw(request, pk):
     response["X-Content-Type-Options"] = "nosniff"
     response["Content-Security-Policy"] = "sandbox; default-src 'none'"
     response["Content-Disposition"] = "inline"
+    return response
+
+
+@login_required
+def commit_download(request, pk):
+    """Download an uploaded commit: the whole archive, or the one file
+    ``path`` names. Always an attachment the browser saves, never a page it
+    renders, so it is safe for any file type."""
+    project = _artifact_project(request, pk)
+    commit = artifact_service.get_commit(project, request.GET.get("sha", ""))
+    if commit is None:
+        raise Http404
+    path = request.GET.get("path", "")
+    if path:
+        content = artifact_service.commit_file(commit, path)
+        if content is None:
+            raise Http404
+        filename = path.rsplit("/", 1)[-1]
+    else:
+        content, filename = artifact_service.commit_archive(commit)
+    response = HttpResponse(content, content_type="application/octet-stream")
+    response["Content-Disposition"] = content_disposition_header(True, filename)
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "sandbox; default-src 'none'"
     return response

@@ -143,3 +143,16 @@ def extract(data: bytes, dest: Path, limits: ArchiveLimits = DEFAULT_LIMITS) -> 
         written.append(path)
     return written
 
+
+def archive_extension(data: bytes) -> str:
+    """The file extension that matches the archive's format, for naming a
+    download: ``.zip``, ``.tar.gz``, ``.tar.bz2``, ``.tar.xz`` or ``.tar``."""
+    if zipfile.is_zipfile(io.BytesIO(data)):
+        return ".zip"
+    if data[:2] == b"\x1f\x8b":
+        return ".tar.gz"
+    if data[:3] == b"BZh":
+        return ".tar.bz2"
+    if data[:6] == b"\xfd7zXZ\x00":
+        return ".tar.xz"
+    return ".tar"
