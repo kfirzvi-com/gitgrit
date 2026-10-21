@@ -5,8 +5,8 @@
 # - each run gets its standard's current importance on the project (all Major
 #   before importance existed);
 # - each check expects the standards that ran in it (what it was queued with);
-# - each checked commit is scored once, from its newest finished result per
-#   standard of its newest finished check, if that check is complete.
+# - each checked commit is scored once, by its newest finished check
+#   (scoring.Check.outcome), if that check is complete.
 
 import django.db.models.deletion
 import uuid
@@ -47,9 +47,12 @@ def backfill(apps, schema_editor):
                 project_id=project_id, commit_check__branch=branch, commit_check__commit_sha=sha
             ).order_by("-created_at")
         )
-        outcome = scoring.score_check(
-            scoring.Check(commit_sha=sha, expected_ids=tuple(check.expected_standard_ids), running=False),
-            [
+        outcome = scoring.Check(
+            commit_sha=sha,
+            expectation=scoring.Expectation(tuple(check.expected_standard_ids)),
+            running=False,
+        ).outcome(
+            scoring.CommitResults([
                 scoring.Result(
                     standard_id=str(e.standard_id),
                     name=e.standard_name,
@@ -59,7 +62,7 @@ def backfill(apps, schema_editor):
                     execution_id=str(e.pk),
                 )
                 for e in executions
-            ],
+            ])
         )
         if outcome is None:
             continue
@@ -69,7 +72,7 @@ def backfill(apps, schema_editor):
             branch=branch,
             commit_sha=sha,
             committed_at=check.committed_at,
-            ordered_at=scoring.ordered_at(check.committed_at, check.created_at),
+            ordered_at=scoring.CommitTimeline.ordered_at(check.committed_at, check.created_at),
             value=outcome.score.value,
             failed=outcome.score.failed,
             reason=outcome.score.reason,

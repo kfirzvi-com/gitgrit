@@ -35,18 +35,18 @@ def _result(execution) -> scoring.Result:
     )
 
 
-def _commit_results(project_id, branch: str, sha: str) -> list[scoring.Result]:
+def _commit_results(project_id, branch: str, sha: str) -> scoring.CommitResults:
     """Every result on a commit of a branch, newest first."""
     executions = StandardExecution.objects.filter(
         project_id=project_id, commit_check__branch=branch, commit_check__commit_sha=sha
     ).order_by("-created_at")
-    return [_result(e) for e in executions]
+    return scoring.CommitResults(_result(e) for e in executions)
 
 
 def _check(check: CommitCheck) -> scoring.Check:
     return scoring.Check(
         commit_sha=check.commit_sha,
-        expected_ids=tuple(check.expected_standard_ids),
+        expectation=scoring.Expectation(tuple(check.expected_standard_ids)),
         running=check.executions.filter(status=Status.RUNNING).exists(),
     )
 
@@ -56,26 +56,26 @@ def _check(check: CommitCheck) -> scoring.Check:
 
 def expected_standards(project, branch: str) -> list[str]:
     """The standards a commit on ``branch`` is expected to finish
-    (``scoring.expected``), from the project's attached standards."""
-    return scoring.expected(
-        scoring.Candidate(
-            standard_id=str(s.pk),
-            enabled=s.enabled,
-            draft=s.draft,
-            applies=applies(
-                s.criteria, project_languages=project.languages, ref=branch, skip_event_check=True
-            ),
-        )
-        for s in project.standards.all()
+    (``scoring.Expectation.of``), from the project's attached standards."""
+    return list(
+        scoring.Expectation.of(
+            scoring.Candidate(
+                standard_id=str(s.pk),
+                enabled=s.enabled,
+                draft=s.draft,
+                matches_criteria=applies(
+                    s.criteria, project_languages=project.languages, ref=branch, skip_event_check=True
+                ),
+            )
+            for s in project.standards.all()
+        ).standard_ids
     )
 
 
 def score_check(check: CommitCheck) -> CommitScore | None:
-    """Save the score ``scoring.score_check`` gives ``check``'s commit, if
-    it gives one."""
-    outcome = scoring.score_check(
-        _check(check), _commit_results(check.project_id, check.branch, check.commit_sha)
-    )
+    """Save the score ``check`` gives its commit (``scoring.Check.outcome``),
+    if it gives one."""
+    outcome = _check(check).outcome(_commit_results(check.project_id, check.branch, check.commit_sha))
     if outcome is None:
         return None
     commit_score = CommitScore.objects.create(
@@ -84,7 +84,7 @@ def score_check(check: CommitCheck) -> CommitScore | None:
         branch=check.branch,
         commit_sha=check.commit_sha,
         committed_at=check.committed_at,
-        ordered_at=scoring.ordered_at(check.committed_at, check.created_at),
+        ordered_at=scoring.CommitTimeline.ordered_at(check.committed_at, check.created_at),
         value=outcome.score.value,
         failed=outcome.score.failed,
         reason=outcome.score.reason,
@@ -107,7 +107,7 @@ def score_checks(check_ids) -> list[CommitScore]:
 
 
 def _newest_first(queryset):
-    """Scores ordered the way ``scoring.ordered_at`` says commits are."""
+    """Scores ordered the way ``scoring.CommitTimeline`` orders commits."""
     return queryset.order_by("-ordered_at", "-created_at")
 
 
@@ -140,31 +140,32 @@ def project_scores(projects) -> dict:
 
 
 def commit_scores(project, shas, branch: str | None = None) -> dict[str, CommitScore]:
-    """Each commit's score (sha -> CommitScore, ``scoring.latest_per_commit``),
-    on ``branch`` when given."""
+    """Each commit's score (sha -> CommitScore,
+    ``scoring.CommitTimeline.last_score_per_commit``), on ``branch`` when
+    given."""
     scores = CommitScore.objects.filter(project=project, commit_sha__in=list(shas))
     if branch is not None:
         scores = scores.filter(branch=branch)
-    return scoring.latest_per_commit(scores.order_by("-created_at"))
+    return scoring.CommitTimeline.last_score_per_commit(scores.order_by("-created_at"))
 
 
 def commit_branch(project, sha: str, score: CommitScore | None) -> str:
-    """The branch ``sha`` is read on (``scoring.commit_branch``)."""
+    """The branch ``sha`` is read on (``scoring.CommitTimeline.branch_of``)."""
     checked = (
         CommitCheck.objects.filter(project=project, commit_sha=sha)
         .order_by("-created_at")
         .values_list("branch", flat=True)
     )
-    return scoring.commit_branch(score.branch if score else None, checked, project.default_branch)
+    return scoring.CommitTimeline.branch_of(score.branch if score else None, checked, project.default_branch)
 
 
 CommitState = scoring.CommitState
-COMPLETE, IN_PROGRESS, INCOMPLETE = scoring.COMPLETE, scoring.IN_PROGRESS, scoring.INCOMPLETE
+COMPLETE, IN_PROGRESS, INCOMPLETE = CommitState.COMPLETE, CommitState.IN_PROGRESS, CommitState.INCOMPLETE
 
 
 def commit_state(project, sha: str, branch: str) -> CommitState | None:
-    """The state of ``sha`` on ``branch`` (``scoring.commit_state``); None
-    when it was never checked there."""
+    """The state of ``sha`` on ``branch`` (``scoring.Check.state`` of its
+    newest check); None when it was never checked there."""
     newest = (
         CommitCheck.objects.filter(project=project, commit_sha=sha, branch=branch)
         .order_by("-created_at")
@@ -172,8 +173,7 @@ def commit_state(project, sha: str, branch: str) -> CommitState | None:
     )
     if newest is None:
         return None
-    return scoring.commit_state(
-        _check(newest),
+    return _check(newest).state(
         _commit_results(project.pk, branch, sha),
         running=StandardExecution.objects.filter(
             project=project, commit_check__commit_sha=sha, commit_check__branch=branch, status=Status.RUNNING
@@ -191,11 +191,11 @@ class NewerCommit:
 
 
 def newer_commit(project, branch: str, score: CommitScore | None) -> NewerCommit | None:
-    """The branch's newest checked commit (``scoring.newest_commit``) when it
+    """The branch's newest checked commit (``scoring.CommitTimeline.newest``) when it
     is not the scored one and has no score of its own: still checking, or
     incomplete."""
     recent = CommitCheck.objects.filter(project=project, branch=branch).exclude(commit_sha="")
-    newest = scoring.newest_commit(recent.order_by("-created_at")[:RECENT_CHECKS])
+    newest = scoring.CommitTimeline.newest(recent.order_by("-created_at")[:RECENT_CHECKS])
     if newest is None or (score and newest.commit_sha == score.commit_sha):
         return None
     if CommitScore.objects.filter(project=project, branch=branch, commit_sha=newest.commit_sha).exists():
