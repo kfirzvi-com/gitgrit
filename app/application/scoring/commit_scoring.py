@@ -6,8 +6,8 @@ they decide.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 
+from app.application.scoring.newer_commit import NewerCommit
 from app.domain import scoring
 from app.domain.importance import Importance
 from app.domain.models import CommitCheck, CommitScore, StandardExecution
@@ -180,14 +180,6 @@ def commit_state(project, sha: str, branch: str) -> CommitState | None:
         ).exists(),
         scored=newest.scores.exists(),
     )
-
-
-@dataclass(frozen=True)
-class NewerCommit:
-    """A commit newer than the scored one on the branch, not scored (yet)."""
-
-    sha: str
-    state: CommitState
 
 
 def newer_commit(project, branch: str, score: CommitScore | None) -> NewerCommit | None:
