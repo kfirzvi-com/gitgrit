@@ -332,6 +332,22 @@ def run_newly_attached(project: Project, standards, previously_attached_ids) -> 
     return results[0] if results else None
 
 
+def set_importance(project: Project, standard_id, value) -> ProjectStandard:
+    """Set one attached standard's importance on the project. Raises
+    ``UnknownImportance`` on a value that names none, and ``NotFoundError``
+    when the standard is not attached to the project."""
+    chosen = importance.parse(value)
+    try:
+        attachment = ProjectStandard.objects.select_related("standard").get(
+            project=project, standard_id=standard_id
+        )
+    except (ProjectStandard.DoesNotExist, ValidationError, ValueError):
+        raise NotFoundError("That standard is not attached to this project.")
+    ProjectStandard.set_importances(project, {attachment.standard_id: chosen})
+    attachment.importance = chosen.value
+    return attachment
+
+
 def parse_importances(importances: dict) -> dict:
     """``importances`` (standard id -> posted value) as standard id ->
     ``Importance``. Raises ``UnknownImportance`` (a ``ValueError``) on a value

@@ -1,22 +1,25 @@
 /* Importance colours: the app's turquoise (--gg-primary), bolder the more
  * an importance matters: Required full strength, Major medium, Minor
- * faint. The one place an importance gets its colour; values come from
+ * faint. Colour never says "failing" here: that is the grade's job. An
+ * importance that fails the project is marked by a lock and a note
+ * instead. The one place an importance gets its look; values come from
  * app/domain/importance.py.
  *
  *   .gg-importance-<value>  sets --gg-importance for the element
- *   input.gg-importance     a radio in a .join: tinted, filled when checked
+ *   label.gg-importance     a button in a .join holding a radio; filled when checked
+ *   .gg-importance-note     the "if it fails, the project fails" line in a picker row
  *   .gg-importance-text     any text in the importance's colour
  */
 .gg-importance-required { --gg-importance: var(--gg-primary); }
 .gg-importance-major    { --gg-importance: color-mix(in oklab, var(--gg-primary) 60%, transparent); }
 .gg-importance-minor    { --gg-importance: color-mix(in oklab, var(--gg-primary) 30%, transparent); }
 
-.join input.gg-importance {
+.join label.gg-importance {
   color: var(--gg-text-dim);
   border-color: color-mix(in oklab, var(--gg-primary) 25%, transparent);
   background-color: transparent;
 }
-.join input.gg-importance:checked {
+.join label.gg-importance:has(input:checked) {
   --btn-color: var(--gg-importance);
   --btn-fg: var(--gg-text);
   background-color: var(--gg-importance);
@@ -24,8 +27,18 @@
   color: var(--gg-text);
 }
 /* Full-strength turquoise needs dark text to stay readable. */
-.join input.gg-importance-required:checked {
+.join label.gg-importance-required:has(input:checked) {
   --btn-fg: var(--gg-bg-base);
   color: var(--gg-bg-base);
 }
+.join label.gg-importance:has(input:focus-visible) {
+  outline: 2px solid var(--gg-primary);
+  outline-offset: 1px;
+}
+
+.gg-importance-note { display: none; color: var(--gg-primary); }
+.standard-picker-row:has(input[name="standards"]:checked):has(input.gg-importance-fails:checked) .gg-importance-note {
+  display: block;
+}
+
 .gg-importance-text { color: var(--gg-importance); }

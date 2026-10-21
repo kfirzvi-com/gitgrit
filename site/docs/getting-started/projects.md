@@ -57,15 +57,15 @@ Each attached standard has an **importance**: how much it matters to this projec
 
 | Importance | Meaning |
 |---|---|
-| **Required** | must pass on this project |
+| **Required** 🔒 | if it fails, the project fails |
 | **Major** (default) | counts fully toward this project's score |
 | **Minor** | counts less toward this project's score |
 
 Importance belongs to the attached standard, not to the standard itself, so the same standard can be Required on one project and Minor on another. Every attached standard starts at Major; detaching it and attaching it again starts over at Major.
 
-Set it in the project's **Standards** tab: pick it per row in the **Importance** column, or check several rows and use **Set importance**, then click **Save**. **Any importance** filters the table to the attached standards of one importance.
+Set it in the project's **Standards** tab: pick it per row in the **Importance** column, or check several rows and use **Set importance**, then click **Save**. A Required standard shows a lock and *If it fails, the project fails.* under its name. **Any importance** filters the table to the attached standards of one importance.
 
-The [API](https://app.gitgrit.dev/api/v1/docs/)'s list of a project's standards (`GET /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/`) returns each one's `importance`.
+The [API](https://app.gitgrit.dev/api/v1/docs/)'s list of a project's standards (`GET /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/`) returns each one's `importance`, and `PATCH /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/{standard_id}/` with `{"importance": "required"}` sets it.
 
 !!! note
     Importance is recorded and shown today; it does not change the score yet.

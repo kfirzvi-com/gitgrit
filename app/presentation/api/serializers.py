@@ -391,6 +391,22 @@ class StandardIdsSerializer(serializers.Serializer):
     standards = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
 
 
+class ImportanceSerializer(serializers.Serializer):
+    """PATCH body for an attached standard."""
+
+    importance = serializers.ChoiceField(
+        choices=importance.choices(),
+        help_text="; ".join(f"{r.importance.value}: {r.help.lower()}" for r in importance.ordered_rules())
+        + ".",
+    )
+
+
+class AttachedStandardImportanceSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    importance = serializers.ChoiceField(choices=importance.choices())
+
+
 class ProjectStandardsChangeSerializer(serializers.Serializer):
     standards = AttachedStandardSerializer(many=True)
     runs = RunsSummarySerializer(allow_null=True)

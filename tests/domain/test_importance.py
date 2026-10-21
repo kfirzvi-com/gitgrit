@@ -19,6 +19,9 @@ class ImportanceRuleTests(SimpleTestCase):
     def test_every_importance_has_a_rule(self):
         assert set(importance.RULES) == set(Importance)
 
+    def test_only_required_fails_the_project(self):
+        assert [r.label for r in importance.ordered_rules() if r.fails_project] == ["Required"]
+
     def test_major_is_the_default(self):
         assert importance.DEFAULT is Importance.MAJOR
 

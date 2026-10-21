@@ -74,15 +74,24 @@
               {% elif not standard.enabled %}
                 <span class="badge badge-error badge-sm align-middle">Disabled</span>
               {% endif %}
+              {# Shown by importance.css while the row is checked at an importance that fails the project. #}
+              {% for rule in importance_rules %}{% if rule.fails_project %}
+                <p class="gg-importance-note text-xs opacity-70 mt-0.5">{% include "partials/importance_lock.html" %} {{ rule.help }}.</p>
+              {% endif %}{% endfor %}
             </td>
             <td>
               <div class="join" role="radiogroup" data-importance
                    aria-label="Importance of {{ standard.name }}">
                 {% for rule in importance_rules %}
-                  <input type="radio" name="importance-{{ standard.pk }}" value="{{ rule.importance.value }}"
-                         class="join-item btn btn-xs gg-importance gg-importance-{{ rule.importance.value }}" aria-label="{{ rule.label }}" title="{{ rule.help }}"
-                         onchange="filterStandardPicker(this)"
-                         {% if rule.importance.value == standard.importance %}checked{% endif %}>
+                  <label class="join-item btn btn-xs gap-1 gg-importance gg-importance-{{ rule.importance.value }}"
+                         title="{{ rule.help }}">
+                    <input type="radio" name="importance-{{ standard.pk }}" value="{{ rule.importance.value }}"
+                           class="sr-only{% if rule.fails_project %} gg-importance-fails{% endif %}"
+                           onchange="filterStandardPicker(this)"
+                           {% if rule.importance.value == standard.importance %}checked{% endif %}>
+                    {% if rule.fails_project %}{% include "partials/importance_lock.html" %}{% endif %}
+                    {{ rule.label }}
+                  </label>
                 {% endfor %}
               </div>
             </td>

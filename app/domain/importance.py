@@ -8,7 +8,7 @@ choices, the standards table (column, bulk actions, filter) and the API all
 read it.
 
 Today importance is recorded and shown only; it does not change the score
-yet.
+yet. ``fails_project`` already says which importance will gate it.
 """
 from __future__ import annotations
 
@@ -35,6 +35,9 @@ MAX_LENGTH = 20
 class ImportanceRule:
     importance: Importance
     label: str
+    # A failing result fails the whole project. Marks the importance in the
+    # standards table (a lock and the help line under the standard's name).
+    fails_project: bool
     # One line for tooltips and docs.
     help: str
 
@@ -43,16 +46,19 @@ RULES: dict[Importance, ImportanceRule] = {
     Importance.REQUIRED: ImportanceRule(
         Importance.REQUIRED,
         "Required",
-        "Must pass on this project",
+        True,
+        "If it fails, the project fails",
     ),
     Importance.MAJOR: ImportanceRule(
         Importance.MAJOR,
         "Major",
+        False,
         "Counts fully toward this project's score",
     ),
     Importance.MINOR: ImportanceRule(
         Importance.MINOR,
         "Minor",
+        False,
         "Counts less toward this project's score",
     ),
 }
