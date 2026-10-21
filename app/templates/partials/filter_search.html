@@ -1,0 +1,53 @@
+{% comment %}A GitHub-like filter search (app.templatetags.filter_search_tags.filter_search): a box
+for free words and qualifiers (is:attached label:ci,security -importance:minor) that suggests fields
+and their values as you type, and a menu button per choice field that ticks values into the same
+query. It filters the data-filter-row elements in the nearest data-filter-scope (script:
+app/static/app/filter_search/).{% endcomment %}
+<div class="gg-filter-search" data-filter-search>
+  {{ config|json_script }}
+  <div class="relative">
+    <label class="input input-bordered flex w-full items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-50" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.45 4.39l3.33 3.33a.75.75 0 1 1-1.06 1.06l-3.33-3.33A7 7 0 0 1 2 9Z" clip-rule="evenodd"/></svg>
+      <input type="text" class="grow min-w-0 font-mono text-sm" data-filter-input
+             placeholder="{{ search.placeholder }}" aria-label="{{ label }}"
+             autocomplete="off" autocapitalize="off" spellcheck="false"
+             role="combobox" aria-autocomplete="list" aria-expanded="false"
+             aria-controls="filter-suggestions-{{ uid }}">
+      <button type="button" class="btn btn-ghost btn-xs btn-circle hidden" data-filter-clear aria-label="Clear the filters" title="Clear the filters">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+      </button>
+    </label>
+    <ul id="filter-suggestions-{{ uid }}" class="gg-filter-suggestions hidden" role="listbox" aria-label="Suggestions" data-filter-suggestions></ul>
+  </div>
+  {% if search.menu_fields %}
+    <div class="mt-2 flex flex-wrap items-center gap-2" data-filter-menus>
+      {% for field in search.menu_fields %}
+        <div class="relative" data-filter-menu="{{ field.key }}">
+          <button type="button" class="gg-filter-menu-button" data-filter-menu-button
+                  aria-haspopup="true" aria-expanded="false" aria-controls="filter-menu-{{ uid }}-{{ field.key }}">
+            {{ field.label }}
+            <span class="gg-filter-menu-count hidden" data-filter-menu-count></span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
+          </button>
+          <div id="filter-menu-{{ uid }}-{{ field.key }}" class="gg-filter-menu hidden" role="menu" aria-label="{{ field.label }}" data-filter-menu-panel>
+            <p class="gg-filter-menu-title">Filter by {{ field.label|lower }}</p>
+            {% if field.values|length > 6 %}
+              <input type="text" class="input input-bordered input-sm mx-2 mb-1 w-[calc(100%-1rem)]" placeholder="Find a {{ field.label|lower }}"
+                     aria-label="Find a {{ field.label|lower }}" autocomplete="off" data-filter-menu-find>
+            {% endif %}
+            {% for value in field.values %}
+              <button type="button" class="gg-filter-option" role="menuitemcheckbox" aria-checked="false"
+                      data-filter-option data-key="{{ field.key }}" data-value="{{ value.value }}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="gg-filter-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.58l7.3-7.3a1 1 0 0 1 1.4.02Z" clip-rule="evenodd"/></svg>
+                <span class="truncate">{{ value.label }}</span>
+              </button>
+            {% empty %}
+              <p class="px-3 py-2 text-sm opacity-60">No {{ field.label|lower }}s yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+      <button type="button" class="link link-hover text-sm opacity-70 hidden" data-filter-clear>Clear filters</button>
+    </div>
+  {% endif %}
+</div>

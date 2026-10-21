@@ -368,7 +368,8 @@ class TestStandardsTableImportance(TestCase):
         # Not attached: the row shows what attaching it would start at.
         assert _selected_importance(body, unattached.pk) == "major"
         assert "Set importance" in body
-        assert 'aria-label="Filter by importance"' in body
+        # The filter search's Importance menu (partials/filter_search.html).
+        assert 'role="menu" aria-label="Importance"' in body
         # The menu says what Required means.
         assert "If it fails, the project fails." in body
         assert "standard-picker-gate" in body

@@ -1,27 +1,18 @@
-{# Searchable standard picker table — shared by add_project.html and the project-page modal. #}
+{# Searchable standard picker table — shared by add_project.html and the project's Standards tab. #}
+{# The filter search (partials/filter_search.html) filters its rows: each says its values in data-filter-*. #}
 {# Context: workspace_standards (labels prefetched; each with .importance), attached_standard_ids (set of pks to pre-check), #}
 {# importance_options (app.presentation.importance_text.options(): each row's importance chip opens a menu of them), #}
 {# hide_bulk_actions (optional: render Select all / Clear selection elsewhere via standard_picker_bulk_actions.html). #}
-<div class="standard-picker">
-  <div class="flex flex-wrap gap-2 mb-2">
-    <input type="text" placeholder="Search standards by name, description, or tag..."
-           class="standard-picker-search input input-bordered flex-1 min-w-48"
-           oninput="filterStandardPicker(this)" autocomplete="off"
-           onkeydown="if (event.key === 'Enter') event.preventDefault()">
-    <select class="standard-picker-importance-filter select select-bordered w-auto"
-            aria-label="Filter by importance"
-            title="Show only the attached standards with this importance"
-            onchange="filterStandardPicker(this)">
-      <option value="">Any importance</option>
-      {% for option in importance_options %}
-        <option value="{{ option.value }}">{{ option.label }}</option>
-      {% endfor %}
-    </select>
+{% load filter_search_tags %}
+<div class="standard-picker" data-filter-scope>
+  <div class="mb-3">
+    {% standard_picker_filter_search workspace_standards as picker_filter_search %}
+    {% filter_search picker_filter_search label="Filter standards" %}
   </div>
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
     <span class="flex flex-wrap items-center gap-2">
       <span class="opacity-70">
-        {{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
+        <span class="standard-picker-shown hidden"></span>{{ workspace_standards|length }} standard{{ workspace_standards|length|pluralize }}
         · <span class="standard-picker-selected">{{ attached_standard_ids|length }}</span> selected
       </span>
       {% if not hide_bulk_actions %}
@@ -51,17 +42,20 @@
           <th>Description</th>
           <th>
             <button type="button" class="link link-hover font-semibold"
-                    title="Sort by first tag"
-                    onclick="sortStandardPicker(this, 'firstTag')">Tags</button>
+                    title="Sort by first label"
+                    onclick="sortStandardPicker(this, 'firstLabel')">Labels</button>
           </th>
         </tr>
       </thead>
       <tbody>
         {% for standard in workspace_standards %}
-          <tr class="standard-picker-row"
-              data-standard-search="{{ standard.name|lower }} {{ standard.description|lower }}{% for label in standard.labels.all %} {{ label.name|lower }}{% endfor %}"
+          {# data-filter-is and data-filter-importance follow the checkbox and the importance menu (syncStandardPickerRow). #}
+          <tr class="standard-picker-row" data-filter-row
+              data-filter-label="{{ standard|standard_label_values }}"
+              data-filter-name="{{ standard.name|lower }}"
+              data-filter-description="{{ standard.description|lower }}"
               data-name="{{ standard.name|lower }}"
-              data-first-tag="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}"
+              data-first-label="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}"
               data-draft="{% if standard.draft %}1{% endif %}"
               data-disabled="{% if not standard.enabled %}1{% endif %}">
             <td>
@@ -119,10 +113,9 @@
             <td>
               <div class="flex flex-wrap gap-1">
                 {% for label in standard.labels.all %}
-                  <span class="badge badge-outline badge-sm cursor-pointer"
-                        title="Filter by this tag"
-                        data-tag="{{ label.name|lower }}"
-                        onclick="filterStandardPickerByTag(this)">{{ label.name }}</span>
+                  <button type="button" class="badge badge-outline badge-sm cursor-pointer"
+                          title="Filter by this label"
+                          data-filter-toggle="label" data-filter-value="{{ label.name|lower }}">{{ label.name }}</button>
                 {% empty %}
                   <span class="text-sm opacity-40">—</span>
                 {% endfor %}
@@ -132,8 +125,8 @@
         {% empty %}
           <tr><td colspan="5"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
         {% endfor %}
-        <tr class="standard-picker-no-match hidden">
-          <td colspan="5"><p class="text-sm opacity-70">No standards match your search.</p></td>
+        <tr class="standard-picker-no-match hidden" data-filter-empty>
+          <td colspan="5"><p class="text-sm opacity-70">No standards match these filters.</p></td>
         </tr>
       </tbody>
     </table>
@@ -141,44 +134,24 @@
   <div class="standard-desc-popover hidden fixed z-[100] max-w-sm rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-lg whitespace-pre-line"></div>
 </div>
 <script>
-// Guarded: the partial (and its script) is re-inserted on every HTMX modal fetch.
-if (!window.filterStandardPicker) {
+// Guarded: the partial (and its script) is re-inserted on every HTMX fetch.
+if (!window.updateStandardPickerCounts) {
   // A row's importance: the value of its checked radio.
   function rowImportance(row) {
     var chosen = row.querySelector('[data-importance] input:checked');
     return chosen ? chosen.value : '';
   }
 
-  // Search text and the importance filter together; the filter keeps only
-  // the checked rows with that importance.
-  window.filterStandardPicker = function (el) {
-    var picker = el.closest('.standard-picker');
-    var q = picker.querySelector('.standard-picker-search').value.trim().toLowerCase();
-    var wanted = picker.querySelector('.standard-picker-importance-filter').value;
-    var anyVisible = false;
-    picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
-      var match = !q || row.dataset.standardSearch.indexOf(q) !== -1;
-      if (match && wanted) {
-        var cb = row.querySelector('input[type="checkbox"]');
-        match = cb.checked && rowImportance(row) === wanted;
-      }
-      row.classList.toggle('hidden', !match);
-      if (match) anyVisible = true;
-    });
-    var noMatch = picker.querySelector('.standard-picker-no-match');
-    if (noMatch) noMatch.classList.toggle('hidden', anyVisible);
-  };
+  // What is:attached and importance: match on a row, from its checkbox and
+  // importance menu; an importance counts for attached standards only.
+  function syncStandardPickerRow(row) {
+    var cb = row.querySelector('input[type="checkbox"]');
+    var attached = !!(cb && cb.checked);
+    row.dataset.filterIs = attached ? 'attached' : 'detached';
+    row.dataset.filterImportance = attached ? rowImportance(row) : '';
+  }
 
-  // Tag chip click: filter to that tag; clicking a chip of the active tag clears the filter.
-  window.filterStandardPickerByTag = function (chip) {
-    var picker = chip.closest('.standard-picker');
-    var input = picker.querySelector('.standard-picker-search');
-    var tag = chip.dataset.tag;
-    input.value = input.value.trim().toLowerCase() === tag ? '' : tag;
-    window.filterStandardPicker(input);
-  };
-
-  // key: 'name' or 'firstTag' (rows without the value sort last).
+  // key: 'name' or 'firstLabel' (rows without the value sort last).
   window.sortStandardPicker = function (btn, key) {
     var picker = btn.closest('.standard-picker');
     var tbody = picker.querySelector('tbody');
@@ -205,8 +178,8 @@ if (!window.filterStandardPicker) {
     return form ? form.querySelector('.standard-picker') : null;
   }
 
-  // Sets every row the search filter currently leaves visible (all of them
-  // when the search box is empty) to `checked`. Hidden rows are left alone.
+  // Sets every row the filters currently leave visible (all of them when
+  // there are none) to `checked`. Hidden rows are left alone.
   function setVisibleStandardPickerRows(btn, checked) {
     var picker = pickerFor(btn);
     if (!picker) return;
@@ -220,13 +193,11 @@ if (!window.filterStandardPicker) {
 
   window.selectAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, true); };
 
-  // A row's importance menu: close it on a pick and refresh filter and counts.
+  // A row's importance menu: close it on a pick and refresh the counts and filter.
   window.pickStandardImportance = function (radio) {
     var menu = radio.closest('[popover]');
     if (menu && menu.hidePopover) menu.hidePopover();
-    var picker = radio.closest('.standard-picker');
-    window.filterStandardPicker(picker);
-    window.updateStandardPickerCounts(picker);
+    window.updateStandardPickerCounts(radio.closest('.standard-picker'));
   };
 
   // Importance menus are popovers (top layer, so the scrolling table never
@@ -258,14 +229,16 @@ if (!window.filterStandardPicker) {
       var radio = row.querySelector('[data-importance] input[value="' + value + '"]');
       if (radio) radio.checked = true;
     });
-    window.filterStandardPicker(picker);
     window.updateStandardPickerCounts(picker);
   };
   window.clearAllStandardPicker = function (btn) { setVisibleStandardPickerRows(btn, false); };
 
+  // After any change to the rows: each row's filter values, the selection
+  // counter, the Required line and the won't-run warning, then a re-filter.
   window.updateStandardPickerCounts = function (picker) {
     var selected = 0, draft = 0, disabled = 0;
     picker.querySelectorAll('.standard-picker-row').forEach(function (row) {
+      syncStandardPickerRow(row);
       var cb = row.querySelector('input[type="checkbox"]');
       if (!cb || !cb.checked) return;
       selected++;
@@ -291,6 +264,7 @@ if (!window.filterStandardPicker) {
       warn.textContent = inactive + " selected won't run during checks (" + parts.join(', ') + ')';
     }
     warn.classList.toggle('hidden', !inactive);
+    picker.dispatchEvent(new CustomEvent('filter-search:refresh'));
   };
 
   window.showStandardDescPopover = function (cell) {
@@ -329,8 +303,16 @@ if (!window.filterStandardPicker) {
   window.addEventListener('scroll', window.hideStandardDescPopover, { capture: true, passive: true });
 }
 // Runs on every insertion (page load and each HTMX fetch): sync the selection
-// counter and the won't-run warning with the pre-checked boxes.
+// counter and the won't-run warning with the pre-checked boxes, and say how
+// many rows the filters leave ("3 of 12 standards").
 document.querySelectorAll('.standard-picker').forEach(function (picker) {
   window.updateStandardPickerCounts(picker);
+  if (picker.dataset.countsShown) return;
+  picker.dataset.countsShown = '1';
+  picker.addEventListener('filter-search:applied', function (event) {
+    var shown = picker.querySelector('.standard-picker-shown');
+    shown.textContent = event.detail.visible + ' of ';
+    shown.classList.toggle('hidden', event.detail.visible === event.detail.total);
+  });
 });
 </script>

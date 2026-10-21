@@ -228,6 +228,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   {% endif %}
   <link href="{% static 'app/importance.css' %}" rel="stylesheet" type="text/css" />
+  <link href="{% static 'app/filter_search.css' %}" rel="stylesheet" type="text/css" />
 
   <style>
     [data-theme="dark"] {
@@ -317,6 +318,7 @@
   {# For everyone: signed-out pages (the access request page) act in place too. #}
   {% include "components/confirm_dialog.html" %}{% include "components/toasts.html" %}
   {% if user.is_authenticated %}<script src="{% static 'app/attention.js' %}"></script>{% endif %}
+  {% if user.is_authenticated %}<script type="module" src="{% static 'app/filter_search/start_filter_searches.js' %}"></script>{% endif %}
   {% if user.is_authenticated and current_tenant %}{% include "components/notification_panel.html" %}{% endif %}
 </body>
 </html>
