@@ -33,20 +33,22 @@ class TestGetProjectStatus(APITestCase):
     def _status(self):
         return self.service.get_project_status(self.tenant, str(self.project.id))
 
-    def test_empty_project_returns_unknown_grade(self):
+    def test_empty_project_has_no_grade(self):
         result = self._status()
-        assert result["grade"] == "unknown"
+        assert result["grade"] == "—"
+        assert result["display"] == {"text": "—", "tone": "unknown", "spoken": "No score yet"}
         assert result["overall_score"] is None
         assert result["total_standards"] == 0
         assert result["top_offenders"] == []
         assert (result["score_failed"], result["commit_sha"]) == (False, None)
 
-    def test_grade_excellent_when_all_scores_high(self):
+    def test_the_grade_is_the_score_as_the_app_shows_it(self):
         self._commit((95, Status.PASSED), (92, Status.PASSED), (98, Status.PASSED))
 
         result = self._status()
 
-        assert result["grade"] == "excellent"
+        assert result["grade"] == "95"
+        assert result["display"]["tone"] == "healthy"
         assert result["overall_score"] == 95
         assert (result["total_standards"], result["passed"], result["failed"]) == (3, 3, 0)
         assert result["commit_sha"] == "a" * 40

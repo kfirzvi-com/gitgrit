@@ -7,6 +7,7 @@ Views return the service dicts as-is.
 from rest_framework import serializers
 
 from app.domain import importance
+from app.domain.score_representation import ScoreTone
 from app.presentation import importance_text
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
@@ -105,12 +106,27 @@ class OffenderSerializer(serializers.Serializer):
     last_run = serializers.DateTimeField()
 
 
+# A project's health level and a score's colour band: the score tones.
+LEVEL_CHOICES = [tone.value for tone in ScoreTone]
+
+
+class ScoreDisplaySerializer(serializers.Serializer):
+    """A score as the app shows it, so API clients can show it the same way."""
+
+    text = serializers.CharField(help_text='What the app shows, e.g. "82"; "—" when there is no score.')
+    tone = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="Its colour band.")
+    spoken = serializers.CharField(help_text='The same in words, e.g. "Score 82 out of 100".')
+
+
 class ProjectStatusSerializer(serializers.Serializer):
     project = ProjectRefSerializer()
     overall_score = serializers.FloatField(
         allow_null=True, help_text="The project's score: its newest fully checked commit on the default branch."
     )
-    grade = serializers.CharField(allow_null=True)
+    grade = serializers.CharField(
+        help_text="The score as the app shows it (same as display.text)."
+    )
+    display = ScoreDisplaySerializer()
     score_failed = serializers.BooleanField(
         help_text="A Required standard failed or could not be verified: the score is 0."
     )
@@ -230,7 +246,6 @@ class MeSerializer(serializers.Serializer):
 
 # --- Health and commit checks ---------------------------------------------
 
-LEVEL_CHOICES = ["healthy", "warning", "critical", "unknown"]
 
 
 class RunCheckSerializer(serializers.Serializer):
@@ -267,6 +282,7 @@ class CheckResultSerializer(serializers.Serializer):
 
 class HealthSummaryFields(serializers.Serializer):
     score = serializers.IntegerField(allow_null=True)
+    score_display = ScoreDisplaySerializer()
     level = serializers.ChoiceField(choices=LEVEL_CHOICES)
     passed = serializers.IntegerField()
     failed = serializers.IntegerField()
@@ -293,6 +309,7 @@ class CommitScoreSerializer(serializers.Serializer):
         help_text="The commit's last complete score, 0-100; null until every expected standard "
         "has finished on it.",
     )
+    display = ScoreDisplaySerializer()
     failed = serializers.BooleanField(
         help_text="A Required standard failed or could not be verified: the value is 0."
     )

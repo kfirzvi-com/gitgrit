@@ -27,6 +27,7 @@ from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application import scoring
+from app.domain.score_representation import SCORE_REPRESENTATION
 from app.application.naming import canonical_key
 from app.application.standard_results import current_results
 from app.domain.models import (
@@ -79,7 +80,12 @@ def _component_issues(commit_score):
         (e for e in commit_score.executions.all() if e.score < HEALTHY_MIN),
         key=lambda e: e.score,
     )
-    return ["{} — {}%".format(e.standard_name, e.score) for e in low[:4]]
+    return ["{} — {}".format(e.standard_name, _score_text(e.score)) for e in low[:4]]
+
+
+def _score_text(value):
+    """A score as ``SCORE_REPRESENTATION`` shows it, for the diagrams."""
+    return SCORE_REPRESENTATION.represent(value).text
 
 
 def _merge_tech(*lists):
@@ -155,7 +161,7 @@ def workspace_graph(tenant, latest):
             key=lambda t: (t[1] if t[1] is not None else 999),
         )
         issues = [
-            "{} — {}% ({})".format(p.name, s, lvl)
+            "{} — {} ({})".format(p.name, _score_text(s), lvl)
             for p, s, lvl in offenders
             if lvl in (WARNING, CRITICAL)
         ]
@@ -169,6 +175,7 @@ def workspace_graph(tenant, latest):
                 "project_count": len(projects),
                 "technologies": _technologies(components),
                 "score": score,
+                "score_text": _score_text(score),
                 # Worst-of across projects, so a single failing project lights
                 # up the whole stack even when the average looks healthy.
                 "health": stack_level([project_level(s) for s in scores]),
@@ -279,6 +286,7 @@ def _component_node(component, latest, monorepo_projects, project_scores):
         "lifecycle": project.get_lifecycle_display(),
         "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
         "score": score,
+        "score_text": _score_text(score),
         "health": project_level(score),
         "issues": _component_issues(commit_score),
         "analyzing": _analyzing(project),

@@ -20,21 +20,19 @@ window.GitGritFlow = (function () {
     if (_instance) _instance.fitView(opts || { padding: 0.2 });
   }
 
-  // Health colour codes — single source of truth for node stripes (via the
-  // --gg-health custom property) and legend swatches. Kept in step with the
-  // levels in app/domain/health.py.
-  var HEALTH_COLOR = {
-    healthy: "#34d399",
-    warning: "#fbbf24",
-    critical: "#f87171",
-    unknown: "#64748b",
-  };
-  var HEALTH_LABEL = {
-    healthy: "Healthy",
-    warning: "Needs attention",
-    critical: "Critical",
-    unknown: "No data",
-  };
+  // Health colours and labels come from the page (#gg-score-tones, written by
+  // {% score_tone_styles %} from ScoreToneStyle): the one source for node
+  // stripes, legend swatches, score badges and the badge SVG alike.
+  var TONES = (function () {
+    var el = document.getElementById("gg-score-tones");
+    try { return el ? JSON.parse(el.textContent) : {}; } catch (e) { return {}; }
+  })();
+  var HEALTH_COLOR = {};
+  var HEALTH_LABEL = {};
+  Object.keys(TONES).forEach(function (tone) {
+    HEALTH_COLOR[tone] = TONES[tone].color;
+    HEALTH_LABEL[tone] = TONES[tone].label;
+  });
 
   /* Props to give a node a left health stripe: a marker class plus the
    * --gg-health custom property the stripe pseudo-element paints with. */
@@ -45,10 +43,15 @@ window.GitGritFlow = (function () {
     };
   }
 
-  function scoreBadgeClass(score) {
-    if (score >= 80) return "badge-success";
-    if (score >= 50) return "badge-warning";
-    return "badge-error";
+  // A score badge in its node's health band: the server decides how a score
+  // reads (score_text) and which band it is in (health); the colour is the
+  // band's, so no threshold or colour lives here.
+  function scoreBadgeStyle(level) {
+    return {
+      backgroundColor: HEALTH_COLOR[level] || HEALTH_COLOR.unknown,
+      borderColor: "transparent",
+      color: "#0c0e13",
+    };
   }
 
   // Edge colours by kind — shared by both diagrams.
@@ -340,7 +343,7 @@ window.GitGritFlow = (function () {
   return {
     ready: ready,
     refit: refit,
-    scoreBadgeClass: scoreBadgeClass,
+    scoreBadgeStyle: scoreBadgeStyle,
     EDGE_COLOR: EDGE_COLOR,
     handles: handles,
     boundaryNode: boundaryNode,

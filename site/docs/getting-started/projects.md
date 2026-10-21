@@ -79,3 +79,5 @@ Every checked commit gets a **score** from 0 to 100, once **every expected stand
 The **project's score** is the score of the newest commit on the default branch that has one. Checking an old commit again never replaces a newer commit's score. A commit keeps its score while it is checked again, and the new check replaces it only once every expected standard has finished; if a newer commit is still checking or incomplete, the project page says so under the score.
 
 Changing attachments or importance does not rescore anything: the next check does.
+
+In the API every score comes with a `display` object (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show that instead of formatting the number yourself, and your screens read like GitGrit's. `/status/`'s `grade` is the same as its `display.text`.

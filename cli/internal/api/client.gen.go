@@ -333,11 +333,14 @@ type Commit struct {
 	Results []CheckResult `json:"results"`
 
 	// Running Checks still running on this commit.
-	Running int    `json:"running"`
-	Score   *int   `json:"score"`
-	Sha     string `json:"sha"`
-	Title   string `json:"title"`
-	Url     string `json:"url"`
+	Running int  `json:"running"`
+	Score   *int `json:"score"`
+
+	// ScoreDisplay A score as the app shows it, so API clients can show it the same way.
+	ScoreDisplay ScoreDisplay `json:"score_display"`
+	Sha          string       `json:"sha"`
+	Title        string       `json:"title"`
+	Url          string       `json:"url"`
 }
 
 // CommitPage defines model for CommitPage.
@@ -351,6 +354,9 @@ type CommitPage struct {
 // CommitScore defines model for CommitScore.
 type CommitScore struct {
 	Commit ScoredCommitRef `json:"commit"`
+
+	// Display A score as the app shows it, so API clients can show it the same way.
+	Display ScoreDisplay `json:"display"`
 
 	// Failed A Required standard failed or could not be verified: the value is 0.
 	Failed bool `json:"failed"`
@@ -659,6 +665,9 @@ type ProjectHealth struct {
 	Results     []CheckResult `json:"results"`
 	Running     bool          `json:"running"`
 	Score       *int          `json:"score"`
+
+	// ScoreDisplay A score as the app shows it, so API clients can show it the same way.
+	ScoreDisplay ScoreDisplay `json:"score_display"`
 }
 
 // ProjectNotFound defines model for ProjectNotFound.
@@ -684,8 +693,13 @@ type ProjectStandardsChange struct {
 type ProjectStatus struct {
 	// CommitSha The commit the score is from.
 	CommitSha *string `json:"commit_sha"`
-	Failed    int     `json:"failed"`
-	Grade     *string `json:"grade"`
+
+	// Display A score as the app shows it, so API clients can show it the same way.
+	Display ScoreDisplay `json:"display"`
+	Failed  int          `json:"failed"`
+
+	// Grade The score as the app shows it (same as display.text).
+	Grade string `json:"grade"`
 
 	// OverallScore The project's score: its newest fully checked commit on the default branch.
 	OverallScore *float64   `json:"overall_score"`
@@ -756,6 +770,23 @@ type RunsSummary struct {
 	Message        string `json:"message"`
 	Projects       int    `json:"projects"`
 	Queued         int    `json:"queued"`
+}
+
+// ScoreDisplay A score as the app shows it, so API clients can show it the same way.
+type ScoreDisplay struct {
+	// Spoken The same in words, e.g. "Score 82 out of 100".
+	Spoken string `json:"spoken"`
+
+	// Text What the app shows, e.g. "82"; "—" when there is no score.
+	Text string `json:"text"`
+
+	// Tone Its colour band.
+	//
+	// * `healthy` - healthy
+	// * `warning` - warning
+	// * `critical` - critical
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
 }
 
 // ScoredCommitRef defines model for ScoredCommitRef.

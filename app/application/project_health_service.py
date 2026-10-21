@@ -12,6 +12,7 @@ from app.application.errors import NotFoundError
 from app.application.standard_results import breakdown
 from app.application.standard_runs import in_flight
 from app.domain.health import level_from_score
+from app.domain.score_representation import SCORE_REPRESENTATION
 from app.domain.models import Project, StandardExecution, Tenant
 
 Status = StandardExecution.Status
@@ -37,7 +38,19 @@ def _result(ex: StandardExecution) -> dict:
 
 def _summary(score, results) -> dict:
     value = score.value if score else None
-    return {"score": value, "level": level_from_score(value), **breakdown(results)}
+    return {
+        "score": value,
+        "score_display": _display(score),
+        "level": level_from_score(value),
+        **breakdown(results),
+    }
+
+
+def _display(score) -> dict:
+    """How the app shows ``score`` (a CommitScore or None): ``SCORE_REPRESENTATION``."""
+    return SCORE_REPRESENTATION.represent(
+        score.value if score else None, failed=bool(score and score.failed)
+    ).as_dict()
 
 
 def _commit_score(project, sha: str, branch: str, score) -> dict | None:
@@ -50,6 +63,7 @@ def _commit_score(project, sha: str, branch: str, score) -> dict | None:
         return None
     return {
         "value": score.value if score else None,
+        "display": _display(score),
         "failed": score.failed if score else False,
         "reason": score.reason if score else "",
         "state": state.state if state else scoring.COMPLETE,

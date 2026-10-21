@@ -118,7 +118,7 @@ class NewKindConstructorTests(TestCase):
         n = Notification.project_turned_critical(project=self.project, score_before=72.4, score_after=38.6)
         self.assertEqual((n.kind, n.severity), (Kind.PROJECT_CRITICAL, Severity.CRITICAL))
         self.assertEqual(n.title, "Score dropped to critical")
-        self.assertEqual(n.body, "From 72% to 39%.")
+        self.assertEqual(n.body, "From 72 to 39.")
         self.assertEqual(n.context["score"], 39)
 
     def test_runs_timed_out(self):
