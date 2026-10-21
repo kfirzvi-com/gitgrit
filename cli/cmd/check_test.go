@@ -19,8 +19,14 @@ const (
 )
 
 // fakeAPI serves the endpoints `check --wait` uses. The commit reports
-// "running" for the first polls, then the given final result.
+// "running" for the first polls, then the given final result: ``failed``
+// of two standards failed, scored as the server would (``state`` and a
+// failing Required standard set by the variants below).
 func fakeAPI(t *testing.T, failed int, commitSHA *string) *httptest.Server {
+	return fakeAPIWith(t, failed, commitSHA, "complete", false)
+}
+
+func fakeAPIWith(t *testing.T, failed int, commitSHA *string, state string, requiredFailed bool) *httptest.Server {
 	var polls atomic.Int32
 	mux := http.NewServeMux()
 	prefix := "/api/v1/workspaces/" + wsID + "/projects/"
@@ -44,10 +50,22 @@ func fakeAPI(t *testing.T, failed int, commitSHA *string) *httptest.Server {
 		if polls.Add(1) < 3 {
 			running = 2
 		}
-		score := 100 - 50*failed
+		var score any = 100 - 50*failed
+		reason := ""
+		if requiredFailed {
+			score, reason = 0, "No secrets failing"
+		}
+		if state != "complete" {
+			score = nil
+		}
 		return map[string]any{
 			"sha": sha, "title": "Fix", "author": "Dana", "date": nil, "url": "", "checked": true, "running": running,
 			"score": score, "level": "healthy", "passed": 2 - failed, "failed": failed, "errored": 0,
+			"commit_score": map[string]any{
+				"value": score, "failed": requiredFailed, "reason": reason, "state": state,
+				"standards": map[string]any{"expected": 2, "finished": 2},
+				"commit":    map[string]any{"sha": sha, "branch": "main", "committed_at": nil},
+			},
 			"results": []any{}, "not_run": []any{},
 		}
 	}
@@ -109,11 +127,34 @@ func TestCheckWaitPasses(t *testing.T) {
 	}
 }
 
-func TestCheckWaitFailsOnAFailure(t *testing.T) {
+func TestCheckWaitPassesWhenOnlyAMajorStandardFails(t *testing.T) {
 	s := sha
 	out, err := runCLI(t, fakeAPI(t, 1, &s), "check", "--project", "acme/api", "--sha", sha, "--wait")
-	if exitCode(err) != 1 {
-		t.Fatalf("exit %d; want 1; output:\n%s", exitCode(err), out)
+	if exitCode(err) != 0 {
+		t.Fatalf("exit %d; want 0; output:\n%s", exitCode(err), out)
+	}
+}
+
+func TestCheckWaitFailsWhenARequiredStandardFails(t *testing.T) {
+	s := sha
+	out, err := runCLI(t, fakeAPIWith(t, 1, &s, "complete", true), "check", "-p", "acme/api", "--sha", sha, "--wait")
+	if exitCode(err) != 1 || !strings.Contains(out, "Failed: No secrets failing.") {
+		t.Fatalf("exit %d; want 1 with the reason; output:\n%s", exitCode(err), out)
+	}
+}
+
+func TestCheckWaitExitsTwoWithoutAScore(t *testing.T) {
+	s := sha
+	out, err := runCLI(t, fakeAPIWith(t, 0, &s, "incomplete", false), "check", "-p", "acme/api", "--sha", sha, "--wait")
+	if exitCode(err) != 2 || !strings.Contains(out, "No score") {
+		t.Fatalf("exit %d; want 2; output:\n%s", exitCode(err), out)
+	}
+}
+
+func TestCheckWaitWithoutShaRecommendsIt(t *testing.T) {
+	out, _ := runCLI(t, fakeAPI(t, 0, nil), "check", "-p", "acme/api", "--branch", "main", "--wait")
+	if !strings.Contains(out, "Tip: pass --sha") {
+		t.Errorf("no --sha tip:\n%s", out)
 	}
 }
 

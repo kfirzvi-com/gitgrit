@@ -26,10 +26,17 @@ func newCheckCmd() *cobra.Command {
 		Use:   "check",
 		Short: "Check a commit against the project's standards",
 		Long: `Run the standards that apply to a branch, on one commit or on the branch's
-latest commit. With --wait, wait for the results and exit non-zero when any
-standard fails or errors (or the score is under --fail-under) — for CI:
+latest commit. With --wait, wait until the check finishes and exit by the
+commit's score — for CI, always pass the commit you built:
 
   gitgrit check --branch "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --wait
+
+Exit codes with --wait:
+  0  the commit has a score and passes
+  1  a Required standard failed or could not be verified (the score is 0),
+     or the score is under --fail-under
+  2  no score: not every expected standard finished on the commit, or
+     --timeout passed first
 
 Inside a git repository the branch defaults to the checked-out one.`,
 		Args: cobra.NoArgs,
@@ -63,6 +70,9 @@ Inside a git repository the branch defaults to the checked-out one.`,
 			}
 			if !jsonFlag {
 				fmt.Fprintln(cmd.ErrOrStderr(), run.Message)
+				if sha == "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Tip: pass --sha with the commit you built, so the score is for exactly that commit.")
+				}
 			}
 			if run.Queued == 0 && run.AlreadyRunning == 0 {
 				return nil // nothing applies to the branch
@@ -77,6 +87,10 @@ Inside a git repository the branch defaults to the checked-out one.`,
 				commit, raw, err = waitForBranchHead(ctx, t, run.Branch)
 			}
 			if err != nil {
+				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					fmt.Fprintln(cmd.ErrOrStderr(), err)
+					return &ExitError{Code: 2}
+				}
 				return err
 			}
 			if err := emit(cmd.OutOrStdout(), raw, func() {
@@ -85,31 +99,40 @@ Inside a git repository the branch defaults to the checked-out one.`,
 			}); err != nil {
 				return err
 			}
-			return verdict(commit, failUnder)
+			code, why := verdict(commit, failUnder)
+			if why != "" && !jsonFlag {
+				fmt.Fprintln(cmd.ErrOrStderr(), why)
+			}
+			if code != 0 {
+				return &ExitError{Code: code}
+			}
+			return nil
 		},
 	}
 	f := cmd.Flags()
 	f.StringVarP(&project, "project", "p", "", "project id or org/repo (default: this repository)")
 	f.StringVarP(&branch, "branch", "b", "", "branch (default: the checked-out one, else the project's default)")
 	f.StringVar(&sha, "sha", "", "commit to check (default: the branch's latest)")
-	f.BoolVar(&wait, "wait", false, "wait for results; exit 1 if any standard fails or errors")
+	f.BoolVar(&wait, "wait", false, "wait for the check; exit by the commit's score (see Exit codes)")
 	f.DurationVar(&timeout, "timeout", 15*time.Minute, "how long --wait waits")
-	f.IntVar(&failUnder, "fail-under", -1, "with --wait, fail only when the score is under this (0-100) instead of on any failure")
+	f.IntVar(&failUnder, "fail-under", -1, "with --wait, also fail when the score is under this (0-100)")
 	return cmd
 }
 
-// verdict turns finished results into the exit code.
-func verdict(c *api.Commit, failUnder int) error {
-	if failUnder >= 0 {
-		if c.Score != nil && *c.Score < failUnder {
-			return &ExitError{Code: 1}
-		}
-		return nil
+// verdict turns a finished check into the exit code and, when it is not 0,
+// a sentence saying why.
+func verdict(c *api.Commit, failUnder int) (int, string) {
+	s := c.CommitScore
+	if s == nil || s.State != api.Complete || s.Value == nil {
+		return 2, "No score: not every expected standard finished on this commit."
 	}
-	if c.Failed > 0 || c.Errored > 0 {
-		return &ExitError{Code: 1}
+	if s.Failed {
+		return 1, "Failed: " + s.Reason + "."
 	}
-	return nil
+	if failUnder >= 0 && *s.Value < failUnder {
+		return 1, fmt.Sprintf("Score %d is under %d.", *s.Value, failUnder)
+	}
+	return 0, ""
 }
 
 func waitForCommit(ctx context.Context, t *target, sha string) (*api.Commit, []byte, error) {
