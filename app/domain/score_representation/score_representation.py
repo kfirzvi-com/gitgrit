@@ -7,9 +7,11 @@ from app.domain.score_representation.score_tone import ScoreTone
 
 
 class ScoreRepresentation(ABC):
-    """How any 0-100 score is shown, everywhere in GitGrit (strategy). Swap
-    the one in use (``SCORE_REPRESENTATION``) to change every screen, the
-    badge, the diagrams, the notifications and the API's ``display`` at once.
+    """How a 0-100 score is shown (strategy). GitGrit uses one for commit
+    scores (``COMMIT_SCORE_REPRESENTATION``) and one for a standard's result
+    (``STANDARD_RESULT_REPRESENTATION``); swapping either changes every screen,
+    badge, diagram, notification and API ``display`` that shows that kind of
+    score at once.
     Each representation also decides a score's band (``tone``): the one place
     a score becomes a colour."""
 

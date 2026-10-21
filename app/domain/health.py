@@ -15,7 +15,7 @@ across its projects (so one failing project can't hide behind a healthy
 average).
 """
 
-from app.domain.score_representation import SCORE_REPRESENTATION, ScoreTone
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, ScoreTone
 
 # Health levels are score tones (``ScoreTone``): one list, and the
 # representation in use decides which one a score is in.
@@ -28,9 +28,9 @@ UNKNOWN = ScoreTone.UNKNOWN
 
 
 def level_from_score(score, failed: bool = False):
-    """A score's health level: its tone (``SCORE_REPRESENTATION.tone``);
+    """A score's health level: its tone (``COMMIT_SCORE_REPRESENTATION.tone``);
     ``failed`` marks a score a Required standard failed."""
-    return SCORE_REPRESENTATION.tone(score, failed=failed)
+    return COMMIT_SCORE_REPRESENTATION.tone(score, failed=failed)
 
 
 def worst(levels):

@@ -165,3 +165,10 @@ class OverviewRequiredFailuresTests(TestCase):
                 self.assertIn("<b>2</b> Required failed", body)
                 self.assertIn('<b>1</b> <span class="opacity-70">other failed', body)
                 self.assertIn('<b>0</b> <span class="opacity-70">could not run', body)
+
+    def test_the_results_tab_shows_each_standard_as_a_number_and_the_commit_as_a_letter(self):
+        body = self.client.get(reverse("project_history", args=[self.project.pk]), HTTP_HX_REQUEST="true").content.decode()
+
+        self.assertRegex(body, r'data-commit-score><span class="gg-score[^"]*"[^>]*>F</span>')
+        self.assertIn('aria-label="Score 50 out of 100"', body)
+        self.assertNotIn('aria-label="Grade D', body)

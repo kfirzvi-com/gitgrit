@@ -16,7 +16,7 @@ rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline justify-between gap-2">
           <span class="font-semibold truncate" title="{{ item.standard_name }}">{{ item.standard_name }}</span>
-          <span class="shrink-0">{% score item.score size="sm" %}</span>
+          <span class="shrink-0">{% standard_result_score item.score size="sm" %}</span>
         </div>
         <div class="text-xs opacity-70 truncate">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
       </div>

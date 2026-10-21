@@ -1,11 +1,12 @@
-"""Every score is shown through one representation (SCORE_REPRESENTATION):
-letters (A+ 100, A 90+, B 75+, C 60+, D below; F only when a Required
-standard failed), each letter in its own band; numbers are the other
-representation. A dash when there is no score."""
+"""A commit's score reads as a letter (COMMIT_SCORE_REPRESENTATION: A+ 100,
+A 90+, B 75+, C 60+, D below; F only when a Required standard failed), each
+letter in its own band; one standard's result reads as a number
+(STANDARD_RESULT_REPRESENTATION). A dash when there is no score."""
 from django.test import SimpleTestCase
 
 from app.domain.score_representation import (
-    SCORE_REPRESENTATION,
+    COMMIT_SCORE_REPRESENTATION,
+    STANDARD_RESULT_REPRESENTATION,
     LetterScoreRepresentation,
     NumberScoreRepresentation,
     RepresentedScore,
@@ -14,8 +15,10 @@ from app.domain.score_representation import (
 
 
 class LetterScoreRepresentationTests(SimpleTestCase):
-    def test_letters_are_the_representation_in_use(self):
-        assert isinstance(SCORE_REPRESENTATION, LetterScoreRepresentation)
+    def test_a_commit_score_reads_as_a_letter_and_a_standard_result_as_a_number(self):
+        assert isinstance(COMMIT_SCORE_REPRESENTATION, LetterScoreRepresentation)
+        assert isinstance(STANDARD_RESULT_REPRESENTATION, NumberScoreRepresentation)
+        assert (COMMIT_SCORE_REPRESENTATION.represent(82).text, STANDARD_RESULT_REPRESENTATION.represent(82).text) == ("B", "82")
 
     def test_bands(self):
         letters = LetterScoreRepresentation()
@@ -31,16 +34,16 @@ class LetterScoreRepresentationTests(SimpleTestCase):
         ]
 
     def test_f_only_when_a_required_standard_failed(self):
-        assert SCORE_REPRESENTATION.represent(0).text == "D"
-        assert SCORE_REPRESENTATION.represent(0, failed=True) == RepresentedScore(
+        assert COMMIT_SCORE_REPRESENTATION.represent(0).text == "D"
+        assert COMMIT_SCORE_REPRESENTATION.represent(0, failed=True) == RepresentedScore(
             "F", ScoreTone.SEVERE, "Grade F: a Required standard failed"
         )
 
     def test_spoken(self):
-        assert SCORE_REPRESENTATION.represent(82).spoken == "Grade B, score 82 out of 100"
+        assert COMMIT_SCORE_REPRESENTATION.represent(82).spoken == "Grade B, score 82 out of 100"
 
     def test_no_score_is_a_dash(self):
-        assert SCORE_REPRESENTATION.represent(None) == RepresentedScore("—", ScoreTone.UNKNOWN, "No score yet")
+        assert COMMIT_SCORE_REPRESENTATION.represent(None) == RepresentedScore("—", ScoreTone.UNKNOWN, "No score yet")
 
 
 class NumberScoreRepresentationTests(SimpleTestCase):

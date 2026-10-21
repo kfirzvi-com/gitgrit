@@ -1,18 +1,22 @@
-"""Scores in templates, all through ``SCORE_REPRESENTATION``.
+"""Scores in templates. A commit's score (and a branch's or a project's)
+goes through ``COMMIT_SCORE_REPRESENTATION``; one standard's result through
+``STANDARD_RESULT_REPRESENTATION``.
 
     {% load score_tags %}
     {% score project_score.value failed=project_score.failed size="xl" %}
+    {% standard_result_score ex.score size="sm" %}
     {{ value|score_text }}
 
-``score`` renders ``partials/score.html``: the text in its tone's colour,
-with the spoken form for screen readers and tooltips. ``score_text`` is the
-bare text, for places that are not HTML (titles, attributes).
+``score`` and ``standard_result_score`` render ``partials/score.html``: the
+text in its tone's colour, with the spoken form for screen readers and
+tooltips. ``score_text`` is a commit score's bare text, for places that are
+not HTML (titles, attributes).
 """
 from django import template
 from django.utils.html import json_script
 from django.utils.safestring import mark_safe
 
-from app.domain.score_representation import SCORE_REPRESENTATION
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, STANDARD_RESULT_REPRESENTATION
 from app.presentation.score_tones import ScoreToneStyle
 
 register = template.Library()
@@ -35,40 +39,52 @@ def score_tone_styles():
     )
 
 
-@register.inclusion_tag("partials/score.html")
-def score(value, failed=False, size="md", toned=True, data_attr=""):
-    """One score, shown the one way GitGrit shows scores. ``size``: sm, md, card,
-    lg, xl. ``toned=False`` leaves it in the text colour (a standard's score
-    beside its status dot)."""
+def _score_context(representation, value, failed, size, toned, data_attr):
     return {
-        "represented": SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)),
+        "represented": representation.represent(_value(value), failed=bool(failed)),
         "size": size,
         "toned": toned,
         "data_attr": data_attr,
     }
 
 
+@register.inclusion_tag("partials/score.html")
+def score(value, failed=False, size="md", toned=True, data_attr=""):
+    """A commit's score (or a branch's or a project's), as
+    ``COMMIT_SCORE_REPRESENTATION`` shows it. ``size``: sm, md, card, lg, xl,
+    hero."""
+    return _score_context(COMMIT_SCORE_REPRESENTATION, value, failed, size, toned, data_attr)
+
+
+@register.inclusion_tag("partials/score.html")
+def standard_result_score(value, failed=False, size="md", toned=True, data_attr=""):
+    """One standard's result on a commit, as ``STANDARD_RESULT_REPRESENTATION``
+    shows it. ``failed``: a Required standard's failure, which fails the commit.
+    ``toned=False`` leaves it in the text colour (beside its status dot)."""
+    return _score_context(STANDARD_RESULT_REPRESENTATION, value, failed, size, toned, data_attr)
+
+
 @register.simple_tag
 def score_tone(value, failed=False):
-    """A score's tone (``SCORE_REPRESENTATION``), e.g. for a card's class:
+    """A score's tone (``COMMIT_SCORE_REPRESENTATION``), e.g. for a card's class:
     ``{% score_tone value failed as tone %}``."""
-    return str(SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).tone)
+    return str(COMMIT_SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).tone)
 
 
 @register.simple_tag
 def score_scale():
-    """Every value ``SCORE_REPRESENTATION`` can show, best first, as
+    """Every value ``COMMIT_SCORE_REPRESENTATION`` can show, best first, as
     ``[{"text", "tone"}]`` (A+ to F for letters; empty for numbers)."""
-    return [{"text": text, "tone": str(tone)} for text, tone in SCORE_REPRESENTATION.scale()]
+    return [{"text": text, "tone": str(tone)} for text, tone in COMMIT_SCORE_REPRESENTATION.scale()]
 
 
 @register.simple_tag
 def score_text_of(value, failed=False):
     """A score's text with its failed flag: ``{% score_text_of v f as text %}``."""
-    return SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).text
+    return COMMIT_SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).text
 
 
 @register.filter
 def score_text(value):
     """The score's text alone ("82", "—")."""
-    return SCORE_REPRESENTATION.represent(_value(value)).text
+    return COMMIT_SCORE_REPRESENTATION.represent(_value(value)).text

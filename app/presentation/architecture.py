@@ -27,7 +27,7 @@ from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application import scoring
-from app.domain.score_representation import SCORE_REPRESENTATION
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, STANDARD_RESULT_REPRESENTATION
 from app.application.naming import canonical_key
 from app.application.standard_results import current_results
 from app.domain.models import (
@@ -75,15 +75,18 @@ def _component_issues(commit_score):
     if commit_score.failed:
         return [commit_score.reason]
     low = sorted(
-        (e for e in commit_score.executions.all() if SCORE_REPRESENTATION.tone(e.score) is not HEALTHY),
+        (e for e in commit_score.executions.all() if STANDARD_RESULT_REPRESENTATION.tone(e.score) is not HEALTHY),
         key=lambda e: e.score,
     )
-    return ["{} — {}".format(e.standard_name, _score_text(e.score)) for e in low[:4]]
+    return [
+        "{} — {}".format(e.standard_name, STANDARD_RESULT_REPRESENTATION.represent(e.score).text)
+        for e in low[:4]
+    ]
 
 
 def _score_text(value, failed: bool = False):
-    """A score as ``SCORE_REPRESENTATION`` shows it, for the diagrams."""
-    return SCORE_REPRESENTATION.represent(value, failed=failed).text
+    """A commit score as ``COMMIT_SCORE_REPRESENTATION`` shows it, for the diagrams."""
+    return COMMIT_SCORE_REPRESENTATION.represent(value, failed=failed).text
 
 
 def _merge_tech(*lists):
