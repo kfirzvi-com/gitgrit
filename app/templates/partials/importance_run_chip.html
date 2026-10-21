@@ -1,0 +1,3 @@
+{% comment %}The importance a run ran with (Required, Major or Minor): its icon and name, styled
+like the standards table's chips (importance.css): Required stands out, Major stays quiet, Minor
+dimmer. Expects `ex` (a StandardExecution).{% endcomment %}<span class="gg-importance-run-chip gg-importance-run-chip-{{ ex.importance }}" title="Ran as {{ ex.get_importance_display }}" data-importance-chip="{{ ex.importance }}">{% include "partials/importance_icon.html" with value=ex.importance %}{{ ex.get_importance_display }}</span>

@@ -13,11 +13,13 @@ def run(name, status, score=0, importance="major"):
 
 
 class CommitResultGroupingTests(SimpleTestCase):
-    def test_worst_first_with_required_failures_on_top(self):
+    def test_worst_first_and_by_importance_within_each_group(self):
         groups = CommitResultGrouping.of(
             [
-                run("Readme", "passed", 100),
+                run("Readme", "passed", 100, importance="minor"),
+                run("Pinned", "passed", 100),
                 run("Linter", "failed", 40),
+                run("Typos", "failed", 0, importance="minor"),
                 run("License", "error", 0),
                 run("No secrets", "failed", 90, importance="required"),
                 run("Changelog", "failed", 10),
@@ -27,8 +29,9 @@ class CommitResultGroupingTests(SimpleTestCase):
 
         assert [(g.key, [r.standard_name for r in g.runs]) for g in groups] == [
             ("running", ["Docs"]),
-            ("failed", ["No secrets", "Changelog", "Linter", "License"]),
-            ("passed", ["Readme"]),
+            # Required, then Major (failures before errors, lowest score), then Minor.
+            ("failed", ["No secrets", "Changelog", "Linter", "License", "Typos"]),
+            ("passed", ["Pinned", "Readme"]),
         ]
 
     def test_empty_groups_are_left_out(self):

@@ -1,5 +1,5 @@
 {% comment %}One standard's result as a line-free row linking to the run: a status dot, the
-standard's name (and version), the Required chip when it ran as Required, its message muted
+standard's name (and version), the importance it ran with, its message muted
 underneath, then an optional event column, when it ran, and the standard's score ("not scored" for an errored run, which the commit score leaves out unless
 the standard is Required). Expects `ex` (a StandardExecution); `show_event` adds the event
 column.{% endcomment %}{% load score_tags %}
@@ -10,7 +10,7 @@ column.{% endcomment %}{% load score_tags %}
     <span class="flex items-baseline gap-2 min-w-0">
       <span class="text-sm font-medium truncate">{{ ex.standard_name }}</span>
       {% include "partials/project_history_version.html" %}
-      {% if ex.importance == 'required' %}{% include "partials/required_chip.html" %}{% endif %}
+      {% include "partials/importance_run_chip.html" %}
       {% if ex.standard is None or ex.standard.archived_at %}<span class="text-xs opacity-50">· deleted</span>{% elif ex.still_attached == False %}<span class="text-xs opacity-50">· no longer attached</span>{% endif %}
     </span>
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}

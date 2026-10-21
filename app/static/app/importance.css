@@ -77,9 +77,23 @@
 .gg-importance-gate { display: flex; align-items: center; gap: 0.5rem; color: var(--gg-primary); }
 .gg-importance-gate.hidden { display: none; }
 
-/* A run that ran as Required (partials/required_chip.html). */
-.gg-importance-required-chip {
+/* The importance a run ran with (partials/importance_run_chip.html), in the
+ * same weights as the table's chips: Required stands out, Major quiet, Minor dimmer. */
+.gg-importance-run-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.375rem;
+  border-radius: 9999px;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.gg-importance-run-chip .gg-importance-icon { width: 0.75rem; height: 0.75rem; }
+.gg-importance-run-chip-required {
   color: var(--gg-primary);
   background-color: var(--gg-primary-glow);
+  font-weight: 600;
 }
-.gg-importance-required-chip .gg-importance-icon { width: 0.75rem; height: 0.75rem; }
+.gg-importance-run-chip-major { color: var(--gg-text-dim); }
+.gg-importance-run-chip-minor { color: color-mix(in oklab, var(--gg-text-dim) 70%, var(--gg-text-dimmer)); }
