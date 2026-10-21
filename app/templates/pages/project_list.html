@@ -12,7 +12,7 @@
 {% if projects %}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for project in projects %}
-      {# The card takes its score's tone: a glowing side bar and a corner glow (scores.css). #}
+      {# The card takes its score's tone: a glowing side bar (scores.css). #}
       {% score_tone project.commit_score.value project.commit_score.failed as tone %}
       <a href="{% url 'project_detail' project.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow gg-tone-card gg-tone-card-{{ tone }}" data-project-card="{{ tone }}">
         <div class="card-body">

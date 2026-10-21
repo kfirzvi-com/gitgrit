@@ -6,48 +6,29 @@
  *   .gg-score-severe          an F: heavier, so it never reads as a D
  *   .gg-tone-card             a card in its score's tone (--gg-card-tone, from
  *                             .gg-tone-card-<tone>): a glowing bar on the left
- *                             and a soft glow from the top-right corner
- *                             (--gg-glow-radius, 260px by default)
  */
 .gg-score { line-height: 1; white-space: nowrap; }
 .gg-score-severe { font-weight: 900; }
 
 .card.gg-tone-card, .gg-tone-card { position: relative; overflow: hidden; }
-.gg-tone-card::before,
-.gg-tone-card::after {
+.gg-tone-card::before {             /* the side bar */
   content: "";
   position: absolute;
   pointer-events: none;
   z-index: 2;
-}
-.gg-tone-card::before {             /* the side bar */
   top: 0; left: 0; bottom: 0;
   width: 4px;
   background: var(--gg-card-tone);
   box-shadow: 0 0 12px color-mix(in srgb, var(--gg-card-tone) 45%, transparent);
 }
-.gg-tone-card::after {              /* the glow from the top-right corner */
-  inset: 0;                         /* the whole card, so the glow fades out instead of being cut off */
-  background: radial-gradient(circle var(--gg-glow-radius, 260px) at top right,
-    color-mix(in srgb, var(--gg-card-tone) 22%, transparent), transparent);
-}
-.gg-tone-card-unknown::after {
-  background: radial-gradient(circle var(--gg-glow-radius, 260px) at top right,
-    color-mix(in srgb, var(--gg-card-tone) 12%, transparent), transparent);
-}
-/* F: a wider bar and a stronger glow. */
+/* F: a wider bar with a stronger glow. */
 .gg-tone-card-severe::before {
   width: 6px;
   box-shadow: 0 0 18px color-mix(in srgb, var(--gg-card-tone) 70%, transparent);
 }
-.gg-tone-card-severe::after {
-  background: radial-gradient(circle var(--gg-glow-radius, 260px) at top right,
-    color-mix(in srgb, var(--gg-card-tone) 38%, transparent), transparent);
-}
 
 /* The Overview (Michal's design): the grade scale chips above the cards, the
    big letter, and the muted failed / could-not-run / passed bar. */
-[data-overview-health] { --gg-glow-radius: 420px; }
 /* "A Required standard failed": bold, in the failed colour, behind the Required stop sign
    (partials/importance_icon.html), sized to its text. */
 .gg-required-failed {
