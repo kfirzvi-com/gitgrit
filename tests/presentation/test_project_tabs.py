@@ -68,7 +68,10 @@ class ProjectTabsTests(TestCase):
 
         # The error is left out of the average: (100 + 0) / 2.
         self.assertEqual(response.context["compliance_score"], 50)
-        self.assertEqual(response.context["health_breakdown"], {"passed": 1, "failed": 1, "errored": 1})
+        self.assertEqual(
+            response.context["health_breakdown"],
+            {"required_failed": 0, "passed": 1, "failed": 1, "errored": 1},
+        )
         body = response.content.decode()
         self.assertIn("--value:50", body)
         self.assertNotIn(">50%", body)
@@ -101,3 +104,45 @@ class ProjectTabsTests(TestCase):
         body = response.content.decode()
         self.assertIn(f'action="{reverse("project_standards", args=[self.project.pk])}"', body)
         self.assertNotIn("<html", body)
+
+
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class OverviewRequiredFailuresTests(TestCase):
+    """The Overview counts Required failures apart from the others and
+    leaves which standard failed to the Results tab."""
+
+    def setUp(self):
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role="owner")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(tenant.id)
+        session.save()
+        self.project = baker.make("app.Project", tenant=tenant, default_branch="main")
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
+        for name, status, importance in (
+            ("No secrets", Status.FAILED, "required"),
+            ("License", Status.ERROR, "required"),
+            ("README", Status.FAILED, "major"),
+            ("Linter", Status.PASSED, "minor"),
+        ):
+            standard = baker.make("app.Standard", tenant=tenant, name=name)
+            self.project.standards.add(standard)
+            baker.make(
+                "app.StandardExecution", project=self.project, standard=standard, standard_name=name,
+                status=status, score=50, commit_check=check, importance=importance,
+            )
+        score_commit(self.project, "a" * 40)
+
+    def test_required_failures_are_counted_apart_and_not_named(self):
+        response = self.client.get(reverse("project_detail", args=[self.project.pk]))
+
+        self.assertEqual(
+            response.context["health_breakdown"],
+            {"required_failed": 2, "passed": 1, "failed": 1, "errored": 0},
+        )
+        body = response.content.decode()
+        self.assertIn('data-outcome="required_failed"', body)
+        self.assertNotIn("data-score-reason", body)
+        self.assertIn("See the details in Results", body)

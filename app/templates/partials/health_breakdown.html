@@ -1,7 +1,25 @@
-{% comment %}A score's breakdown: how many standards passed, failed and errored. Expects
-`counts` ({passed, failed, errored}).{% endcomment %}
-<span class="inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-health-breakdown>
-  <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-success"></span><b>{{ counts.passed }}</b> <span class="opacity-60">passed</span></span>
-  <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-error"></span><b>{{ counts.failed }}</b> <span class="opacity-60">failed</span></span>
-  <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-warning"></span><b>{{ counts.errored }}</b> <span class="opacity-60">error</span></span>
+{% comment %}A score's results, worst first, each with its own shape so it reads without colour:
+Required standards that failed or could not be verified (the stop sign: each one fails the
+project; shown only when there are any), then the other standards that failed (✕), errored (!)
+and passed (✓). A zero stays quiet. Expects `counts` (standard_results.outcome_counts).{% endcomment %}
+<span class="inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm" data-health-breakdown>
+  {% if counts.required_failed %}
+    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-error font-semibold"
+          style="background-color: color-mix(in oklab, var(--color-error) 15%, transparent)"
+          title="Required standards that failed or could not be verified. Each one fails the project." data-outcome="required_failed">
+      {% include "partials/importance_icon.html" with value="required" %}<b>{{ counts.required_failed }}</b> Required failed
+    </span>
+  {% endif %}
+  <span class="inline-flex items-center gap-1.5{% if not counts.failed %} opacity-40{% endif %}" title="Other standards that failed" data-outcome="failed">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd"/></svg>
+    <b>{{ counts.failed }}</b> <span class="opacity-70">failed</span>
+  </span>
+  <span class="inline-flex items-center gap-1.5{% if not counts.errored %} opacity-40{% endif %}" title="Other standards whose run errored: left out of the score" data-outcome="errored">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.49 2.86c.66-1.15 2.36-1.15 3.02 0l6.27 10.9c.66 1.15-.18 2.6-1.51 2.6H3.73c-1.33 0-2.17-1.45-1.51-2.6L8.5 2.86ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+    <b>{{ counts.errored }}</b> <span class="opacity-70">error{{ counts.errored|pluralize }}</span>
+  </span>
+  <span class="inline-flex items-center gap-1.5{% if not counts.passed %} opacity-40{% endif %}" title="Standards that passed" data-outcome="passed">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.86-9.86a.75.75 0 0 0-1.22-.88l-3.24 4.48-1.6-1.6a.75.75 0 1 0-1.06 1.06l2.22 2.22a.75.75 0 0 0 1.14-.09l3.76-5.19Z" clip-rule="evenodd"/></svg>
+    <b>{{ counts.passed }}</b> <span class="opacity-70">passed</span>
+  </span>
 </span>

@@ -18,7 +18,7 @@ from app.application.commit_checks import (
     waiting_for_commit,
 )
 from app.application import scoring
-from app.application.standard_results import breakdown
+from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
 from app.presentation import importance_text
@@ -132,7 +132,7 @@ def results_context(project) -> dict:
     context["project_score"] = score
     context["latest_executions"] = latest_executions
     context["compliance_score"] = score.value if score else None
-    context["health_breakdown"] = breakdown(latest_executions)
+    context["health_breakdown"] = outcome_counts(latest_executions)
     context["newer_commit"] = scoring.newer_commit(project, project.default_branch, score)
 
     return context
@@ -179,7 +179,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "status": status,
             "status_score": score.value if score else None,
             "branch_score": score,
-            "status_breakdown": breakdown(status),
+            "status_breakdown": outcome_counts(status),
             "newer_commit": scoring.newer_commit(project, branch, score),
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),

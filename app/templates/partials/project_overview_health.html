@@ -1,6 +1,6 @@
 {% comment %}The Overview tab's health card: the project's score (its newest fully checked
-commit on the default branch), why it is 0 when a Required standard failed, the passed / failed /
-error breakdown behind it, and a way into the Results tab.{% endcomment %}
+commit on the default branch), its results worst first, and a way into the Results tab, where
+the details (which standard failed and why) live.{% endcomment %}
 <div class="card bg-base-100 shadow-xl h-full" data-overview-health>
   <div class="card-body items-center justify-center gap-6 py-10">
     {% if compliance_score is not None %}
@@ -13,11 +13,11 @@ error breakdown behind it, and a way into the Results tab.{% endcomment %}
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
         </span>
       </div>
+      {% include "partials/health_breakdown.html" with counts=health_breakdown %}
       <div class="text-center space-y-1">
         {% include "partials/score_note.html" with score=project_score newer=newer_commit %}
       </div>
-      {% include "partials/health_breakdown.html" with counts=health_breakdown %}
-      <a href="#results" class="link link-hover text-sm opacity-70" data-open-tab="results">See the results by commit →</a>
+      <a href="#results" class="link link-hover text-sm opacity-70" data-open-tab="results">See the details in Results →</a>
     {% elif attached_standards %}
       <p class="text-sm opacity-60">No score on {{ project.default_branch }} yet: a commit gets one when every standard has finished on it.</p>
       {% include "partials/score_note.html" with score=None newer=newer_commit %}
