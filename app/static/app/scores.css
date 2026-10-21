@@ -48,6 +48,14 @@
 /* The Overview (Michal's design): the grade scale chips above the cards, the
    big letter, and the muted failed / could-not-run / passed bar. */
 [data-overview-health] { --gg-glow-radius: 420px; }
+/* "A Required standard failed": bold, in the failed colour, behind the Required stop sign
+   (partials/importance_icon.html), sized to its text. */
+.gg-required-failed {
+  display: inline-flex; align-items: center; gap: 0.4em;
+  font-weight: 700;
+  color: var(--gg-tone-severe);
+}
+.gg-required-failed .gg-importance-icon { width: 1.15em; height: 1.15em; }
 .gg-score-hero { font-size: clamp(4rem, 10vw, 7.5rem); font-weight: 800; }
 /* :where() keeps the base fill at zero specificity so gg-tone-bg-<tone> lights the current chip. */
 :where(.gg-chip) { background-color: var(--color-base-200); }

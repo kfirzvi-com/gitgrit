@@ -9,7 +9,7 @@ the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
     <div class="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">
       {% score compliance_score failed=project_score.failed size="hero" data_attr="data-score-value" %}
       {% if health_breakdown.required_failed %}
-        <p class="text-xl font-semibold mt-4" data-required-failed="{{ health_breakdown.required_failed }}">{{ health_breakdown.required_failed }} Required standard{{ health_breakdown.required_failed|pluralize }} failed</p>
+        <p class="gg-required-failed text-xl mt-4" data-required-failed="{{ health_breakdown.required_failed }}">{% include "partials/importance_icon.html" with value="required" %}{{ health_breakdown.required_failed }} Required standard{{ health_breakdown.required_failed|pluralize }} failed</p>
       {% else %}
         <p class="text-xl font-semibold mt-4" data-required-failed="0">No Required failures</p>
       {% endif %}
