@@ -468,6 +468,11 @@ SPECTACULAR_SETTINGS = {
     "OAUTH2_TOKEN_URL": "/oauth/token/",
     "OAUTH2_REFRESH_URL": "/oauth/token/",
     "OAUTH2_SCOPES": None,  # taken from OAUTH2_PROVIDER["SCOPES"]
+    # A score's colour band (display.tone) and a project's health level are
+    # the same set: one schema enum for both.
+    "ENUM_NAME_OVERRIDES": {
+        "LevelEnum": "app.presentation.api.serializers.LEVEL_CHOICES",
+    },
 }
 
 # OAuth 2.0 authorization server (django-oauth-toolkit). Clients are public

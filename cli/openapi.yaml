@@ -1254,6 +1254,8 @@ components:
         score:
           type: integer
           nullable: true
+        score_display:
+          $ref: '#/components/schemas/ScoreDisplay'
         level:
           $ref: '#/components/schemas/LevelEnum'
         passed:
@@ -1306,6 +1308,7 @@ components:
       - results
       - running
       - score
+      - score_display
       - sha
       - title
       - url
@@ -1335,6 +1338,8 @@ components:
           nullable: true
           description: The commit's last complete score, 0-100; null until every expected
             standard has finished on it.
+        display:
+          $ref: '#/components/schemas/ScoreDisplay'
         failed:
           type: boolean
           description: 'A Required standard failed or could not be verified: the value
@@ -1357,6 +1362,7 @@ components:
           $ref: '#/components/schemas/ScoredCommitRef'
       required:
       - commit
+      - display
       - failed
       - reason
       - standards
@@ -1928,6 +1934,8 @@ components:
         score:
           type: integer
           nullable: true
+        score_display:
+          $ref: '#/components/schemas/ScoreDisplay'
         level:
           $ref: '#/components/schemas/LevelEnum'
         passed:
@@ -1973,6 +1981,7 @@ components:
       - results
       - running
       - score
+      - score_display
     ProjectNotFound:
       type: object
       properties:
@@ -2024,7 +2033,9 @@ components:
             default branch.'
         grade:
           type: string
-          nullable: true
+          description: The score as the app shows it (same as display.text).
+        display:
+          $ref: '#/components/schemas/ScoreDisplay'
         score_failed:
           type: boolean
           description: 'A Required standard failed or could not be verified: the score
@@ -2048,6 +2059,7 @@ components:
             $ref: '#/components/schemas/Offender'
       required:
       - commit_sha
+      - display
       - failed
       - grade
       - overall_score
@@ -2176,6 +2188,31 @@ components:
       - message
       - projects
       - queued
+    ScoreDisplay:
+      type: object
+      description: A score as the app shows it, so API clients can show it the same
+        way.
+      properties:
+        text:
+          type: string
+          description: What the app shows, e.g. "82"; "—" when there is no score.
+        tone:
+          allOf:
+          - $ref: '#/components/schemas/LevelEnum'
+          description: |-
+            Its colour band.
+
+            * `healthy` - healthy
+            * `warning` - warning
+            * `critical` - critical
+            * `unknown` - unknown
+        spoken:
+          type: string
+          description: The same in words, e.g. "Score 82 out of 100".
+      required:
+      - spoken
+      - text
+      - tone
     ScoredCommitRef:
       type: object
       properties:

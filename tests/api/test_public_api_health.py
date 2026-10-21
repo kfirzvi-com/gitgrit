@@ -74,8 +74,10 @@ class TestBranchesAndHealth(HealthAPITestCase):
         assert (body["passed"], body["failed"], body["errored"]) == (0, 1, 0)
         assert body["results"][0]["commit_sha"] == A
         assert body["results"][0]["standard_name"] == "Pinned CI"
+        assert body["score_display"] == {"text": "40", "tone": "critical", "spoken": "Score 40 out of 100"}
         assert body["commit_score"] == {
             "value": 40, "failed": False, "reason": "", "state": "complete",
+            "display": {"text": "40", "tone": "critical", "spoken": "Score 40 out of 100"},
             "standards": {"expected": 1, "finished": 1},
             "commit": {"sha": A, "branch": "main", "committed_at": None},
         }

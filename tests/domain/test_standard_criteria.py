@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from app.domain.standard_criteria import language_matches, score_to_grade
+from app.domain.standard_criteria import language_matches
 
 
 class TestLanguageMatches(SimpleTestCase):
@@ -20,24 +20,6 @@ class TestLanguageMatches(SimpleTestCase):
 
     def test_empty_project_languages_with_non_empty_standard_returns_false(self):
         self.assertIs(language_matches(["python"], []), False)
-
-
-class TestScoreToGrade(SimpleTestCase):
-    def test_boundaries(self):
-        cases = [
-            (None, "unknown"),
-            (100, "excellent"),
-            (90, "excellent"),
-            (89.9, "good"),
-            (70, "good"),
-            (69.9, "warning"),
-            (50, "warning"),
-            (49.9, "critical"),
-            (0, "critical"),
-        ]
-        for score, expected in cases:
-            with self.subTest(score=score):
-                self.assertEqual(score_to_grade(score), expected)
 
 
 class AppliesTests(SimpleTestCase):

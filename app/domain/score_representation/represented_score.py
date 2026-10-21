@@ -13,3 +13,7 @@ class RepresentedScore:
     text: str
     tone: str
     spoken: str
+
+    def as_dict(self) -> dict:
+        """For the API: ``{"text", "tone", "spoken"}``."""
+        return {"text": self.text, "tone": self.tone, "spoken": self.spoken}
