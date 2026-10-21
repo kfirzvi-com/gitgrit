@@ -9,6 +9,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
+from app.domain import importance as importance_rules
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -628,10 +629,12 @@ class ComponentStack(models.Model):
 
 
 class ProjectStandard(models.Model):
-    """Attachment of a workspace standard to a project.
+    """An attached standard: a workspace standard attached to one project.
 
     Only attached standards are candidates to run on a project; criteria
     (events, ref regex, languages) still filter within the attached set.
+    ``importance`` (``app.domain.importance``) is how much the standard
+    matters to this project.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -645,6 +648,11 @@ class ProjectStandard(models.Model):
         on_delete=models.CASCADE,
         related_name="project_standards",
     )
+    importance = models.CharField(
+        max_length=importance_rules.MAX_LENGTH,
+        choices=importance_rules.choices(),
+        default=importance_rules.DEFAULT.value,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -653,10 +661,32 @@ class ProjectStandard(models.Model):
             models.UniqueConstraint(
                 fields=["project", "standard"], name="unique_project_standard"
             ),
+            models.CheckConstraint(
+                condition=models.Q(importance__in=[i.value for i in importance_rules.Importance]),
+                name="project_standard_importance_known",
+            ),
         ]
 
     def __str__(self):
         return f"{self.project} — {self.standard}"
+
+    @property
+    def importance_rule(self) -> importance_rules.ImportanceRule:
+        return importance_rules.rule_for(self.importance)
+
+    @classmethod
+    def set_importances(cls, project, importances: dict) -> None:
+        """Set the importance of the project's attached standards from
+        ``importances`` (standard id -> ``Importance``). Standards not
+        attached to the project are ignored: importance only exists on an
+        attachment."""
+        by_value: dict[importance_rules.Importance, list[str]] = {}
+        for standard_id, value in importances.items():
+            by_value.setdefault(importance_rules.Importance(value), []).append(str(standard_id))
+        for value, standard_ids in by_value.items():
+            cls.objects.filter(project=project, standard_id__in=standard_ids).update(
+                importance=value.value
+            )
 
 
 class StackDependency(models.Model):

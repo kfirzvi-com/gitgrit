@@ -20,9 +20,11 @@ from app.application.commit_checks import (
 )
 from app.application.standard_results import breakdown, current_results, project_score
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
+from app.domain import importance
 from app.domain.models import (
     PlatformConnection,
     Project,
+    ProjectStandard,
     Stack,
     Standard,
     StandardExecution,
@@ -34,6 +36,40 @@ logger = logging.getLogger(__name__)
 def _flash_runs(request, runs):
     if runs:
         messages.info(request, runs["message"])
+
+
+IMPORTANCE_FIELD = "importance-"
+
+
+def _posted_importances(post) -> dict:
+    """The standards table's ``importance-<standard id>`` selects, as
+    standard id -> posted value."""
+    return {
+        key[len(IMPORTANCE_FIELD):]: value
+        for key, value in post.items()
+        if key.startswith(IMPORTANCE_FIELD)
+    }
+
+
+def _picker_context(tenant, project=None) -> dict:
+    """What the standards table needs: the workspace's standards, which are
+    attached, and each attached standard's importance."""
+    attachments = (
+        ProjectStandard.objects.filter(project=project) if project else ProjectStandard.objects.none()
+    )
+    importances = {a.standard_id: a.importance for a in attachments}
+    standards = list(
+        Standard.objects.filter(tenant=tenant).prefetch_related("labels").order_by("ordinal", "name")
+    )
+    for standard in standards:
+        # The row's importance select: the attached standard's, else what
+        # attaching it would start at.
+        standard.importance = importances.get(standard.pk, importance.DEFAULT.value)
+    return {
+        "workspace_standards": standards,
+        "attached_standard_ids": set(importances),
+        "importance_rules": importance.ordered_rules(),
+    }
 
 
 def _existing_owners(tenant):
@@ -272,6 +308,7 @@ def add_project_search(request, connection_id):
                 owner=request.POST.get("owner", ""),
                 stack_ids=request.POST.getlist("stacks"),
                 standard_ids=request.POST.getlist("standards"),
+                importances=_posted_importances(request.POST),
             )
         except project_management.AlreadyAdded:
             messages.warning(request, f'"{repo["name"]}" is already added to this workspace.')
@@ -300,10 +337,7 @@ def add_project_search(request, connection_id):
             "lifecycle_choices": Project.Lifecycle.choices,
             "stacks": stacks,
             "existing_owners": _existing_owners(tenant),
-            "workspace_standards": Standard.objects.filter(tenant=tenant)
-            .prefetch_related("labels")
-            .order_by("ordinal", "name"),
-            "attached_standard_ids": set(),
+            **_picker_context(tenant),
         },
     )
 
@@ -449,10 +483,15 @@ def project_standards(request, pk):
     if request.method == "POST":
         try:
             result = project_management.set_project_standards(
-                project, request.POST.getlist("standards")
+                project,
+                request.POST.getlist("standards"),
+                importances=_posted_importances(request.POST),
             )
         except NotFoundError:
             messages.error(request, "One of those standards no longer exists. Please try again.")
+            return redirect(reverse("project_detail", args=[pk]) + "#standards")
+        except importance.UnknownImportance as exc:
+            messages.error(request, str(exc))
             return redirect(reverse("project_detail", args=[pk]) + "#standards")
         standards = result["standards"]
         count = len(standards)
@@ -492,12 +531,7 @@ def project_standards(request, pk):
         "partials/project_standards_form.html",
         {
             "project": project,
-            "workspace_standards": Standard.objects.filter(tenant=tenant)
-            .prefetch_related("labels")
-            .order_by("ordinal", "name"),
-            "attached_standard_ids": set(
-                project.standards.values_list("pk", flat=True)
-            ),
+            **_picker_context(tenant, project),
         },
     )
 

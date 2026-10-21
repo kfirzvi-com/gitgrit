@@ -331,3 +331,98 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
         resp = self.client.get(reverse("project_detail", args=[project.pk]))
         assert resp.status_code == 200
         assert "No standards attached" in resp.content.decode()
+
+
+def _selected_importance(body, standard_pk):
+    """The value of a row's checked importance radio, or None."""
+    chosen = re.search(
+        rf'<input type="radio" name="importance-{standard_pk}" value="(\w+)"[^>]*checked', body
+    )
+    return chosen.group(1) if chosen else None
+
+
+class TestStandardsTableImportance(TestCase):
+    """The standards table shows and saves each attached standard's importance."""
+
+    def test_each_row_shows_its_importance(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        required, unattached = _standard(tenant), _standard(tenant)
+        project.standards.add(required)
+        project.project_standards.update(importance="required")
+
+        body = self.client.get(
+            reverse("project_standards", args=[project.pk]),
+            headers={"HX-Request": "true"},
+        ).content.decode()
+
+        assert _selected_importance(body, required.pk) == "required"
+        # Not attached: the row shows what attaching it would start at.
+        assert _selected_importance(body, unattached.pk) == "major"
+        assert "Set importance" in body
+        assert 'aria-label="Filter by importance"' in body
+
+    def test_save_writes_the_posted_importances(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        s1, s2 = _standard(tenant, enabled=False), _standard(tenant, enabled=False)
+
+        self.client.post(
+            reverse("project_standards", args=[project.pk]),
+            data={
+                "standards": [str(s1.pk)],
+                f"importance-{s1.pk}": "minor",
+                # Unchecked rows post their importance too; they stay unattached.
+                f"importance-{s2.pk}": "required",
+            },
+        )
+
+        assert dict(project.project_standards.values_list("standard_id", "importance")) == {
+            s1.pk: "minor"
+        }
+
+    def test_an_unknown_importance_is_refused_and_nothing_changes(self):
+        _, tenant = _login_member(self.client)
+        project = _project(tenant)
+        s1 = _standard(tenant, enabled=False)
+        project.standards.add(s1)
+
+        resp = self.client.post(
+            reverse("project_standards", args=[project.pk]),
+            data={"standards": [], f"importance-{s1.pk}": "critical"},
+        )
+
+        assert resp.status_code == 302
+        assert "Unknown importance 'critical'" in " ".join(_flashes(resp))
+        assert project.standards.count() == 1
+
+    def test_add_project_saves_the_chosen_importance(self):
+        _, tenant = _login_member(self.client)
+        connection = baker.make(
+            "app.PlatformConnection", tenant=tenant, platform="github", access_token="ghp_x"
+        )
+        s1 = _standard(tenant, enabled=False)
+
+        client = mock.Mock()
+        client.get_languages.return_value = []
+        client.get_topics.return_value = []
+        client.create_webhook.return_value = "hook-1"
+        with mock.patch(
+            "app.application.project_management.get_platform_client", return_value=client
+        ):
+            self.client.post(
+                reverse("add_project_search", args=[connection.id]),
+                data={
+                    "external_id": "44",
+                    "name": "app",
+                    "full_path": "acme/app",
+                    "web_url": "https://github.com/acme/app",
+                    "default_branch": "main",
+                    "lifecycle": "development",
+                    "standards": [str(s1.pk)],
+                    f"importance-{s1.pk}": "required",
+                },
+            )
+
+        project = Project.objects.get(tenant=tenant, external_id="44")
+        assert project.project_standards.get().importance == "required"

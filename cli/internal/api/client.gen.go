@@ -62,6 +62,27 @@ func (e EventsEnum) Valid() bool {
 	}
 }
 
+// Defines values for ImportanceEnum.
+const (
+	Major    ImportanceEnum = "major"
+	Minor    ImportanceEnum = "minor"
+	Required ImportanceEnum = "required"
+)
+
+// Valid indicates whether the value is a known member of the ImportanceEnum enum.
+func (e ImportanceEnum) Valid() bool {
+	switch e {
+	case Major:
+		return true
+	case Minor:
+		return true
+	case Required:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LevelEnum.
 const (
 	Critical LevelEnum = "critical"
@@ -193,14 +214,21 @@ func (e WebhookEnum) Valid() bool {
 
 // ActiveStandard defines model for ActiveStandard.
 type ActiveStandard struct {
-	Description   string             `json:"description"`
-	Draft         bool               `json:"draft"`
-	Enabled       bool               `json:"enabled"`
-	Id            openapi_types.UUID `json:"id"`
-	Labels        []string           `json:"labels"`
-	Languages     []string           `json:"languages"`
-	LastExecution *LastExecution     `json:"last_execution"`
-	Name          string             `json:"name"`
+	Description string             `json:"description"`
+	Draft       bool               `json:"draft"`
+	Enabled     bool               `json:"enabled"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Importance How much the standard matters to this project: required: must pass on this project; major: counts fully toward this project's score; minor: counts less toward this project's score.
+	//
+	// * `required` - Required
+	// * `major` - Major
+	// * `minor` - Minor
+	Importance    ImportanceEnum `json:"importance"`
+	Labels        []string       `json:"labels"`
+	Languages     []string       `json:"languages"`
+	LastExecution *LastExecution `json:"last_execution"`
+	Name          string         `json:"name"`
 
 	// Rules Extracted enforcement rules: watched files, forbidden patterns, flags.
 	Rules map[string]interface{} `json:"rules"`
@@ -326,6 +354,11 @@ type Execution struct {
 	Score     *int      `json:"score"`
 	Status    string    `json:"status"`
 }
+
+// ImportanceEnum * `required` - Required
+// * `major` - Major
+// * `minor` - Minor
+type ImportanceEnum string
 
 // InstalledStandard defines model for InstalledStandard.
 type InstalledStandard struct {

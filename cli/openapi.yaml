@@ -1070,6 +1070,15 @@ components:
           type: string
         description:
           type: string
+        importance:
+          allOf:
+          - $ref: '#/components/schemas/ImportanceEnum'
+          description: |-
+            How much the standard matters to this project: required: must pass on this project; major: counts fully toward this project's score; minor: counts less toward this project's score.
+
+            * `required` - Required
+            * `major` - Major
+            * `minor` - Minor
         rules:
           type: object
           additionalProperties: {}
@@ -1096,6 +1105,7 @@ components:
       - draft
       - enabled
       - id
+      - importance
       - labels
       - languages
       - last_execution
@@ -1329,6 +1339,16 @@ components:
       - project
       - score
       - status
+    ImportanceEnum:
+      enum:
+      - required
+      - major
+      - minor
+      type: string
+      description: |-
+        * `required` - Required
+        * `major` - Major
+        * `minor` - Minor
     InstalledStandard:
       type: object
       properties:

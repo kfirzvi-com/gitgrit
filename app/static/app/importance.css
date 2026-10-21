@@ -1,0 +1,25 @@
+/* Importance colours, a traffic light: Required red, Major amber, Minor
+ * green. The one place an importance gets its colour; values come from
+ * app/domain/importance.py.
+ *
+ *   .gg-importance-<value>  sets --gg-importance for the element
+ *   input.gg-importance     a radio in a .join: tinted, filled when checked
+ *   .gg-importance-text     any text in the importance's colour
+ */
+.gg-importance-required { --gg-importance: var(--gg-error); }
+.gg-importance-major    { --gg-importance: var(--gg-warning); }
+.gg-importance-minor    { --gg-importance: var(--gg-success); }
+
+.join input.gg-importance {
+  color: color-mix(in oklab, var(--gg-importance) 75%, transparent);
+  border-color: color-mix(in oklab, var(--gg-importance) 35%, transparent);
+  background-color: transparent;
+}
+.join input.gg-importance:checked {
+  --btn-color: var(--gg-importance);
+  --btn-fg: var(--gg-bg-base);
+  background-color: var(--gg-importance);
+  border-color: var(--gg-importance);
+  color: var(--gg-bg-base);
+}
+.gg-importance-text { color: var(--gg-importance); }

@@ -9,6 +9,7 @@ a project added from the CLI is set up exactly like one added in the browser.
 """
 import logging
 import secrets
+import uuid
 from dataclasses import dataclass
 
 from django.conf import settings
@@ -17,12 +18,14 @@ from django.core.exceptions import ValidationError
 from app.application import stack_service
 from app.application.errors import NotFoundError
 from app.application.event_bus import publish
+from app.domain import importance
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.models import (
     AuthMethod,
     Platform,
     PlatformConnection,
     Project,
+    ProjectStandard,
     Stack,
     Standard,
     Tenant,
@@ -154,13 +157,15 @@ def add_project(
     owner: str = "",
     stack_ids=(),
     standard_ids=(),
+    importances=None,
 ) -> AddedProject:
     """Make ``repo`` (a result of ``search_repositories``) a project.
 
     Attaches the given workspace standards and stacks, reads the repository's
     languages and topics, registers a webhook when the connection needs one
     (GitHub App connections get events through the App), and queues the
-    attached runnable standards to run once.
+    attached runnable standards to run once. ``importances`` (standard id
+    -> importance) sets those attached standards' importance.
     """
     existing = Project.objects.filter(
         tenant=tenant, platform_connection=connection, external_id=str(repo["external_id"])
@@ -171,6 +176,8 @@ def add_project(
         raise ValueError(
             f"Unknown lifecycle {lifecycle!r}; one of: {', '.join(Project.Lifecycle.values)}."
         )
+    if importances is not None:
+        importances = parse_importances(importances)
 
     project = Project.objects.create(
         tenant=tenant,
@@ -190,6 +197,8 @@ def add_project(
         stack_service.add_project_to_stacks(tenant=tenant, project=project, stacks=stacks)
     standards = _workspace_standards(tenant, standard_ids)
     project.standards.set(standards)
+    if importances:
+        ProjectStandard.set_importances(project, importances)
 
     _fetch_metadata(project)
     webhook_ok = True
@@ -274,15 +283,22 @@ def delete_project(tenant: Tenant, user: User | None, project_id) -> str:
 # --- attached standards ------------------------------------------------------
 
 
-def set_project_standards(project: Project, standard_ids) -> dict:
+def set_project_standards(project: Project, standard_ids, importances=None) -> dict:
     """Make exactly ``standard_ids`` the project's attached standards.
 
+    ``importances`` (standard id -> importance) sets the importance of those
+    attached standards; attached standards it leaves out keep theirs.
     Newly attached runnable standards are queued to run. Returns
     ``{"standards", "runs"}``.
     """
+    if importances is not None:
+        importances = parse_importances(importances)
     standards = _workspace_standards(project.tenant, standard_ids)
     previously = set(project.standards.values_list("pk", flat=True))
+    # set() is a delta: attached standards that stay keep their row and importance.
     project.standards.set(standards)
+    if importances:
+        ProjectStandard.set_importances(project, importances)
     return {"standards": standards, "runs": run_newly_attached(project, standards, previously)}
 
 
@@ -314,6 +330,21 @@ def run_newly_attached(project: Project, standards, previously_attached_ids) -> 
         )
     )
     return results[0] if results else None
+
+
+def parse_importances(importances: dict) -> dict:
+    """``importances`` (standard id -> posted value) as standard id ->
+    ``Importance``. Raises ``UnknownImportance`` (a ``ValueError``) on a value
+    that names none, before anything is written. An id that is not a UUID
+    names no standard and is dropped."""
+    parsed = {}
+    for standard_id, value in importances.items():
+        try:
+            key = str(uuid.UUID(str(standard_id)))
+        except ValueError:
+            continue
+        parsed[key] = importance.parse(value)
+    return parsed
 
 
 def _workspace_standards(tenant: Tenant, standard_ids) -> list[Standard]:

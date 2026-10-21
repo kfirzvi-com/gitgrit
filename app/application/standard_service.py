@@ -273,6 +273,9 @@ class StandardService:
         standards = project.standards.filter(
             enabled=True, draft=False
         ).prefetch_related("labels")
+        importances = dict(
+            project.project_standards.values_list("standard_id", "importance")
+        )
 
         result = []
         for standard in standards:
@@ -296,6 +299,7 @@ class StandardService:
                     "id": str(standard.id),
                     "name": standard.name,
                     "description": standard.description,
+                    "importance": importances[standard.id],
                     "rules": to_dict(extract_rules(standard.code)),
                     "enabled": standard.enabled,
                     "draft": standard.draft,
