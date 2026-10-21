@@ -66,7 +66,7 @@ func fakeAPIWith(t *testing.T, failed int, commitSHA *string, state string, requ
 				"standards": map[string]any{"expected": 2, "finished": 2},
 				"commit":    map[string]any{"sha": sha, "branch": "main", "committed_at": nil},
 			},
-			"results": []any{}, "not_run": []any{},
+			"results": []any{}, "expected_but_never_ran": []any{},
 		}
 	}
 	mux.HandleFunc(prefix+projID+"/commits/"+sha+"/", func(w http.ResponseWriter, r *http.Request) {

@@ -319,16 +319,16 @@ type Commit struct {
 	CommitScore *CommitScore `json:"commit_score"`
 	Date        *time.Time   `json:"date"`
 	Errored     int          `json:"errored"`
-	Failed      int          `json:"failed"`
+
+	// ExpectedButNeverRan Standards this commit's check expected that never ran on it.
+	ExpectedButNeverRan []StandardRef `json:"expected_but_never_ran"`
+	Failed              int           `json:"failed"`
 
 	// Level * `healthy` - healthy
 	// * `warning` - warning
 	// * `critical` - critical
 	// * `unknown` - unknown
-	Level LevelEnum `json:"level"`
-
-	// NotRun Standards this commit's check expected that never ran on it.
-	NotRun  []StandardRef `json:"not_run"`
+	Level   LevelEnum     `json:"level"`
 	Passed  int           `json:"passed"`
 	Results []CheckResult `json:"results"`
 

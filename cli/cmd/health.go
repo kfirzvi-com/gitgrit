@@ -199,9 +199,9 @@ func printCommit(w io.Writer, c *api.Commit) {
 	}
 	fmt.Fprintln(w)
 	printResults(w, c.Results)
-	if len(c.NotRun) > 0 {
-		fmt.Fprintln(w, "\nDid not run on this commit:")
-		for _, s := range c.NotRun {
+	if len(c.ExpectedButNeverRan) > 0 {
+		fmt.Fprintln(w, "\nExpected, never ran on this commit:")
+		for _, s := range c.ExpectedButNeverRan {
 			fmt.Fprintf(w, "  %s\n", s.Name)
 		}
 	}
