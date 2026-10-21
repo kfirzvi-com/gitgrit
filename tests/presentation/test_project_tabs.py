@@ -152,3 +152,16 @@ class OverviewRequiredFailuresTests(TestCase):
         self.assertIn("gg-tone-card-severe", body)
         self.assertIn('gg-chip gg-chip-current gg-tone-bg-severe" aria-current="true">F<', body)
         self.assertNotIn("data-score-reason", body)
+
+    def test_the_overview_and_results_tabs_show_the_same_bar_and_legend(self):
+        overview = self.client.get(reverse("project_detail", args=[self.project.pk])).content.decode()
+        results = self.client.get(reverse("project_history", args=[self.project.pk]), HTTP_HX_REQUEST="true").content.decode()
+
+        for body in (overview, results):
+            with self.subTest(tab="overview" if body is overview else "results"):
+                self.assertIn('data-segment="required_failed"', body)
+                self.assertIn('data-segment="failed"', body)
+                self.assertRegex(body, r'data-legend="required_failed">\s*<span class="gg-importance-icon')
+                self.assertIn("<b>2</b> Required failed", body)
+                self.assertIn('<b>1</b> <span class="opacity-70">other failed', body)
+                self.assertIn('<b>0</b> <span class="opacity-70">could not run', body)

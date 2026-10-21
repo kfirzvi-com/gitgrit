@@ -71,8 +71,10 @@
   line-height: 1.4;
 }
 .gg-chip-current { border-color: transparent; color: #0c0e13; }  /* lit by gg-tone-bg-<tone> */
-/* One bar, the same length whatever the count; every segment equally muted
-   so the letter stays the thing you look at. */
-.gg-status-bar { display: flex; gap: 3px; height: 10px; border-radius: 5px; overflow: hidden; }
-.gg-status-bar > span { opacity: 0.55; min-width: 4px; }
-.gg-status-zero > :first-child { opacity: 0.35; }
+/* The results bar and legend (partials/outcome_bar.html): Required failures striped; a zero
+   in the legend goes grey and quiet but keeps readable text. */
+.gg-segment-required {
+  background-image: repeating-linear-gradient(135deg, transparent 0 3px, oklch(0% 0 0 / .4) 3px 5px);
+}
+.gg-status-zero { color: color-mix(in srgb, var(--color-base-content) 55%, transparent); }
+.gg-status-zero svg { color: inherit; opacity: 0.45; }

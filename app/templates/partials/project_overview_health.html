@@ -1,7 +1,7 @@
 {% comment %}The Overview tab's score card (Michal's design): the project's score as a big
-letter, whether a Required standard failed it, one muted bar of failed / could not run / passed
-with its legend, and a footer with the last run and a way into the Results tab. The card glows in
-the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
+letter, whether a Required standard failed it, the results bar and legend the Results tab shows
+too (partials/outcome_bar.html), and a footer with the last run and a way into the Results tab.
+The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
 {% load score_tags project_tags %}
 {% if compliance_score is not None %}
   {% score_tone compliance_score project_score.failed as tone %}
@@ -16,24 +16,8 @@ the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
       <p class="text-sm opacity-60 mt-1">Based on {{ health_breakdown.total }} standard{{ health_breakdown.total|pluralize }}</p>
       {% if newer_commit %}<div class="mt-1">{% include "partials/score_note.html" with score=None newer=newer_commit %}</div>{% endif %}
 
-      <div class="w-full max-w-[420px] mt-6">
-        <div class="gg-status-bar mb-3.5" aria-hidden="true">
-          {% if health_breakdown.failures %}<span class="bg-error" style="flex: {{ health_breakdown.failures }}"></span>{% endif %}
-          {% if health_breakdown.errored %}<span class="bg-warning" style="flex: {{ health_breakdown.errored }}"></span>{% endif %}
-          {% if health_breakdown.passed %}<span class="bg-success" style="flex: {{ health_breakdown.passed }}"></span>{% endif %}
-        </div>
-        <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm" data-health-breakdown>
-          <span class="inline-flex items-center gap-2{% if not health_breakdown.failures %} gg-status-zero{% endif %}"><span class="h-2.5 w-2.5 rounded-full bg-error"></span><b>{{ health_breakdown.failures }}</b> <span class="opacity-60">failed</span></span>
-          {% if health_breakdown.errored %}
-            {# Opens the Notification Center bell panel, where a could-not-run result is reported. #}
-            <a href="#notifications" class="link link-hover inline-flex items-center gap-2" data-notification-open data-errors-link>
-              <span class="h-2.5 w-2.5 rounded-full bg-warning"></span><b>{{ health_breakdown.errored }}</b> <span class="opacity-60">could not run</span>
-            </a>
-          {% else %}
-            <span class="inline-flex items-center gap-2 gg-status-zero"><span class="h-2.5 w-2.5 rounded-full bg-warning"></span><b>0</b> <span class="opacity-60">could not run</span></span>
-          {% endif %}
-          <span class="inline-flex items-center gap-2{% if not health_breakdown.passed %} gg-status-zero{% endif %}"><span class="h-2.5 w-2.5 rounded-full bg-success"></span><b>{{ health_breakdown.passed }}</b> <span class="opacity-60">passed</span></span>
-        </div>
+      <div class="w-full max-w-lg mt-6 space-y-2.5" data-health-breakdown>
+        {% include "partials/outcome_bar.html" with counts=health_breakdown %}
       </div>
     </div>
 
