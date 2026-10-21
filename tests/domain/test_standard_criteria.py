@@ -38,3 +38,18 @@ class TestScoreToGrade(SimpleTestCase):
         for score, expected in cases:
             with self.subTest(score=score):
                 self.assertEqual(score_to_grade(score), expected)
+
+
+class AppliesTests(SimpleTestCase):
+    def test_event_branch_filter_and_languages_must_all_match(self):
+        from app.domain.standard_criteria import applies
+
+        criteria = {"events": ["push"], "ref": "^main$", "languages": ["Python"]}
+
+        assert applies(criteria, project_languages=["python"], event_type="push", ref="refs/heads/main")
+        assert not applies(criteria, project_languages=["python"], event_type="tag", ref="main")
+        assert not applies(criteria, project_languages=["python"], event_type="push", ref="dev")
+        assert not applies(criteria, project_languages=["Go"], event_type="push", ref="main")
+        assert applies(criteria, project_languages=["Python"], ref="main", skip_event_check=True)
+        # A pull request matches its target branch.
+        assert applies(criteria, project_languages=["Python"], event_type="push", ref="dev", target_ref="main")

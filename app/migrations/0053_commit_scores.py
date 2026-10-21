@@ -42,41 +42,39 @@ def backfill(apps, schema_editor):
             continue
         newest[(check.project_id, check.branch, check.commit_sha)] = check
     for (project_id, branch, sha), check in newest.items():
-        expected = set(check.expected_standard_ids)
-        picked = {}
-        for execution in StandardExecution.objects.filter(
-            project_id=project_id,
-            commit_check__branch=branch,
-            commit_check__commit_sha=sha,
-            status__in=scoring.FINISHED,
-        ).order_by("-created_at"):
-            key = str(execution.standard_id)
-            if key in expected and key not in picked:
-                picked[key] = execution
-        results = [
-            scoring.Result(
-                standard_id=str(e.standard_id),
-                name=e.standard_name,
-                status=e.status,
-                score=e.score,
-                importance=Importance(e.importance),
-            )
-            for e in picked.values()
-        ]
-        if not expected or scoring.missing(check.expected_standard_ids, results):
+        executions = list(
+            StandardExecution.objects.filter(
+                project_id=project_id, commit_check__branch=branch, commit_check__commit_sha=sha
+            ).order_by("-created_at")
+        )
+        outcome = scoring.score_check(
+            scoring.Check(commit_sha=sha, expected_ids=tuple(check.expected_standard_ids), running=False),
+            [
+                scoring.Result(
+                    standard_id=str(e.standard_id),
+                    name=e.standard_name,
+                    status=e.status,
+                    score=e.score,
+                    importance=Importance(e.importance),
+                    execution_id=str(e.pk),
+                )
+                for e in executions
+            ],
+        )
+        if outcome is None:
             continue
-        outcome = scoring.score(results)
         commit_score = CommitScore.objects.create(
             project_id=project_id,
             commit_check=check,
             branch=branch,
             commit_sha=sha,
             committed_at=check.committed_at,
-            value=outcome.value,
-            failed=outcome.failed,
-            reason=outcome.reason,
+            ordered_at=scoring.ordered_at(check.committed_at, check.created_at),
+            value=outcome.score.value,
+            failed=outcome.score.failed,
+            reason=outcome.score.reason,
         )
-        commit_score.executions.set(picked.values())
+        commit_score.executions.set([r.execution_id for r in outcome.results])
 
 
 class Migration(migrations.Migration):
@@ -103,6 +101,7 @@ class Migration(migrations.Migration):
                 ('branch', models.CharField(max_length=255)),
                 ('commit_sha', models.CharField(max_length=40)),
                 ('committed_at', models.DateTimeField(blank=True, null=True)),
+                ('ordered_at', models.DateTimeField()),
                 ('value', models.IntegerField(blank=True, null=True)),
                 ('failed', models.BooleanField(default=False)),
                 ('reason', models.TextField(blank=True, default='')),
@@ -114,7 +113,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'commit_scores',
                 'ordering': ['-created_at'],
-                'indexes': [models.Index(fields=['project', 'branch', 'commit_sha'], name='idx_commit_score_commit'), models.Index(fields=['project', 'branch', '-created_at'], name='idx_commit_score_branch')],
+                'indexes': [models.Index(fields=['project', 'branch', 'commit_sha'], name='idx_commit_score_commit'), models.Index(fields=['project', 'branch', '-ordered_at'], name='idx_commit_score_branch')],
             },
         ),
         migrations.RunPython(backfill, migrations.RunPython.noop),

@@ -1297,6 +1297,9 @@ class CommitScore(models.Model):
     branch = models.CharField(max_length=255)
     commit_sha = models.CharField(max_length=40)
     committed_at = models.DateTimeField(null=True, blank=True)
+    # When the commit counts as made (``app.domain.scoring.ordered_at``): a
+    # branch shows the score with the newest one.
+    ordered_at = models.DateTimeField()
     # 0-100; None when no result could be averaged (every one errored).
     value = models.IntegerField(null=True, blank=True)
     # A Required standard failed or errored: the value is 0.
@@ -1313,7 +1316,7 @@ class CommitScore(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["project", "branch", "commit_sha"], name="idx_commit_score_commit"),
-            models.Index(fields=["project", "branch", "-created_at"], name="idx_commit_score_branch"),
+            models.Index(fields=["project", "branch", "-ordered_at"], name="idx_commit_score_branch"),
         ]
 
     def __str__(self):

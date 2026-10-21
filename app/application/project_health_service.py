@@ -157,12 +157,7 @@ class ProjectHealthService:
         row = commit_checks.commit_results(project, sha)
         if not row.checked:
             raise NotFoundError(f"No checks recorded for commit {sha}")
-        branch = (
-            row.commit_score.branch
-            if row.commit_score
-            else next((r.commit_check.branch for r in row.results if r.commit_check), project.default_branch)
-        )
-        return _commit(project, row, branch)
+        return _commit(project, row, scoring.commit_branch(project, sha, row.commit_score))
 
     def run(self, tenant: Tenant, user, project_id: str, branch: str | None, sha: str = "") -> dict:
         """Check a branch's latest commit, or one commit, now."""

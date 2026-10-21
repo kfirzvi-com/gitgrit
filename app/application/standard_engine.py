@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 
 from django.db.models import QuerySet
 
@@ -13,29 +12,10 @@ from app.domain.models import (
     Standard,
     StandardExecution,
 )
-from app.domain.standard_criteria import language_matches
+from app.domain.standard_criteria import applies, bare_ref, literal_ref  # noqa: F401 (re-exported)
 from app.infrastructure.sandbox.runner import SandboxRunner
 
 logger = logging.getLogger(__name__)
-
-_REF_PREFIX = re.compile(r"^refs/(heads|tags)/")
-_REGEX_CHARS = re.compile(r"[*+?()\[\]{}|\\]")
-
-
-def bare_ref(ref: str | None) -> str:
-    """Strip the refs/heads/ or refs/tags/ prefix a webhook ref carries."""
-    return _REF_PREFIX.sub("", ref or "")
-
-
-def literal_ref(pattern: str | None) -> str:
-    """Return the branch or tag a Branch/Tag Filter names literally, or ""
-    when the filter is empty or a regex. ``main`` and ``^main$`` both name
-    ``main``; ``^release/.*`` names nothing, so runs fall back to the default
-    branch."""
-    name = (pattern or "").strip().removeprefix("^").removesuffix("$")
-    if not name or _REGEX_CHARS.search(name):
-        return ""
-    return name
 
 
 def resolve_llm_roles(tenant) -> dict:
@@ -149,34 +129,15 @@ class StandardEngine:
         skip_event_check: bool = False,
         target_ref: str | None = None,
     ) -> bool:
-        criteria = standard.criteria or {}
-
-        # Event type must match (unless skipped for manual runs)
-        if not skip_event_check and event_type not in criteria.get("events", []):
-            return False
-
-        # Branch/Tag Filter. Matched against the branch the event is *for*: a
-        # pull request's target branch, else the pushed branch or tag. Empty
-        # matches all branches and tags. Events that carry no ref (and manual
-        # runs) skip the check.
-        ref_pattern = criteria.get("ref", "").strip()
-        filter_ref = bare_ref(target_ref or ref)
-        if ref_pattern and filter_ref:
-            try:
-                if not re.search(ref_pattern, filter_ref):
-                    return False
-            except re.error:
-                logger.warning(
-                    "Invalid ref regex '%s' in standard '%s'",
-                    ref_pattern,
-                    standard.name,
-                )
-                return False
-
-        if not language_matches(criteria.get("languages", []), project.languages or []):
-            return False
-
-        return True
+        """``app.domain.standard_criteria.applies`` for one standard."""
+        return applies(
+            standard.criteria,
+            project_languages=project.languages,
+            event_type=event_type,
+            ref=ref,
+            target_ref=target_ref,
+            skip_event_check=skip_event_check,
+        )
 
     def build_input_config(self, project: Project, ref: str | None = None) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
