@@ -129,7 +129,7 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit standard enable` / `disable <standard>` | Turn a standard on or off everywhere |
 | **Results** | |
 | `gitgrit health` | The project's score, standard by standard |
-| `gitgrit check --wait` | Run the standards on the branch's latest commit; exit 1 if any fail |
+| `gitgrit check --wait` | Run the standards on a commit and exit by its score |
 | `gitgrit branches` / `commits` / `commit <sha>` | Results per branch and commit |
 | `gitgrit api <path>` | Call any endpoint of the [public API](https://app.gitgrit.dev/api/v1/docs/) |
 
@@ -139,7 +139,7 @@ Standards can be named (`"README Exists"`) or given by id. Add `--json` to any c
 
 Create a workspace token in **Workspace Settings** → **API Tokens** and save it as the `GITGRIT_TOKEN` secret. A workspace token can do everything a member can, except manage connections.
 
-Fail the build when standards fail:
+Check the exact commit the pipeline built, and fail the build by its [score](projects.md#the-score):
 
 ```yaml
 - run: curl -fsSL https://gitgrit.dev/install.sh | sh
@@ -148,7 +148,15 @@ Fail the build when standards fail:
     GITGRIT_TOKEN: ${{ secrets.GITGRIT_TOKEN }}
 ```
 
-Use `--fail-under 80` to fail on the score instead of on any failing standard.
+Always pass `--sha`: without it GitGrit checks whatever the branch's head is by then, which may not be the commit you built.
+
+| Exit code | When |
+|---|---|
+| `0` | The commit has a score and passes |
+| `1` | A Required standard failed or could not be verified (the score is 0), or the score is under `--fail-under` |
+| `2` | No score: not every expected standard finished on the commit, or `--timeout` passed first |
+
+A failing Major or Minor standard lowers the score but does not fail the build on its own; add `--fail-under 80` to fail below a score. `--json` prints the commit, with its `commit_score`, for later steps.
 
 ## Self-hosted GitGrit
 
