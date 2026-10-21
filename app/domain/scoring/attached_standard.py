@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class Candidate:
-    """A standard attached to a project, as a check considers it."""
+class AttachedStandard:
+    """A standard attached to a project, as a commit check considers it."""
 
     standard_id: str
     enabled: bool
@@ -16,7 +16,7 @@ class Candidate:
     matches_criteria: bool
 
     @property
-    def applies(self) -> bool:
+    def runs_on_commit(self) -> bool:
         """The standard runs on the commit: it is enabled, not a draft, and
         its criteria match."""
         return self.enabled and not self.draft and self.matches_criteria

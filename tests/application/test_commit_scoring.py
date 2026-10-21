@@ -138,7 +138,7 @@ class RecheckTests(Fixture):
 
         state = scoring.commit_state(self.project, "c1", "main")
 
-        assert (state.state, state.expected) == (scoring.IN_PROGRESS, 2)
+        assert (state.state, state.expected_count) == (scoring.IN_PROGRESS, 2)
 
 
 class ProjectScoreTests(Fixture):

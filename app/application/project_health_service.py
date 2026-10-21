@@ -54,8 +54,8 @@ def _commit_score(project, sha: str, branch: str, score) -> dict | None:
         "reason": score.reason if score else "",
         "state": state.state if state else scoring.COMPLETE,
         "standards": {
-            "expected": state.expected if state else score.executions.count(),
-            "finished": state.finished if state else score.executions.count(),
+            "expected": state.expected_count if state else score.executions.count(),
+            "finished": state.finished_count if state else score.executions.count(),
         },
         "commit": {
             "sha": sha,
@@ -130,7 +130,7 @@ class ProjectHealthService:
                 {
                     "sha": newer.sha,
                     "state": newer.state.state,
-                    "standards": {"expected": newer.state.expected, "finished": newer.state.finished},
+                    "standards": {"expected": newer.state.expected_count, "finished": newer.state.finished_count},
                 }
                 if newer
                 else None

@@ -7,7 +7,7 @@ show_reason.{% endcomment %}
 {% if newer %}
   <p class="text-xs opacity-70" data-newer-commit="{{ newer.state.state }}">
     Newer commit {{ newer.sha|slice:":7" }}:
-    {% if newer.state.state == "in_progress" %}checking, {{ newer.state.finished }} of {{ newer.state.expected }} standards done…
-    {% else %}incomplete, {{ newer.state.finished }} of {{ newer.state.expected }} standards finished. It has no score.{% endif %}
+    {% if newer.state.state == "in_progress" %}checking, {{ newer.state.finished_count }} of {{ newer.state.expected_count }} standards done…
+    {% else %}incomplete, {{ newer.state.finished_count }} of {{ newer.state.expected_count }} standards finished. It has no score.{% endif %}
   </p>
 {% endif %}

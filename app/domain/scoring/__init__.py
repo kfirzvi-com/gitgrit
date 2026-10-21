@@ -1,54 +1,57 @@
 """Project score: every rule about how a commit, a branch and a project are
-scored. Pure, no I/O, no ORM; ``app.application.scoring`` loads the facts
-and saves what these objects decide.
+scored. Pure, no I/O, no ORM; ``app.application.scoring`` loads the facts and
+saves what these objects decide.
 
-- ``Expectation`` (value object): the standards a check expects a finished
-  result of, chosen from the project's ``Candidate`` standards.
-- ``CommitResults`` (value object): every result on a commit; for an
-  expectation, the newest finished result of each expected standard.
-- ``ScoringPolicy`` (strategy): turns a complete commit's results into a
-  ``Score``. ``RequiredGateWeightedAverage`` is the policy in use: a Required
-  standard that failed or errored, for any reason, makes it 0; otherwise the
-  average of the results' 0-100 scores weighted by importance, errors of
-  other importances left out.
-- ``Check`` (entity): one check of one commit; once finished and complete it
-  scores its commit, and it says where the commit stands (``CommitState``).
-- ``CommitTimeline``: how a branch's commits and scores are ordered, which
-  score a commit keeps and which branch a commit is read on.
+Vocabulary, one class per term:
 
-Each result carries the importance its standard had when it ran, so changing
+- ``StandardRunStatus``: the status of one standard's run on a commit
+  (running, passed, failed, error).
+- ``StandardRunResult``: one standard's run on a commit: its status, the
+  standard's own 0-100 score, and its importance when it ran.
+- ``AttachedStandard``: a standard attached to the project, as a commit
+  check considers it (does it run on the commit?).
+- ``ExpectedStandards``: the standards a commit check must get a finished
+  result of before the commit can be scored.
+- ``StandardRunResultsOnCommit``: every run on a commit, across its checks.
+- ``CommitScoringPolicy`` (strategy) and ``RequiredGateWeightedAveragePolicy``,
+  the one in use (``COMMIT_SCORING_POLICY``): a Required standard that failed
+  or errored makes the commit 0, otherwise the importance-weighted average.
+- ``CommitScoreValue``: a commit's computed score: value, whether a Required
+  standard failed it, and why.
+- ``ScorableCommitCheck``: one commit check seen for scoring; once finished
+  and complete it gives a ``NewCommitScore``, and it says where the commit
+  stands (``CommitScoringState``: complete, in progress or incomplete).
+- ``BranchCommitTimeline``: how a branch's commits and scores are ordered.
+
+Each run keeps the importance its standard had when it ran, so changing
 importance or attachments later never rescores a commit.
 """
-from app.domain.scoring.candidate import Candidate
-from app.domain.scoring.check import Check
-from app.domain.scoring.check_outcome import CheckOutcome
-from app.domain.scoring.commit_results import CommitResults
-from app.domain.scoring.commit_state import CommitState
-from app.domain.scoring.commit_timeline import CommitTimeline
-from app.domain.scoring.expectation import Expectation
-from app.domain.scoring.policy import POLICY
-from app.domain.scoring.required_gate_weighted_average import RequiredGateWeightedAverage
-from app.domain.scoring.result import Result
-from app.domain.scoring.score import Score
-from app.domain.scoring.scoring_policy import ScoringPolicy
-from app.domain.scoring.status import ERROR, FAILED, FINISHED, PASSED, RUNNING
+from app.domain.scoring.attached_standard import AttachedStandard
+from app.domain.scoring.branch_commit_timeline import BranchCommitTimeline
+from app.domain.scoring.commit_score_value import CommitScoreValue
+from app.domain.scoring.commit_scoring_policy import CommitScoringPolicy
+from app.domain.scoring.commit_scoring_policy_in_use import COMMIT_SCORING_POLICY
+from app.domain.scoring.commit_scoring_state import CommitScoringState
+from app.domain.scoring.expected_standards import ExpectedStandards
+from app.domain.scoring.new_commit_score import NewCommitScore
+from app.domain.scoring.required_gate_weighted_average_policy import RequiredGateWeightedAveragePolicy
+from app.domain.scoring.scorable_commit_check import ScorableCommitCheck
+from app.domain.scoring.standard_run_result import StandardRunResult
+from app.domain.scoring.standard_run_results_on_commit import StandardRunResultsOnCommit
+from app.domain.scoring.standard_run_status import StandardRunStatus
 
 __all__ = [
-    "POLICY",
-    "Candidate",
-    "Check",
-    "CheckOutcome",
-    "CommitResults",
-    "CommitState",
-    "CommitTimeline",
-    "ERROR",
-    "Expectation",
-    "FAILED",
-    "FINISHED",
-    "PASSED",
-    "RUNNING",
-    "RequiredGateWeightedAverage",
-    "Result",
-    "Score",
-    "ScoringPolicy",
+    "COMMIT_SCORING_POLICY",
+    "AttachedStandard",
+    "BranchCommitTimeline",
+    "CommitScoreValue",
+    "CommitScoringPolicy",
+    "CommitScoringState",
+    "ExpectedStandards",
+    "NewCommitScore",
+    "RequiredGateWeightedAveragePolicy",
+    "ScorableCommitCheck",
+    "StandardRunResult",
+    "StandardRunResultsOnCommit",
+    "StandardRunStatus",
 ]

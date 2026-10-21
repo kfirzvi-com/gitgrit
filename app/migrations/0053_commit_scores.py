@@ -6,7 +6,7 @@
 #   before importance existed);
 # - each check expects the standards that ran in it (what it was queued with);
 # - each checked commit is scored once, by its newest finished check
-#   (scoring.Check.outcome), if that check is complete.
+#   (scoring.ScorableCommitCheck.new_commit_score), if that check is complete.
 
 import django.db.models.deletion
 import uuid
@@ -47,24 +47,24 @@ def backfill(apps, schema_editor):
                 project_id=project_id, commit_check__branch=branch, commit_check__commit_sha=sha
             ).order_by("-created_at")
         )
-        outcome = scoring.Check(
+        new_score = scoring.ScorableCommitCheck(
             commit_sha=sha,
-            expectation=scoring.Expectation(tuple(check.expected_standard_ids)),
-            running=False,
-        ).outcome(
-            scoring.CommitResults([
-                scoring.Result(
+            expected_standards=scoring.ExpectedStandards(tuple(check.expected_standard_ids)),
+            has_running_runs=False,
+        ).new_commit_score(
+            scoring.StandardRunResultsOnCommit([
+                scoring.StandardRunResult(
                     standard_id=str(e.standard_id),
-                    name=e.standard_name,
-                    status=e.status,
-                    score=e.score,
+                    standard_name=e.standard_name,
+                    status=scoring.StandardRunStatus(e.status),
+                    standard_score=e.score,
                     importance=Importance(e.importance),
                     execution_id=str(e.pk),
                 )
                 for e in executions
             ])
         )
-        if outcome is None:
+        if new_score is None:
             continue
         commit_score = CommitScore.objects.create(
             project_id=project_id,
@@ -72,12 +72,12 @@ def backfill(apps, schema_editor):
             branch=branch,
             commit_sha=sha,
             committed_at=check.committed_at,
-            ordered_at=scoring.CommitTimeline.ordered_at(check.committed_at, check.created_at),
-            value=outcome.score.value,
-            failed=outcome.score.failed,
-            reason=outcome.score.reason,
+            ordered_at=scoring.BranchCommitTimeline.commit_ordered_at(check.committed_at, check.created_at),
+            value=new_score.score.value,
+            failed=new_score.score.failed_by_required_standard,
+            reason=new_score.score.failure_reason,
         )
-        commit_score.executions.set([r.execution_id for r in outcome.results])
+        commit_score.executions.set([r.execution_id for r in new_score.run_results])
 
 
 class Migration(migrations.Migration):
