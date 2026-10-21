@@ -30,11 +30,11 @@
                 <span class="text-sm text-gray-500">{{ project.owner }}</span>
               {% endif %}
             </div>
-            {# A right-aligned column so the letters line up across cards. #}
-            <div class="min-w-14 shrink-0 flex flex-col items-end text-right" data-project-score>
+            {# A fixed-width column, centred, so the letters line up across cards. #}
+            <div class="w-20 shrink-0 flex flex-col items-center text-center" data-project-score>
               {% score project.commit_score.value failed=project.commit_score.failed size="card" %}
               {% if project.commit_score.failed %}
-                <span class="gg-required-failed mt-1 whitespace-nowrap text-xs" data-project-failed>{% include "partials/importance_icon.html" with value="required" %}Project failed!</span>
+                <span class="gg-required-failed mt-1.5 text-xs leading-tight text-left" data-project-failed>{% include "partials/importance_icon.html" with value="required" %}<span class="w-min">Project failed!</span></span>
               {% endif %}
             </div>
           </div>
