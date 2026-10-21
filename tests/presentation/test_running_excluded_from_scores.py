@@ -12,6 +12,7 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.domain.models import StandardExecution
+from tests.support import score_commit
 from app.application.standard_results import attention_items
 from app.presentation.architecture import latest_scores_by_project
 
@@ -34,7 +35,9 @@ def _login_member(client):
 
 
 def _passed_then_running(project, standard):
-    """A finished 100% result, then a newer in-flight run of the same standard."""
+    """A finished 100% result on a scored commit, then a newer in-flight run
+    of the same standard re-checking it."""
+    check = baker.make("app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40)
     baker.make(
         "app.StandardExecution",
         project=project,
@@ -42,7 +45,9 @@ def _passed_then_running(project, standard):
         standard_name=standard.name,
         score=100,
         status=StandardExecution.Status.PASSED,
+        commit_check=check,
     )
+    score_commit(project, "a" * 40)
     return baker.make(
         "app.StandardExecution",
         project=project,
@@ -50,6 +55,7 @@ def _passed_then_running(project, standard):
         standard_name=standard.name,
         score=0,
         status=StandardExecution.Status.RUNNING,
+        commit_check=baker.make("app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40),
     )
 
 
@@ -81,7 +87,7 @@ class TestRunningRowsDoNotMoveScores(TestCase):
             reverse("project_badge", args=[self.project.pk])
         ).content.decode()
 
-        assert "100%" in svg
+        assert "GitGrit compliance: 100%" in svg
 
     def test_latest_scores_by_project_ignores_the_running_row(self):
         latest = latest_scores_by_project(self.tenant)

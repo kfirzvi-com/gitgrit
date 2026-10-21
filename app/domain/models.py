@@ -1172,6 +1172,10 @@ class CommitCheck(models.Model):
         blank=True,
         related_name="commit_checks",
     )
+    # The standards the commit needs a finished result of to be scored, as
+    # they stood when this check was queued: attached, enabled, not a draft,
+    # matching the commit (``app.application.scoring``). Standard ids.
+    expected_standard_ids = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1248,6 +1252,13 @@ class StandardExecution(models.Model):
         blank=True,
         related_name="executions",
     )
+    # The standard's importance on the project when it was queued; the score
+    # weighs the result by it, so changing importance later rescores nothing.
+    importance = models.CharField(
+        max_length=importance_domain.MAX_LENGTH,
+        choices=importance_domain.choices(),
+        default=importance_domain.DEFAULT.value,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1266,6 +1277,50 @@ class StandardExecution(models.Model):
 
     def __str__(self):
         return f"{self.standard_name} — {self.status} ({self.project})"
+
+
+class CommitScore(models.Model):
+    """A commit's score, saved when one of its checks finishes and every
+    standard the check expected has a finished result on the commit
+    (``app.domain.scoring``). A commit keeps the last score it reached: a
+    newer check replaces it only when it completes too. The project's score
+    is the newest one on its default branch."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="commit_scores"
+    )
+    # The check whose finish completed the commit.
+    commit_check = models.ForeignKey(
+        CommitCheck, on_delete=models.CASCADE, related_name="scores"
+    )
+    branch = models.CharField(max_length=255)
+    commit_sha = models.CharField(max_length=40)
+    committed_at = models.DateTimeField(null=True, blank=True)
+    # When the commit counts as made (``BranchCommitTimeline.commit_ordered_at``): a
+    # branch shows the score with the newest one.
+    ordered_at = models.DateTimeField()
+    # 0-100; None when no result could be averaged (every one errored).
+    value = models.IntegerField(null=True, blank=True)
+    # A Required standard failed or errored: the value is 0.
+    failed = models.BooleanField(default=False)
+    reason = models.TextField(blank=True, default="")
+    # The results the score was computed from, one per expected standard.
+    executions = models.ManyToManyField(
+        StandardExecution, related_name="commit_scores", blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "commit_scores"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["project", "branch", "commit_sha"], name="idx_commit_score_commit"),
+            models.Index(fields=["project", "branch", "-ordered_at"], name="idx_commit_score_branch"),
+        ]
+
+    def __str__(self):
+        return f"{self.branch}@{self.commit_sha[:7]}: {self.value}"
 
 
 class FeedbackReport(models.Model):

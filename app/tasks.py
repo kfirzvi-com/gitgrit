@@ -150,6 +150,7 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     # import time (the worker imports this module early).
     from app.application.commit_checks import pin_head_commits
     from app.application.event_bus import publish
+    from app.application.scoring import score_checks
     from app.application.standard_engine import StandardEngine
     from app.domain.events import StandardRunFinished
     from app.domain.models import Project, StandardExecution
@@ -162,8 +163,16 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
         )
 
     def _publish_finished(error: str = "") -> None:
-        """Tell listeners how the run ended. Outcomes are re-read from the
-        database and only this project's rows count."""
+        """Score the commits whose checks this run finished, then tell
+        listeners how the run ended. Outcomes are re-read from the database
+        and only this project's rows count."""
+        score_checks(
+            set(
+                StandardExecution.objects.filter(pk__in=execution_ids, project=project)
+                .exclude(commit_check=None)
+                .values_list("commit_check_id", flat=True)
+            )
+        )
         rows = list(
             StandardExecution.objects.filter(pk__in=execution_ids, project=project)
             .order_by("created_at")

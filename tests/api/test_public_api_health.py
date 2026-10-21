@@ -7,6 +7,7 @@ from model_bakery import baker
 from app.application import commit_checks
 from app.domain.models import CommitCheck, StandardExecution
 from tests.api.test_public_api import PublicAPITestCase, make_oauth_token
+from tests.support import score_commit
 
 Status = StandardExecution.Status
 A, B, C = "a" * 40, "b" * 40, "c" * 40
@@ -41,14 +42,18 @@ class HealthAPITestCase(PublicAPITestCase):
         self.p = f"{self.ws}/projects/{self.project.id}"
 
     def check(self, sha, branch="main", status=Status.PASSED, score=100):
+        """One finished result on ``sha``, scored the way a finished check is."""
         check = baker.make(
             "app.CommitCheck", project=self.project, branch=branch, commit_sha=sha
         )
-        return baker.make(
+        execution = baker.make(
             "app.StandardExecution", project=self.project, standard=self.standard,
             standard_name="Pinned CI", status=status, score=score, commit_check=check,
             ref=branch,
         )
+        if status != Status.RUNNING:
+            score_commit(self.project, sha, branch=branch)
+        return execution
 
 
 class TestBranchesAndHealth(HealthAPITestCase):
@@ -69,6 +74,45 @@ class TestBranchesAndHealth(HealthAPITestCase):
         assert (body["passed"], body["failed"], body["errored"]) == (0, 1, 0)
         assert body["results"][0]["commit_sha"] == A
         assert body["results"][0]["standard_name"] == "Pinned CI"
+        assert body["commit_score"] == {
+            "value": 40, "failed": False, "reason": "", "state": "complete",
+            "standards": {"expected": 1, "finished": 1},
+            "commit": {"sha": A, "branch": "main", "committed_at": None},
+        }
+        assert body["newer_commit"] is None
+
+    def test_a_failing_required_standard_makes_the_project_zero(self):
+        self.project.project_standards.update(importance="required")
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=A)
+        baker.make(
+            "app.StandardExecution", project=self.project, standard=self.standard,
+            standard_name="Pinned CI", status=Status.FAILED, score=90, commit_check=check,
+            importance="required",
+        )
+        score_commit(self.project, A)
+
+        body = self.get(f"{self.p}/health/").json()
+
+        assert (body["score"], body["commit_score"]["failed"]) == (0, True)
+        assert body["commit_score"]["reason"] == "Pinned CI failing"
+
+    def test_a_newer_commit_still_checking_is_reported(self):
+        self.check(A, status=Status.PASSED, score=100)
+        running = baker.make(
+            "app.CommitCheck", project=self.project, branch="main", commit_sha=C,
+            expected_standard_ids=[str(self.standard.pk)],
+        )
+        baker.make(
+            "app.StandardExecution", project=self.project, standard=self.standard,
+            standard_name="Pinned CI", status=Status.RUNNING, score=0, commit_check=running,
+        )
+
+        body = self.get(f"{self.p}/health/").json()
+
+        assert body["score"] == 100
+        assert body["newer_commit"] == {
+            "sha": C, "state": "in_progress", "standards": {"expected": 1, "finished": 0},
+        }
 
     def test_a_branch_does_not_move_project_health_but_has_its_own(self):
         self.check(A, branch="main", score=100)

@@ -143,6 +143,27 @@ func (e PlatformEnum) Valid() bool {
 	}
 }
 
+// Defines values for StateEnum.
+const (
+	Complete   StateEnum = "complete"
+	InProgress StateEnum = "in_progress"
+	Incomplete StateEnum = "incomplete"
+)
+
+// Valid indicates whether the value is a known member of the StateEnum enum.
+func (e StateEnum) Valid() bool {
+	switch e {
+	case Complete:
+		return true
+	case InProgress:
+		return true
+	case Incomplete:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusEnum.
 const (
 	Error   StatusEnum = "error"
@@ -291,11 +312,14 @@ type CheckResult struct {
 
 // Commit defines model for Commit.
 type Commit struct {
-	Author  string     `json:"author"`
-	Checked bool       `json:"checked"`
-	Date    *time.Time `json:"date"`
-	Errored int        `json:"errored"`
-	Failed  int        `json:"failed"`
+	Author  string `json:"author"`
+	Checked bool   `json:"checked"`
+
+	// CommitScore Null when the commit was never checked.
+	CommitScore *CommitScore `json:"commit_score"`
+	Date        *time.Time   `json:"date"`
+	Errored     int          `json:"errored"`
+	Failed      int          `json:"failed"`
 
 	// Level * `healthy` - healthy
 	// * `warning` - warning
@@ -322,6 +346,28 @@ type CommitPage struct {
 	Commits []Commit `json:"commits"`
 	HasMore bool     `json:"has_more"`
 	Page    int      `json:"page"`
+}
+
+// CommitScore defines model for CommitScore.
+type CommitScore struct {
+	Commit ScoredCommitRef `json:"commit"`
+
+	// Failed A Required standard failed or could not be verified: the value is 0.
+	Failed bool `json:"failed"`
+
+	// Reason Why the value is 0; empty otherwise.
+	Reason    string            `json:"reason"`
+	Standards StandardsProgress `json:"standards"`
+
+	// State The commit's newest check: complete, in_progress or incomplete (finished without every expected standard).
+	//
+	// * `complete` - complete
+	// * `in_progress` - in_progress
+	// * `incomplete` - incomplete
+	State StateEnum `json:"state"`
+
+	// Value The commit's last complete score, 0-100; null until every expected standard has finished on it.
+	Value *int `json:"value"`
 }
 
 // Connection defines model for Connection.
@@ -441,6 +487,17 @@ type Me struct {
 	TokenType  TokenTypeEnum `json:"token_type"`
 	User       *UserRef      `json:"user"`
 	Workspaces []Workspace   `json:"workspaces"`
+}
+
+// NewerCommit defines model for NewerCommit.
+type NewerCommit struct {
+	Sha       string            `json:"sha"`
+	Standards StandardsProgress `json:"standards"`
+
+	// State * `complete` - complete
+	// * `in_progress` - in_progress
+	// * `incomplete` - incomplete
+	State StateEnum `json:"state"`
 }
 
 // Offender defines model for Offender.
@@ -580,22 +637,28 @@ type ProjectDetail struct {
 
 // ProjectHealth defines model for ProjectHealth.
 type ProjectHealth struct {
-	// Branch Null for the project's health (each standard's home branch).
-	Branch        *string `json:"branch"`
-	DefaultBranch string  `json:"default_branch"`
-	Errored       int     `json:"errored"`
-	Failed        int     `json:"failed"`
+	// Branch Null for the project's health (its default branch).
+	Branch *string `json:"branch"`
+
+	// CommitScore The newest scored commit on the branch; null when none is.
+	CommitScore   *CommitScore `json:"commit_score"`
+	DefaultBranch string       `json:"default_branch"`
+	Errored       int          `json:"errored"`
+	Failed        int          `json:"failed"`
 
 	// Level * `healthy` - healthy
 	// * `warning` - warning
 	// * `critical` - critical
 	// * `unknown` - unknown
-	Level   LevelEnum     `json:"level"`
-	Passed  int           `json:"passed"`
-	Project ProjectRef    `json:"project"`
-	Results []CheckResult `json:"results"`
-	Running bool          `json:"running"`
-	Score   *int          `json:"score"`
+	Level LevelEnum `json:"level"`
+
+	// NewerCommit A newer commit with no score yet: still checking, or incomplete.
+	NewerCommit *NewerCommit  `json:"newer_commit"`
+	Passed      int           `json:"passed"`
+	Project     ProjectRef    `json:"project"`
+	Results     []CheckResult `json:"results"`
+	Running     bool          `json:"running"`
+	Score       *int          `json:"score"`
 }
 
 // ProjectNotFound defines model for ProjectNotFound.
@@ -619,11 +682,21 @@ type ProjectStandardsChange struct {
 
 // ProjectStatus defines model for ProjectStatus.
 type ProjectStatus struct {
-	Failed         int        `json:"failed"`
-	Grade          *string    `json:"grade"`
-	OverallScore   *float64   `json:"overall_score"`
-	Passed         int        `json:"passed"`
-	Project        ProjectRef `json:"project"`
+	// CommitSha The commit the score is from.
+	CommitSha *string `json:"commit_sha"`
+	Failed    int     `json:"failed"`
+	Grade     *string `json:"grade"`
+
+	// OverallScore The project's score: its newest fully checked commit on the default branch.
+	OverallScore *float64   `json:"overall_score"`
+	Passed       int        `json:"passed"`
+	Project      ProjectRef `json:"project"`
+
+	// Reason Why the score is 0; empty otherwise.
+	Reason string `json:"reason"`
+
+	// ScoreFailed A Required standard failed or could not be verified: the score is 0.
+	ScoreFailed    bool       `json:"score_failed"`
 	TopOffenders   []Offender `json:"top_offenders"`
 	TotalStandards int        `json:"total_standards"`
 }
@@ -683,6 +756,13 @@ type RunsSummary struct {
 	Message        string `json:"message"`
 	Projects       int    `json:"projects"`
 	Queued         int    `json:"queued"`
+}
+
+// ScoredCommitRef defines model for ScoredCommitRef.
+type ScoredCommitRef struct {
+	Branch      string     `json:"branch"`
+	CommittedAt *time.Time `json:"committed_at"`
+	Sha         string     `json:"sha"`
 }
 
 // StandardCreateRequest defines model for StandardCreateRequest.
@@ -776,6 +856,20 @@ type StandardTestResult struct {
 	Passed  bool                   `json:"passed"`
 	Score   int                    `json:"score"`
 }
+
+// StandardsProgress defines model for StandardsProgress.
+type StandardsProgress struct {
+	// Expected Standards the commit's newest check expects.
+	Expected int `json:"expected"`
+
+	// Finished Of those, how many have a finished result.
+	Finished int `json:"finished"`
+}
+
+// StateEnum * `complete` - complete
+// * `in_progress` - in_progress
+// * `incomplete` - incomplete
+type StateEnum string
 
 // StatusEnum * `running` - running
 // * `passed` - passed

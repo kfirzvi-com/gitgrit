@@ -4,7 +4,7 @@ from pathlib import Path
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
-from app.application.standard_results import current_results, project_score
+from app.application import scoring
 from app.domain.models import Project
 
 _LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "app" / "images" / "logo.svg"
@@ -19,11 +19,11 @@ def project_badge(request, pk):
     """Serve an SVG compliance badge for a project. Unauthenticated."""
     project = get_object_or_404(Project, pk=pk)
 
-    # The project's current results (each attached standard's latest finished
-    # result on its home branch), the same ones the dashboard scores.
-    latest = current_results([project])
-    score = project_score(latest)
-    all_passed = bool(latest) and all(ex.status == "passed" for ex in latest)
+    # The project's score: its newest scored commit on the default branch.
+    commit_score = scoring.project_score(project)
+    score = commit_score.value if commit_score else None
+    results = list(commit_score.executions.all()) if commit_score else []
+    all_passed = bool(results) and all(ex.status == "passed" for ex in results)
 
     svg = _render_badge(score, all_passed)
 

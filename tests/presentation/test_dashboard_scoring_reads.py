@@ -10,6 +10,7 @@ from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
+from app.application import scoring
 from app.domain.models import StandardExecution
 from app.presentation.architecture import latest_scores_by_project
 
@@ -74,16 +75,23 @@ class TestProjectBadge(TestCase):
         attached = baker.make("app.Standard", tenant=tenant)
         detached = baker.make("app.Standard", tenant=tenant)
         project.standards.add(attached)
-        _execution(project, attached, score=100)
-        _execution(
-            project, detached, score=0, status=StandardExecution.Status.FAILED
+        check = baker.make(
+            "app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40,
+            expected_standard_ids=[str(attached.pk)],
         )
+        StandardExecution.objects.filter(
+            pk__in=[
+                _execution(project, attached, score=100).pk,
+                _execution(project, detached, score=0, status=StandardExecution.Status.FAILED).pk,
+            ]
+        ).update(commit_check=check)
+        scoring.score_check(check)
 
         svg = self.client.get(
             reverse("project_badge", args=[project.id])
         ).content.decode()
 
-        assert "100%" in svg
+        assert "GitGrit compliance: 100%" in svg
 
     def test_badge_shows_no_data_when_nothing_attached(self):
         tenant = baker.make("app.Tenant")

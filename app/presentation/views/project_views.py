@@ -14,11 +14,11 @@ from app.application import commit_checks, project_management
 from app.application.errors import NotFoundError
 from app.application.commit_checks import (
     branch_commits,
-    branch_status,
     branches,
     waiting_for_commit,
 )
-from app.application.standard_results import breakdown, current_results, project_score
+from app.application import scoring
+from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
 from app.presentation import importance_text
@@ -93,8 +93,9 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
 def results_context(project) -> dict:
     """What the project page's Overview and Standards tabs render: the
-    attached standards, the project's current results, its health score and
-    that score's breakdown."""
+    attached standards, the project's score (its newest scored commit on the
+    default branch) with the results behind it and their breakdown, and a
+    newer commit still being checked or left incomplete."""
     context = {}
     attached_standards = list(project.standards.order_by("ordinal", "name"))
     context["attached_standards"] = attached_standards
@@ -123,15 +124,16 @@ def results_context(project) -> dict:
         ).values_list("standard_id", flat=True)
     )
 
-    # Each standard's current result on its home branch. Every run, on any
-    # branch and still RUNNING, shows under "Recent Activity" above; only
-    # these move the score.
-    latest_executions = sorted(
-        current_results([project]), key=lambda ex: ex.created_at, reverse=True
-    )
+    # The project's score and the results it was computed from. Every run,
+    # on any branch and still RUNNING, shows under "Recent Activity" above;
+    # only a complete commit on the default branch moves the score.
+    score = scoring.project_score(project)
+    latest_executions = list(score.executions.order_by("-created_at")) if score else []
+    context["project_score"] = score
     context["latest_executions"] = latest_executions
-    context["compliance_score"] = project_score(latest_executions)
-    context["health_breakdown"] = breakdown(latest_executions)
+    context["compliance_score"] = score.value if score else None
+    context["health_breakdown"] = outcome_counts(latest_executions)
+    context["newer_commit"] = scoring.newer_commit(project, project.default_branch, score)
 
     return context
 
@@ -157,12 +159,9 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
     if branch not in branch_names:
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
-    status = branch_status(project, branch)
-    # The score's results can come from several commits (a standard that did
-    # not run on the newest one keeps its earlier result); the header says so.
-    status_commits = list(dict.fromkeys(
-        ex.commit_check.commit_sha[:7] for ex in status if ex.commit_check and ex.commit_check.commit_sha
-    ))
+    # The branch's score: its newest scored commit, and the results behind it.
+    score = scoring.branch_score(project, branch)
+    status = list(score.executions.select_related("commit_check")) if score else []
     # The commit that starts open: the one just run, else the newest checked.
     if not open_sha and page == 1:
         open_sha = next((row.sha for row in rows if row.checked), "")
@@ -178,9 +177,10 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "page": page,
             "has_more": has_more,
             "status": status,
-            "status_score": project_score(status),
-            "status_breakdown": breakdown(status),
-            "status_commits": status_commits,
+            "status_score": score.value if score else None,
+            "branch_score": score,
+            "status_breakdown": outcome_counts(status),
+            "newer_commit": scoring.newer_commit(project, branch, score),
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
             "notice": notice,

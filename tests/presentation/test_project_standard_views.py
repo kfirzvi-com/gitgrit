@@ -17,6 +17,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from model_bakery import baker
 
+from app.application import scoring
 from app.domain.models import Project, StandardExecution
 from tests.support import defer_patch, running_executions
 
@@ -298,12 +299,17 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
         project.standards.add(attached)
         # Explicit statuses: the model defaults to RUNNING, and in-flight rows
         # are deliberately kept out of the score.
+        check = baker.make(
+            "app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40,
+            expected_standard_ids=[str(attached.pk)],
+        )
         baker.make(
             "app.StandardExecution",
             project=project,
             standard=attached,
             score=100,
             status=StandardExecution.Status.PASSED,
+            commit_check=check,
         )
         baker.make(
             "app.StandardExecution",
@@ -311,7 +317,9 @@ class TestProjectDetailShowsAttachedOnly(TestCase):
             standard=detached,
             score=0,
             status=StandardExecution.Status.FAILED,
+            commit_check=check,
         )
+        scoring.score_check(check)
 
         resp = self.client.get(reverse("project_detail", args=[project.pk]))
         assert resp.status_code == 200

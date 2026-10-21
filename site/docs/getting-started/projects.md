@@ -45,8 +45,8 @@ A standard can limit which events and branches it runs on. See [Writing Standard
 
 ## The project page
 
-- **Overview**: the health score and how many standards passed, failed or errored
-- **Results**: results per branch and commit, with each standard's message
+- **Overview**: the project's [score](#the-score) and how many standards passed, failed or errored
+- **Results**: each branch's score and its commits, each with its own score and every standard's message
 - **Standards**: attach and detach standards and set their [importance](#importance)
 - **Get your Badge**: an embeddable score badge for your README ([Compliance Badges](../features/badges.md))
 - **Edit**: lifecycle and owner. **Remove** deletes the project, its results and its webhook.
@@ -67,5 +67,15 @@ Set it in the project's **Standards** tab: click a row's importance in the **Imp
 
 The [API](https://app.gitgrit.dev/api/v1/docs/)'s list of a project's standards (`GET /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/`) returns each one's `importance`, and `PATCH /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/{standard_id}/` with `{"importance": "required"}` sets it.
 
-!!! note
-    Importance is recorded and shown today; it does not change the score yet.
+Each run remembers the importance its standard had when it ran, so changing importance later never rescores an old commit; the next check uses the new one.
+
+## The score
+
+Every checked commit gets a **score** from 0 to 100, once **every expected standard has finished on it**. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when its check started. Until then the commit has no score: it is *checking*, or *incomplete* if a standard never finished (for example, only one standard was run by hand).
+
+- A **Required** standard that fails, or could not be verified (its run errored, for any reason, GitGrit's own failures included), makes the score **0**. The project page says which.
+- Otherwise the score is the **average of the standards' scores, weighted by importance**: Required and Major count 2, Minor counts 1. A Major or Minor standard that errored is left out.
+
+The **project's score** is the score of the newest commit on the default branch that has one. Checking an old commit again never replaces a newer commit's score. A commit keeps its score while it is checked again, and the new check replaces it only once every expected standard has finished; if a newer commit is still checking or incomplete, the project page says so under the score.
+
+Changing attachments or importance does not rescore anything: the next check does.

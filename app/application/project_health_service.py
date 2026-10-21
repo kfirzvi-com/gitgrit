@@ -1,13 +1,15 @@
 """A project's health and commit checks as plain data, scoped to a workspace.
 
-The same reads the project page's Health card makes (``commit_checks`` and
-``standard_results``), shaped for the public API.
+The same reads the project page makes (``commit_checks`` and ``scoring``),
+shaped for the public API. Every score comes with a ``commit_score`` object
+(``_commit_score``): the commit's value, whether a Required standard failed
+it, and the state of its newest check.
 """
 from django.core.exceptions import ValidationError
 
-from app.application import commit_checks
+from app.application import commit_checks, scoring
 from app.application.errors import NotFoundError
-from app.application.standard_results import breakdown, current_results, project_score
+from app.application.standard_results import breakdown
 from app.application.standard_runs import in_flight
 from app.domain.health import level_from_score
 from app.domain.models import Project, StandardExecution, Tenant
@@ -33,12 +35,37 @@ def _result(ex: StandardExecution) -> dict:
     return data
 
 
-def _summary(results) -> dict:
-    score = project_score(results)
-    return {"score": score, "level": level_from_score(score), **breakdown(results)}
+def _summary(score, results) -> dict:
+    value = score.value if score else None
+    return {"score": value, "level": level_from_score(value), **breakdown(results)}
 
 
-def _commit(row: commit_checks.CommitRow) -> dict:
+def _commit_score(project, sha: str, branch: str, score) -> dict | None:
+    """A commit's score as the API shows it: ``value`` is its last complete
+    score (None until a check completes it), ``state`` its newest check's
+    (complete, in_progress or incomplete) with how many of the standards
+    that check expects have finished."""
+    state = scoring.commit_state(project, sha, branch) if sha else None
+    if score is None and state is None:
+        return None
+    return {
+        "value": score.value if score else None,
+        "failed": score.failed if score else False,
+        "reason": score.reason if score else "",
+        "state": state.state if state else scoring.COMPLETE,
+        "standards": {
+            "expected": state.expected_count if state else score.executions.count(),
+            "finished": state.finished_count if state else score.executions.count(),
+        },
+        "commit": {
+            "sha": sha,
+            "branch": branch,
+            "committed_at": score.committed_at.isoformat() if score and score.committed_at else None,
+        },
+    }
+
+
+def _commit(project, row: commit_checks.CommitRow, branch: str) -> dict:
     finished = [r for r in row.results if r.status != Status.RUNNING]
     return {
         "sha": row.sha,
@@ -48,7 +75,8 @@ def _commit(row: commit_checks.CommitRow) -> dict:
         "url": row.url,
         "checked": row.checked,
         "running": row.running,
-        **_summary(finished),
+        **_summary(row.commit_score, finished),
+        "commit_score": _commit_score(project, row.sha, branch, row.commit_score) if row.checked else None,
         "results": [_result(r) for r in row.results],
         "not_run": [{"id": str(s.id), "name": s.name} for s in row.not_run],
     }
@@ -80,19 +108,33 @@ class ProjectHealthService:
         ]
 
     def health(self, tenant: Tenant, project_id: str, branch: str | None = None) -> dict:
-        """The project's health — each attached standard's latest result on
-        its home branch — or, with ``branch``, that branch's own health."""
+        """The project's health — its score, the newest scored commit on the
+        default branch — or, with ``branch``, that branch's. ``newer_commit``
+        is a newer commit with no score yet (checking or incomplete)."""
         project = self._project(tenant, project_id)
-        if branch:
-            results = commit_checks.branch_status(project, branch)
-        else:
-            results = current_results([project])
-        results = sorted(results, key=lambda ex: ex.created_at, reverse=True)
+        on = branch or project.default_branch
+        score = scoring.branch_score(project, on)
+        results = (
+            sorted(score.executions.select_related("commit_check"), key=lambda ex: ex.created_at, reverse=True)
+            if score
+            else []
+        )
+        newer = scoring.newer_commit(project, on, score)
         return {
             "project": {"id": str(project.id), "name": project.name},
             "branch": branch or None,
             "default_branch": project.default_branch,
-            **_summary(results),
+            **_summary(score, results),
+            "commit_score": _commit_score(project, score.commit_sha, on, score) if score else None,
+            "newer_commit": (
+                {
+                    "sha": newer.sha,
+                    "state": newer.state.state,
+                    "standards": {"expected": newer.state.expected_count, "finished": newer.state.finished_count},
+                }
+                if newer
+                else None
+            ),
             "running": self._running(project, branch),
             "results": [_result(ex) for ex in results],
         }
@@ -106,7 +148,7 @@ class ProjectHealthService:
             "branch": branch,
             "page": page,
             "has_more": has_more,
-            "commits": [_commit(row) for row in rows],
+            "commits": [_commit(project, row, branch) for row in rows],
         }
 
     def commit(self, tenant: Tenant, project_id: str, sha: str) -> dict:
@@ -115,7 +157,7 @@ class ProjectHealthService:
         row = commit_checks.commit_results(project, sha)
         if not row.checked:
             raise NotFoundError(f"No checks recorded for commit {sha}")
-        return _commit(row)
+        return _commit(project, row, scoring.commit_branch(project, sha, row.commit_score))
 
     def run(self, tenant: Tenant, user, project_id: str, branch: str | None, sha: str = "") -> dict:
         """Check a branch's latest commit, or one commit, now."""

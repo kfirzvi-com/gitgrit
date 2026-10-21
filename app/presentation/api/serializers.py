@@ -107,8 +107,15 @@ class OffenderSerializer(serializers.Serializer):
 
 class ProjectStatusSerializer(serializers.Serializer):
     project = ProjectRefSerializer()
-    overall_score = serializers.FloatField(allow_null=True)
+    overall_score = serializers.FloatField(
+        allow_null=True, help_text="The project's score: its newest fully checked commit on the default branch."
+    )
     grade = serializers.CharField(allow_null=True)
+    score_failed = serializers.BooleanField(
+        help_text="A Required standard failed or could not be verified: the score is 0."
+    )
+    reason = serializers.CharField(help_text="Why the score is 0; empty otherwise.")
+    commit_sha = serializers.CharField(allow_null=True, help_text="The commit the score is from.")
     total_standards = serializers.IntegerField()
     passed = serializers.IntegerField()
     failed = serializers.IntegerField()
@@ -266,12 +273,57 @@ class HealthSummaryFields(serializers.Serializer):
     errored = serializers.IntegerField()
 
 
+COMMIT_STATES = ["complete", "in_progress", "incomplete"]
+
+
+class StandardsProgressSerializer(serializers.Serializer):
+    expected = serializers.IntegerField(help_text="Standards the commit's newest check expects.")
+    finished = serializers.IntegerField(help_text="Of those, how many have a finished result.")
+
+
+class ScoredCommitRefSerializer(serializers.Serializer):
+    sha = serializers.CharField()
+    branch = serializers.CharField()
+    committed_at = serializers.DateTimeField(allow_null=True)
+
+
+class CommitScoreSerializer(serializers.Serializer):
+    value = serializers.IntegerField(
+        allow_null=True,
+        help_text="The commit's last complete score, 0-100; null until every expected standard "
+        "has finished on it.",
+    )
+    failed = serializers.BooleanField(
+        help_text="A Required standard failed or could not be verified: the value is 0."
+    )
+    reason = serializers.CharField(help_text="Why the value is 0; empty otherwise.")
+    state = serializers.ChoiceField(
+        choices=COMMIT_STATES,
+        help_text="The commit's newest check: complete, in_progress or incomplete (finished "
+        "without every expected standard).",
+    )
+    standards = StandardsProgressSerializer()
+    commit = ScoredCommitRefSerializer()
+
+
+class NewerCommitSerializer(serializers.Serializer):
+    sha = serializers.CharField()
+    state = serializers.ChoiceField(choices=COMMIT_STATES)
+    standards = StandardsProgressSerializer()
+
+
 class ProjectHealthSerializer(HealthSummaryFields):
     project = ProjectRefSerializer()
     branch = serializers.CharField(
-        allow_null=True, help_text="Null for the project's health (each standard's home branch)."
+        allow_null=True, help_text="Null for the project's health (its default branch)."
     )
     default_branch = serializers.CharField()
+    commit_score = CommitScoreSerializer(
+        allow_null=True, help_text="The newest scored commit on the branch; null when none is."
+    )
+    newer_commit = NewerCommitSerializer(
+        allow_null=True, help_text="A newer commit with no score yet: still checking, or incomplete."
+    )
     running = serializers.BooleanField()
     results = CheckResultSerializer(many=True)
 
@@ -289,6 +341,7 @@ class CommitSerializer(HealthSummaryFields):
     url = serializers.CharField()
     checked = serializers.BooleanField()
     running = serializers.IntegerField(help_text="Checks still running on this commit.")
+    commit_score = CommitScoreSerializer(allow_null=True, help_text="Null when the commit was never checked.")
     results = CheckResultSerializer(many=True)
     not_run = StandardRefSerializer(
         many=True, help_text="Standards that apply now but did not run on this commit."

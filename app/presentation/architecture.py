@@ -26,6 +26,7 @@ from collections import Counter, defaultdict
 from django.db.models import Count, Max, Q
 from django.urls import reverse
 
+from app.application import scoring
 from app.application.naming import canonical_key
 from app.application.standard_results import current_results
 from app.domain.models import (
@@ -67,20 +68,18 @@ def _project_score(project_id, latest):
     return round(sum(r["score"] for r in results.values()) / len(results))
 
 
-def _project_issues(project_id, latest):
-    """Reasons a project needs attention — its lowest sub-threshold standards.
-
-    Returns a list of short strings for the hover tooltip. Empty when the
-    project is healthy or has no results. Future signals (DORA deployment
-    frequency, failing high-severity standards) should append their own
-    reasons here so the tooltip stays the single explanation of node health.
-    """
-    results = latest.get(project_id, {})
+def _component_issues(commit_score):
+    """Why a project needs attention: the Required standard that failed it,
+    else its lowest sub-threshold standards."""
+    if commit_score is None:
+        return []
+    if commit_score.failed:
+        return [commit_score.reason]
     low = sorted(
-        (r for r in results.values() if r["score"] < HEALTHY_MIN),
-        key=lambda r: r["score"],
+        (e for e in commit_score.executions.all() if e.score < HEALTHY_MIN),
+        key=lambda e: e.score,
     )
-    return ["{} — {}%".format(r["name"], r["score"]) for r in low[:4]]
+    return ["{} — {}%".format(e.standard_name, e.score) for e in low[:4]]
 
 
 def _merge_tech(*lists):
@@ -260,9 +259,12 @@ def workspace_graph(tenant, latest):
 # --- Per-stack graph --------------------------------------------------------
 
 
-def _component_node(component, latest, monorepo_projects):
+def _component_node(component, latest, monorepo_projects, project_scores):
+    """A component in the stack diagram, scored by its project's score
+    (``app.application.scoring``). The stack's own score is computed apart."""
     project = component.project
-    score = _project_score(project.id, latest)
+    commit_score = project_scores.get(project.id)
+    score = commit_score.value if commit_score else None
     return {
         "id": str(component.id),
         "name": component.name,
@@ -278,7 +280,7 @@ def _component_node(component, latest, monorepo_projects):
         "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
         "score": score,
         "health": project_level(score),
-        "issues": _project_issues(project.id, latest),
+        "issues": _component_issues(commit_score),
         "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),
     }
@@ -332,7 +334,10 @@ def stack_graph(stack, latest):
         .values_list("pk", flat=True)
     )
 
-    components = [_component_node(c, latest, monorepo_projects) for c in internal]
+    project_scores = scoring.project_scores({c.project for c in internal})
+    components = [
+        _component_node(c, latest, monorepo_projects, project_scores) for c in internal
+    ]
     consumers = {}
     consuming = {}
     thirdparties = {}
