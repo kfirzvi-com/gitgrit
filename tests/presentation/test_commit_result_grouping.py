@@ -29,9 +29,10 @@ class CommitResultGroupingTests(SimpleTestCase):
 
         assert [(g.key, [r.standard_name for r in g.runs]) for g in groups] == [
             ("running", ["Docs"]),
+            # Errored before failed: no result means no score at all.
+            ("errored", ["License"]),
             # Required, then Major (lowest score first), then Minor.
             ("failed", ["No secrets", "Changelog", "Linter", "Typos"]),
-            ("errored", ["License"]),
             ("passed", ["Pinned", "Readme"]),
         ]
 
