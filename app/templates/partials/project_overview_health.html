@@ -35,7 +35,11 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
   {# No score: as tall as its content, not stretched to the About card beside it. #}
   <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-unknown" data-overview-health>
     <div class="card-body items-center justify-center gap-6 py-10">
-      <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
+      {% if branch_head.outcome == "checking" or branch_head.outcome == "no_score" %}
+        <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30" data-score-value>{% include "partials/no_grade.html" with subject=branch_head size="hero" %}</div>
+      {% else %}
+        <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
+      {% endif %}
       {% if attached_standards %}
         <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has a result on it (passed or failed).</p>
         {% include "partials/score_note.html" with score=None head=branch_head %}

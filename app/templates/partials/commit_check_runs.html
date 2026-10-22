@@ -20,12 +20,12 @@ Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomme
           {# Set on every run (a loop keeps "as" variables): "—" and unknown without a verdict. #}
           {% score_text_of run.score.value run.score.failed as text %}{% score_tone run.score.value run.score.failed as tone %}
           <button type="button"
-                  class="flex h-8 min-w-8 px-1 items-center justify-center rounded-full text-xs font-bold {% if run.outcome == 'checking' %}border border-base-content/30{% else %}gg-tone-bg-{{ tone }} text-[#0c0e13]{% endif %}{% if run.check.pk == row.selected.check.pk %} ring-2 ring-primary ring-offset-2 ring-offset-base-100{% else %} opacity-80 hover:opacity-100{% endif %}"
+                  class="flex h-8 min-w-8 px-1 items-center justify-center rounded-full text-xs font-bold {% if run.outcome == 'checking' or run.outcome == 'no_score' %}border border-base-content/30{% else %}gg-tone-bg-{{ tone }} text-[#0c0e13]{% endif %}{% if run.check.pk == row.selected.check.pk %} ring-2 ring-primary ring-offset-2 ring-offset-base-100{% else %} opacity-80 hover:opacity-100{% endif %}"
                   hx-get="{% url 'project_commit_check' project.pk run.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader
                   {% if run.check.pk == row.selected.check.pk %}aria-current="true"{% endif %}
                   title="Run {{ forloop.revcounter }} of {{ row.checks|length }} · {{ run.check|trigger_label }} · {{ run.check.created_at|date:'j M Y, H:i' }} · {% if run.outcome == 'checking' %}checking{% elif run.outcome == 'no_score' %}no score: {{ run.standing.reason }}{% else %}{{ text }}{% endif %}"
                   data-check-node="{{ run.outcome }}">
-            {% if run.outcome == "checking" %}<span class="loading loading-spinner loading-xs"></span>{% else %}{{ text }}{% endif %}
+            {% if run.outcome == "checking" %}<span class="loading loading-spinner loading-xs"></span>{% elif run.outcome == "no_score" %}<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.49 2.86c.66-1.15 2.36-1.15 3.02 0l6.27 10.9c.66 1.15-.18 2.6-1.51 2.6H3.73c-1.33 0-2.17-1.45-1.51-2.6L8.5 2.86ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>{% else %}{{ text }}{% endif %}
           </button>
         </li>
       {% endfor %}

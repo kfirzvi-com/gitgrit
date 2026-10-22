@@ -51,6 +51,18 @@ def _represented(commit_score, representation):
     return representation.represent(commit_score.value, failed=commit_score.failed)
 
 
+def _project_issue(project, commit_score, representation):
+    """One line of a stack's hover: a project that needs attention, as
+    itself: its grade (and why it failed), why it has no score, or that it
+    has none yet."""
+    if NoScoreNote.text(commit_score):
+        return "{} — {}".format(project.name, NoScoreNote.text(commit_score))
+    if commit_score is None:
+        return "{} — no score yet".format(project.name)
+    represented = _represented(commit_score, representation).text
+    return "{} — {}{}".format(project.name, represented, ": " + commit_score.reason if commit_score.failed and commit_score.reason else "")
+
+
 def _component_issues(commit_score):
     """Why a project needs attention: the Required standard that failed it,
     else its standards that failed or errored (their own status, not
@@ -131,21 +143,13 @@ def workspace_graph(tenant):
         # many of its components sit in this stack.
         projects = list({c.project_id: c.project for c in components}.values())
         # A stack is never one grade or colour: it shows how many of its
-        # projects are failed, need attention, are healthy or have no data.
+        # projects are failed, need attention (no grade included) or are
+        # healthy.
         counts = ProjectHealthCounts.of(projects, project_scores)
 
         # Issues = the projects that need attention, each with its own grade,
         # so the hover says which project to look at.
-        issues = [
-            "{} — {}{}".format(p.name, _represented(s, representation).text, ": " + s.reason if s.failed and s.reason else "")
-            for p, s in counts.attention
-        ]
-        # And the projects whose newest commit has no score, and why.
-        issues += [
-            "{} — {}".format(p.name, NoScoreNote.text(project_scores[p.pk]))
-            for p in sorted(projects, key=lambda p: p.name.lower())
-            if NoScoreNote.text(project_scores.get(p.pk))
-        ]
+        issues = [_project_issue(p, s, representation) for p, s in counts.attention]
 
         stack_nodes.append(
             {
@@ -268,6 +272,9 @@ def _component_node(component, monorepo_projects, project_scores, representation
         "score_shade": _represented(commit_score, representation).shade,
         "health": project_level(score, failed=failed),
         "issues": _component_issues(commit_score),
+        # Why there is no grade (no score, a standard errored or never ran):
+        # the node shows a warning sign in its place, this on hover.
+        "no_score": NoScoreNote.text(commit_score),
         "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),
     }

@@ -70,7 +70,9 @@
               { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.score_shade || d.health) },
               d.score_text
             )
-          : null
+          : d.no_score
+            ? h("span", { className: "badge badge-sm badge-warning", title: d.no_score, "aria-label": d.no_score }, "⚠")
+            : null
       ),
       d.path ? h("div", { className: "gg-stack-node__path" }, d.path) : null,
       h(

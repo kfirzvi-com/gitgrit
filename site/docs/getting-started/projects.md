@@ -80,7 +80,7 @@ Each time the standards run on a commit (a push, a pull request, **Run**) is one
 
 Whether a standard **passed or failed** is the standard's own decision; its score is its partial credit. A standard can fail with a high score, and only its score counts toward the average.
 
-A **branch** reads its **newest commit**, whatever its outcome, and the **project's score** is its default branch's. Checking an old commit again never replaces a newer commit's. While the newest commit is being checked the project has no grade yet; when it has **no score**, neither does the project, and GitGrit says why wherever it shows the project: the Overview and Results tabs (which standard errored or was not run, and a button to run the commit again), the project's card, the dashboard's and stacks' counts (as no data, with the reason on hover), the map's hover, the API's `commit_score` and `gitgrit health`.
+A **branch** reads its **newest commit**, whatever its outcome, and the **project's score** is its default branch's. Checking an old commit again never replaces a newer commit's. While the newest commit is being checked the project has no grade yet; when it has **no score**, neither does the project, and GitGrit says why wherever it shows the project: the Overview and Results tabs (which standard errored or was not run, and a button to run the commit again), the project's card, the dashboard's and stacks' counts (as needing attention, with the reason on hover), the map's hover, the API's `commit_score` and `gitgrit health`.
 
 On the **Results** tab, open a commit to see every check of it on a timeline: a circle per check with its score inside, newest on the left and selected, since the commit reads it. Hover a circle for when and how it ran; step through them with the arrows, or pick one, to see what that check found.
 
@@ -104,7 +104,7 @@ An **F** always means the project failed; a low average is a D.
 
 ### Health
 
-Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A project has one health; many projects together never do: a stack and the dashboard show how many of their projects are failed, need attention, are healthy or have no data.
+Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A project has one health; many projects together never do: a stack and the dashboard show how many of their projects are failed, need attention or are healthy. There, a project with no grade (no score, no standards, never checked) needs attention: the list puts errors first, then the ones with no score at all, then the lowest grades.
 
 "Needs attention" on the dashboard and in the notifications pane lists only what stops a project from having a good score: **Required standards that failed** (each fails its project; listed first, in red), then **runs that errored**, of any importance (the commit has no score until they run). A Major or Minor standard that failed only lowers the score, so it is not listed.
 

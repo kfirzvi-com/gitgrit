@@ -25,7 +25,8 @@ def _execution(project, standard, score, status=StandardExecution.Status.PASSED)
 
 class TestProjectHealthCounts(TestCase):
     """The dashboard counts projects by health, from each one's commit
-    score: failed only when a Required standard failed it."""
+    score: failed only when a Required standard failed it; a project with no
+    grade needs attention (there is no "no data" count)."""
 
     def _project_scored(self, tenant, value, failed=False):
         project = baker.make("app.Project", tenant=tenant)
@@ -42,13 +43,17 @@ class TestProjectHealthCounts(TestCase):
         self._project_scored(tenant, 0)
         self._project_scored(tenant, 89)
         self._project_scored(tenant, 90)
-        baker.make("app.Project", tenant=tenant)
+        never_checked = baker.make("app.Project", tenant=tenant)
+        no_score = self._project_scored(tenant, None)
 
         counts = ProjectHealthCounts.for_workspace(tenant)
-        assert counts.as_dict() == {"failed": 1, "needs_attention": 2, "healthy": 1, "no_data": 1}
-        # Each project that needs attention, as itself: failed first, then lowest.
-        assert [s.failed for _, s in counts.attention] == [True, False, False]
-        assert [s.value for _, s in counts.attention][1:] == [0, 89]
+        assert counts.as_dict() == {"failed": 1, "needs_attention": 4, "healthy": 1}
+        # Each project that needs attention, as itself: failed first; then
+        # no score from an error, no score at all, and grades, lowest first.
+        attention = counts.attention
+        assert attention[0][1].failed
+        assert [p for p, _ in attention[1:3]] == [no_score, never_checked]
+        assert [s.value for _, s in attention[3:]] == [0, 89]
 
     def test_a_stack_node_counts_its_projects_and_has_no_grade_of_its_own(self):
         from app.presentation.architecture import workspace_graph
@@ -60,7 +65,7 @@ class TestProjectHealthCounts(TestCase):
 
         [node] = workspace_graph(tenant)["stacks"]
 
-        assert node["project_health"] == {"failed": 1, "needs_attention": 0, "healthy": 1, "no_data": 0}
+        assert node["project_health"] == {"failed": 1, "needs_attention": 0, "healthy": 1}
         assert not {"health", "score", "score_text", "score_shade"} & set(node)
 
 

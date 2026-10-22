@@ -59,7 +59,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
                     {% elif row.scored %}
                       <span class="w-10 text-right shrink-0"{% if row.failed_score %} title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% score row.score failed=row.failed_score %}</span>
                     {% else %}
-                      <span class="text-xs opacity-60 shrink-0" title="No score: {{ row.commit_score.reason|default:'not every standard has a result on this commit' }}" data-commit-score="no_score">no score</span>
+                      <span class="w-10 flex justify-end shrink-0" data-commit-score="no_score">{% include "partials/no_grade.html" with subject=row.shown size="sm" %}</span>
                     {% endif %}
                   </summary>
                   {% include "partials/commit_check_runs.html" %}

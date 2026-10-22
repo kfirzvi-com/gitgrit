@@ -8,7 +8,7 @@ its page with its grade.{% endcomment %}{% load score_tags %}{% if linked and ro
     {% for project, score in rows %}
       <li><a href="{% url 'project_detail' project.pk %}" class="flex items-center justify-between gap-3">
         <span class="truncate">{{ project.name }}</span>
-        <span class="shrink-0 inline-flex items-center gap-1.5">{% include "partials/no_score_note.html" with subject=score icon_only=True %}{% score score.value failed=score.failed size="sm" %}</span>
+        <span class="shrink-0">{% if score.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=score size="sm" %}{% else %}{% score score.value failed=score.failed size="sm" %}{% endif %}</span>
       </a></li>
     {% endfor %}
   </ul>

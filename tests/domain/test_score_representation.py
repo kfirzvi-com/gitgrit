@@ -137,3 +137,17 @@ class SharedScaleTests(SimpleTestCase):
 
     def test_healthy_starts_at_the_a_band(self):
         assert ScoreHealth.HEALTHY_FROM == ScoreBands.of(90).lowest == 90
+
+
+class CountedLevelTests(SimpleTestCase):
+    """Counting projects by health: a project with no grade needs attention;
+    there is no "no data" count."""
+
+    def test_no_grade_counts_as_needing_attention_the_rest_as_themselves(self):
+        from app.domain.health import counted_level
+        from app.domain.score_representation import ScoreTone
+
+        assert counted_level(ScoreTone.UNKNOWN) is ScoreTone.NEEDS_ATTENTION
+        assert counted_level(ScoreTone.NEEDS_ATTENTION) is ScoreTone.NEEDS_ATTENTION
+        assert counted_level(ScoreTone.FAILED) is ScoreTone.FAILED
+        assert counted_level(ScoreTone.HEALTHY) is ScoreTone.HEALTHY

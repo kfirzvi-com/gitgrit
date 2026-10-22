@@ -10,7 +10,8 @@ project's commit score through ``ScoreHealth``. It's structured as a set of
 
 A project's level is the worst across its signals. Many projects together
 (a stack, the workspace) never get one level: they are counted by health
-(``app.application.project_health_counts``).
+(``app.application.project_health_counts``), where a project with no grade
+counts as needing attention (``counted_level``).
 """
 
 from app.domain.score_representation import ScoreHealth, ScoreTone
@@ -35,6 +36,15 @@ def worst(levels):
     if not ranked:
         return UNKNOWN
     return max(ranked, key=lambda lvl: lvl.severity)
+
+
+def counted_level(level):
+    """Which count a project goes in when projects are counted by health:
+    its own level, except that a project with no grade (no score: a standard
+    errored or never ran, no standards, never checked, or being checked)
+    needs attention. There is no "no data" count."""
+    level = ScoreTone(level)
+    return NEEDS_ATTENTION if level is UNKNOWN else level
 
 
 def project_level(score, failed: bool = False):

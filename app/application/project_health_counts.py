@@ -1,30 +1,32 @@
-"""How many projects are failed, need attention, healthy or have no data,
-each from its own commit score. Never one grade or colour for many
-projects: the dashboard and every stack show these counts instead."""
+"""How many projects are failed, need attention or are healthy, each from
+its own commit score. Never one grade or colour for many projects: the
+dashboard and every stack show these counts instead."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from app.application import scoring
-from app.domain.health import project_level
+from app.domain.health import counted_level, project_level
 from app.domain.models import Project
 from app.domain.score_representation import ScoreTone
+from app.domain.scoring import CommitScoreOutcome
 
 
 @dataclass(frozen=True)
 class ProjectHealthCounts:
     """Projects counted by their health (``ScoreHealth`` of each project's
-    score): failed (a Required standard failed), needs attention (B to D),
-    healthy (A+, A), no data (no score yet). ``projects`` holds the projects
-    behind each count, with their scores, lowest first then by name (so a
-    count can list them); ``attention`` the failed and needing-attention ones,
-    failed first: each one as itself, never combined. A project whose
-    newest commit has no score counts as no data."""
+    score, ``health.counted_level``): failed (a Required standard failed),
+    needs attention (B to D, and every project with no grade: no score, no
+    standards, never checked), healthy (A+, A). ``projects`` holds the
+    projects behind each count, with their scores, worst first
+    (``_worst_first``: errors, then no score at all, then lowest grades), so
+    a count can list them; ``attention`` the failed and
+    needing-attention ones, failed first: each one as itself, never
+    combined."""
 
     failed: int
     needs_attention: int
     healthy: int
-    no_data: int
     projects: dict = None  # {ScoreTone: ((project, CommitScore | None), ...)}
 
     @property
@@ -49,10 +51,6 @@ class ProjectHealthCounts:
     def healthy_projects(self) -> tuple:
         return self.projects_with(ScoreTone.HEALTHY)
 
-    @property
-    def no_data_projects(self) -> tuple:
-        return self.projects_with(ScoreTone.UNKNOWN)
-
     @classmethod
     def of(cls, projects, project_scores=None) -> "ProjectHealthCounts":
         """``projects`` counted; ``project_scores`` (project id -> score)
@@ -60,18 +58,30 @@ class ProjectHealthCounts:
         projects = list(projects)
         if project_scores is None:
             project_scores = scoring.project_scores(projects)
-        by_tone = {tone: [] for tone in ScoreTone}
+        by_tone = {tone: [] for tone in (ScoreTone.FAILED, ScoreTone.NEEDS_ATTENTION, ScoreTone.HEALTHY)}
         for project in projects:
             score = project_scores.get(project.pk)
-            by_tone[cls.project_health(score)].append((project, score))
-        lowest_first = lambda t: (t[1].value if t[1] and t[1].value is not None else 0, t[0].name.lower())  # noqa: E731
+            by_tone[counted_level(cls.project_health(score))].append((project, score))
         return cls(
             failed=len(by_tone[ScoreTone.FAILED]),
             needs_attention=len(by_tone[ScoreTone.NEEDS_ATTENTION]),
             healthy=len(by_tone[ScoreTone.HEALTHY]),
-            no_data=len(by_tone[ScoreTone.UNKNOWN]),
-            projects={tone: tuple(sorted(rows, key=lowest_first)) for tone, rows in by_tone.items()},
+            projects={tone: tuple(sorted(rows, key=cls._worst_first)) for tone, rows in by_tone.items()},
         )
+
+    @staticmethod
+    def _worst_first(row):
+        """How a count lists its projects: no score because a standard
+        errored or never ran first, then no score at all (no standards, never
+        checked, or being checked), then grades, lowest first; then by name."""
+        project, score = row
+        if score is not None and score.outcome is CommitScoreOutcome.NO_SCORE:
+            rank = 0
+        elif score is None:
+            rank = 1
+        else:
+            rank = 2
+        return (rank, score.value if score and score.value is not None else 0, project.name.lower())
 
     @classmethod
     def for_workspace(cls, tenant) -> "ProjectHealthCounts":
@@ -90,5 +100,4 @@ class ProjectHealthCounts:
             "failed": self.failed,
             "needs_attention": self.needs_attention,
             "healthy": self.healthy,
-            "no_data": self.no_data,
         }

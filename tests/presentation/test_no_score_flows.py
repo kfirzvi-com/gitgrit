@@ -93,29 +93,32 @@ class Fixture(TestCase):
 
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class PagesTests(Fixture):
-    def test_the_project_card_has_no_grade_and_says_why(self):
+    def test_the_project_card_shows_a_warning_sign_for_its_grade_and_why_on_hover(self):
         body = self.client.get(reverse("project_list")).content.decode()
 
-        assert 'data-no-score-note="no_score"' in body
-        assert "No score on commit 2222222: Lint errored." in body
+        assert 'data-no-grade="no_score"' in body
+        assert 'title="No score on commit 2222222: Lint errored."' in body
+        # No sentence on the card: only the sign.
+        assert ">No score on commit" not in body
 
-    def test_the_project_card_says_its_newest_commit_is_being_checked(self):
+    def test_the_project_card_shows_a_spinner_while_its_newest_commit_is_checked(self):
         self._commit("3" * 40, timezone.now() + timedelta(hours=1), Status.PASSED, running=True)
 
         body = self.client.get(reverse("project_list")).content.decode()
 
-        assert 'data-no-score-note="checking"' in body
-        assert "Checking commit 3333333: 1 of 2 standards done…" in body
+        assert 'data-no-grade="checking"' in body
+        assert 'title="Checking commit 3333333: 1 of 2 standards done…"' in body
 
-    def test_a_scored_project_card_says_nothing_more(self):
+    def test_a_scored_project_card_shows_its_grade(self):
         self._commit("3" * 40, timezone.now() + timedelta(hours=1), Status.PASSED)
 
-        assert "data-no-score-note" not in self.client.get(reverse("project_list")).content.decode()
+        assert "data-no-grade" not in self.client.get(reverse("project_list")).content.decode()
 
     def test_the_overview_warns_and_links_to_the_results(self):
         body = self.client.get(reverse("project_detail", args=[self.project.pk])).content.decode()
 
         assert "gg-tone-card-unknown" in body
+        assert 'data-no-grade="no_score"' in body
         assert "data-no-score-alert" in body
         assert "The newest commit, 2222222, has no score: Lint errored." in body
         assert 'data-open-tab="results">See results' in body
@@ -126,6 +129,9 @@ class PagesTests(Fixture):
         assert "data-no-score-alert" in body
         assert "data-no-score-run" in body
         assert f'"sha": "{NEW}"' in body
+        # The commit's row and its timeline circle show the sign for a grade.
+        assert body.count('data-no-grade="no_score"') == 1
+        assert 'data-check-node="no_score"' in body
 
     def test_while_checking_the_tabs_say_so_instead_of_warning(self):
         self._commit("3" * 40, timezone.now() + timedelta(hours=1), Status.PASSED, running=True)
@@ -136,11 +142,12 @@ class PagesTests(Fixture):
         assert "Checking commit 3333333: 1 of 2 standards done…" in body
         assert "data-no-score-alert" not in body
 
-    def test_the_dashboard_counts_it_as_no_data_and_its_hover_row_says_why(self):
+    def test_the_dashboard_counts_it_as_needing_attention_and_its_hover_row_says_why(self):
         body = self._dashboard()
 
-        assert '<b>1</b> no data' in body
-        assert 'title="No score on commit 2222222: Lint errored."' in body
+        assert '<b>1</b> needs attention' in body
+        assert "no data" not in body
+        assert 'title="No score on commit 2222222: Lint errored."' in body and 'data-no-grade="no_score"' in body
 
     def test_needs_attention_explains_what_it_lists(self):
         body = self._dashboard()
@@ -164,6 +171,7 @@ class MapTests(Fixture):
         [node] = [n for n in stack_graph(self.stack)["components"] if n["name"] == "api"]
 
         assert node["issues"] == ["No score on commit 2222222: Lint errored."]
+        assert node["no_score"] == "No score on commit 2222222: Lint errored."
 
 
 class StatusAPITests(Fixture):

@@ -54,14 +54,14 @@ window.GitGritFlow = (function () {
     };
   }
 
-  // Projects counted by health ({failed, needs_attention, healthy, no_data}),
+  // Projects counted by health ({failed, needs_attention, healthy}; a project
+  // with no grade needs attention),
   // for a stack: one dot and number per non-zero count, never a single
   // grade or colour for many projects.
   var HEALTH_COUNT_ORDER = [
     ["failed", "failed", "failed"],
     ["needs_attention", "needs_attention", "need attention"],
     ["healthy", "healthy", "healthy"],
-    ["no_data", "unknown", "no data"],
   ];
   function healthCounts(counts) {
     var h = window.React.createElement;
