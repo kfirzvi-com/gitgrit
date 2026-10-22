@@ -15,9 +15,10 @@ Vocabulary, one class per term:
 - ``StandardRunResultsOnCommit``: every run on a commit, across its checks.
 - ``CommitScoringPolicy`` (strategy) and ``RequiredGateWeightedAveragePolicy``,
   the one in use (``COMMIT_SCORING_POLICY``): a Required standard that failed
-  or errored makes the commit 0, otherwise the importance-weighted average.
-- ``CommitScoreValue``: a commit's computed score: value, whether a Required
-  standard failed it, and why.
+  or errored fails the commit, otherwise the importance-weighted average.
+- ``CommitScoreValue``: a commit's computed score: value (None when failed),
+  whether a Required standard failed it, and why.
+- ``CommitScoreOutcome``: what that adds up to: failed, scored or unscored.
 - ``ScorableCommitCheck``: one commit check seen for scoring; once finished
   and complete it gives a ``NewCommitScore``, and it says where the commit
   stands (``CommitScoringState``: complete, in progress or incomplete).
@@ -28,6 +29,7 @@ importance or attachments later never rescores a commit.
 """
 from app.domain.scoring.attached_standard import AttachedStandard
 from app.domain.scoring.branch_commit_timeline import BranchCommitTimeline
+from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.scoring.commit_score_value import CommitScoreValue
 from app.domain.scoring.commit_scoring_policy import CommitScoringPolicy
 from app.domain.scoring.commit_scoring_policy_in_use import COMMIT_SCORING_POLICY
@@ -44,6 +46,7 @@ __all__ = [
     "COMMIT_SCORING_POLICY",
     "AttachedStandard",
     "BranchCommitTimeline",
+    "CommitScoreOutcome",
     "CommitScoreValue",
     "CommitScoringPolicy",
     "CommitScoringState",

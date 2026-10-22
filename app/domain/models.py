@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from app.domain import importance as importance_domain
 from app.domain.scoring import StandardRunResult, StandardRunStatus
+from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
@@ -1314,9 +1315,10 @@ class CommitScore(models.Model):
     # When the commit counts as made (``BranchCommitTimeline.commit_ordered_at``): a
     # branch shows the score with the newest one.
     ordered_at = models.DateTimeField()
-    # 0-100; None when no result could be averaged (every one errored).
+    # 0-100; None when a Required standard failed the commit, or when no
+    # result could be averaged (every one errored). See ``outcome``.
     value = models.IntegerField(null=True, blank=True)
-    # A Required standard failed or errored: the value is 0.
+    # A Required standard failed or errored: a verdict, so there is no value.
     failed = models.BooleanField(default=False)
     reason = models.TextField(blank=True, default="")
     # The results the score was computed from, one per expected standard.
@@ -1332,9 +1334,21 @@ class CommitScore(models.Model):
             models.Index(fields=["project", "branch", "commit_sha"], name="idx_commit_score_commit"),
             models.Index(fields=["project", "branch", "-ordered_at"], name="idx_commit_score_branch"),
         ]
+        constraints = [
+            # Failed is a verdict, not a number.
+            models.CheckConstraint(
+                condition=models.Q(failed=False) | models.Q(value__isnull=True),
+                name="commit_score_failed_has_no_value",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.branch}@{self.commit_sha[:7]}: {self.value}"
+        return f"{self.branch}@{self.commit_sha[:7]}: {self.outcome}"
+
+    @property
+    def outcome(self) -> CommitScoreOutcome:
+        """Failed, scored or unscored (``scoring.CommitScoreOutcome``)."""
+        return CommitScoreOutcome.of(self.value, self.failed)
 
 
 class FeedbackReport(models.Model):

@@ -2,8 +2,8 @@
 
 The same reads the project page makes (``commit_checks`` and ``scoring``),
 shaped for the public API. Every score comes with a ``commit_score`` object
-(``_commit_score``): the commit's value, whether a Required standard failed
-it, and the state of its newest check.
+(``_commit_score``): the commit's outcome (failed, scored or unscored), its
+value (none when failed), and the state of its newest check.
 """
 from django.core.exceptions import ValidationError
 
@@ -13,6 +13,7 @@ from app.application.standard_results import breakdown
 from app.application.standard_runs import in_flight
 from app.domain.health import level_from_score
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
+from app.domain.scoring import CommitScoreOutcome
 from app.domain.models import Project, StandardExecution, Tenant
 
 Status = StandardExecution.Status
@@ -63,6 +64,7 @@ def _commit_score(project, sha: str, branch: str, score) -> dict | None:
         return None
     return {
         "value": score.value if score else None,
+        "outcome": str(score.outcome) if score else str(CommitScoreOutcome.UNSCORED),
         "display": _display(score),
         "failed": score.failed if score else False,
         "reason": score.reason if score else "",

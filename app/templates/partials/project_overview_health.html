@@ -3,7 +3,7 @@ letter, whether a Required standard failed it, the results bar and legend the Re
 too (partials/outcome_bar.html), and a footer with the last run and a way into the Results tab.
 The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
 {% load score_tags project_tags %}
-{% if compliance_score is not None %}
+{% if project_has_score %}
   {% score_tone compliance_score project_score.failed as tone %}
   <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} h-full flex flex-col" data-overview-health>
     <div class="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">

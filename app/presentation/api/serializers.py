@@ -7,6 +7,7 @@ Views return the service dicts as-is.
 from rest_framework import serializers
 
 from app.domain import importance
+from app.domain.scoring import CommitScoreOutcome
 from app.domain.score_representation import ScoreTone
 from app.presentation import importance_text
 
@@ -106,31 +107,44 @@ class OffenderSerializer(serializers.Serializer):
     last_run = serializers.DateTimeField()
 
 
-# A project's health level and a score's colour band: the score tones.
+# A project's health and a score's colour: healthy (A+, A), needs_attention
+# (B to D), failed (a Required standard failed), unknown (no score).
 LEVEL_CHOICES = [tone.value for tone in ScoreTone]
+
+# What a complete commit check decided: failed (a verdict, no value), scored
+# (a value, 0-100) or unscored (nothing could be averaged).
+OUTCOME_CHOICES = [outcome.value for outcome in CommitScoreOutcome]
+OUTCOME_HELP = (
+    "failed: a Required standard failed or could not run (no value, it reads F); "
+    "scored: the importance-weighted average, 0-100, even 0; "
+    "unscored: every run errored, so nothing could be averaged."
+)
 
 
 class ScoreDisplaySerializer(serializers.Serializer):
     """A score as the app shows it, so API clients can show it the same way."""
 
     text = serializers.CharField(help_text='What the app shows, e.g. "B"; "—" when there is no score.')
-    tone = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="Its colour band.")
+    tone = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="Its health: healthy, needs_attention, failed or unknown.")
     spoken = serializers.CharField(help_text='The same in words, e.g. "Score 82 out of 100".')
 
 
 class ProjectStatusSerializer(serializers.Serializer):
     project = ProjectRefSerializer()
     overall_score = serializers.FloatField(
-        allow_null=True, help_text="The project's score: its newest fully checked commit on the default branch."
+        allow_null=True,
+        help_text="The project's score: its newest fully checked commit on the default branch. "
+        "Null when that commit failed (see outcome) or has no score.",
     )
+    outcome = serializers.ChoiceField(choices=OUTCOME_CHOICES, allow_null=True, help_text=OUTCOME_HELP)
     grade = serializers.CharField(
         help_text="The score as the app shows it (same as display.text)."
     )
     display = ScoreDisplaySerializer()
     score_failed = serializers.BooleanField(
-        help_text="A Required standard failed or could not be verified: the score is 0."
+        help_text="A Required standard failed or could not run: the project failed and has no score."
     )
-    reason = serializers.CharField(help_text="Why the score is 0; empty otherwise.")
+    reason = serializers.CharField(help_text="Why the project failed; empty otherwise.")
     commit_sha = serializers.CharField(allow_null=True, help_text="The commit the score is from.")
     total_standards = serializers.IntegerField()
     passed = serializers.IntegerField()
@@ -306,14 +320,15 @@ class ScoredCommitRefSerializer(serializers.Serializer):
 class CommitScoreSerializer(serializers.Serializer):
     value = serializers.IntegerField(
         allow_null=True,
-        help_text="The commit's last complete score, 0-100; null until every expected standard "
-        "has finished on it.",
+        help_text="The commit's last complete score, 0-100; null when it failed (see outcome) or "
+        "until every expected standard has finished on it.",
     )
+    outcome = serializers.ChoiceField(choices=OUTCOME_CHOICES, help_text=OUTCOME_HELP)
     display = ScoreDisplaySerializer()
     failed = serializers.BooleanField(
-        help_text="A Required standard failed or could not be verified: the value is 0."
+        help_text="A Required standard failed or could not run: the commit failed and has no value."
     )
-    reason = serializers.CharField(help_text="Why the value is 0; empty otherwise.")
+    reason = serializers.CharField(help_text="Why the commit failed; empty otherwise.")
     state = serializers.ChoiceField(
         choices=COMMIT_STATES,
         help_text="The commit's newest check: complete, in_progress or incomplete (finished "

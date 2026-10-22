@@ -41,7 +41,7 @@ class ProjectScoreSurfacesTests(TestCase):
         node = next(n for n in graph["components"] if n["id"] == str(component.id))
 
         assert (node["score"], node["score_text"], node["health"], node["issues"]) == (
-            0, "F", "failed", ["No secrets failing"]
+            None, "F", "failed", ["No secrets failing"]
         )
 
     def test_a_project_card_glows_in_its_letter_and_says_when_the_project_failed(self):

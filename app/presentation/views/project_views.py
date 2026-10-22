@@ -18,6 +18,7 @@ from app.application.commit_checks import (
     waiting_for_commit,
 )
 from app.application import scoring
+from app.domain.scoring import CommitScoreOutcome
 from app.presentation.commit_results import CommitResultGrouping
 from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
@@ -141,6 +142,8 @@ def results_context(project) -> dict:
     context["project_score"] = score
     context["latest_executions"] = latest_executions
     context["compliance_score"] = score.value if score else None
+    # A verdict to show: failed (no number) or scored.
+    context["project_has_score"] = _has_verdict(score)
     context["health_breakdown"] = outcome_counts(latest_executions)
     context["newer_commit"] = scoring.newer_commit(project, project.default_branch, score)
 
@@ -161,6 +164,12 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context.update(results_context(self.object))
         return context
+
+
+def _has_verdict(score) -> bool:
+    """A commit score to show as a grade: failed (no number) or scored, not
+    one where nothing could be averaged."""
+    return score is not None and score.outcome is not CommitScoreOutcome.UNSCORED
 
 
 def _history(request, project, branch, page=1, notice="", open_sha=""):
@@ -189,6 +198,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "has_more": has_more,
             "status": status,
             "status_score": score.value if score else None,
+            "status_has_score": _has_verdict(score),
             "branch_score": score,
             "status_breakdown": outcome_counts(status),
             "newer_commit": scoring.newer_commit(project, branch, score),

@@ -76,14 +76,14 @@ class TestBranchesAndHealth(HealthAPITestCase):
         assert body["results"][0]["standard_name"] == "Pinned CI"
         assert body["score_display"] == {"text": "D", "tone": "needs_attention", "spoken": "Grade D, score 40 out of 100"}
         assert body["commit_score"] == {
-            "value": 40, "failed": False, "reason": "", "state": "complete",
+            "value": 40, "outcome": "scored", "failed": False, "reason": "", "state": "complete",
             "display": {"text": "D", "tone": "needs_attention", "spoken": "Grade D, score 40 out of 100"},
             "standards": {"expected": 1, "finished": 1},
             "commit": {"sha": A, "branch": "main", "committed_at": None},
         }
         assert body["newer_commit"] is None
 
-    def test_a_failing_required_standard_makes_the_project_zero(self):
+    def test_a_failing_required_standard_fails_the_project_with_no_score(self):
         self.project.project_standards.update(importance="required")
         check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=A)
         baker.make(
@@ -95,7 +95,11 @@ class TestBranchesAndHealth(HealthAPITestCase):
 
         body = self.get(f"{self.p}/health/").json()
 
-        assert (body["score"], body["commit_score"]["failed"]) == (0, True)
+        assert (body["score"], body["level"]) == (None, "failed")
+        assert (body["commit_score"]["value"], body["commit_score"]["failed"], body["commit_score"]["outcome"]) == (
+            None, True, "failed"
+        )
+        assert body["commit_score"]["display"]["text"] == "F"
         assert body["commit_score"]["reason"] == "Pinned CI failing"
 
     def test_a_newer_commit_still_checking_is_reported(self):

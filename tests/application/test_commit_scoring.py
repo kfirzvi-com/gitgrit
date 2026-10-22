@@ -83,14 +83,15 @@ class ScoreCheckTests(Fixture):
 
         assert scoring.score_check(check) is None
 
-    def test_a_failing_required_result_makes_it_zero_with_the_reason(self):
+    def test_a_failing_required_result_fails_it_with_the_reason_and_no_value(self):
         check = self.check()
         self.result(check, self.a, Status.FAILED, 80, importance="required")
         self.result(check, self.b)
 
         commit_score = scoring.score_check(check)
 
-        assert (commit_score.value, commit_score.failed, commit_score.reason) == (0, True, "A failing")
+        assert (commit_score.value, commit_score.failed, commit_score.reason) == (None, True, "A failing")
+        assert commit_score.outcome == "failed"
 
     def test_weights_come_from_the_importance_at_run_time(self):
         check = self.check()
@@ -200,7 +201,7 @@ class StaleRunsTests(Fixture):
         expire_stale_runs()
 
         commit_score = scoring.project_score(self.project)
-        assert (commit_score.value, commit_score.failed, commit_score.reason) == (0, True, "could not verify B")
+        assert (commit_score.value, commit_score.failed, commit_score.reason) == (None, True, "could not verify B")
 
 
 class DetachedStandardDropsOffTests(Fixture):
@@ -220,3 +221,15 @@ class DetachedStandardDropsOffTests(Fixture):
         row = commit_results(self.project, "c1")
         assert [r.standard_id for r in row.results] == [self.a.pk]
         assert row.score == 80
+
+
+class FailedCommitHasNoValueConstraintTests(TestCase):
+    """The database keeps "failed" a verdict: a failed commit score with a
+    number is refused."""
+
+    def test_a_failed_score_with_a_value_is_refused(self):
+        from django.db import IntegrityError, transaction
+
+        check = baker.make("app.CommitCheck", commit_sha="a" * 40)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            baker.make("app.CommitScore", project=check.project, commit_check=check, value=0, failed=True)

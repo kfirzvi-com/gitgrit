@@ -14,6 +14,7 @@ from app.domain.scoring import (
     COMMIT_SCORING_POLICY,
     AttachedStandard,
     BranchCommitTimeline,
+    CommitScoreOutcome,
     CommitScoreValue,
     CommitScoringState,
     ExpectedStandards,
@@ -69,10 +70,11 @@ class WeightedAverageTests(SimpleTestCase):
 
 
 class RequiredGateTests(SimpleTestCase):
-    def test_a_failing_required_standard_makes_the_commit_zero(self):
+    def test_a_failing_required_standard_fails_the_commit_with_no_value(self):
         value = score_commit([run("No secrets", FAILED, 90, REQUIRED), run("b")])
 
-        assert value == CommitScoreValue(0, failed_by_required_standard=True, failure_reason="No secrets failing")
+        assert value == CommitScoreValue(None, failed_by_required_standard=True, failure_reason="No secrets failing")
+        assert value.outcome is CommitScoreOutcome.FAILED
 
     def test_an_erroring_required_standard_fails_it_too(self):
         value = score_commit([run("No secrets", ERROR, 0, REQUIRED), run("b")])
@@ -210,3 +212,16 @@ class ListedRunsTests(SimpleTestCase):
 class DidNotRunTests(SimpleTestCase):
     def test_expected_standards_that_never_ran_on_the_commit(self):
         assert ExpectedStandards(("a", "b", "c")).without_any_run(["a"]) == ["b", "c"]
+
+
+class CommitScoreValueTests(SimpleTestCase):
+    """Failed is a verdict, not a number."""
+
+    def test_a_failed_commit_cannot_carry_a_value(self):
+        with self.assertRaises(ValueError):
+            CommitScoreValue(0, failed_by_required_standard=True)
+
+    def test_outcomes(self):
+        assert CommitScoreValue(None, failed_by_required_standard=True).outcome is CommitScoreOutcome.FAILED
+        assert CommitScoreValue(0).outcome is CommitScoreOutcome.SCORED
+        assert CommitScoreValue(None).outcome is CommitScoreOutcome.UNSCORED

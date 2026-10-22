@@ -26,7 +26,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
     {% if notice %}<p class="text-sm text-info -mt-4" data-run-notice>{{ notice }}</p>{% endif %}
 
     <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-5 sm:px-6 py-5" data-branch-status>
-      {% if status_score is not None %}
+      {% if status_has_score %}
         <div class="flex items-start gap-1">
           {% score status_score failed=branch_score.failed size="lg" data_attr="data-branch-score" %}
         </div>

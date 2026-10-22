@@ -7,8 +7,8 @@ from app.domain.scoring.standard_run_status import StandardRunStatus
 
 
 class RequiredGateWeightedAveragePolicy(CommitScoringPolicy):
-    """A Required standard that failed or errored, for any reason, makes the
-    commit 0; otherwise the commit's score is the average of the standards'
+    """A Required standard that failed or errored, for any reason, fails the
+    commit (no value: a verdict, not a number); otherwise the commit's score is the average of the standards'
     own scores weighted by importance, leaving out errored runs of other
     importances (an error says nothing about the code)."""
 
@@ -25,7 +25,7 @@ class RequiredGateWeightedAveragePolicy(CommitScoringPolicy):
         failing_required = [r for r in finished if r.fails_the_commit]
         if failing_required:
             return CommitScoreValue(
-                0,
+                None,
                 failed_by_required_standard=True,
                 failure_reason=self._failure_reason(failing_required),
             )

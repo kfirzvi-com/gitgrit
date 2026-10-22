@@ -30,6 +30,7 @@ class ProjectStatusService:
         return {
             "project": {"id": str(project.id), "name": project.name},
             "overall_score": overall,
+            "outcome": str(score.outcome) if score else None,
             # The score as the app shows it (COMMIT_SCORE_REPRESENTATION).
             "grade": represented.text,
             "display": represented.as_dict(),
