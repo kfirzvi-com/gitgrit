@@ -82,8 +82,24 @@ def score_tone(context, value, failed=False):
 @register.simple_tag(takes_context=True)
 def score_scale(context):
     """Every value the workspace's representation can show, best first, as
-    ``[{"text", "tone"}]`` (A+ to F for letters; empty for numbers)."""
-    return [{"text": step.text, "tone": step.shade} for step in _commit_representation(context).scale()]
+    ``[{"text", "tone", "spoken"}]``: A+ to F for letters, the colour bands
+    (90-100, 0-89, Failed) for numbers."""
+    return [
+        {"text": step.text, "tone": step.shade, "spoken": step.spoken}
+        for step in _commit_representation(context).scale()
+    ]
+
+
+@register.simple_tag(takes_context=True)
+def score_scale_name(context):
+    """What the scale is called: "Grade" for letters, "Score" for numbers."""
+    return _commit_representation(context).SCALE_NAME
+
+
+@register.simple_tag(takes_context=True)
+def score_scale_step_of(context, value, failed=False):
+    """The scale step a score falls in (its letter, or its number's band)."""
+    return _commit_representation(context).scale_step_of(_value(value), failed=bool(failed))
 
 
 @register.simple_tag(takes_context=True)

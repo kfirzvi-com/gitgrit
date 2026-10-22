@@ -2,7 +2,7 @@
 or numbers. Admins pick, and the choice saves in place (set_score_display); everyone else sees it.
 Expects `tenant`, `score_displays` and `is_admin`.{% endcomment %}
 <div id="score-display-setting" class="space-y-3">
-  <p class="text-sm opacity-70">How projects, branches and commits show their score. Health, colours and the API's numbers are the same either way, and each standard's own result is always a number.</p>
+  <p class="text-sm opacity-70">How projects, branches and commits show their score. A failed project reads F either way, and health, colours, the API's numbers and each standard's own result are the same too.</p>
   <form hx-post="{% url 'set_score_display' %}" hx-target="#score-display-setting" hx-swap="outerHTML" hx-trigger="change"
         class="grid gap-2 sm:grid-cols-2" data-score-display-form>
     {% csrf_token %}

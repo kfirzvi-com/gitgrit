@@ -25,7 +25,7 @@ class ScoreToneStyle:
         ScoreTone.UNKNOWN: "#64748b",
     }
     # Shades that paint a tone apart, with the tone they still mean: a D is
-    # orange (``LetterScoreRepresentation.LOW_SHADE``), and needs attention.
+    # orange (``ScoreBands.LOW_SHADE``, the lowest band), and needs attention.
     SHADES = {"low": ("#fb923c", ScoreTone.NEEDS_ATTENTION)}
 
     @classmethod

@@ -150,7 +150,7 @@ class OverviewRequiredFailuresTests(TestCase):
         self.assertIn("2 Required standards failed", body)
         self.assertIn('data-score-value>F<', body)
         self.assertIn("gg-tone-card-failed", body)
-        self.assertIn('gg-chip gg-chip-current gg-tone-bg-failed" aria-current="true">F<', body)
+        self.assertIn('gg-chip gg-chip-current gg-tone-bg-failed" aria-current="true" title="Failed: a Required standard failed">F<', body)
         self.assertNotIn("data-score-reason", body)
 
     def test_the_overview_and_results_tabs_show_the_same_bar_and_legend(self):

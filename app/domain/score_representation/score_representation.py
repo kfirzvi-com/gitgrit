@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from app.domain.score_representation.represented_score import RepresentedScore
+from app.domain.score_representation.score_bands import ScoreBands
 from app.domain.score_representation.score_health import ScoreHealth
 from app.domain.score_representation.score_tone import ScoreTone
 
@@ -27,8 +28,9 @@ class ScoreRepresentation(ABC):
         )
 
     def shade_for(self, value) -> str:
-        """The colour a score is painted in; "" for its tone's."""
-        return ""
+        """The colour a score is painted in: its tone's (""), or orange in the
+        lowest band (``ScoreBands``), the same however it reads."""
+        return ScoreBands.shade_of(value)
 
     def tone(self, value, *, failed: bool = False) -> ScoreTone:
         return ScoreHealth.tone(value, failed=failed)
@@ -36,11 +38,35 @@ class ScoreRepresentation(ABC):
     def no_score_text(self) -> str:
         return "—"
 
+    # What the scale (the Overview's row above the score) is called.
+    SCALE_NAME = "Score"
+
     def scale(self) -> list[RepresentedScore]:
-        """Every value this representation can show, best first: what a
-        scale of it (the Overview's grade row) lists. Empty when it has no
-        short scale (numbers)."""
-        return []
+        """The steps a score can fall in, best first, each in its colour: one
+        per band (``ScoreBands``) and F. Built here, from the bands, so every
+        representation has the same categories in the same order and colours:
+        a representation only says how a band is written (``band_text``)."""
+        steps = [
+            RepresentedScore(
+                self.band_text(band), ScoreHealth.tone(band.lowest), self.band_spoken(band), ScoreBands.shade_of(band.lowest)
+            )
+            for band in ScoreBands.BANDS
+        ]
+        return steps + [self.represent(None, failed=True)]
+
+    def scale_step_of(self, value, *, failed: bool = False) -> str:
+        """The scale step ``value`` falls in (the one the row lights up)."""
+        if failed:
+            return self.failed_text()
+        return "" if value is None else self.band_text(ScoreBands.of(value))
+
+    @abstractmethod
+    def band_text(self, band) -> str:
+        """How a band (``ScoreBand``) is written on the scale: "B", "75–89"."""
+
+    @abstractmethod
+    def band_spoken(self, band) -> str:
+        """The same, in words."""
 
     @abstractmethod
     def text_for(self, value) -> str:
@@ -50,10 +76,14 @@ class ScoreRepresentation(ABC):
     def spoken_for(self, value) -> str:
         """The same, in words."""
 
-    @abstractmethod
-    def failed_text(self) -> str:
-        """What a failed commit reads as."""
+    # A failed commit is a verdict, not a score: it reads the same however
+    # a workspace shows scores.
+    FAILED_TEXT = "F"
+    FAILED_SPOKEN = "Failed: a Required standard failed"
 
-    @abstractmethod
+    def failed_text(self) -> str:
+        """What a failed commit reads as, in every representation."""
+        return self.FAILED_TEXT
+
     def failed_spoken(self) -> str:
-        """The same, in words."""
+        return self.FAILED_SPOKEN

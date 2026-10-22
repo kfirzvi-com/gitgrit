@@ -22,7 +22,7 @@ class ScoreDisplay(StrEnum):
 
     @property
     def example(self) -> str:
-        return {ScoreDisplay.LETTERS: "B · F", ScoreDisplay.NUMBERS: "82 · Failed"}[self]
+        return {ScoreDisplay.LETTERS: "B", ScoreDisplay.NUMBERS: "82"}[self]
 
     @property
     def representation(self) -> ScoreRepresentation:

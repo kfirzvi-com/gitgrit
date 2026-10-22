@@ -11,6 +11,7 @@ from app.domain.score_representation import (
     LetterScoreRepresentation,
     NumberScoreRepresentation,
     RepresentedScore,
+    ScoreBands,
     ScoreHealth,
     ScoreTone,
 )
@@ -51,7 +52,7 @@ class LetterScoreRepresentationTests(SimpleTestCase):
     def test_f_only_when_a_required_standard_failed(self):
         assert COMMIT_SCORE_REPRESENTATION.represent(0).text == "D"
         assert COMMIT_SCORE_REPRESENTATION.represent(0, failed=True) == RepresentedScore(
-            "F", ScoreTone.FAILED, "Grade F: a Required standard failed"
+            "F", ScoreTone.FAILED, "Failed: a Required standard failed"
         )
         # A failed commit has no number to show: still an F.
         assert COMMIT_SCORE_REPRESENTATION.represent(None, failed=True).text == "F"
@@ -69,8 +70,9 @@ class NumberScoreRepresentationTests(SimpleTestCase):
         assert numbers.represent(92) == RepresentedScore("92", ScoreTone.HEALTHY, "Score 92 out of 100")
         assert numbers.represent(64.6).text == "65"
         assert numbers.represent(89).tone is ScoreTone.NEEDS_ATTENTION
+        # A failed commit reads F in every representation: a verdict, not a score.
         assert numbers.represent(0, failed=True) == RepresentedScore(
-            "Failed", ScoreTone.FAILED, "Failed: a Required standard failed"
+            "F", ScoreTone.FAILED, "Failed: a Required standard failed"
         )
 
 
@@ -102,3 +104,36 @@ class ScoreHealthTests(SimpleTestCase):
     def test_a_low_score_is_never_failed(self):
         assert not ScoreHealth.tone(0).is_failed
         assert ScoreHealth.tone(0).needs_attention
+
+
+class SharedScaleTests(SimpleTestCase):
+    """Every representation reads the same bands, one-to-one (ScoreBands):
+    the same steps, in the same order and colours, and F for failed. A new
+    representation only says how a band is written."""
+
+    REPRESENTATIONS = (LetterScoreRepresentation(), NumberScoreRepresentation())
+
+    def test_every_representation_has_the_same_categories_and_colours(self):
+        scales = [[(s.tone, s.shade) for s in r.scale()] for r in self.REPRESENTATIONS]
+        assert len({tuple(scale) for scale in scales}) == 1
+        assert len(scales[0]) == len(ScoreBands.BANDS) + 1
+
+    def test_letters_and_numbers_map_one_to_one(self):
+        letters, numbers = (r.scale() for r in self.REPRESENTATIONS)
+        assert [(l.text, n.text) for l, n in zip(letters, numbers)] == [
+            ("A+", "100"), ("A", "90–99"), ("B", "75–89"), ("C", "60–74"), ("D", "0–59"), ("F", "F"),
+        ]
+
+    def test_a_score_lights_the_same_step_in_both(self):
+        letters, numbers = self.REPRESENTATIONS
+        for value in (100, 95, 82, 64, 12):
+            with self.subTest(value=value):
+                assert ScoreBands.of(value).range_text == numbers.scale_step_of(value)
+                assert ScoreBands.of(value).letter == letters.scale_step_of(value)
+        assert letters.scale_step_of(None, failed=True) == numbers.scale_step_of(None, failed=True) == "F"
+
+    def test_a_number_below_60_is_orange_like_a_d(self):
+        assert NumberScoreRepresentation().represent(40).shade == LetterScoreRepresentation().represent(40).shade == "low"
+
+    def test_healthy_starts_at_the_a_band(self):
+        assert ScoreHealth.HEALTHY_FROM == ScoreBands.of(90).lowest == 90
