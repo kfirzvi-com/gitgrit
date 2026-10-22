@@ -13,9 +13,11 @@ Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomme
               {% if newer %}hx-get="{% url 'project_commit_check' project.pk newer.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
               aria-label="Newer run" title="Newer run" data-check-newer><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg></button>
     {% endwith %}
-    <ol class="flex items-center overflow-x-auto p-1" aria-label="Runs on {{ row.short_sha }}, newest first">
+    {# No overflow clipping here: each run's tooltip opens below it. Many runs wrap. #}
+    <ol class="flex flex-wrap items-center gap-y-2 p-1" aria-label="Runs on {{ row.short_sha }}, newest first">
       {% for run in row.checks reversed %}
-        <li class="flex items-center">
+        {# A named group: the commit row around it is a group too. #}
+        <li class="relative group/run flex items-center">
           {% if not forloop.first %}<span class="w-4 h-px bg-base-content/25" aria-hidden="true"></span>{% endif %}
           {# Set on every run (a loop keeps "as" variables): "—" and unknown without a verdict. #}
           {% score_text_of run.score.value run.score.failed as text %}{% score_tone run.score.value run.score.failed as tone %}
@@ -23,10 +25,18 @@ Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomme
                   class="flex h-8 min-w-8 px-1 items-center justify-center rounded-full text-xs font-bold {% if run.outcome == 'checking' or run.outcome == 'no_score' %}border border-base-content/30{% else %}gg-tone-bg-{{ tone }} text-[#0c0e13]{% endif %}{% if run.check.pk == row.selected.check.pk %} ring-2 ring-primary ring-offset-2 ring-offset-base-100{% else %} opacity-80 hover:opacity-100{% endif %}"
                   hx-get="{% url 'project_commit_check' project.pk run.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader
                   {% if run.check.pk == row.selected.check.pk %}aria-current="true"{% endif %}
-                  title="Run {{ forloop.revcounter }} of {{ row.checks|length }} · {{ run.check|trigger_label }} · {{ run.check.created_at|date:'j M Y, H:i' }} · {% if run.outcome == 'checking' %}checking{% elif run.outcome == 'no_score' %}no score: {{ run.standing.reason }}{% else %}{{ text }}{% endif %}"
+                  aria-describedby="run-tip-{{ run.check.pk }}"
                   data-check-node="{{ run.outcome }}">
             {% if run.outcome == "checking" %}<span class="loading loading-spinner loading-xs"></span>{% elif run.outcome == "no_score" %}<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.49 2.86c.66-1.15 2.36-1.15 3.02 0l6.27 10.9c.66 1.15-.18 2.6-1.51 2.6H3.73c-1.33 0-2.17-1.45-1.51-2.6L8.5 2.86ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>{% else %}{{ text }}{% endif %}
           </button>
+          {# Shows at once on hover or focus (a title attribute waits). #}
+          <span id="run-tip-{{ run.check.pk }}" role="tooltip" data-run-tip
+                class="pointer-events-none invisible absolute left-0 top-full z-50 mt-2 w-64 rounded-lg border border-base-content/10 bg-base-100 p-2.5 text-left text-xs font-normal text-base-content shadow-xl group-hover/run:visible group-focus-within/run:visible">
+            <span class="block font-semibold">Run {{ forloop.revcounter }} of {{ row.checks|length }} on commit {{ row.short_sha }}</span>
+            <span class="block opacity-70">One run of the standards on this commit: {{ run.check|trigger_label|lower }}, {{ run.check.created_at|date:"j M Y, H:i" }}.</span>
+            <span class="block mt-1">{% if run.outcome == "checking" %}Checking: {{ run.standing.finished_count }} of {{ run.standing.expected_count }} standards done.{% elif run.outcome == "no_score" %}No score: {{ run.standing.reason|default:"not every standard has a result" }}.{% elif run.outcome == "failed" %}F: {{ run.standing.reason|capfirst }}.{% else %}{% score_scale_name %} {{ text }}.{% endif %}</span>
+            <span class="block mt-1 opacity-70">{% if forloop.first %}The newest run: the commit's score is this run's.{% else %}An earlier run: the commit's score is its newest run's.{% endif %}</span>
+          </span>
         </li>
       {% endfor %}
     </ol>

@@ -105,8 +105,11 @@ class TimelineViewTests(Fixture):
         # Newest on the left, each a circle with its score; when and how it
         # ran only on hover.
         assert body.index('data-check-node="scored"') < body.index('data-check-node="no_score"')
-        assert 'title="Run 2 of 2 · Manual · ' in body
-        assert 'title="Run 1 of 2 · Manual · ' in body and "no score: Docs errored" in body
+        assert "Run 2 of 2 on commit aaaaaaa" in body and "Run 1 of 2 on commit aaaaaaa" in body
+        assert "One run of the standards on this commit: manual," in body
+        assert "No score: Docs errored." in body
+        assert "The newest run: the commit&#x27;s score is this run&#x27;s." in body or "The newest run: the commit's score is this run's." in body
+        assert body.count("data-run-tip") == 2
         assert ">\n            A+\n          </button>" in body or ">A+<" in body.replace("\n", "").replace(" ", "")
         assert "Run 2 of 2" in body
         assert "the commit&#x27;s outcome" in body or "the commit's outcome" in body

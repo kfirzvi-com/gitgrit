@@ -9,9 +9,9 @@ rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score
     <h3 class="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide">
       <span class="opacity-70">Needs attention</span>
       {# A tooltip that shows at once on hover or focus (a title attribute waits). #}
-      <span class="group inline-flex cursor-help" tabindex="0" aria-describedby="attention-help" data-attention-help>
+      <span class="group/help inline-flex cursor-help" tabindex="0" aria-describedby="attention-help" data-attention-help>
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd"/></svg>
-        <span id="attention-help" role="tooltip" class="pointer-events-none invisible absolute inset-x-0 top-full z-50 mt-1 rounded-lg border border-base-content/10 bg-base-100 p-2.5 text-xs font-normal normal-case tracking-normal text-base-content shadow-xl group-hover:visible group-focus:visible">Only failed projects (a Required standard failed) and standard runs that errored (their commit has no score until they run). Other failures only lower a score.</span>
+        <span id="attention-help" role="tooltip" class="pointer-events-none invisible absolute inset-x-0 top-full z-50 mt-1 rounded-lg border border-base-content/10 bg-base-100 p-2.5 text-xs font-normal normal-case tracking-normal text-base-content shadow-xl group-hover/help:visible group-focus/help:visible">Only failed projects (a Required standard failed) and standard runs that errored (their commit has no score until they run). Other failures only lower a score.</span>
       </span>
     </h3>
     {% if attention_total > 3 %}
