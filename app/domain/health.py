@@ -1,4 +1,4 @@
-"""Composite health for stacks and projects, surfaced as colour codes.
+"""A project's health, surfaced as colour codes.
 
 Health is what points an engineering leader at the things that need attention:
 healthy, needs attention, or failed (a Required standard failed), from the
@@ -8,9 +8,9 @@ project's commit score through ``ScoreHealth``. It's structured as a set of
   * DORA deployment frequency (planned) — add a deployment-frequency signal to
     ``project_level``.
 
-A node's level is the worst across its signals; a stack's level is the worst
-across its projects (so one failing project can't hide behind a healthy
-average).
+A project's level is the worst across its signals. Many projects together
+(a stack, the workspace) never get one level: they are counted by health
+(``app.application.project_health_counts``).
 """
 
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, ScoreTone
@@ -49,7 +49,3 @@ def project_level(score, failed: bool = False):
     """
     return level_from_score(score, failed=failed)
 
-
-def stack_level(project_levels):
-    """A stack is as healthy as its weakest project (worst-of)."""
-    return worst(project_levels)

@@ -30,10 +30,11 @@
   function StackNode(props) {
     var d = props.data;
     var techs = d.technologies || [];
-    var hp = GF.healthProps(d.score_shade || d.health);
+    // A stack has no grade or colour of its own: it shows its projects
+    // counted by health (project_health), each count in its health's colour.
     return h(
       "div",
-      { className: "gg-stack-node gg-clickable " + hp.className, style: hp.style },
+      { className: "gg-stack-node gg-clickable" },
       h(RF.Handle, {
         type: "target",
         position: RF.Position.Top,
@@ -42,15 +43,9 @@
       h(
         "div",
         { className: "gg-stack-node__head" },
-        h("span", { className: "gg-stack-node__name" }, d.name),
-        d.score != null
-          ? h(
-              "span",
-              { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.score_shade || d.health) },
-              d.score_text
-            )
-          : null
+        h("span", { className: "gg-stack-node__name" }, d.name)
       ),
+      GF.healthCounts(d.project_health),
       d.description
         ? h("p", { className: "gg-stack-node__desc" }, d.description)
         : null,

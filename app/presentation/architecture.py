@@ -29,7 +29,7 @@ from django.urls import reverse
 from app.application import scoring
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.application.naming import canonical_key
-from app.application.stack_health import StackHealth
+from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
@@ -138,16 +138,15 @@ def workspace_graph(tenant):
         # Health is per repository: score each distinct project once, however
         # many of its components sit in this stack.
         projects = list({c.project_id: c.project for c in components}.values())
-        # The stack reads as its least healthy project (StackHealth).
-        health = StackHealth.of(projects, project_scores)
-        worst = health.worst
+        # A stack is never one grade or colour: it shows how many of its
+        # projects are failed, need attention, are healthy or have no data.
+        counts = ProjectHealthCounts.of(projects, project_scores)
 
-        # Issues = the projects that need attention (worst first), so the
-        # hover explains which project to look at.
+        # Issues = the projects that need attention, each with its own grade,
+        # so the hover says which project to look at.
         issues = [
             "{} — {}{}".format(p.name, _grade(s), ": " + s.reason if s.failed and s.reason else "")
-            for p, s in health.ranked
-            if StackHealth.project_health(s).needs_attention
+            for p, s in counts.attention
         ]
 
         stack_nodes.append(
@@ -158,12 +157,7 @@ def workspace_graph(tenant):
                 "component_count": len(components),
                 "project_count": len(projects),
                 "technologies": _technologies(components),
-                "score": worst.value if worst else None,
-                "score_text": _grade(worst),
-                "score_shade": _grade_shade(worst),
-                # Worst-of across projects, so a single failed project lights
-                # up the whole stack even when the rest look healthy.
-                "health": health.tone,
+                "project_health": counts.as_dict(),
                 "issues": issues,
                 # True while any member project's dependency analysis is queued
                 # or running — drives the "regenerating…" hint.

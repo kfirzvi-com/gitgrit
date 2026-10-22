@@ -11,7 +11,7 @@ from django.views.generic import CreateView, DetailView, ListView
 from app.application import stack_service
 from app.domain.models import Component, Stack
 from app.application import scoring
-from app.application.stack_health import StackHealth
+from app.application.project_health_counts import ProjectHealthCounts
 from app.presentation.architecture import stack_graph
 
 
@@ -30,8 +30,8 @@ class StackListView(LoginRequiredMixin, ListView):
         )
 
     def get_context_data(self, **kwargs):
-        """Each stack with its health (``StackHealth``): it reads as its least
-        healthy project, like the projects page reads each project."""
+        """Each stack with its projects counted by health
+        (``ProjectHealthCounts``): never one grade or colour for the stack."""
         context = super().get_context_data(**kwargs)
         stacks = list(context["stacks"])
         projects_by_stack = {
@@ -39,7 +39,7 @@ class StackListView(LoginRequiredMixin, ListView):
         }
         project_scores = scoring.project_scores({p for ps in projects_by_stack.values() for p in ps})
         for stack in stacks:
-            stack.health = StackHealth.of(projects_by_stack[stack.pk], project_scores)
+            stack.project_health = ProjectHealthCounts.of(projects_by_stack[stack.pk], project_scores)
         context["stacks"] = stacks
         return context
 

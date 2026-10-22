@@ -50,6 +50,17 @@
   font-size: 0.95rem;
   line-height: 1.2;
 }
+/* A stack's projects counted by health: a dot and a number per count. */
+.gg-stack-node__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.gg-stack-node__count { display: inline-flex; align-items: center; gap: 4px; }
+.gg-stack-node__count-dot { width: 8px; height: 8px; border-radius: 999px; }
 .gg-stack-node__desc {
   font-size: 0.74rem;
   opacity: 0.7;

@@ -9,7 +9,7 @@ from model_bakery import baker
 
 from app.application import scoring
 from app.domain.models import StandardExecution
-from app.application.workspace_health import WorkspaceHealth
+from app.application.project_health_counts import ProjectHealthCounts
 
 
 def _execution(project, standard, score, status=StandardExecution.Status.PASSED):
@@ -23,7 +23,7 @@ def _execution(project, standard, score, status=StandardExecution.Status.PASSED)
     )
 
 
-class TestWorkspaceHealth(TestCase):
+class TestProjectHealthCounts(TestCase):
     """The dashboard counts projects by health, from each one's commit
     score: failed only when a Required standard failed it."""
 
@@ -44,7 +44,24 @@ class TestWorkspaceHealth(TestCase):
         self._project_scored(tenant, 90)
         baker.make("app.Project", tenant=tenant)
 
-        assert WorkspaceHealth.of(tenant) == WorkspaceHealth(failed=1, needs_attention=2, healthy=1, no_data=1)
+        counts = ProjectHealthCounts.for_workspace(tenant)
+        assert counts.as_dict() == {"failed": 1, "needs_attention": 2, "healthy": 1, "no_data": 1}
+        # Each project that needs attention, as itself: failed first, then lowest.
+        assert [s.failed for _, s in counts.attention] == [True, False, False]
+        assert [s.value for _, s in counts.attention][1:] == [0, 89]
+
+    def test_a_stack_node_counts_its_projects_and_has_no_grade_of_its_own(self):
+        from app.presentation.architecture import workspace_graph
+
+        tenant = baker.make("app.Tenant")
+        stack = baker.make("app.Stack", tenant=tenant)
+        for project in (self._project_scored(tenant, None, failed=True), self._project_scored(tenant, 95)):
+            project.root_component.stacks.add(stack)
+
+        [node] = workspace_graph(tenant)["stacks"]
+
+        assert node["project_health"] == {"failed": 1, "needs_attention": 0, "healthy": 1, "no_data": 0}
+        assert not {"health", "score", "score_text", "score_shade"} & set(node)
 
 
 @pytest.mark.django_db

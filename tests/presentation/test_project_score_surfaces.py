@@ -58,7 +58,7 @@ class ProjectScoreSurfacesTests(TestCase):
         assert ">F</span>" in body
         assert "Project failed!" in body
 
-    def test_a_stack_card_reads_as_its_least_healthy_project(self):
+    def test_a_stack_card_counts_its_projects_and_has_no_grade_of_its_own(self):
         user = baker.make("app.User")
         baker.make("app.Membership", user=user, tenant=self.tenant, role="owner")
         self.client.force_login(user)
@@ -70,5 +70,6 @@ class ProjectScoreSurfacesTests(TestCase):
 
         body = self.client.get(reverse("stack_list")).content.decode()
 
-        assert 'gg-tone-card gg-tone-card-failed" data-stack-card="failed"' in body
-        assert "1 project<br>failed" in body
+        assert 'data-stack-card>' in body
+        assert 'data-count="failed"' in body and "<b>1</b> failed" in body
+        assert "gg-tone-card" not in body.split("data-stack-card")[1].split("</a>")[0]

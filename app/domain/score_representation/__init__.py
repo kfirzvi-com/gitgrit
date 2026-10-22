@@ -13,7 +13,7 @@ and one standard's result on a commit, each 0-100. Pure, no I/O.
   those scores read everywhere; the value underneath (and the API's numbers)
   never change.
 - ``ScoreTone``: the one list of health tones (healthy, needs attention,
-  failed, unknown); project and stack health are these same tones.
+  failed, unknown); a project's health is one of these tones.
 - ``ScoreHealth``: the one rule from a score to its tone: healthy from 90,
   needs attention below, failed only when a Required standard failed.
 """

@@ -10,7 +10,7 @@ from django.views.generic import TemplateView
 
 from app.application.dependency_agent import refresh_workspace_map
 from app.application.standard_results import attention_items
-from app.application.workspace_health import WorkspaceHealth
+from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.models import PlatformConnection, Standard, Project, Stack
 from app.workspace_access import is_workspace_admin
 from app.presentation.architecture import (
@@ -46,7 +46,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ).count()
             context["stack_count"] = Stack.objects.filter(tenant=tenant).count()
 
-            context["workspace_health"] = WorkspaceHealth.of(tenant)
+            context["workspace_health"] = ProjectHealthCounts.for_workspace(tenant)
             context["architecture_data"] = json.dumps(workspace_graph(tenant))
             map_status = workspace_map_status(tenant)
             context["map_updated_at"] = map_status["updated_at"]

@@ -99,7 +99,7 @@ An **F** always means the project failed; a low average is a D.
 
 ### Health
 
-Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A stack is as healthy as its least healthy project, and the dashboard counts your projects by health.
+Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A project has one health; many projects together never do: a stack and the dashboard show how many of their projects are failed, need attention, are healthy or have no data.
 
 "Needs attention" on the dashboard lists the standards that failed or could not run, the ones that fail their project first.
 

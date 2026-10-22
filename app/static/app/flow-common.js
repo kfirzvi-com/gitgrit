@@ -54,6 +54,33 @@ window.GitGritFlow = (function () {
     };
   }
 
+  // Projects counted by health ({failed, needs_attention, healthy, no_data}),
+  // for a stack: one dot and number per non-zero count, never a single
+  // grade or colour for many projects.
+  var HEALTH_COUNT_ORDER = [
+    ["failed", "failed", "failed"],
+    ["needs_attention", "needs_attention", "need attention"],
+    ["healthy", "healthy", "healthy"],
+    ["no_data", "unknown", "no data"],
+  ];
+  function healthCounts(counts) {
+    var h = window.React.createElement;
+    if (!counts) return null;
+    var parts = HEALTH_COUNT_ORDER.filter(function (c) { return counts[c[0]] > 0; });
+    return h(
+      "div",
+      { className: "gg-stack-node__counts" },
+      parts.map(function (c) {
+        return h(
+          "span",
+          { key: c[0], className: "gg-stack-node__count", title: counts[c[0]] + " " + c[2] },
+          h("span", { className: "gg-stack-node__count-dot", style: { background: HEALTH_COLOR[c[1]] } }),
+          String(counts[c[0]])
+        );
+      })
+    );
+  }
+
   // Edge colours by kind — shared by both diagrams.
   var EDGE_COLOR = {
     workspace: "rgba(255,255,255,0.28)", // stack → stack (dashboard)
@@ -289,13 +316,16 @@ window.GitGritFlow = (function () {
 
     var head = document.createElement("div");
     head.className = "gg-flow-tooltip__head";
-    var dot = document.createElement("span");
-    dot.className = "gg-flow-tooltip__dot";
-    dot.style.background = HEALTH_COLOR[d.score_shade] || HEALTH_COLOR[d.health] || HEALTH_COLOR.unknown;
+    // A node with its own health (a component) shows its dot; a stack, which
+    // has none, just its name above the projects that need attention.
+    if (d.health) {
+      var dot = document.createElement("span");
+      dot.className = "gg-flow-tooltip__dot";
+      dot.style.background = HEALTH_COLOR[d.score_shade] || HEALTH_COLOR[d.health] || HEALTH_COLOR.unknown;
+      head.appendChild(dot);
+    }
     var label = document.createElement("span");
-    label.textContent =
-      (d.name ? d.name + " — " : "") + (HEALTH_LABEL[d.health] || "");
-    head.appendChild(dot);
+    label.textContent = d.health ? (d.name ? d.name + " — " : "") + (HEALTH_LABEL[d.health] || "") : d.name || "";
     head.appendChild(label);
     el.appendChild(head);
 
@@ -350,6 +380,7 @@ window.GitGritFlow = (function () {
     HEALTH_COLOR: HEALTH_COLOR,
     HEALTH_LABEL: HEALTH_LABEL,
     healthProps: healthProps,
+    healthCounts: healthCounts,
     dagreLayout: dagreLayout,
     mount: mount,
     readData: readData,

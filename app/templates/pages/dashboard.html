@@ -77,13 +77,7 @@
           <span><b>{{ project_count }}</b> projects</span>
           <span><b>{{ standard_count }}</b> standards</span>
           {% if workspace_health %}
-            {# Projects by health, from each one's commit score (WorkspaceHealth). #}
-            <span class="flex flex-wrap gap-x-2" data-workspace-health>
-              <span class="{% if workspace_health.failed %}gg-tone-text-failed font-semibold{% endif %}"><b>{{ workspace_health.failed }}</b> failed</span>
-              <span>&middot; <b class="{% if workspace_health.needs_attention %}gg-tone-text-needs_attention{% endif %}">{{ workspace_health.needs_attention }}</b> need{{ workspace_health.needs_attention|pluralize:"s," }} attention</span>
-              <span>&middot; <b class="{% if workspace_health.healthy %}gg-tone-text-healthy{% endif %}">{{ workspace_health.healthy }}</b> healthy</span>
-              {% if workspace_health.no_data %}<span>&middot; <b>{{ workspace_health.no_data }}</b> no data</span>{% endif %}
-            </span>
+            <span data-workspace-health>{% include "partials/project_health_counts.html" with counts=workspace_health %}</span>
           {% endif %}
           <span id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
         </div>

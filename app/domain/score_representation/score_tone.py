@@ -2,8 +2,8 @@ from enum import StrEnum
 
 
 class ScoreTone(StrEnum):
-    """A score's health: the one list of them, mildest first. Project and
-    stack health (``app.domain.health``) are these same tones, and
+    """A score's health: the one list of them, mildest first. A project's
+    health (``app.domain.health``) is one of these tones, and
     ``ScoreHealth`` is the one rule that puts a score in one."""
 
     HEALTHY = "healthy"
