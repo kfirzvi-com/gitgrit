@@ -1292,18 +1292,27 @@ class StandardExecution(models.Model):
     def __str__(self):
         return f"{self.standard_name} — {self.status} ({self.project})"
 
-    @property
-    def fails_the_commit(self) -> bool:
-        """This run fails its commit: a Required standard that failed, once
-        every other standard has a result
-        (``scoring.StandardRunResult.fails_the_commit``)."""
+    def _run_result(self) -> StandardRunResult:
         return StandardRunResult(
             standard_id=str(self.standard_id),
             standard_name=self.standard_name,
             status=StandardRunStatus(self.status),
             standard_score=self.score,
             importance=importance_domain.Importance(self.importance),
-        ).fails_the_commit
+        )
+
+    @property
+    def fails_the_commit(self) -> bool:
+        """This run fails its commit: a Required standard that failed, once
+        every other standard has a result
+        (``scoring.StandardRunResult.fails_the_commit``)."""
+        return self._run_result().fails_the_commit
+
+    @property
+    def needs_attention(self) -> bool:
+        """A Required standard that failed, or a run that errored
+        (``scoring.StandardRunResult.needs_attention``)."""
+        return self._run_result().needs_attention
 
 
 class CommitScore(models.Model):

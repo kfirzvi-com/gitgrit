@@ -160,6 +160,16 @@ class StandardRunResultTests(SimpleTestCase):
         assert run("a", ERROR, 0, MINOR).errored
         assert not run("a", FAILED, 0).errored
 
+    def test_only_a_required_failure_or_an_error_needs_attention(self):
+        assert run("a", FAILED, 90, REQUIRED).needs_attention
+        assert run("a", ERROR, 0, REQUIRED).needs_attention
+        assert run("a", ERROR, 0, MAJOR).needs_attention
+        assert run("a", ERROR, 0, MINOR).needs_attention
+        assert not run("a", FAILED, 0, MAJOR).needs_attention
+        assert not run("a", FAILED, 0, MINOR).needs_attention
+        assert not run("a", PASSED, 10, REQUIRED).needs_attention
+        assert not run("a", RUNNING, 0, REQUIRED).needs_attention
+
     def test_finished_means_passed_failed_or_errored(self):
         assert [s for s in StandardRunStatus if s.is_finished] == [PASSED, FAILED, ERROR]
 

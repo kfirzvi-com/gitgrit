@@ -34,3 +34,10 @@ class StandardRunResult:
     def errored(self) -> bool:
         """It produced no result: the commit has no score."""
         return self.status == StandardRunStatus.ERROR
+
+    @property
+    def needs_attention(self) -> bool:
+        """What "Needs attention" lists: a run that fails its commit (a
+        Required standard that failed) or one that errored (the commit has
+        no score). A Major or Minor failure only lowers the score."""
+        return self.fails_the_commit or self.errored

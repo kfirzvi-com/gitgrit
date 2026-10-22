@@ -109,7 +109,7 @@ def project_score(results) -> int | None:
 class AttentionItem:
     """One current result that needs attention."""
 
-    level: ScoreTone  # FAILED when it fails the project, else NEEDS_ATTENTION
+    level: ScoreTone  # FAILED when it fails the project, NEEDS_ATTENTION when it errored
     project_id: object
     project_name: str
     standard_id: object
@@ -118,18 +118,21 @@ class AttentionItem:
     score: int
     status: str  # display label, e.g. "Failed"
     when: datetime
+    errored: bool = False
 
 
 def attention_items(tenant) -> list[AttentionItem]:
-    """Current results that need attention: the runs that failed or
-    errored, whatever their score (a run's own pass or fail decides, never a
-    low number). The ones that fail their project (a Required standard) are
-    FAILED and come first, then newest. Returns the full ranked list; screens
-    decide how many to show.
+    """Current results that need attention
+    (``scoring.StandardRunResult.needs_attention``): Required standards that
+    failed, whatever their score, which are FAILED and come first; then runs
+    that errored, of any importance (their commit has no score); newest
+    first within each. A Major or Minor failure only lowers the score, so it
+    is not listed. Returns the full ranked list; screens decide how many to
+    show.
     """
     items = []
     for ex in current_results(Project.objects.filter(tenant=tenant)):
-        if ex.status not in (Status.FAILED, Status.ERROR):
+        if not ex.needs_attention:
             continue
         level = ScoreTone.FAILED if ex.fails_the_commit else ScoreTone.NEEDS_ATTENTION
         items.append(
@@ -143,6 +146,7 @@ def attention_items(tenant) -> list[AttentionItem]:
                 score=ex.score,
                 status=ex.get_status_display(),
                 when=ex.created_at,
+                errored=ex.status == Status.ERROR,
             )
         )
 

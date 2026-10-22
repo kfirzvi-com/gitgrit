@@ -1,4 +1,5 @@
-{% comment %}"Needs attention": the workspace's current runs that failed or errored, the ones failing their project first
+{% comment %}"Needs attention": the workspace's current Required standards that failed (they fail their project, first),
+then runs that errored (their commit has no score)
 (app.application.standard_results.attention_items). Shared by the dashboard card and the
 notifications pane. Expects `attention_items` and `attention_total`; shows three and hides the
 rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score_tags %}
@@ -12,11 +13,11 @@ rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score
   {% for item in attention_items %}
     <a href="{% url 'standard_execution_detail' item.execution_id %}"
        class="flex items-start gap-3 -mx-2 px-2 py-2 rounded hover:bg-base-200{% if forloop.counter > 3 %} hidden{% endif %}"{% if forloop.counter > 3 %} data-attention-extra{% endif %}>
-      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ item.level }}" title="{% if item.level == 'failed' %}Fails the project{% else %}Needs attention{% endif %}"></span>
+      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ item.level }}" title="{% if item.level == 'failed' %}Fails the project{% else %}Errored: the commit has no score{% endif %}"></span>
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline justify-between gap-2">
           <span class="font-semibold truncate" title="{{ item.standard_name }}">{{ item.standard_name }}</span>
-          <span class="shrink-0">{% standard_result_score item.score size="sm" toned=False %}</span>
+          <span class="shrink-0">{% if item.errored %}<span class="text-xs opacity-60">error</span>{% else %}{% standard_result_score item.score size="sm" toned=False %}{% endif %}</span>
         </div>
         <div class="text-xs opacity-70 truncate">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
       </div>

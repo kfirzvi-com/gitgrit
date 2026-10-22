@@ -30,10 +30,10 @@ class AttentionItemsTests(TestCase):
             project.standards.add(standard)
         return standard
 
-    def _result(self, standard, score, status=Status.FAILED, project=None, ago=None):
+    def _result(self, standard, score, status=Status.FAILED, project=None, ago=None, importance="required"):
         execution = baker.make(
             "app.StandardExecution", project=project or self.project, standard=standard,
-            standard_name=standard.name, score=score, status=status,
+            standard_name=standard.name, score=score, status=status, importance=importance,
         )
         if ago is not None:
             StandardExecution.objects.filter(pk=execution.pk).update(
@@ -48,7 +48,7 @@ class AttentionItemsTests(TestCase):
         [item] = attention_items(self.tenant)
 
         self.assertIsInstance(item, AttentionItem)
-        self.assertEqual(item.level, ScoreTone.NEEDS_ATTENTION)
+        self.assertEqual(item.level, ScoreTone.FAILED)
         self.assertEqual(item.project_id, self.project.pk)
         self.assertEqual(item.project_name, "Acme")
         self.assertEqual(item.standard_id, standard.pk)
@@ -56,27 +56,37 @@ class AttentionItemsTests(TestCase):
         self.assertEqual(item.execution_id, execution.pk)
         self.assertEqual(item.score, 20)
         self.assertEqual(item.status, "Failed")
+        self.assertFalse(item.errored)
 
-    def test_runs_that_failed_or_could_not_run_need_attention_whatever_their_score(self):
-        self._result(self._standard("Failed high"), 95)
-        self._result(self._standard("Could not run"), 0, status=Status.ERROR)
-        self._result(self._standard("Passed low"), 10, status=Status.PASSED)
+    def test_only_required_failures_and_errored_runs_need_attention_whatever_their_score(self):
+        self._result(self._standard("Required failed high"), 95)
+        self._result(self._standard("Major failed"), 10, importance="major")
+        self._result(self._standard("Minor failed"), 0, importance="minor")
+        self._result(self._standard("Minor errored"), 0, status=Status.ERROR, importance="minor")
+        self._result(self._standard("Required errored"), 0, status=Status.ERROR)
+        self._result(self._standard("Required passed low"), 10, status=Status.PASSED)
 
         names = {i.standard_name for i in attention_items(self.tenant)}
 
-        self.assertEqual(names, {"Failed high", "Could not run"})
+        self.assertEqual(names, {"Required failed high", "Minor errored", "Required errored"})
 
-    def test_a_run_that_fails_its_project_is_failed_and_comes_first(self):
-        self._result(self._standard("Major"), 10)
-        required = self._result(self._standard("Required"), 50, ago=timedelta(days=1))
-        StandardExecution.objects.filter(pk=required.pk).update(importance="required")
+    def test_a_required_failure_is_failed_and_comes_before_errored_runs(self):
+        self._result(self._standard("Errored"), 0, status=Status.ERROR, importance="major")
+        self._result(self._standard("Required"), 50, ago=timedelta(days=1))
 
         items = attention_items(self.tenant)
 
         self.assertEqual(
-            [(i.standard_name, i.level) for i in items],
-            [("Required", ScoreTone.FAILED), ("Major", ScoreTone.NEEDS_ATTENTION)],
+            [(i.standard_name, i.level, i.errored) for i in items],
+            [("Required", ScoreTone.FAILED, False), ("Errored", ScoreTone.NEEDS_ATTENTION, True)],
         )
+
+    def test_a_required_standard_that_errored_needs_attention_but_does_not_fail_the_project(self):
+        self._result(self._standard("Required"), 0, status=Status.ERROR)
+
+        [item] = attention_items(self.tenant)
+
+        self.assertEqual((item.level, item.errored, item.status), (ScoreTone.NEEDS_ATTENTION, True, "Error"))
 
     def test_only_the_latest_result_per_standard_counts(self):
         standard = self._standard("Pinned CI")
@@ -132,10 +142,11 @@ class HomeBranchTests(TestCase):
         return standard
 
     def _run(self, standard, score, ref="", status=Status.FAILED, ago=None, event_type="push"):
+        # Required, so a failure needs attention.
         execution = baker.make(
             "app.StandardExecution", project=self.project, standard=standard,
             standard_name=standard.name, score=score, status=status, ref=ref,
-            event_type=event_type,
+            event_type=event_type, importance="required",
         )
         if ago is not None:
             StandardExecution.objects.filter(pk=execution.pk).update(created_at=timezone.now() - ago)

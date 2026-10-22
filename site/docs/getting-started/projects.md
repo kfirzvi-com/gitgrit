@@ -104,6 +104,6 @@ An **F** always means the project failed; a low average is a D.
 
 Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A project has one health; many projects together never do: a stack and the dashboard show how many of their projects are failed, need attention, are healthy or have no data.
 
-"Needs attention" on the dashboard lists the standards that failed or errored, the ones that fail their project first.
+"Needs attention" on the dashboard and in the notifications pane lists only what stops a project from having a good score: **Required standards that failed** (each fails its project; listed first, in red), then **runs that errored**, of any importance (the commit has no score until they run). A Major or Minor standard that failed only lowers the score, so it is not listed.
 
 In the API a commit score is one object: `outcome` (`checking`, `no_score`, `failed` or `scored`: read it first), `value` (the score, only when scored; `null` otherwise), `reason` (why it failed, "X failing", or has no score, "X errored", "Y not run") and `display` (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show `display` instead of formatting the number yourself, and your screens read like GitGrit's; `display.tone` is the health: `healthy`, `needs_attention`, `failed` or `unknown`. `/status/`'s `grade` is the same as its `display.text`.
