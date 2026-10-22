@@ -579,11 +579,12 @@ paths:
       description: 'Without `branch`: the project''s health — its score, the newest
         commit on the default branch that every expected standard finished on (`commit_score`),
         and the results behind it. With `branch`: that branch''s. A Required standard
-        that failed or could not be verified makes the score 0; otherwise it is the
-        average of the standards'' scores weighted by importance (Required and Major
-        2, Minor 1). `newer_commit` is a newer commit with no score yet. `level` is
-        the score''s band as the app shows it: healthy (A+, A), warning (B), caution
-        (C), critical (D), severe (F: a Required standard failed), unknown (no score).'
+        that failed or could not run fails the commit (`outcome` failed, no score,
+        it reads F); otherwise the score is the average of the standards'' scores
+        weighted by importance (Required and Major 2, Minor 1). `newer_commit` is
+        a newer commit with no score yet. `level` is the health: healthy (A+, A),
+        needs_attention (B to D), failed (a Required standard failed), unknown (no
+        score).'
       summary: Project or branch health
       parameters:
       - in: query
@@ -1337,17 +1338,26 @@ components:
         value:
           type: integer
           nullable: true
-          description: The commit's last complete score, 0-100; null until every expected
-            standard has finished on it.
+          description: The commit's last complete score, 0-100; null when it failed
+            (see outcome) or until every expected standard has finished on it.
+        outcome:
+          allOf:
+          - $ref: '#/components/schemas/OutcomeEnum'
+          description: |-
+            failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+
+            * `failed` - failed
+            * `scored` - scored
+            * `unscored` - unscored
         display:
           $ref: '#/components/schemas/ScoreDisplay'
         failed:
           type: boolean
-          description: 'A Required standard failed or could not be verified: the value
-            is 0.'
+          description: 'A Required standard failed or could not run: the commit failed
+            and has no value.'
         reason:
           type: string
-          description: Why the value is 0; empty otherwise.
+          description: Why the commit failed; empty otherwise.
         state:
           allOf:
           - $ref: '#/components/schemas/StateEnum'
@@ -1365,6 +1375,7 @@ components:
       - commit
       - display
       - failed
+      - outcome
       - reason
       - standards
       - state
@@ -1494,18 +1505,14 @@ components:
     LevelEnum:
       enum:
       - healthy
-      - warning
-      - caution
-      - critical
-      - severe
+      - needs_attention
+      - failed
       - unknown
       type: string
       description: |-
         * `healthy` - healthy
-        * `warning` - warning
-        * `caution` - caution
-        * `critical` - critical
-        * `severe` - severe
+        * `needs_attention` - needs_attention
+        * `failed` - failed
         * `unknown` - unknown
     Marketplace:
       type: object
@@ -1629,6 +1636,9 @@ components:
       - sha
       - standards
       - state
+    NullEnum:
+      enum:
+      - null
     Offender:
       type: object
       properties:
@@ -1651,6 +1661,16 @@ components:
       - name
       - score
       - standard_id
+    OutcomeEnum:
+      enum:
+      - failed
+      - scored
+      - unscored
+      type: string
+      description: |-
+        * `failed` - failed
+        * `scored` - scored
+        * `unscored` - unscored
     PackInstall:
       type: object
       properties:
@@ -2035,7 +2055,18 @@ components:
           format: double
           nullable: true
           description: 'The project''s score: its newest fully checked commit on the
-            default branch.'
+            default branch. Null when that commit failed (see outcome) or has no score.'
+        outcome:
+          nullable: true
+          description: |-
+            failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+
+            * `failed` - failed
+            * `scored` - scored
+            * `unscored` - unscored
+          oneOf:
+          - $ref: '#/components/schemas/OutcomeEnum'
+          - $ref: '#/components/schemas/NullEnum'
         grade:
           type: string
           description: The score as the app shows it (same as display.text).
@@ -2043,11 +2074,11 @@ components:
           $ref: '#/components/schemas/ScoreDisplay'
         score_failed:
           type: boolean
-          description: 'A Required standard failed or could not be verified: the score
-            is 0.'
+          description: 'A Required standard failed or could not run: the project failed
+            and has no score.'
         reason:
           type: string
-          description: Why the score is 0; empty otherwise.
+          description: Why the project failed; empty otherwise.
         commit_sha:
           type: string
           nullable: true
@@ -2067,6 +2098,7 @@ components:
       - display
       - failed
       - grade
+      - outcome
       - overall_score
       - passed
       - project
@@ -2205,13 +2237,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/LevelEnum'
           description: |-
-            Its colour band.
+            Its health: healthy, needs_attention, failed or unknown.
 
             * `healthy` - healthy
-            * `warning` - warning
-            * `caution` - caution
-            * `critical` - critical
-            * `severe` - severe
+            * `needs_attention` - needs_attention
+            * `failed` - failed
             * `unknown` - unknown
         spoken:
           type: string

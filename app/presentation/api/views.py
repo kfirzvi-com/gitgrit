@@ -341,13 +341,13 @@ class ProjectHealthView(WorkspaceAPIView):
             "Without `branch`: the project's health — its score, the newest commit "
             "on the default branch that every expected standard finished on "
             "(`commit_score`), and the results behind it. With `branch`: that "
-            "branch's. A Required standard that failed or could not be verified "
-            "makes the score 0; otherwise it is the average of the standards' "
-            "scores weighted by importance (Required and Major 2, Minor 1). "
+            "branch's. A Required standard that failed or could not run fails "
+            "the commit (`outcome` failed, no score, it reads F); otherwise the "
+            "score is the average of the standards' scores weighted by "
+            "importance (Required and Major 2, Minor 1). "
             "`newer_commit` is a newer commit with no score yet. "
-            "`level` is the score's band as the app shows it: healthy (A+, A), "
-            "warning (B), caution (C), critical (D), severe (F: a Required "
-            "standard failed), unknown (no score)."
+            "`level` is the health: healthy (A+, A), needs_attention (B to D), "
+            "failed (a Required standard failed), unknown (no score)."
         ),
         parameters=[_BRANCH],
         responses=s.ProjectHealthSerializer,

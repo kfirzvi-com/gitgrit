@@ -12,11 +12,10 @@ https://app.gitgrit.dev/badge/<project-id>.svg
 
 The badge shows your project's [score](../getting-started/projects.md#the-score) (its newest fully checked commit on the default branch) as a [letter](../getting-started/projects.md#letters), in the letter's colour:
 
-- **A+ / A** — green
-- **B** — yellow
-- **C** — orange
-- **D** — red
-- **F** — deep red: a Required standard failed
+- **A+ / A** — green: healthy
+- **B / C** — yellow: needs attention
+- **D** — orange: needs attention
+- **F** — red: a Required standard failed
 - **—** — gray: no score yet
 
 ## Adding a badge

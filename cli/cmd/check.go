@@ -33,10 +33,10 @@ commit's score — for CI, always pass the commit you built:
 
 Exit codes with --wait:
   0  the commit has a score and passes
-  1  a Required standard failed or could not be verified (the score is 0),
-     or the score is under --fail-under
-  2  no score: not every expected standard finished on the commit, or
-     --timeout passed first
+  1  the commit failed: a Required standard failed or could not run (it
+     reads F and has no score), or the score is under --fail-under
+  2  no score: not every expected standard finished on the commit, every
+     run on it errored, or --timeout passed first
 
 Inside a git repository the branch defaults to the checked-out one.`,
 		Args: cobra.NoArgs,
@@ -123,11 +123,18 @@ Inside a git repository the branch defaults to the checked-out one.`,
 // a sentence saying why.
 func verdict(c *api.Commit, failUnder int) (int, string) {
 	s := c.CommitScore
-	if s == nil || s.State != api.Complete || s.Value == nil {
+	if s == nil || s.State != api.Complete {
 		return 2, "No score: not every expected standard finished on this commit."
 	}
-	if s.Failed {
+	// Failed is a verdict, not a number: a failed commit has no value.
+	switch s.Outcome {
+	case api.OutcomeEnumFailed:
 		return 1, "Failed: " + s.Reason + "."
+	case api.OutcomeEnumUnscored:
+		return 2, "No score: every standard on this commit could not run."
+	}
+	if s.Value == nil {
+		return 2, "No score: not every expected standard finished on this commit."
 	}
 	if failUnder >= 0 && *s.Value < failUnder {
 		return 1, fmt.Sprintf("Score %d is under %d.", *s.Value, failUnder)

@@ -73,8 +73,10 @@ Each run remembers the importance its standard had when it ran, so changing impo
 
 Every checked commit gets a **score** from 0 to 100, once **every expected standard has finished on it**. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when its check started. Until then the commit has no score: it is *checking*, or *incomplete* if a standard never finished (for example, only one standard was run by hand).
 
-- A **Required** standard that fails, or could not be verified (its run errored, for any reason, GitGrit's own failures included), makes the score **0**. The project page says which.
-- Otherwise the score is the **average of the standards' scores, weighted by importance**: Required and Major count 2, Minor counts 1. A Major or Minor standard that errored is left out.
+- A **Required** standard that fails, or could not run (its run errored, for any reason, GitGrit's own failures included), **fails the commit**. Failed is a verdict, not a number: the commit has no score, reads **F**, and the project page says which standard failed it.
+- Otherwise the score is the **average of the standards' scores, weighted by importance**: Required and Major count 2, Minor counts 1. A Major or Minor standard that could not run is left out. Every standard can fail and the score still be a number, even 0: that is a low score, not a failed project.
+
+Whether a standard **passed or failed** is the standard's own decision; its score is its partial credit. A standard can fail with a high score, and only its score counts toward the average.
 
 The **project's score** is the score of the newest commit on the default branch that has one. Checking an old commit again never replaces a newer commit's score. A commit keeps its score while it is checked again, and the new check replaces it only once every expected standard has finished; if a newer commit is still checking or incomplete, the project page says so under the score.
 
@@ -84,15 +86,21 @@ Changing attachments or importance does not rescore anything: the next check doe
 
 GitGrit shows a commit's score, and so a branch's and a project's, as a letter. The number underneath stays the same, and the API returns both. Each standard's own result on a commit stays a number from 0 to 100.
 
-| Letter | Score |
-|---|---|
-| **A+** | 100 |
-| **A** | 90 or more |
-| **B** | 75 or more |
-| **C** | 60 or more |
-| **D** | below 60 |
-| **F** | a Required standard failed or could not be verified |
+| Letter | Score | Health |
+|---|---|---|
+| **A+** | 100 | Healthy |
+| **A** | 90 or more | Healthy |
+| **B** | 75 or more | Needs attention |
+| **C** | 60 or more | Needs attention |
+| **D** | below 60 (in orange) | Needs attention |
+| **F** | a Required standard failed or could not run | Failed |
 
 An **F** always means the project failed; a low average is a D.
 
-In the API every commit score comes with a `display` object (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show that instead of formatting the number yourself, and your screens read like GitGrit's. `/status/`'s `grade` is the same as its `display.text`.
+### Health
+
+Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A stack is as healthy as its least healthy project, and the dashboard counts your projects by health.
+
+"Needs attention" on the dashboard lists the standards that failed or could not run, the ones that fail their project first.
+
+In the API every commit score comes with an `outcome` (`failed`, `scored` or `unscored`: nothing could be averaged because every run errored) and a `display` object (`text`, `tone`, `spoken`): how GitGrit itself shows it. A failed commit's `value` is `null`. Show `display` instead of formatting the number yourself, and your screens read like GitGrit's. `/status/`'s `grade` is the same as its `display.text`, and `level` is the health: `healthy`, `needs_attention`, `failed` or `unknown`.

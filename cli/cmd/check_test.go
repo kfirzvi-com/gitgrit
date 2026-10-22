@@ -51,18 +51,23 @@ func fakeAPIWith(t *testing.T, failed int, commitSHA *string, state string, requ
 			running = 2
 		}
 		var score any = 100 - 50*failed
-		reason := ""
+		reason, outcome, grade, level := "", "scored", "A+", "healthy"
+		if failed > 0 {
+			grade, level = "C", "needs_attention"
+		}
 		if requiredFailed {
-			score, reason = 0, "No secrets failing"
+			// Failed is a verdict, not a number.
+			score, reason, outcome, grade, level = nil, "No secrets failing", "failed", "F", "failed"
 		}
 		if state != "complete" {
-			score = nil
+			score, outcome = nil, "unscored"
 		}
+		display := map[string]any{"text": grade, "tone": level, "spoken": ""}
 		return map[string]any{
 			"sha": sha, "title": "Fix", "author": "Dana", "date": nil, "url": "", "checked": true, "running": running,
-			"score": score, "level": "healthy", "passed": 2 - failed, "failed": failed, "errored": 0,
+			"score": score, "score_display": display, "level": level, "passed": 2 - failed, "failed": failed, "errored": 0,
 			"commit_score": map[string]any{
-				"value": score, "failed": requiredFailed, "reason": reason, "state": state,
+				"value": score, "outcome": outcome, "display": display, "failed": requiredFailed, "reason": reason, "state": state,
 				"standards": map[string]any{"expected": 2, "finished": 2},
 				"commit":    map[string]any{"sha": sha, "branch": "main", "committed_at": nil},
 			},

@@ -97,7 +97,7 @@ cd ~/src/your-repo
 gitgrit health
 ```
 
-To fail a CI build when standards fail, run `gitgrit check --wait` with a workspace token. [Command Line](cli.md) has every command and the CI setup.
+To fail a CI build when a Required standard fails, run `gitgrit check --wait` with a workspace token (add `--fail-under` to also fail on a low score). [Command Line](cli.md) has every command and the CI setup.
 
 ## What's next?
 

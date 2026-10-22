@@ -85,28 +85,22 @@ func (e ImportanceEnum) Valid() bool {
 
 // Defines values for LevelEnum.
 const (
-	Caution  LevelEnum = "caution"
-	Critical LevelEnum = "critical"
-	Healthy  LevelEnum = "healthy"
-	Severe   LevelEnum = "severe"
-	Unknown  LevelEnum = "unknown"
-	Warning  LevelEnum = "warning"
+	LevelEnumFailed         LevelEnum = "failed"
+	LevelEnumHealthy        LevelEnum = "healthy"
+	LevelEnumNeedsAttention LevelEnum = "needs_attention"
+	LevelEnumUnknown        LevelEnum = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the LevelEnum enum.
 func (e LevelEnum) Valid() bool {
 	switch e {
-	case Caution:
+	case LevelEnumFailed:
 		return true
-	case Critical:
+	case LevelEnumHealthy:
 		return true
-	case Healthy:
+	case LevelEnumNeedsAttention:
 		return true
-	case Severe:
-		return true
-	case Unknown:
-		return true
-	case Warning:
+	case LevelEnumUnknown:
 		return true
 	default:
 		return false
@@ -125,6 +119,27 @@ func (e MatchedByEnum) Valid() bool {
 	case FullPath:
 		return true
 	case WebUrl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OutcomeEnum.
+const (
+	OutcomeEnumFailed   OutcomeEnum = "failed"
+	OutcomeEnumScored   OutcomeEnum = "scored"
+	OutcomeEnumUnscored OutcomeEnum = "unscored"
+)
+
+// Valid indicates whether the value is a known member of the OutcomeEnum enum.
+func (e OutcomeEnum) Valid() bool {
+	switch e {
+	case OutcomeEnumFailed:
+		return true
+	case OutcomeEnumScored:
+		return true
+	case OutcomeEnumUnscored:
 		return true
 	default:
 		return false
@@ -331,10 +346,8 @@ type Commit struct {
 	Failed              int           `json:"failed"`
 
 	// Level * `healthy` - healthy
-	// * `warning` - warning
-	// * `caution` - caution
-	// * `critical` - critical
-	// * `severe` - severe
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
 	// * `unknown` - unknown
 	Level   LevelEnum     `json:"level"`
 	Passed  int           `json:"passed"`
@@ -366,10 +379,17 @@ type CommitScore struct {
 	// Display A score as the app shows it, so API clients can show it the same way.
 	Display ScoreDisplay `json:"display"`
 
-	// Failed A Required standard failed or could not be verified: the value is 0.
+	// Failed A Required standard failed or could not run: the commit failed and has no value.
 	Failed bool `json:"failed"`
 
-	// Reason Why the value is 0; empty otherwise.
+	// Outcome failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+	//
+	// * `failed` - failed
+	// * `scored` - scored
+	// * `unscored` - unscored
+	Outcome OutcomeEnum `json:"outcome"`
+
+	// Reason Why the commit failed; empty otherwise.
 	Reason    string            `json:"reason"`
 	Standards StandardsProgress `json:"standards"`
 
@@ -380,7 +400,7 @@ type CommitScore struct {
 	// * `incomplete` - incomplete
 	State StateEnum `json:"state"`
 
-	// Value The commit's last complete score, 0-100; null until every expected standard has finished on it.
+	// Value The commit's last complete score, 0-100; null when it failed (see outcome) or until every expected standard has finished on it.
 	Value *int `json:"value"`
 }
 
@@ -448,10 +468,8 @@ type LastExecution struct {
 }
 
 // LevelEnum * `healthy` - healthy
-// * `warning` - warning
-// * `caution` - caution
-// * `critical` - critical
-// * `severe` - severe
+// * `needs_attention` - needs_attention
+// * `failed` - failed
 // * `unknown` - unknown
 type LevelEnum string
 
@@ -516,6 +534,9 @@ type NewerCommit struct {
 	State StateEnum `json:"state"`
 }
 
+// NullEnum defines model for NullEnum.
+type NullEnum = interface{}
+
 // Offender defines model for Offender.
 type Offender struct {
 	LastRun    time.Time          `json:"last_run"`
@@ -524,6 +545,11 @@ type Offender struct {
 	Score      *int               `json:"score"`
 	StandardId openapi_types.UUID `json:"standard_id"`
 }
+
+// OutcomeEnum * `failed` - failed
+// * `scored` - scored
+// * `unscored` - unscored
+type OutcomeEnum string
 
 // PackInstall defines model for PackInstall.
 type PackInstall struct {
@@ -663,10 +689,8 @@ type ProjectHealth struct {
 	Failed        int          `json:"failed"`
 
 	// Level * `healthy` - healthy
-	// * `warning` - warning
-	// * `caution` - caution
-	// * `critical` - critical
-	// * `severe` - severe
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
 	// * `unknown` - unknown
 	Level LevelEnum `json:"level"`
 
@@ -713,18 +737,34 @@ type ProjectStatus struct {
 	// Grade The score as the app shows it (same as display.text).
 	Grade string `json:"grade"`
 
-	// OverallScore The project's score: its newest fully checked commit on the default branch.
+	// Outcome failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+	//
+	// * `failed` - failed
+	// * `scored` - scored
+	// * `unscored` - unscored
+	Outcome *ProjectStatus_Outcome `json:"outcome"`
+
+	// OverallScore The project's score: its newest fully checked commit on the default branch. Null when that commit failed (see outcome) or has no score.
 	OverallScore *float64   `json:"overall_score"`
 	Passed       int        `json:"passed"`
 	Project      ProjectRef `json:"project"`
 
-	// Reason Why the score is 0; empty otherwise.
+	// Reason Why the project failed; empty otherwise.
 	Reason string `json:"reason"`
 
-	// ScoreFailed A Required standard failed or could not be verified: the score is 0.
+	// ScoreFailed A Required standard failed or could not run: the project failed and has no score.
 	ScoreFailed    bool       `json:"score_failed"`
 	TopOffenders   []Offender `json:"top_offenders"`
 	TotalStandards int        `json:"total_standards"`
+}
+
+// ProjectStatus_Outcome failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+//
+// * `failed` - failed
+// * `scored` - scored
+// * `unscored` - unscored
+type ProjectStatus_Outcome struct {
+	union json.RawMessage
 }
 
 // Repository defines model for Repository.
@@ -792,13 +832,11 @@ type ScoreDisplay struct {
 	// Text What the app shows, e.g. "B"; "—" when there is no score.
 	Text string `json:"text"`
 
-	// Tone Its colour band.
+	// Tone Its health: healthy, needs_attention, failed or unknown.
 	//
 	// * `healthy` - healthy
-	// * `warning` - warning
-	// * `caution` - caution
-	// * `critical` - critical
-	// * `severe` - severe
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
 	// * `unknown` - unknown
 	Tone LevelEnum `json:"tone"`
 }
@@ -1003,6 +1041,68 @@ type TestStandardJSONRequestBody = StandardTestRequest
 
 // UpdateStandardJSONRequestBody defines body for UpdateStandard for application/json ContentType.
 type UpdateStandardJSONRequestBody = PatchedStandardUpdateRequest
+
+// AsOutcomeEnum returns the union data inside the ProjectStatus_Outcome as a OutcomeEnum
+func (t ProjectStatus_Outcome) AsOutcomeEnum() (OutcomeEnum, error) {
+	var body OutcomeEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOutcomeEnum overwrites any union data inside the ProjectStatus_Outcome as the provided OutcomeEnum
+func (t *ProjectStatus_Outcome) FromOutcomeEnum(v OutcomeEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOutcomeEnum performs a merge with any union data inside the ProjectStatus_Outcome, using the provided OutcomeEnum
+func (t *ProjectStatus_Outcome) MergeOutcomeEnum(v OutcomeEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNullEnum returns the union data inside the ProjectStatus_Outcome as a NullEnum
+func (t ProjectStatus_Outcome) AsNullEnum() (NullEnum, error) {
+	var body NullEnum
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNullEnum overwrites any union data inside the ProjectStatus_Outcome as the provided NullEnum
+func (t *ProjectStatus_Outcome) FromNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNullEnum performs a merge with any union data inside the ProjectStatus_Outcome, using the provided NullEnum
+func (t *ProjectStatus_Outcome) MergeNullEnum(v NullEnum) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ProjectStatus_Outcome) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ProjectStatus_Outcome) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error

@@ -91,7 +91,7 @@ Or do both at once, naming the repository: `gitgrit project add kfirzvi-com/gitg
 ```console
 $ gitgrit health
 gitgrit-demo-auth-service · project health
-Score 33 · critical · 1 passed, 2 failed, 0 errored
+Grade D · needs_attention · 1 passed, 2 failed, 0 errored
 
 STATUS    SCORE  STANDARD           COMMIT   RAN       MESSAGE
 ✓ passed  100    README Exists      1fc38e8  just now  README found: README.md
@@ -153,10 +153,10 @@ Always pass `--sha`: without it GitGrit checks whatever the branch's head is by 
 | Exit code | When |
 |---|---|
 | `0` | The commit has a score and passes |
-| `1` | A Required standard failed or could not be verified (the score is 0), or the score is under `--fail-under` |
-| `2` | No score: not every expected standard finished on the commit, or `--timeout` passed first |
+| `1` | The commit failed: a Required standard failed or could not run (it reads F and has no score), or the score is under `--fail-under` |
+| `2` | No score: not every expected standard finished on the commit, every run on it errored, or `--timeout` passed first |
 
-A failing Major or Minor standard lowers the score but does not fail the build on its own; add `--fail-under 80` to fail below a score. `--json` prints the commit, with its `commit_score`, for later steps.
+A failing Major or Minor standard lowers the score but does not fail the build on its own; add `--fail-under 90` to fail below an A (or `75` below a B). `--json` prints the commit, with its `commit_score`, for later steps.
 
 ## Self-hosted GitGrit
 
