@@ -3,7 +3,6 @@ each from its own commit score. Never one grade or colour for many
 projects: the dashboard and every stack show these counts instead."""
 from __future__ import annotations
 
-from collections import Counter
 from dataclasses import dataclass
 
 from app.application import scoring
@@ -16,15 +15,42 @@ from app.domain.score_representation import ScoreTone
 class ProjectHealthCounts:
     """Projects counted by their health (``ScoreHealth`` of each project's
     score): failed (a Required standard failed), needs attention (B to D),
-    healthy (A+, A), no data (no score yet). ``attention`` lists the
-    projects that are failed or need attention, with their scores, failed
-    first then lowest: each one as itself, never combined."""
+    healthy (A+, A), no data (no score yet). ``projects`` holds the projects
+    behind each count, with their scores, lowest first then by name (so a
+    count can list them); ``attention`` the failed and needing-attention ones,
+    failed first: each one as itself, never combined."""
 
     failed: int
     needs_attention: int
     healthy: int
     no_data: int
-    attention: tuple = ()  # ((project, CommitScore), ...)
+    projects: dict = None  # {ScoreTone: ((project, CommitScore | None), ...)}
+
+    @property
+    def attention(self) -> tuple:
+        """The failed projects, then the ones that need attention."""
+        projects = self.projects or {}
+        return projects.get(ScoreTone.FAILED, ()) + projects.get(ScoreTone.NEEDS_ATTENTION, ())
+
+    def projects_with(self, tone) -> tuple:
+        return (self.projects or {}).get(ScoreTone(tone), ())
+
+    # The projects behind each count, for templates.
+    @property
+    def failed_projects(self) -> tuple:
+        return self.projects_with(ScoreTone.FAILED)
+
+    @property
+    def needs_attention_projects(self) -> tuple:
+        return self.projects_with(ScoreTone.NEEDS_ATTENTION)
+
+    @property
+    def healthy_projects(self) -> tuple:
+        return self.projects_with(ScoreTone.HEALTHY)
+
+    @property
+    def no_data_projects(self) -> tuple:
+        return self.projects_with(ScoreTone.UNKNOWN)
 
     @classmethod
     def of(cls, projects, project_scores=None) -> "ProjectHealthCounts":
@@ -33,19 +59,17 @@ class ProjectHealthCounts:
         projects = list(projects)
         if project_scores is None:
             project_scores = scoring.project_scores(projects)
-        scored = [(p, project_scores.get(p.pk)) for p in projects]
-        health = {p.pk: cls.project_health(s) for p, s in scored}
-        counts = Counter(health.values())
-        attention = sorted(
-            ((p, s) for p, s in scored if health[p.pk].needs_attention),
-            key=lambda t: (not t[1].failed, t[1].value if t[1].value is not None else 0, t[0].name.lower()),
-        )
+        by_tone = {tone: [] for tone in ScoreTone}
+        for project in projects:
+            score = project_scores.get(project.pk)
+            by_tone[cls.project_health(score)].append((project, score))
+        lowest_first = lambda t: (t[1].value if t[1] and t[1].value is not None else 0, t[0].name.lower())  # noqa: E731
         return cls(
-            failed=counts[ScoreTone.FAILED],
-            needs_attention=counts[ScoreTone.NEEDS_ATTENTION],
-            healthy=counts[ScoreTone.HEALTHY],
-            no_data=counts[ScoreTone.UNKNOWN],
-            attention=tuple(attention),
+            failed=len(by_tone[ScoreTone.FAILED]),
+            needs_attention=len(by_tone[ScoreTone.NEEDS_ATTENTION]),
+            healthy=len(by_tone[ScoreTone.HEALTHY]),
+            no_data=len(by_tone[ScoreTone.UNKNOWN]),
+            projects={tone: tuple(sorted(rows, key=lowest_first)) for tone, rows in by_tone.items()},
         )
 
     @classmethod

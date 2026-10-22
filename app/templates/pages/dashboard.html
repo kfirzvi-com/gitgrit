@@ -72,14 +72,14 @@
   <div id="dashboard-panel" class="gg-dashboard-narrow card bg-base-100 shadow-xl">
     <div class="card-body p-2 sm:p-3">
       <div class="flex items-center justify-between gap-3 mb-1 px-1">
-        <div class="text-xs opacity-60 flex flex-wrap gap-x-3 gap-y-1">
-          <span><b>{{ stack_count }}</b> stacks</span>
-          <span><b>{{ project_count }}</b> projects</span>
-          <span><b>{{ standard_count }}</b> standards</span>
+        <div class="text-xs flex flex-wrap gap-x-3 gap-y-1">
+          <span class="opacity-60"><b>{{ stack_count }}</b> stacks</span>
+          <span class="opacity-60"><b>{{ project_count }}</b> projects</span>
+          <span class="opacity-60"><b>{{ standard_count }}</b> standards</span>
           {% if workspace_health %}
-            <span data-workspace-health>{% include "partials/project_health_counts.html" with counts=workspace_health %}</span>
+            <span data-workspace-health>{% include "partials/project_health_counts.html" with counts=workspace_health linked=True %}</span>
           {% endif %}
-          <span id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
+          <span class="opacity-60" id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
         </div>
         <div class="flex items-center gap-1">
           {% if user.is_superuser %}

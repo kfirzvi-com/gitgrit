@@ -101,3 +101,20 @@ class TestProjectBadge(TestCase):
         ).content.decode()
 
         assert "GitGrit compliance: —" in svg
+
+    def test_the_dashboard_counts_list_their_projects_with_links(self):
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role="owner")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(tenant.id)
+        session.save()
+        failed = TestProjectHealthCounts._project_scored(self, tenant, None, failed=True)
+        baker.make("app.Stack", tenant=tenant)
+
+        body = self.client.get(reverse("dashboard")).content.decode()
+
+        listed = body.split('data-count-projects="failed"')[1].split("</ul>")[0]
+        assert f'href="{reverse("project_detail", args=[failed.pk])}"' in listed
+        assert failed.name in listed and ">F</span>" in listed
