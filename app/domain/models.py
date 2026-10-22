@@ -1592,22 +1592,19 @@ class Notification(models.Model):
         )
 
     @classmethod
-    def project_turned_critical(
-        cls, *, project, score_before, score_after, execution_ids=(), trigger=None,
-        triggered_by_user_ids=(),
+    def project_failed(
+        cls, *, project, reason, execution_ids=(), trigger=None, triggered_by_user_ids=(),
     ):
-        """A run dropped the project's overall score into critical."""
+        """A run failed the project: a Required standard failed or could not
+        run on its newest commit. ``reason`` says which ("No secrets failing")."""
         context = _run_context(execution_ids, trigger, triggered_by_user_ids)
-        context["score"] = round(score_after)
+        context["grade"] = COMMIT_SCORE_REPRESENTATION.represent(None, failed=True).text
         return cls._new(
             project=project,
             kind=Kind.PROJECT_CRITICAL,
             severity=Severity.CRITICAL,
-            title="Score dropped to critical",
-            body=(
-                f"From {COMMIT_SCORE_REPRESENTATION.represent(score_before).text}"
-                f" to {COMMIT_SCORE_REPRESENTATION.represent(score_after).text}."
-            ),
+            title="Project failed",
+            body=f"{reason[:1].upper()}{reason[1:]}." if reason else "A Required standard failed.",
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,
         )

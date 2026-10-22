@@ -11,12 +11,12 @@ class ScoreTagTests(SimpleTestCase):
     def test_the_score_tag_shows_the_text_in_its_tone(self):
         html = render('{% score value size="lg" %}', value=82)
         assert ">B</span>" in html
-        assert "gg-tone-text-warning" in html
+        assert "gg-tone-text-needs_attention" in html
         assert 'aria-label="Grade B, score 82 out of 100"' in html
 
     def test_a_failed_score_is_red(self):
         html = render("{% score 0 failed=True %}")
-        assert ">F</span>" in html and "gg-tone-text-severe" in html and "gg-score-severe" in html
+        assert ">F</span>" in html and "gg-tone-text-failed" in html and "gg-score-failed" in html
 
     def test_score_text_is_the_bare_text(self):
         assert render("{{ value|score_text }}", value=None) == "—"
@@ -33,7 +33,7 @@ class ScoreToneStylesTests(SimpleTestCase):
             assert f"--gg-tone-{tone}: {color};" in html
             assert f".gg-tone-text-{tone}" in html
         assert 'id="gg-score-tones"' in html
-        assert ScoreToneStyle.as_json()["severe"] == {"color": "#ef4444", "label": "Failed"}
+        assert ScoreToneStyle.as_json()["failed"] == {"color": "#ef4444", "label": "Failed"}
 
     def test_the_api_level_choices_are_the_score_tones(self):
         from app.domain.score_representation import ScoreTone

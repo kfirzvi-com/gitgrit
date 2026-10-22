@@ -12,13 +12,15 @@ and one standard's result on a commit, each 0-100. Pure, no I/O.
   standard's result on a commit reads (numbers). Changing either changes how
   those scores read everywhere; the value underneath (and the API's numbers)
   never change.
-- ``ScoreTone``: the one list of colour bands (healthy, warning, caution,
-  critical, severe, unknown); each score's representation decides which one
-  it is in, and project and stack health are these same tones.
+- ``ScoreTone``: the one list of health tones (healthy, needs attention,
+  failed, unknown); project and stack health are these same tones.
+- ``ScoreHealth``: the one rule from a score to its tone: healthy from 90,
+  needs attention below, failed only when a Required standard failed.
 """
 from app.domain.score_representation.letter_score_representation import LetterScoreRepresentation
 from app.domain.score_representation.number_score_representation import NumberScoreRepresentation
 from app.domain.score_representation.represented_score import RepresentedScore
+from app.domain.score_representation.score_health import ScoreHealth
 from app.domain.score_representation.score_representation import ScoreRepresentation
 from app.domain.score_representation.score_representation_in_use import (
     COMMIT_SCORE_REPRESENTATION,
@@ -32,6 +34,7 @@ __all__ = [
     "LetterScoreRepresentation",
     "NumberScoreRepresentation",
     "RepresentedScore",
+    "ScoreHealth",
     "ScoreRepresentation",
     "ScoreTone",
 ]

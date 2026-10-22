@@ -265,7 +265,7 @@ window.GitGritFlow = (function () {
   // --- Health hover tooltip --------------------------------------------------
   // A single fixed-position element reused across nodes (so it isn't scaled by
   // the canvas zoom and isn't clipped by the flow container). Shown only for
-  // nodes that carry `issues` — i.e. needs-attention / critical.
+  // nodes that carry `issues` — i.e. needs attention / failed.
   function tooltipEl() {
     var el = document.getElementById("gg-flow-tooltip");
     if (!el) {

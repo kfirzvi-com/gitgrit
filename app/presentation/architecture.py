@@ -27,7 +27,7 @@ from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application import scoring
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, STANDARD_RESULT_REPRESENTATION
+from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.application.naming import canonical_key
 from app.application.standard_results import current_results
 from app.domain.models import (
@@ -36,9 +36,9 @@ from app.domain.models import (
     InfrastructureComponent,
     Project,
     Stack,
+    StandardExecution,
 )
 from app.domain.health import (
-    HEALTHY,
     project_level,
     stack_level,
 )
@@ -69,19 +69,18 @@ def _project_score(project_id, latest):
 
 def _component_issues(commit_score):
     """Why a project needs attention: the Required standard that failed it,
-    else its lowest standards that are not healthy."""
+    else its standards that failed or could not run (their own status, not
+    their numbers), failures first."""
     if commit_score is None:
         return []
     if commit_score.failed:
         return [commit_score.reason]
-    low = sorted(
-        (e for e in commit_score.executions.all() if STANDARD_RESULT_REPRESENTATION.tone(e.score) is not HEALTHY),
-        key=lambda e: e.score,
+    status_text = {StandardExecution.Status.FAILED: "failed", StandardExecution.Status.ERROR: "could not run"}
+    problems = sorted(
+        (e for e in commit_score.executions.all() if e.status in status_text),
+        key=lambda e: (e.status != StandardExecution.Status.FAILED, e.standard_name.lower()),
     )
-    return [
-        "{} — {}".format(e.standard_name, STANDARD_RESULT_REPRESENTATION.represent(e.score).text)
-        for e in low[:4]
-    ]
+    return ["{} — {}".format(e.standard_name, status_text[e.status]) for e in problems[:4]]
 
 
 def _score_text(value, failed: bool = False):

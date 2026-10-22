@@ -23,7 +23,7 @@ from django.db.models import Q
 from django.db.models.functions import Coalesce
 
 from app.application.standard_engine import literal_ref
-from app.domain.health import HEALTHY, WARNING, level_from_score
+from app.domain.score_representation import ScoreTone
 from app.domain.models import Project, ProjectStandard, StandardExecution
 
 Status = StandardExecution.Status
@@ -107,7 +107,7 @@ def project_score(results) -> int | None:
 class AttentionItem:
     """One current result that needs attention."""
 
-    level: str  # a ScoreTone that needs attention
+    level: ScoreTone  # FAILED when it fails the project, else NEEDS_ATTENTION
     project_id: object
     project_name: str
     standard_id: object
@@ -119,20 +119,17 @@ class AttentionItem:
 
 
 def attention_items(tenant) -> list[AttentionItem]:
-    """Current results that need attention, critical first, then newest.
-
-    A result needs attention when its score is below healthy, or when it
-    failed or errored at all (a failed run that still scored well is a
-    warning). Returns the full ranked list; screens decide how many to show.
+    """Current results that need attention: the runs that failed or could
+    not run, whatever their score (a run's own pass or fail decides, never a
+    low number). The ones that fail their project (a Required standard) are
+    FAILED and come first, then newest. Returns the full ranked list; screens
+    decide how many to show.
     """
     items = []
     for ex in current_results(Project.objects.filter(tenant=tenant)):
-        level = level_from_score(ex.score)
-        failed = ex.status in (Status.FAILED, Status.ERROR)
-        if level == HEALTHY and not failed:
+        if ex.status not in (Status.FAILED, Status.ERROR):
             continue
-        if level == HEALTHY:
-            level = WARNING
+        level = ScoreTone.FAILED if ex.fails_the_commit else ScoreTone.NEEDS_ATTENTION
         items.append(
             AttentionItem(
                 level=level,

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from app.application.event_bus import subscribe
 from app.application.notifications.service import raise_notification
+from app.domain.score_representation import ScoreHealth
 from app.domain.events import (
     DependencyInferenceFailed,
     MemberJoined,
@@ -110,9 +111,9 @@ class StandardsFailingNotificationPolicy:
         )
 
 
-class ProjectTurnedCriticalNotificationPolicy:
-    """Whenever a run drops a project's overall score into critical, raise
-    "Score dropped to critical"."""
+class ProjectFailedNotificationPolicy:
+    """Whenever a run fails a project (a Required standard failed or could
+    not run on its newest commit), raise "Project failed"."""
 
     def handle(self, event: StandardRunFinished) -> None:
         if notification_rules.could_not_evaluate(event):
@@ -120,16 +121,15 @@ class ProjectTurnedCriticalNotificationPolicy:
         project = _project(event)
         if project is None:
             return
-        before = _overall_score(project, excluding=event.execution_ids)
-        after = _overall_score(project)
-        if not notification_rules.turned_critical(before, after):
+        before = _project_health(project, excluding=event.execution_ids)
+        after = _project_health(project)
+        if not notification_rules.became_failed(before, after):
             return
         rows = _rows(event, project)
         raise_notification(
-            Notification.project_turned_critical(
+            Notification.project_failed(
                 project=project,
-                score_before=before,
-                score_after=after,
+                reason=_project_status(project)["reason"],
                 execution_ids=event.execution_ids,
                 trigger=_trigger(rows[0] if rows else None),
                 triggered_by_user_ids=_triggered_by(event),
@@ -279,7 +279,7 @@ class StandardChangedNotificationPolicy:
 NOTIFICATION_POLICIES = (
     (StandardRunFinished, CouldNotEvaluateNotificationPolicy()),
     (StandardRunFinished, StandardsFailingNotificationPolicy()),
-    (StandardRunFinished, ProjectTurnedCriticalNotificationPolicy()),
+    (StandardRunFinished, ProjectFailedNotificationPolicy()),
     (StandardRunsTimedOut, RunsTimedOutNotificationPolicy()),
     (DependencyInferenceFailed, GraphBrokeNotificationPolicy()),
     (DependencyInferenceFailed, AIProviderFailedNotificationPolicy()),
@@ -349,12 +349,23 @@ def _triggered_by(event) -> list[str]:
     return list(dict.fromkeys(str(u) for u in ids))
 
 
-def _overall_score(project, excluding=()):
+def _project_status(project, excluding=()):
     from app.application.project_status_service import ProjectStatusService
 
     return ProjectStatusService().get_project_status(
         project.tenant, str(project.pk), exclude_execution_ids=excluding
-    )["overall_score"]
+    )
+
+
+def _overall_score(project, excluding=()):
+    return _project_status(project, excluding)["overall_score"]
+
+
+def _project_health(project, excluding=()):
+    """The project's health (``ScoreHealth``): failed when a Required
+    standard failed its newest scored commit."""
+    status = _project_status(project, excluding)
+    return ScoreHealth.tone(status["overall_score"], failed=status["score_failed"])
 
 
 def _connection_works(project) -> bool:

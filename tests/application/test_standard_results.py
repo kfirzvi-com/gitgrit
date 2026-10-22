@@ -13,7 +13,6 @@ from app.application.standard_results import (
     project_score,
 )
 from app.domain.score_representation import ScoreTone
-from app.domain.health import CRITICAL, WARNING
 from app.domain.models import StandardExecution
 
 Status = StandardExecution.Status
@@ -49,7 +48,7 @@ class AttentionItemsTests(TestCase):
         [item] = attention_items(self.tenant)
 
         self.assertIsInstance(item, AttentionItem)
-        self.assertEqual(item.level, CRITICAL)
+        self.assertEqual(item.level, ScoreTone.NEEDS_ATTENTION)
         self.assertEqual(item.project_id, self.project.pk)
         self.assertEqual(item.project_name, "Acme")
         self.assertEqual(item.standard_id, standard.pk)
@@ -58,22 +57,26 @@ class AttentionItemsTests(TestCase):
         self.assertEqual(item.score, 20)
         self.assertEqual(item.status, "Failed")
 
-    def test_levels_follow_the_score_representation(self):
-        self._result(self._standard("D"), 59)
-        self._result(self._standard("C"), 60)
-        self._result(self._standard("B"), 80, status=Status.PASSED)
-        self._result(self._standard("A"), 95, status=Status.PASSED)
+    def test_runs_that_failed_or_could_not_run_need_attention_whatever_their_score(self):
+        self._result(self._standard("Failed high"), 95)
+        self._result(self._standard("Could not run"), 0, status=Status.ERROR)
+        self._result(self._standard("Passed low"), 10, status=Status.PASSED)
 
-        levels = {i.standard_name: i.level for i in attention_items(self.tenant)}
+        names = {i.standard_name for i in attention_items(self.tenant)}
 
-        self.assertEqual(levels, {"D": CRITICAL, "C": ScoreTone.CAUTION, "B": WARNING})
+        self.assertEqual(names, {"Failed high", "Could not run"})
 
-    def test_a_failed_run_that_scored_well_is_a_warning(self):
-        self._result(self._standard("Flaky"), 90, status=Status.ERROR)
+    def test_a_run_that_fails_its_project_is_failed_and_comes_first(self):
+        self._result(self._standard("Major"), 10)
+        required = self._result(self._standard("Required"), 50, ago=timedelta(days=1))
+        StandardExecution.objects.filter(pk=required.pk).update(importance="required")
 
-        [item] = attention_items(self.tenant)
+        items = attention_items(self.tenant)
 
-        self.assertEqual(item.level, WARNING)
+        self.assertEqual(
+            [(i.standard_name, i.level) for i in items],
+            [("Required", ScoreTone.FAILED), ("Major", ScoreTone.NEEDS_ATTENTION)],
+        )
 
     def test_only_the_latest_result_per_standard_counts(self):
         standard = self._standard("Pinned CI")
@@ -99,14 +102,13 @@ class AttentionItemsTests(TestCase):
 
         self.assertEqual(names, ["Attached"])
 
-    def test_critical_first_then_newest(self):
-        self._result(self._standard("Old critical"), 10, ago=timedelta(days=2))
-        self._result(self._standard("New warning"), 60)
-        self._result(self._standard("New critical"), 10, ago=timedelta(hours=1))
+    def test_newest_first_within_a_level(self):
+        self._result(self._standard("Old"), 10, ago=timedelta(days=2))
+        self._result(self._standard("New"), 60)
 
         names = [i.standard_name for i in attention_items(self.tenant)]
 
-        self.assertEqual(names, ["New critical", "Old critical", "New warning"])
+        self.assertEqual(names, ["New", "Old"])
 
     def test_other_workspaces_are_not_included(self):
         other = baker.make("app.Project", tenant=baker.make("app.Tenant"))

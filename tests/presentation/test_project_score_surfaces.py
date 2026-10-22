@@ -30,7 +30,7 @@ class ProjectScoreSurfacesTests(TestCase):
         svg = self.client.get(reverse("project_badge", args=[self.project.pk])).content.decode()
 
         assert "GitGrit compliance: F" in svg
-        assert ScoreToneStyle.for_tone("severe").color in svg
+        assert ScoreToneStyle.for_tone("failed").color in svg
 
     def test_a_component_shows_the_project_score_and_why(self):
         stack = baker.make("app.Stack", tenant=self.tenant)
@@ -41,7 +41,7 @@ class ProjectScoreSurfacesTests(TestCase):
         node = next(n for n in graph["components"] if n["id"] == str(component.id))
 
         assert (node["score"], node["score_text"], node["health"], node["issues"]) == (
-            0, "F", "severe", ["No secrets failing"]
+            0, "F", "failed", ["No secrets failing"]
         )
 
     def test_a_project_card_glows_in_its_letter_and_says_when_the_project_failed(self):
@@ -54,6 +54,6 @@ class ProjectScoreSurfacesTests(TestCase):
 
         body = self.client.get(reverse("project_list")).content.decode()
 
-        assert 'gg-tone-card gg-tone-card-severe" data-project-card="severe"' in body
+        assert 'gg-tone-card gg-tone-card-failed" data-project-card="failed"' in body
         assert ">F</span>" in body
         assert "Project failed!" in body

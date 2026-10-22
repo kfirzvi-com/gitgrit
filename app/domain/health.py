@@ -1,14 +1,12 @@
 """Composite health for stacks and projects, surfaced as colour codes.
 
-Health is what points an engineering leader at the things that need attention.
-Today it's derived solely from the compliance score (latest standard results),
-but it's structured as a set of *signals* so future inputs slot in without
-touching callers:
+Health is what points an engineering leader at the things that need attention:
+healthy, needs attention, or failed (a Required standard failed), from the
+project's commit score through ``ScoreHealth``. It's structured as a set of
+*signals* so future inputs slot in without touching callers:
 
   * DORA deployment frequency (planned) — add a deployment-frequency signal to
     ``project_level``.
-  * Failing high-severity standards (planned) — add a severity signal that can
-    push a node to ``CRITICAL`` regardless of the aggregate score.
 
 A node's level is the worst across its signals; a stack's level is the worst
 across its projects (so one failing project can't hide behind a healthy
@@ -17,13 +15,10 @@ average).
 
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, ScoreTone
 
-# Health levels are score tones (``ScoreTone``): one list, and the
-# representation in use decides which one a score is in.
+# Health levels are score tones (``ScoreTone``), one list for everything.
 HEALTHY = ScoreTone.HEALTHY
-WARNING = ScoreTone.WARNING
-CAUTION = ScoreTone.CAUTION
-CRITICAL = ScoreTone.CRITICAL
-SEVERE = ScoreTone.SEVERE
+NEEDS_ATTENTION = ScoreTone.NEEDS_ATTENTION
+FAILED = ScoreTone.FAILED
 UNKNOWN = ScoreTone.UNKNOWN
 
 
@@ -50,7 +45,6 @@ def project_level(score, failed: bool = False):
         return worst([
             level_from_score(score),
             deployment_frequency_level(...),   # DORA
-            severity_level(...),               # failing high-severity standards
         ])
     """
     return level_from_score(score, failed=failed)

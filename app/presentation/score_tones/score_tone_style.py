@@ -15,13 +15,12 @@ class ScoreToneStyle:
     tone: ScoreTone
     color: str
 
-    # Michal's palette: A+/A mint, B yellow, C orange, D coral, F deep red.
+    # From Michal's palette: healthy (A+, A) mint, needs attention (B to D)
+    # yellow, failed (F) red, no data gray. Red means failed, nothing else.
     COLOR_BY_TONE = {
         ScoreTone.HEALTHY: "#00d390",
-        ScoreTone.WARNING: "#facc15",
-        ScoreTone.CAUTION: "#fb923c",
-        ScoreTone.CRITICAL: "#ff627d",
-        ScoreTone.SEVERE: "#ef4444",
+        ScoreTone.NEEDS_ATTENTION: "#facc15",
+        ScoreTone.FAILED: "#ef4444",
         ScoreTone.UNKNOWN: "#64748b",
     }
 

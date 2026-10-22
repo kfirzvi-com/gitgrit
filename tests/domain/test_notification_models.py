@@ -114,12 +114,12 @@ class NewKindConstructorTests(TestCase):
         self.project = baker.make("app.Project", name="Acme")
         self.actor = baker.make("app.User", first_name="Dana", last_name="Lee")
 
-    def test_project_turned_critical(self):
-        n = Notification.project_turned_critical(project=self.project, score_before=72.4, score_after=38.6)
+    def test_project_failed(self):
+        n = Notification.project_failed(project=self.project, reason="No secrets failing; could not verify License")
         self.assertEqual((n.kind, n.severity), (Kind.PROJECT_CRITICAL, Severity.CRITICAL))
-        self.assertEqual(n.title, "Score dropped to critical")
-        self.assertEqual(n.body, "From C to D.")
-        self.assertEqual(n.context["score"], 39)
+        self.assertEqual(n.title, "Project failed")
+        self.assertEqual(n.body, "No secrets failing; could not verify License.")
+        self.assertEqual(n.context["grade"], "F")
 
     def test_runs_timed_out(self):
         n = Notification.runs_timed_out(project=self.project, execution_ids=["a", "b"])

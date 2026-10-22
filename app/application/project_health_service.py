@@ -41,7 +41,7 @@ def _summary(score, results) -> dict:
     return {
         "score": value,
         "score_display": _display(score),
-        "level": level_from_score(value),
+        "level": level_from_score(value, failed=bool(score and score.failed)),
         **breakdown(results),
     }
 

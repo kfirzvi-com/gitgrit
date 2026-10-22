@@ -15,7 +15,7 @@ from app.application.notifications.notification_policies import (
     MemberRoleChangedNotificationPolicy,
     ProjectAddedNotificationPolicy,
     ProjectRemovedNotificationPolicy,
-    ProjectTurnedCriticalNotificationPolicy,
+    ProjectFailedNotificationPolicy,
     RunsTimedOutNotificationPolicy,
     StandardChangedNotificationPolicy,
     StandardsFailingNotificationPolicy,
@@ -257,32 +257,39 @@ class StandardsFailingNotificationPolicyTests(_PolicyTestCase):
         self.assertEqual(Notification.objects.get().triggered_by_user_ids, [str(user.pk)])
 
 
-class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
-    policy = ProjectTurnedCriticalNotificationPolicy()
+class ProjectFailedNotificationPolicyTests(_PolicyTestCase):
+    """"Project failed" is raised when a run fails the project (a Required
+    standard failed), never for a low score."""
 
-    def _attached_result(self, standard, score, status):
+    policy = ProjectFailedNotificationPolicy()
+
+    def _attached_result(self, standard, score, status, importance="major"):
         return baker.make(
-            "app.StandardExecution", project=self.project, standard=standard,
-            standard_name=standard.name, status=status, score=score, event_type="manual",
+            "app.StandardExecution", project=self.project, standard=standard, standard_name=standard.name,
+            status=status, score=score, event_type="manual", importance=importance,
         )
 
-    def test_a_run_that_drops_the_score_into_critical_raises_it(self):
-        standard = baker.make("app.Standard", tenant=self.tenant)
+    def _standard(self, name="No secrets"):
+        standard = baker.make("app.Standard", tenant=self.tenant, name=name)
         self.project.standards.add(standard)
-        self._scored([self._attached_result(standard, 90, StandardExecution.Status.PASSED)], sha="a" * 40)
-        new = self._attached_result(standard, 20, StandardExecution.Status.FAILED)
+        return standard
+
+    def test_a_run_that_fails_a_required_standard_raises_it(self):
+        standard = self._standard()
+        self._scored([self._attached_result(standard, 90, StandardExecution.Status.PASSED, "required")], sha="a" * 40)
+        new = self._attached_result(standard, 20, StandardExecution.Status.FAILED, "required")
         self._scored([new], sha="b" * 40)
 
         self.policy.handle(self._event([new], failed=1))
 
         n = Notification.objects.get()
-        self.assertEqual(n.kind, "project.critical")
-        self.assertEqual(n.body, "From A to D.")
+        self.assertEqual((n.kind, n.severity, n.title), ("project.critical", "critical", "Project failed"))
+        self.assertEqual(n.body, "No secrets failing.")
+        self.assertEqual(n.context["grade"], "F")
 
-    def test_a_project_that_was_already_critical_raises_nothing(self):
-        standard = baker.make("app.Standard", tenant=self.tenant)
-        self.project.standards.add(standard)
-        self._scored([self._attached_result(standard, 30, StandardExecution.Status.FAILED)], sha="a" * 40)
+    def test_a_low_score_is_not_a_failed_project(self):
+        standard = self._standard()
+        self._scored([self._attached_result(standard, 90, StandardExecution.Status.PASSED)], sha="a" * 40)
         new = self._attached_result(standard, 10, StandardExecution.Status.FAILED)
         self._scored([new], sha="b" * 40)
 
@@ -290,8 +297,18 @@ class ProjectTurnedCriticalNotificationPolicyTests(_PolicyTestCase):
 
         self.assertFalse(Notification.objects.exists())
 
-    def test_a_first_run_has_nothing_to_drop_from(self):
-        new = self._row(StandardExecution.Status.FAILED, 10)
+    def test_a_project_that_had_already_failed_raises_nothing(self):
+        standard = self._standard()
+        self._scored([self._attached_result(standard, 30, StandardExecution.Status.FAILED, "required")], sha="a" * 40)
+        new = self._attached_result(standard, 10, StandardExecution.Status.FAILED, "required")
+        self._scored([new], sha="b" * 40)
+
+        self.policy.handle(self._event([new], failed=1))
+
+        self.assertFalse(Notification.objects.exists())
+
+    def test_a_first_run_has_nothing_to_change_from(self):
+        new = self._row(StandardExecution.Status.FAILED, 10, importance="required")
         self.policy.handle(self._event([new], failed=1))
         self.assertFalse(Notification.objects.exists())
 

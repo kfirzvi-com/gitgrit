@@ -237,8 +237,8 @@
       { key: "health", className: "gg-legend__section" },
       h("div", { className: "gg-legend__title" }, "Health (per repository)"),
       healthRow("healthy"),
-      healthRow("warning"),
-      healthRow("critical"),
+      healthRow("needs_attention"),
+      healthRow("failed"),
       healthRow("unknown")
     ),
     h(
