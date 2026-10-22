@@ -1,50 +1,39 @@
-{% comment %}An open commit on the Results tab: every run of the standards on it as a timeline,
-oldest on the left, with arrows to step between them; then the selected run's results, worst first
+{% comment %}An open commit on the Results tab: every run of the standards on it as a compact
+timeline of circles, each with its score inside, newest on the left (when and how it ran shows on
+hover, and below once picked), with arrows to step between them; then the selected run's results, worst first
 (row.result_groups), the standards it expected that never ran, and a button to run them again.
 The commit reads its newest run. Picking a run swaps this in place (project_commit_check).
 Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomment %}{% load score_tags project_tags %}
 {% url 'run_on_branch' project.pk as run_url %}
 {% with selected=row.selected %}
 <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5" data-commit-runs="{{ row.sha }}">
-  <div class="flex items-start gap-2 px-1 pt-2 pb-1" data-check-timeline>
-    {% with previous=row.previous_check %}
-      <button type="button" class="btn btn-ghost btn-xs btn-square mt-0.5"
-              {% if previous %}hx-get="{% url 'project_commit_check' project.pk previous.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
-              aria-label="Previous run" title="Previous run" data-check-previous>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>
-      </button>
+  <div class="flex items-center gap-1 px-1 pt-2 pb-1" data-check-timeline>
+    {% with newer=row.next_check %}
+      <button type="button" class="btn btn-ghost btn-xs btn-square"
+              {% if newer %}hx-get="{% url 'project_commit_check' project.pk newer.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
+              aria-label="Newer run" title="Newer run" data-check-newer><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg></button>
     {% endwith %}
-    <ol class="flex-1 min-w-0 flex items-start overflow-x-auto px-1 pb-1" aria-label="Runs on {{ row.short_sha }}, oldest first">
-      {% for run in row.checks %}
-        <li class="flex items-start{% if not forloop.last %} flex-1 min-w-24{% endif %}">
+    <ol class="flex items-center overflow-x-auto p-1" aria-label="Runs on {{ row.short_sha }}, newest first">
+      {% for run in row.checks reversed %}
+        <li class="flex items-center">
+          {% if not forloop.first %}<span class="w-4 h-px bg-base-content/25" aria-hidden="true"></span>{% endif %}
+          {# Set on every run (a loop keeps "as" variables): "—" and unknown without a verdict. #}
+          {% score_text_of run.score.value run.score.failed as text %}{% score_tone run.score.value run.score.failed as tone %}
           <button type="button"
-                  class="flex flex-col items-center gap-1 rounded-lg px-2 py-1 shrink-0 text-center hover:bg-base-200{% if forloop.counter0 == row.selected_index %} bg-base-200 ring-1 ring-primary/50{% endif %}"
+                  class="flex h-8 min-w-8 px-1 items-center justify-center rounded-full text-xs font-bold {% if run.outcome == 'checking' %}border border-base-content/30{% else %}gg-tone-bg-{{ tone }} text-[#0c0e13]{% endif %}{% if run.check.pk == row.selected.check.pk %} ring-2 ring-primary ring-offset-2 ring-offset-base-100{% else %} opacity-80 hover:opacity-100{% endif %}"
                   hx-get="{% url 'project_commit_check' project.pk run.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader
-                  {% if forloop.counter0 == row.selected_index %}aria-current="true"{% endif %}
-                  title="Run {{ forloop.counter }} of {{ row.checks|length }}: {{ run.check|trigger_label }}, {{ run.check.created_at|date:'j M Y, H:i' }}"
+                  {% if run.check.pk == row.selected.check.pk %}aria-current="true"{% endif %}
+                  title="Run {{ forloop.revcounter }} of {{ row.checks|length }} · {{ run.check|trigger_label }} · {{ run.check.created_at|date:'j M Y, H:i' }} · {% if run.outcome == 'checking' %}checking{% elif run.outcome == 'no_score' %}no score: {{ run.standing.reason }}{% else %}{{ text }}{% endif %}"
                   data-check-node="{{ run.outcome }}">
-            {% if run.outcome == "checking" %}
-              <span class="loading loading-spinner loading-xs"></span>
-            {% elif run.outcome == "no_score" or not run.outcome %}
-              <span class="h-3 w-3 rounded-full gg-tone-bg-unknown"></span>
-            {% else %}
-              {% score_tone run.score.value run.score.failed as tone %}
-              <span class="h-3 w-3 rounded-full gg-tone-bg-{{ tone }}"></span>
-            {% endif %}
-            <span class="text-[11px] leading-tight whitespace-nowrap">{{ run.check.created_at|date:"j M, H:i" }}</span>
-            <span class="text-[11px] leading-tight opacity-60 whitespace-nowrap">{{ run.check|trigger_label }}</span>
-            <span class="text-xs leading-tight">{% if run.outcome == "checking" %}<span class="opacity-60">checking</span>{% elif run.outcome == "failed" or run.outcome == "scored" %}{% score run.score.value failed=run.score.failed size="sm" %}{% else %}<span class="opacity-60">no score</span>{% endif %}</span>
+            {% if run.outcome == "checking" %}<span class="loading loading-spinner loading-xs"></span>{% else %}{{ text }}{% endif %}
           </button>
-          {% if not forloop.last %}<span class="flex-1 h-px bg-base-content/20 mt-3" aria-hidden="true"></span>{% endif %}
         </li>
       {% endfor %}
     </ol>
-    {% with next=row.next_check %}
-      <button type="button" class="btn btn-ghost btn-xs btn-square mt-0.5"
-              {% if next %}hx-get="{% url 'project_commit_check' project.pk next.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
-              aria-label="Next run" title="Next run" data-check-next>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
-      </button>
+    {% with older=row.previous_check %}
+      <button type="button" class="btn btn-ghost btn-xs btn-square"
+              {% if older %}hx-get="{% url 'project_commit_check' project.pk older.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
+              aria-label="Older run" title="Older run" data-check-older><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg></button>
     {% endwith %}
   </div>
   <p class="px-3 pb-1 text-xs opacity-60" data-check-selected>

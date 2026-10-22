@@ -102,10 +102,16 @@ class TimelineViewTests(Fixture):
         body = self.history()
 
         assert "data-check-timeline" in body
-        assert body.index('data-check-node="no_score"') < body.index('data-check-node="scored"')
+        # Newest on the left, each a circle with its score; when and how it
+        # ran only on hover.
+        assert body.index('data-check-node="scored"') < body.index('data-check-node="no_score"')
+        assert 'title="Run 2 of 2 · Manual · ' in body
+        assert 'title="Run 1 of 2 · Manual · ' in body and "no score: Docs errored" in body
+        assert ">\n            A+\n          </button>" in body or ">A+<" in body.replace("\n", "").replace(" ", "")
         assert "Run 2 of 2" in body
         assert "the commit&#x27;s outcome" in body or "the commit's outcome" in body
-        assert 'data-check-next' in body and 'disabled' in body[body.index('data-check-next') - 300:body.index('data-check-next')]
+        newer = body.index("data-check-newer")
+        assert "disabled" in body[newer - 300:newer]
 
     def test_picking_an_earlier_run_shows_its_results_in_place(self):
         url = reverse("project_commit_check", args=[self.project.pk, self.first.pk])
