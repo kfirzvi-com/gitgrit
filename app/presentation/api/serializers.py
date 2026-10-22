@@ -111,13 +111,14 @@ class OffenderSerializer(serializers.Serializer):
 # (B to D), failed (a Required standard failed), unknown (no score).
 LEVEL_CHOICES = [tone.value for tone in ScoreTone]
 
-# What a complete commit check decided: failed (a verdict, no value), scored
-# (a value, 0-100) or unscored (nothing could be averaged).
+# A commit's one outcome, decided in this order: checking, no_score, failed,
+# scored (scoring.CommitScoreOutcome).
 OUTCOME_CHOICES = [outcome.value for outcome in CommitScoreOutcome]
 OUTCOME_HELP = (
-    "failed: a Required standard failed or could not run (no value, it reads F); "
-    "scored: the importance-weighted average, 0-100, even 0; "
-    "unscored: every run errored, so nothing could be averaged."
+    "checking: a run on the commit is still going; "
+    "no_score: an expected standard errored or never ran (Required too), so nothing is reported; "
+    "failed: every standard ran and a Required one failed (no value, it reads F); "
+    "scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0."
 )
 
 
@@ -142,7 +143,7 @@ class ProjectStatusSerializer(serializers.Serializer):
     )
     display = ScoreDisplaySerializer()
     score_failed = serializers.BooleanField(
-        help_text="A Required standard failed or could not run: the project failed and has no score."
+        help_text="Every standard ran and a Required one failed: the project failed and has no score."
     )
     reason = serializers.CharField(help_text="Why the project failed; empty otherwise.")
     commit_sha = serializers.CharField(allow_null=True, help_text="The commit the score is from.")
@@ -297,13 +298,9 @@ class CheckResultSerializer(serializers.Serializer):
 class HealthSummaryFields(serializers.Serializer):
     score = serializers.IntegerField(allow_null=True)
     score_display = ScoreDisplaySerializer()
-    level = serializers.ChoiceField(choices=LEVEL_CHOICES)
     passed = serializers.IntegerField()
     failed = serializers.IntegerField()
     errored = serializers.IntegerField()
-
-
-COMMIT_STATES = ["complete", "in_progress", "incomplete"]
 
 
 class StandardsProgressSerializer(serializers.Serializer):
@@ -318,29 +315,30 @@ class ScoredCommitRefSerializer(serializers.Serializer):
 
 
 class CommitScoreSerializer(serializers.Serializer):
+    outcome = serializers.ChoiceField(
+        choices=OUTCOME_CHOICES, help_text="The one answer: read this first. " + OUTCOME_HELP
+    )
     value = serializers.IntegerField(
-        allow_null=True,
-        help_text="The commit's last complete score, 0-100; null when it failed (see outcome) or "
-        "until every expected standard has finished on it.",
+        allow_null=True, help_text="The score, 0-100; only when outcome is scored, null otherwise."
     )
-    outcome = serializers.ChoiceField(choices=OUTCOME_CHOICES, help_text=OUTCOME_HELP)
+    reason = serializers.CharField(
+        help_text='Why it failed ("X failing") or has no score ("X errored", "Y not run"); empty otherwise.'
+    )
     display = ScoreDisplaySerializer()
-    failed = serializers.BooleanField(
-        help_text="A Required standard failed or could not run: the commit failed and has no value."
-    )
-    reason = serializers.CharField(help_text="Why the commit failed; empty otherwise.")
-    state = serializers.ChoiceField(
-        choices=COMMIT_STATES,
-        help_text="The commit's newest check: complete, in_progress or incomplete (finished "
-        "without every expected standard).",
-    )
     standards = StandardsProgressSerializer()
     commit = ScoredCommitRefSerializer()
 
 
+# A newer commit with no verdict of its own.
+NEWER_OUTCOME_CHOICES = [CommitScoreOutcome.CHECKING.value, CommitScoreOutcome.NO_SCORE.value]
+
+
 class NewerCommitSerializer(serializers.Serializer):
     sha = serializers.CharField()
-    state = serializers.ChoiceField(choices=COMMIT_STATES)
+    outcome = serializers.ChoiceField(
+        choices=NEWER_OUTCOME_CHOICES, help_text="checking, or no_score (reason says why)."
+    )
+    reason = serializers.CharField(help_text='Why it has no score ("X errored", "Y not run"); empty while checking.')
     standards = StandardsProgressSerializer()
 
 
@@ -351,10 +349,10 @@ class ProjectHealthSerializer(HealthSummaryFields):
     )
     default_branch = serializers.CharField()
     commit_score = CommitScoreSerializer(
-        allow_null=True, help_text="The newest scored commit on the branch; null when none is."
+        allow_null=True, help_text="The newest commit on the branch with a verdict (failed or scored); null when none has."
     )
     newer_commit = NewerCommitSerializer(
-        allow_null=True, help_text="A newer commit with no score yet: still checking, or incomplete."
+        allow_null=True, help_text="A newer commit with no verdict: still checking, or no score."
     )
     running = serializers.BooleanField()
     results = CheckResultSerializer(many=True)

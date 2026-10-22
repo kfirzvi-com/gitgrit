@@ -31,7 +31,7 @@ class CommitResultGroupingTests(SimpleTestCase):
             ("running", ["Docs"]),
             # Required, then Major (lowest score first), then Minor.
             ("failed", ["No secrets", "Changelog", "Linter", "Typos"]),
-            ("could_not_run", ["License"]),
+            ("errored", ["License"]),
             ("passed", ["Pinned", "Readme"]),
         ]
 

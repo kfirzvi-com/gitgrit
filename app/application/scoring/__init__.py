@@ -2,15 +2,11 @@
 ``app.domain.scoring`` (``commit_scoring``), and what it hands to the
 screens (``NewerCommit``)."""
 from app.application.scoring.commit_scoring import (
-    COMPLETE,
-    INCOMPLETE,
-    IN_PROGRESS,
     RECENT_CHECKS,
-    CommitScoringState,
     branch_score,
     commit_branch,
     commit_scores,
-    commit_state,
+    commit_standing,
     expected_standards,
     newer_commit,
     project_score,
@@ -21,16 +17,12 @@ from app.application.scoring.commit_scoring import (
 from app.application.scoring.newer_commit import NewerCommit
 
 __all__ = [
-    "COMPLETE",
-    "INCOMPLETE",
-    "IN_PROGRESS",
     "RECENT_CHECKS",
-    "CommitScoringState",
     "NewerCommit",
     "branch_score",
     "commit_branch",
     "commit_scores",
-    "commit_state",
+    "commit_standing",
     "expected_standards",
     "newer_commit",
     "project_score",

@@ -4,20 +4,37 @@ from enum import StrEnum
 
 
 class CommitScoreOutcome(StrEnum):
-    """What a complete commit check decided about its commit:
+    """A commit's one outcome, decided in this order:
 
-    - ``FAILED``: a Required standard failed or could not run. A verdict,
+    - ``CHECKING``: a run on the commit is still going: no verdict yet.
+    - ``NO_SCORE``: an expected standard has no result, because it errored
+      or never ran (Required ones too): nothing is reported.
+    - ``FAILED``: every standard ran and a Required one failed. A verdict,
       not a number: the commit has no value.
-    - ``SCORED``: a value from 0 to 100 (the importance-weighted average),
-      even 0 when every standard failed but none is Required.
-    - ``UNSCORED``: nothing could be averaged (every run errored)."""
+    - ``SCORED``: every standard ran and no Required one failed: the
+      importance-weighted average, 0 to 100, even 0."""
 
+    CHECKING = "checking"
+    NO_SCORE = "no_score"
     FAILED = "failed"
     SCORED = "scored"
-    UNSCORED = "unscored"
 
     @classmethod
     def of(cls, value, failed: bool) -> "CommitScoreOutcome":
+        """The outcome a saved score holds (a saved score is never CHECKING)."""
         if failed:
             return cls.FAILED
-        return cls.UNSCORED if value is None else cls.SCORED
+        return cls.NO_SCORE if value is None else cls.SCORED
+
+    @classmethod
+    def of_commit(cls, any_run_going: bool, saved: "CommitScoreOutcome | None") -> "CommitScoreOutcome | None":
+        """A commit's outcome: checking while any run on it is going (even
+        when an earlier check already decided it), otherwise what its newest
+        saved score says; None before it has one."""
+        return cls.CHECKING if any_run_going else saved
+
+    @property
+    def is_verdict(self) -> bool:
+        """An F or a number: what a branch and a project show. A commit that
+        is checking or has no score never hides an earlier verdict."""
+        return self in (CommitScoreOutcome.FAILED, CommitScoreOutcome.SCORED)

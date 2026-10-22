@@ -184,8 +184,10 @@ class BranchHistoryTests(TestCase):
         checked, unchecked = rows
         self.assertEqual((checked.short_sha, checked.title, checked.author), ("1111111", "Do a thing", "Dana"))
         self.assertEqual((checked.passed, checked.failed, checked.errored), (1, 0, 1))
-        # The commit's saved score: A's newest result; B's error is left out.
-        self.assertEqual(checked.score, 100)
+        # A's newest result passed, but B errored: the commit has no score.
+        self.assertIsNone(checked.score)
+        self.assertEqual((checked.outcome, checked.commit_score.reason), ("no_score", "B errored"))
+        self.assertFalse(checked.scored)
         self.assertFalse(unchecked.checked)
         self.assertFalse(has_more)
 

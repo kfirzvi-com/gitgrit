@@ -7,7 +7,7 @@ from app.presentation.commit_results.commit_result_group import CommitResultGrou
 
 class CommitResultGrouping:
     """How a commit's standard runs are laid out on the Results tab, worst
-    first: still running, then failed, then could not run (an error is not a
+    first: still running, then failed, then errored (an error is not a
     failure), then passed. Within each group, by the importance the run ran
     with (Required, Major, Minor), then in failed the lowest score; then by
     name. Empty groups are left out. A standard whose importance changed
@@ -18,12 +18,12 @@ class CommitResultGrouping:
         runs = list(runs)
         running = [r for r in runs if r.status == StandardRunStatus.RUNNING]
         failed = [r for r in runs if r.status == StandardRunStatus.FAILED]
-        could_not_run = [r for r in runs if r.status == StandardRunStatus.ERROR]
+        errored = [r for r in runs if r.status == StandardRunStatus.ERROR]
         passed = [r for r in runs if r.status == StandardRunStatus.PASSED]
         groups = [
             CommitResultGroup("running", "Running", sorted(running, key=cls._by_importance)),
             CommitResultGroup("failed", "Failed", sorted(failed, key=cls._worst_first)),
-            CommitResultGroup("could_not_run", "Could not run", sorted(could_not_run, key=cls._by_importance)),
+            CommitResultGroup("errored", "Errored", sorted(errored, key=cls._by_importance)),
             CommitResultGroup("passed", "Passed", sorted(passed, key=cls._by_importance)),
         ]
         return [group for group in groups if group.runs]

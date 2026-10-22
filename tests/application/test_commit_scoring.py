@@ -1,8 +1,9 @@
 """Scoring commits as their checks finish: a check records what it expects
-and each run its importance when queued; a commit is scored only once every
-expected standard has a finished result there; it keeps its last score until
-a newer check completes it again; and the project's score is the newest
-scored commit on its default branch."""
+and each run its importance when queued; once none of its runs is going it
+saves the commit's outcome (no score while an expected standard errored or
+never ran, else failed or scored); a commit reads its newest; and the
+project's score is the newest verdict (failed or scored) on its default
+branch, which a newer commit with no score never hides."""
 from datetime import timedelta
 
 from django.test import TestCase
@@ -58,6 +59,13 @@ class Fixture(TestCase):
         )
 
 
+    def _scored(self, sha, value, committed_at, branch="main"):
+        check = self.check(sha=sha, branch=branch, committed_at=committed_at)
+        self.result(check, self.a, score=value)
+        self.result(check, self.b, score=value)
+        return scoring.score_check(check)
+
+
 class ScoreCheckTests(Fixture):
     def test_a_complete_commit_gets_a_score(self):
         check = self.check()
@@ -69,17 +77,59 @@ class ScoreCheckTests(Fixture):
         assert (commit_score.value, commit_score.failed) == (75, False)
         assert commit_score.executions.count() == 2
 
-    def test_an_incomplete_commit_gets_none(self):
+    def test_a_commit_an_expected_standard_never_ran_on_has_no_score_and_says_which(self):
         check = self.check()
         self.result(check, self.a)
 
-        assert scoring.score_check(check) is None
-        assert not CommitScore.objects.exists()
+        commit_score = scoring.score_check(check)
+
+        assert (commit_score.outcome, commit_score.value, commit_score.reason) == ("no_score", None, "B not run")
+        assert scoring.project_score(self.project) is None
+
+    def test_an_errored_standard_of_any_importance_leaves_no_score(self):
+        check = self.check()
+        self.result(check, self.a)
+        self.result(check, self.b, Status.ERROR, 0, importance="minor")
+
+        commit_score = scoring.score_check(check)
+
+        assert (commit_score.outcome, commit_score.reason) == ("no_score", "B errored")
+        assert commit_score.executions.count() == 2
+
+    def test_a_failed_required_standard_with_another_errored_is_no_score_not_failed(self):
+        check = self.check()
+        self.result(check, self.a, Status.FAILED, 0, importance="required")
+        self.result(check, self.b, Status.ERROR, 0)
+
+        commit_score = scoring.score_check(check)
+
+        assert (commit_score.outcome, commit_score.failed, commit_score.reason) == ("no_score", False, "B errored")
+
+    def test_a_failed_required_standard_with_another_never_run_is_no_score_not_failed(self):
+        check = self.check()
+        self.result(check, self.a, Status.FAILED, 0, importance="required")
+
+        assert scoring.score_check(check).reason == "B not run"
+
+    def test_an_expected_standard_deleted_since_is_named_as_removed(self):
+        check = self.check()
+        self.result(check, self.a)
+        self.b.delete()
+
+        assert scoring.score_check(check).reason == "a removed standard not run"
 
     def test_a_check_still_running_is_not_scored(self):
         check = self.check()
         self.result(check, self.a)
         self.result(check, self.b, Status.RUNNING, 0)
+
+        assert scoring.score_check(check) is None
+        assert not CommitScore.objects.exists()
+
+    def test_a_check_with_no_commit_yet_is_not_scored(self):
+        check = self.check(sha="")
+        self.result(check, self.a)
+        self.result(check, self.b)
 
         assert scoring.score_check(check) is None
 
@@ -115,7 +165,7 @@ class RecheckTests(Fixture):
 
         assert scoring.score_check(rerun).value == 100
 
-    def test_a_recheck_that_ends_incomplete_keeps_the_last_score(self):
+    def test_a_recheck_that_ends_without_every_standard_keeps_the_project_score(self):
         first = self.check()
         self.result(first, self.a)
         self.result(first, self.b)
@@ -125,11 +175,14 @@ class RecheckTests(Fixture):
         recheck = self.check(expected=[self.a, self.b, c])
         self.result(recheck, self.a)
 
-        assert scoring.score_check(recheck) is None
+        # B's result from the first check still counts: only C never ran.
+        assert scoring.score_check(recheck).reason == "C not run"
         assert scoring.project_score(self.project).commit_check == first
-        assert scoring.commit_state(self.project, "c1", "main").state == scoring.INCOMPLETE
+        standing = scoring.commit_standing(self.project, "c1", "main")
+        assert (standing.outcome, standing.reason) == ("no_score", "C not run")
+        assert (standing.finished_count, standing.expected_count) == (2, 3)
 
-    def test_the_state_says_in_progress_while_a_recheck_runs(self):
+    def test_a_commit_is_checking_while_a_recheck_runs_and_keeps_its_verdict_on_the_project(self):
         first = self.check()
         self.result(first, self.a)
         self.result(first, self.b)
@@ -137,18 +190,37 @@ class RecheckTests(Fixture):
         recheck = self.check()
         self.result(recheck, self.a, Status.RUNNING, 0)
 
-        state = scoring.commit_state(self.project, "c1", "main")
+        standing = scoring.commit_standing(self.project, "c1", "main")
 
-        assert (state.state, state.expected_count) == (scoring.IN_PROGRESS, 2)
+        assert (standing.outcome, standing.expected_count, standing.value) == ("checking", 2, None)
+        assert scoring.project_score(self.project).commit_check == first
+
+    def test_a_rerun_that_passes_turns_an_error_into_a_score(self):
+        first = self.check()
+        self.result(first, self.a)
+        self.result(first, self.b, Status.ERROR, 0)
+        assert scoring.score_check(first).outcome == "no_score"
+
+        rerun = self.check()
+        self.result(rerun, self.b, score=50)
+
+        assert scoring.score_check(rerun).value == 75
+        assert scoring.commit_standing(self.project, "c1", "main").outcome == "scored"
+
+    def test_a_check_that_saved_nothing_says_what_it_gives_now(self):
+        # Checks recorded before every finished check saved its outcome.
+        check = self.check()
+        self.result(check, self.a)
+
+        standing = scoring.commit_standing(self.project, "c1", "main")
+
+        assert (standing.outcome, standing.reason) == ("no_score", "B not run")
+
+    def test_a_commit_never_checked_on_the_branch_has_no_standing(self):
+        assert scoring.commit_standing(self.project, "c1", "main") is None
 
 
 class ProjectScoreTests(Fixture):
-    def _scored(self, sha, value, committed_at, branch="main"):
-        check = self.check(sha=sha, branch=branch, committed_at=committed_at)
-        self.result(check, self.a, score=value)
-        self.result(check, self.b, score=value)
-        return scoring.score_check(check)
-
     def test_the_newest_scored_commit_on_the_default_branch(self):
         now = timezone.now()
         self._scored("old", 40, now - timedelta(days=2))
@@ -166,6 +238,68 @@ class ProjectScoreTests(Fixture):
 
     def test_no_scored_commit_means_no_score(self):
         assert scoring.project_score(self.project) is None
+
+    def test_a_newer_commit_with_no_score_never_hides_the_last_verdict(self):
+        now = timezone.now()
+        verdict = self._scored("old", 90, now - timedelta(days=1))
+        newer = self.check(sha="new", committed_at=now)
+        self.result(newer, self.a)
+        self.result(newer, self.b, Status.ERROR, 0)
+        scoring.score_check(newer)
+
+        assert scoring.project_score(self.project) == verdict
+        assert scoring.project_scores([self.project]) == {self.project.pk: verdict}
+
+    def test_a_failed_commit_is_a_verdict_the_project_shows(self):
+        check = self.check()
+        self.result(check, self.a, Status.FAILED, 0, importance="required")
+        self.result(check, self.b)
+        scoring.score_check(check)
+
+        assert scoring.project_score(self.project).outcome == "failed"
+
+
+class NewerCommitTests(Fixture):
+    def setUp(self):
+        super().setUp()
+        self.now = timezone.now()
+        self.verdict = self._scored("old", 90, self.now - timedelta(days=1))
+
+    def test_a_newer_commit_with_no_score_says_why(self):
+        newer = self.check(sha="new", committed_at=self.now)
+        self.result(newer, self.a)
+        self.result(newer, self.b, Status.ERROR, 0)
+        scoring.score_check(newer)
+
+        found = scoring.newer_commit(self.project, "main", self.verdict)
+
+        assert (found.sha, found.standing.outcome, found.standing.reason) == ("new", "no_score", "B errored")
+
+    def test_a_newer_commit_still_checking(self):
+        newer = self.check(sha="new", committed_at=self.now)
+        self.result(newer, self.a)
+        self.result(newer, self.b, Status.RUNNING, 0)
+
+        found = scoring.newer_commit(self.project, "main", self.verdict)
+
+        assert (found.standing.outcome, found.standing.finished_count, found.standing.expected_count) == ("checking", 1, 2)
+
+    def test_none_when_the_newest_commit_is_the_verdict(self):
+        assert scoring.newer_commit(self.project, "main", self.verdict) is None
+
+    def test_none_when_the_newest_commit_has_a_verdict_of_its_own(self):
+        newest = self._scored("new", 40, self.now)
+
+        assert scoring.newer_commit(self.project, "main", self.verdict) is None
+        assert scoring.newer_commit(self.project, "main", newest) is None
+
+    def test_a_newer_commit_with_no_score_when_there_is_no_verdict_at_all(self):
+        CommitScore.objects.all().delete()
+        newer = self.check(sha="new", committed_at=self.now)
+        self.result(newer, self.a)
+        scoring.score_check(newer)
+
+        assert scoring.newer_commit(self.project, "main", None).standing.reason == "B not run"
 
 
 class EnqueueRecordsSnapshotsTests(Fixture):
@@ -190,7 +324,7 @@ class EnqueueRecordsSnapshotsTests(Fixture):
 
 
 class StaleRunsTests(Fixture):
-    def test_a_required_run_that_never_finished_fails_the_commit(self):
+    def test_a_required_run_stuck_running_errors_and_leaves_no_score(self):
         from app.application.standard_runs import expire_stale_runs
 
         check = self.check()
@@ -200,8 +334,9 @@ class StaleRunsTests(Fixture):
 
         expire_stale_runs()
 
-        commit_score = scoring.project_score(self.project)
-        assert (commit_score.value, commit_score.failed, commit_score.reason) == (None, True, "could not verify B")
+        assert scoring.project_score(self.project) is None
+        standing = scoring.commit_standing(self.project, "c1", "main")
+        assert (standing.outcome, standing.reason) == ("no_score", "B errored")
 
 
 class DetachedStandardDropsOffTests(Fixture):

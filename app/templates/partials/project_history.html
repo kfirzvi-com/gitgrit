@@ -37,7 +37,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
         </div>
       {% else %}
         <div class="space-y-1">
-          <p class="text-sm opacity-60">No score on {{ branch }} yet: a commit gets one when every standard has finished on it. Run the standards on its latest commit.</p>
+          <p class="text-sm opacity-60">No score on {{ branch }} yet: a commit gets one when every standard has a result on it (passed or failed). Run the standards on its latest commit.</p>
           {% include "partials/score_note.html" with score=None newer=newer_commit %}
         </div>
       {% endif %}
@@ -53,12 +53,12 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
                 <details class="group rounded-xl open:bg-base-200/50" {% if row.sha == open_sha %}open{% endif %}>
                   <summary class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-base-200 list-none">
                     {% include "partials/project_history_commit_line.html" %}
-                    {% if row.scored %}
-                      <span class="w-10 text-right shrink-0"{% if row.failed_score %} title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% score row.score failed=row.failed_score %}</span>
-                    {% elif row.running %}
+                    {% if row.outcome == "checking" %}
                       <span class="text-xs opacity-60 shrink-0" data-commit-score="checking">checking…</span>
+                    {% elif row.scored %}
+                      <span class="w-10 text-right shrink-0"{% if row.failed_score %} title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% score row.score failed=row.failed_score %}</span>
                     {% else %}
-                      <span class="text-xs opacity-60 shrink-0" title="Not every standard finished on this commit, so it has no score" data-commit-score="incomplete">incomplete</span>
+                      <span class="text-xs opacity-60 shrink-0" title="No score: {{ row.commit_score.reason|default:'not every standard has a result on this commit' }}" data-commit-score="no_score">no score</span>
                     {% endif %}
                   </summary>
                   <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">

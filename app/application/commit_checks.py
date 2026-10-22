@@ -24,7 +24,7 @@ from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
 from app.application.scoring import commit_scores
-from app.domain.scoring import ExpectedStandards
+from app.domain.scoring import CommitScoreOutcome, ExpectedStandards
 from app.application.standard_results import current_results
 from app.domain.models import CommitCheck, Standard, StandardExecution
 
@@ -158,11 +158,10 @@ class CommitRow:
     url: str = ""
     results: list = field(default_factory=list)
     # The standards this commit's newest check expected that never ran on it
-    # (ExpectedStandards.without_any_run): what an incomplete commit is
-    # missing. Standards attached since the check are not part of the commit.
+    # (ExpectedStandards.without_any_run): why a commit may have no score. Standards attached since the check are not part of the commit.
     expected_but_never_ran: list = field(default_factory=list)
-    # The commit's score (``app.application.scoring``): None until a check
-    # completes it.
+    # The commit's newest saved score (``app.application.scoring``): a
+    # verdict or no score; None until a check decides it.
     commit_score: object = None
 
     @property
@@ -201,8 +200,17 @@ class CommitRow:
         return self.commit_score.value if self.commit_score else None
 
     @property
+    def outcome(self) -> CommitScoreOutcome | None:
+        """The commit's one outcome (``CommitScoreOutcome.of_commit``):
+        checking while a run on it goes, else its newest saved score's."""
+        return CommitScoreOutcome.of_commit(
+            bool(self.running), self.commit_score.outcome if self.commit_score else None
+        )
+
+    @property
     def scored(self) -> bool:
-        return self.commit_score is not None
+        """It has a verdict to show: an F or a number."""
+        return self.outcome is not None and self.outcome.is_verdict
 
     @property
     def failed_score(self) -> bool:

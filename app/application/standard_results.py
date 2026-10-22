@@ -81,13 +81,15 @@ def breakdown(results) -> dict:
 
 def outcome_counts(results) -> dict:
     """What the project page shows of a score's results, worst first:
-    Required standards that failed or could not be verified (each fails the
-    project), then the other standards that failed, errored and passed."""
+    Required standards that failed (each fails the project), then the other
+    standards that failed, every standard that errored (Required too), and
+    the ones that passed."""
     required = [r for r in results if r.importance == "required"]
     others = [r for r in results if r.importance != "required"]
     counts = {
-        "required_failed": sum(1 for r in required if r.status in (Status.FAILED, Status.ERROR)),
+        "required_failed": sum(1 for r in required if r.status == Status.FAILED),
         **breakdown(others),
+        "errored": sum(1 for r in results if r.status == Status.ERROR),
         "passed": sum(1 for r in results if r.status == Status.PASSED),
     }
     # Every failure, Required ones included, and every result.
@@ -119,8 +121,8 @@ class AttentionItem:
 
 
 def attention_items(tenant) -> list[AttentionItem]:
-    """Current results that need attention: the runs that failed or could
-    not run, whatever their score (a run's own pass or fail decides, never a
+    """Current results that need attention: the runs that failed or
+    errored, whatever their score (a run's own pass or fail decides, never a
     low number). The ones that fail their project (a Required standard) are
     FAILED and come first, then newest. Returns the full ranked list; screens
     decide how many to show.

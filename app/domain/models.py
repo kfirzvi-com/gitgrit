@@ -1294,8 +1294,9 @@ class StandardExecution(models.Model):
 
     @property
     def fails_the_commit(self) -> bool:
-        """This run fails its commit: a Required standard that failed or
-        errored (``scoring.StandardRunResult.fails_the_commit``)."""
+        """This run fails its commit: a Required standard that failed, once
+        every other standard has a result
+        (``scoring.StandardRunResult.fails_the_commit``)."""
         return StandardRunResult(
             standard_id=str(self.standard_id),
             standard_name=self.standard_name,
@@ -1306,17 +1307,17 @@ class StandardExecution(models.Model):
 
 
 class CommitScore(models.Model):
-    """A commit's score, saved when one of its checks finishes and every
-    standard the check expected has a finished result on the commit
-    (``app.domain.scoring``). A commit keeps the last score it reached: a
-    newer check replaces it only when it completes too. The project's score
-    is the newest one on its default branch."""
+    """A commit's outcome, saved each time one of its checks has no run
+    going (``app.domain.scoring``): failed, scored, or no score (a standard
+    the check expected errored or never ran). A commit reads its newest. The
+    project's score is the newest verdict (failed or scored) on its default
+    branch."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="commit_scores"
     )
-    # The check whose finish completed the commit.
+    # The check that decided it.
     commit_check = models.ForeignKey(
         CommitCheck, on_delete=models.CASCADE, related_name="scores"
     )
@@ -1326,13 +1327,14 @@ class CommitScore(models.Model):
     # When the commit counts as made (``BranchCommitTimeline.commit_ordered_at``): a
     # branch shows the score with the newest one.
     ordered_at = models.DateTimeField()
-    # 0-100; None when a Required standard failed the commit, or when no
-    # result could be averaged (every one errored). See ``outcome``.
+    # 0-100; None when a Required standard failed the commit, or when it has
+    # no score (a standard errored or never ran). See ``outcome``.
     value = models.IntegerField(null=True, blank=True)
-    # A Required standard failed or errored: a verdict, so there is no value.
+    # Every standard ran and a Required one failed: a verdict, so no value.
     failed = models.BooleanField(default=False)
     reason = models.TextField(blank=True, default="")
-    # The results the score was computed from, one per expected standard.
+    # The results the score was decided from: each expected standard's
+    # newest finished run.
     executions = models.ManyToManyField(
         StandardExecution, related_name="commit_scores", blank=True
     )
@@ -1358,7 +1360,7 @@ class CommitScore(models.Model):
 
     @property
     def outcome(self) -> CommitScoreOutcome:
-        """Failed, scored or unscored (``scoring.CommitScoreOutcome``)."""
+        """Failed, scored or no score (``scoring.CommitScoreOutcome``)."""
         return CommitScoreOutcome.of(self.value, self.failed)
 
 
@@ -1620,8 +1622,9 @@ class Notification(models.Model):
     def project_failed(
         cls, *, project, reason, execution_ids=(), trigger=None, triggered_by_user_ids=(),
     ):
-        """A run failed the project: a Required standard failed or could not
-        run on its newest commit. ``reason`` says which ("No secrets failing")."""
+        """A run failed the project: on its newest commit every standard has
+        a result and a Required one failed. ``reason`` says which ("No
+        secrets failing")."""
         context = _run_context(execution_ids, trigger, triggered_by_user_ids)
         context["grade"] = project.tenant.score_representation.represent(None, failed=True).text
         return cls._new(

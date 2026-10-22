@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/kfirzvi-com/gitgrit/cli/internal/api"
 )
 
 const (
@@ -20,13 +22,13 @@ const (
 
 // fakeAPI serves the endpoints `check --wait` uses. The commit reports
 // "running" for the first polls, then the given final result: ``failed``
-// of two standards failed, scored as the server would (``state`` and a
-// failing Required standard set by the variants below).
+// of two standards failed, scored as the server would (the variants below
+// set another outcome: failed by a Required standard, or no_score).
 func fakeAPI(t *testing.T, failed int, commitSHA *string) *httptest.Server {
-	return fakeAPIWith(t, failed, commitSHA, "complete", false)
+	return fakeAPIWith(t, failed, commitSHA, "scored", "")
 }
 
-func fakeAPIWith(t *testing.T, failed int, commitSHA *string, state string, requiredFailed bool) *httptest.Server {
+func fakeAPIWith(t *testing.T, failed int, commitSHA *string, outcome, reason string) *httptest.Server {
 	var polls atomic.Int32
 	mux := http.NewServeMux()
 	prefix := "/api/v1/workspaces/" + wsID + "/projects/"
@@ -51,23 +53,25 @@ func fakeAPIWith(t *testing.T, failed int, commitSHA *string, state string, requ
 			running = 2
 		}
 		var score any = 100 - 50*failed
-		reason, outcome, grade, level := "", "scored", "A+", "healthy"
+		now, grade, tone := outcome, "A+", "healthy"
 		if failed > 0 {
-			grade, level = "C", "needs_attention"
+			grade, tone = "C", "needs_attention"
 		}
-		if requiredFailed {
+		switch {
+		case running > 0:
+			score, now, grade, tone = nil, "checking", "—", "unknown"
+		case outcome == "failed":
 			// Failed is a verdict, not a number.
-			score, reason, outcome, grade, level = nil, "No secrets failing", "failed", "F", "failed"
+			score, grade, tone = nil, "F", "failed"
+		case outcome == "no_score":
+			score, grade, tone = nil, "—", "unknown"
 		}
-		if state != "complete" {
-			score, outcome = nil, "unscored"
-		}
-		display := map[string]any{"text": grade, "tone": level, "spoken": ""}
+		display := map[string]any{"text": grade, "tone": tone, "spoken": ""}
 		return map[string]any{
 			"sha": sha, "title": "Fix", "author": "Dana", "date": nil, "url": "", "checked": true, "running": running,
-			"score": score, "score_display": display, "level": level, "passed": 2 - failed, "failed": failed, "errored": 0,
+			"score": score, "score_display": display, "passed": 2 - failed, "failed": failed, "errored": 0,
 			"commit_score": map[string]any{
-				"value": score, "outcome": outcome, "display": display, "failed": requiredFailed, "reason": reason, "state": state,
+				"outcome": now, "value": score, "reason": reason, "display": display,
 				"standards": map[string]any{"expected": 2, "finished": 2},
 				"commit":    map[string]any{"sha": sha, "branch": "main", "committed_at": nil},
 			},
@@ -142,17 +146,48 @@ func TestCheckWaitPassesWhenOnlyAMajorStandardFails(t *testing.T) {
 
 func TestCheckWaitFailsWhenARequiredStandardFails(t *testing.T) {
 	s := sha
-	out, err := runCLI(t, fakeAPIWith(t, 1, &s, "complete", true), "check", "-p", "acme/api", "--sha", sha, "--wait")
+	out, err := runCLI(t, fakeAPIWith(t, 1, &s, "failed", "No secrets failing"), "check", "-p", "acme/api", "--sha", sha, "--wait")
 	if exitCode(err) != 1 || !strings.Contains(out, "Failed: No secrets failing.") {
 		t.Fatalf("exit %d; want 1 with the reason; output:\n%s", exitCode(err), out)
 	}
 }
 
-func TestCheckWaitExitsTwoWithoutAScore(t *testing.T) {
+func TestCheckWaitExitsTwoWithoutAScoreAndSaysWhy(t *testing.T) {
 	s := sha
-	out, err := runCLI(t, fakeAPIWith(t, 0, &s, "incomplete", false), "check", "-p", "acme/api", "--sha", sha, "--wait")
-	if exitCode(err) != 2 || !strings.Contains(out, "No score") {
-		t.Fatalf("exit %d; want 2; output:\n%s", exitCode(err), out)
+	out, err := runCLI(t, fakeAPIWith(t, 0, &s, "no_score", "Lint errored, Docs not run"), "check", "-p", "acme/api", "--sha", sha, "--wait")
+	if exitCode(err) != 2 || !strings.Contains(out, "No score: Lint errored, Docs not run.") {
+		t.Fatalf("exit %d; want 2 with the reason; output:\n%s", exitCode(err), out)
+	}
+}
+
+func TestVerdictByOutcome(t *testing.T) {
+	value := func(v int) *int { return &v }
+	cases := []struct {
+		name      string
+		score     *api.CommitScore
+		failUnder int
+		code      int
+		why       string
+	}{
+		{"no outcome yet", nil, -1, 2, "No score: the commit has no outcome yet."},
+		{"checking", &api.CommitScore{Outcome: api.OutcomeEnumChecking}, -1, 2, "No score: the commit is still being checked."},
+		{"no score with a reason", &api.CommitScore{Outcome: api.OutcomeEnumNoScore, Reason: "Lint errored"}, -1, 2, "No score: Lint errored."},
+		{"no score without a reason", &api.CommitScore{Outcome: api.OutcomeEnumNoScore}, -1, 2, "No score: not every standard has a result on this commit."},
+		{"failed", &api.CommitScore{Outcome: api.OutcomeEnumFailed, Reason: "No secrets failing"}, -1, 1, "Failed: No secrets failing."},
+		{"failed ignores --fail-under", &api.CommitScore{Outcome: api.OutcomeEnumFailed, Reason: "X failing"}, 0, 1, "Failed: X failing."},
+		{"scored", &api.CommitScore{Outcome: api.OutcomeEnumScored, Value: value(80)}, -1, 0, ""},
+		{"scored 0 is a score", &api.CommitScore{Outcome: api.OutcomeEnumScored, Value: value(0)}, -1, 0, ""},
+		{"scored at --fail-under", &api.CommitScore{Outcome: api.OutcomeEnumScored, Value: value(80)}, 80, 0, ""},
+		{"scored under --fail-under", &api.CommitScore{Outcome: api.OutcomeEnumScored, Value: value(79)}, 80, 1, "Score 79 is under 80."},
+		{"scored with no value", &api.CommitScore{Outcome: api.OutcomeEnumScored}, -1, 2, "No score: the commit has no value."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, why := verdict(&api.Commit{CommitScore: c.score}, c.failUnder)
+			if code != c.code || why != c.why {
+				t.Errorf("verdict = (%d, %q); want (%d, %q)", code, why, c.code, c.why)
+			}
+		})
 	}
 }
 

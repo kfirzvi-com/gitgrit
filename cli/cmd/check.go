@@ -32,11 +32,11 @@ commit's score — for CI, always pass the commit you built:
   gitgrit check --branch "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --wait
 
 Exit codes with --wait:
-  0  the commit has a score and passes
-  1  the commit failed: a Required standard failed or could not run (it
+  0  the commit is scored and passes
+  1  the commit failed: every standard ran and a Required one failed (it
      reads F and has no score), or the score is under --fail-under
-  2  no score: not every expected standard finished on the commit, every
-     run on it errored, or --timeout passed first
+  2  no score: an expected standard errored or never ran on the commit
+     (the reason says which), or --timeout passed while still checking
 
 Inside a git repository the branch defaults to the checked-out one.`,
 		Args: cobra.NoArgs,
@@ -120,21 +120,26 @@ Inside a git repository the branch defaults to the checked-out one.`,
 }
 
 // verdict turns a finished check into the exit code and, when it is not 0,
-// a sentence saying why.
+// a sentence saying why: the commit's one outcome decides.
 func verdict(c *api.Commit, failUnder int) (int, string) {
 	s := c.CommitScore
-	if s == nil || s.State != api.Complete {
-		return 2, "No score: not every expected standard finished on this commit."
+	if s == nil {
+		return 2, "No score: the commit has no outcome yet."
 	}
-	// Failed is a verdict, not a number: a failed commit has no value.
 	switch s.Outcome {
+	case api.OutcomeEnumChecking:
+		return 2, "No score: the commit is still being checked."
+	case api.OutcomeEnumNoScore:
+		if s.Reason == "" {
+			return 2, "No score: not every standard has a result on this commit."
+		}
+		return 2, "No score: " + s.Reason + "."
 	case api.OutcomeEnumFailed:
+		// Failed is a verdict, not a number: a failed commit has no value.
 		return 1, "Failed: " + s.Reason + "."
-	case api.OutcomeEnumUnscored:
-		return 2, "No score: every standard on this commit could not run."
 	}
 	if s.Value == nil {
-		return 2, "No score: not every expected standard finished on this commit."
+		return 2, "No score: the commit has no value."
 	}
 	if failUnder >= 0 && *s.Value < failUnder {
 		return 1, fmt.Sprintf("Score %d is under %d.", *s.Value, failUnder)

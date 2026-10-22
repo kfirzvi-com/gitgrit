@@ -44,7 +44,8 @@ class HealthAPITestCase(PublicAPITestCase):
     def check(self, sha, branch="main", status=Status.PASSED, score=100):
         """One finished result on ``sha``, scored the way a finished check is."""
         check = baker.make(
-            "app.CommitCheck", project=self.project, branch=branch, commit_sha=sha
+            "app.CommitCheck", project=self.project, branch=branch, commit_sha=sha,
+            expected_standard_ids=[str(self.standard.pk)],
         )
         execution = baker.make(
             "app.StandardExecution", project=self.project, standard=self.standard,
@@ -70,13 +71,14 @@ class TestBranchesAndHealth(HealthAPITestCase):
         r = self.get(f"{self.p}/health/")
         assert r.status_code == 200
         body = r.json()
-        assert (body["branch"], body["score"], body["level"]) == (None, 40, "needs_attention")
+        assert (body["branch"], body["score"]) == (None, 40)
+        assert "level" not in body
         assert (body["passed"], body["failed"], body["errored"]) == (0, 1, 0)
         assert body["results"][0]["commit_sha"] == A
         assert body["results"][0]["standard_name"] == "Pinned CI"
         assert body["score_display"] == {"text": "D", "tone": "needs_attention", "spoken": "Grade D, score 40 out of 100"}
         assert body["commit_score"] == {
-            "value": 40, "outcome": "scored", "failed": False, "reason": "", "state": "complete",
+            "outcome": "scored", "value": 40, "reason": "",
             "display": {"text": "D", "tone": "needs_attention", "spoken": "Grade D, score 40 out of 100"},
             "standards": {"expected": 1, "finished": 1},
             "commit": {"sha": A, "branch": "main", "committed_at": None},
@@ -95,11 +97,10 @@ class TestBranchesAndHealth(HealthAPITestCase):
 
         body = self.get(f"{self.p}/health/").json()
 
-        assert (body["score"], body["level"]) == (None, "failed")
-        assert (body["commit_score"]["value"], body["commit_score"]["failed"], body["commit_score"]["outcome"]) == (
-            None, True, "failed"
-        )
-        assert body["commit_score"]["display"]["text"] == "F"
+        assert (body["score"], body["score_display"]["tone"]) == (None, "failed")
+        assert (body["commit_score"]["value"], body["commit_score"]["outcome"]) == (None, "failed")
+        assert "failed" not in body["commit_score"] and "state" not in body["commit_score"]
+        assert body["commit_score"]["display"] == {"text": "F", "tone": "failed", "spoken": body["commit_score"]["display"]["spoken"]}
         assert body["commit_score"]["reason"] == "Pinned CI failing"
 
     def test_a_newer_commit_still_checking_is_reported(self):
@@ -117,19 +118,39 @@ class TestBranchesAndHealth(HealthAPITestCase):
 
         assert body["score"] == 100
         assert body["newer_commit"] == {
-            "sha": C, "state": "in_progress", "standards": {"expected": 1, "finished": 0},
+            "sha": C, "outcome": "checking", "reason": "", "standards": {"expected": 1, "finished": 0},
         }
+
+    def test_a_newer_commit_with_no_score_says_why_and_the_project_keeps_its_verdict(self):
+        self.check(A, status=Status.PASSED, score=100)
+        self.check(C, status=Status.ERROR, score=0)
+
+        body = self.get(f"{self.p}/health/").json()
+
+        assert (body["score"], body["commit_score"]["commit"]["sha"]) == (100, A)
+        assert body["newer_commit"] == {
+            "sha": C, "outcome": "no_score", "reason": "Pinned CI errored", "standards": {"expected": 1, "finished": 1},
+        }
+
+    def test_only_a_commit_with_no_score_means_no_project_score(self):
+        self.check(A, status=Status.ERROR, score=0)
+
+        body = self.get(f"{self.p}/health/").json()
+
+        assert (body["score"], body["commit_score"], body["score_display"]["text"]) == (None, None, "—")
+        assert body["newer_commit"]["outcome"] == "no_score"
 
     def test_a_branch_does_not_move_project_health_but_has_its_own(self):
         self.check(A, branch="main", score=100)
         self.check(C, branch="feature/x", status=Status.FAILED, score=10)
-        assert self.get(f"{self.p}/health/").json()["level"] == "healthy"
+        assert self.get(f"{self.p}/health/").json()["score_display"]["tone"] == "healthy"
         branch = self.get(f"{self.p}/health/", branch="feature/x").json()
-        assert (branch["branch"], branch["score"], branch["level"]) == ("feature/x", 10, "needs_attention")
+        assert (branch["branch"], branch["score"], branch["score_display"]["tone"]) == ("feature/x", 10, "needs_attention")
 
     def test_no_results_is_unknown(self):
         body = self.get(f"{self.p}/health/").json()
-        assert (body["score"], body["level"], body["results"]) == (None, "unknown", [])
+        assert (body["score"], body["score_display"]["tone"], body["results"]) == (None, "unknown", [])
+        assert (body["commit_score"], body["newer_commit"]) == (None, None)
 
     def test_foreign_project_is_404(self):
         foreign = baker.make("app.Project", tenant=baker.make("app.Tenant"))
@@ -145,8 +166,11 @@ class TestCommits(HealthAPITestCase):
         assert (body["branch"], body["page"], body["has_more"]) == ("main", 1, False)
         checked, unchecked = body["commits"]
         assert (checked["sha"], checked["title"], checked["checked"]) == (A, "Fix CI", True)
-        assert (checked["score"], checked["level"], checked["failed"]) == (60, "needs_attention", 1)
+        assert (checked["score"], checked["failed"]) == (60, 1)
+        assert "level" not in checked
+        assert (checked["commit_score"]["outcome"], checked["commit_score"]["value"]) == ("scored", 60)
         assert checked["results"][0]["still_attached"] is True
+        assert unchecked["commit_score"] is None
         assert (unchecked["checked"], unchecked["results"]) == (False, [])
 
     def test_commits_fall_back_to_recorded_checks_when_platform_is_down(self):
@@ -166,6 +190,32 @@ class TestCommits(HealthAPITestCase):
         assert body["running"] == 1
         assert body["results"][0]["status"] == "running"
         assert body["results"][0]["score"] is None
+        assert (body["commit_score"]["outcome"], body["commit_score"]["value"]) == ("checking", None)
+        assert body["commit_score"]["display"]["text"] == "—"
+
+    def test_one_commit_with_no_score_says_why(self):
+        self.check(A, status=Status.ERROR, score=0)
+
+        commit_score = self.get(f"{self.p}/commits/{A}/").json()["commit_score"]
+
+        assert (commit_score["outcome"], commit_score["value"], commit_score["reason"]) == (
+            "no_score", None, "Pinned CI errored"
+        )
+
+    def test_one_failed_commit_reads_f(self):
+        self.project.project_standards.update(importance="required")
+        check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha=A)
+        baker.make(
+            "app.StandardExecution", project=self.project, standard=self.standard,
+            standard_name="Pinned CI", status=Status.FAILED, score=90, commit_check=check,
+            importance="required",
+        )
+        score_commit(self.project, A)
+
+        commit_score = self.get(f"{self.p}/commits/{A}/").json()["commit_score"]
+
+        assert (commit_score["outcome"], commit_score["value"], commit_score["display"]["text"]) == ("failed", None, "F")
+        assert commit_score["reason"] == "Pinned CI failing"
 
     def test_unchecked_commit_is_404(self):
         assert self.get(f"{self.p}/commits/{B}/").status_code == 404

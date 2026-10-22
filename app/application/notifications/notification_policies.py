@@ -112,8 +112,8 @@ class StandardsFailingNotificationPolicy:
 
 
 class ProjectFailedNotificationPolicy:
-    """Whenever a run fails a project (a Required standard failed or could
-    not run on its newest commit), raise "Project failed"."""
+    """Whenever a run fails a project (every standard has a result on its
+    newest commit and a Required one failed), raise "Project failed"."""
 
     def handle(self, event: StandardRunFinished) -> None:
         if notification_rules.could_not_evaluate(event):

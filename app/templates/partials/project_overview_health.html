@@ -37,7 +37,7 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
     <div class="card-body items-center justify-center gap-6 py-10">
       <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
       {% if attached_standards %}
-        <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has finished on it.</p>
+        <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has a result on it (passed or failed).</p>
         {% include "partials/score_note.html" with score=None newer=newer_commit %}
         <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
       {% else %}

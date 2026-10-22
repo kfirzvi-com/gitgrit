@@ -2,8 +2,8 @@
 
 The same reads the project page makes (``commit_checks`` and ``scoring``),
 shaped for the public API. Every score comes with a ``commit_score`` object
-(``_commit_score``): the commit's outcome (failed, scored or unscored), its
-value (none when failed), and the state of its newest check.
+(``_commit_score``): the commit's one outcome (checking, no_score, failed or
+scored), its value (only when scored), and why it failed or has no score.
 """
 from django.core.exceptions import ValidationError
 
@@ -11,8 +11,7 @@ from app.application import commit_checks, scoring
 from app.application.errors import NotFoundError
 from app.application.standard_results import breakdown
 from app.application.standard_runs import in_flight
-from app.domain.health import level_from_score
-from app.domain.scoring import CommitScoreOutcome
+from app.domain.scoring import CommitScoreOutcome, CommitStanding
 from app.domain.models import Project, StandardExecution, Tenant
 
 Status = StandardExecution.Status
@@ -41,7 +40,6 @@ def _summary(project, score, results) -> dict:
     return {
         "score": value,
         "score_display": _display(project, score),
-        "level": level_from_score(value, failed=bool(score and score.failed)),
         **breakdown(results),
     }
 
@@ -54,29 +52,32 @@ def _display(project, score) -> dict:
     ).as_dict()
 
 
-def _commit_score(project, sha: str, branch: str, score) -> dict | None:
-    """A commit's score as the API shows it: ``value`` is its last complete
-    score (None until a check completes it), ``state`` its newest check's
-    (complete, in_progress or incomplete) with how many of the standards
-    that check expects have finished."""
-    state = scoring.commit_state(project, sha, branch) if sha else None
-    if score is None and state is None:
+def _verdict_standing(score) -> CommitStanding:
+    """A branch's verdict (a saved failed or scored CommitScore) as a
+    standing: every standard it expected has a result."""
+    count = score.executions.count()
+    return CommitStanding(score.outcome, score.reason, count, count, score.value)
+
+
+def _commit_score(project, sha: str, branch: str, standing: CommitStanding | None, committed_at=None) -> dict | None:
+    """A commit's score as the API shows it: its one ``outcome`` (checking,
+    no_score, failed or scored), ``value`` (only when scored), ``reason``
+    (why it failed or has no score), how this workspace shows it, and how
+    many of the standards its newest check expects have a result."""
+    if standing is None:
         return None
     return {
-        "value": score.value if score else None,
-        "outcome": str(score.outcome) if score else str(CommitScoreOutcome.UNSCORED),
-        "display": _display(project, score),
-        "failed": score.failed if score else False,
-        "reason": score.reason if score else "",
-        "state": state.state if state else scoring.COMPLETE,
-        "standards": {
-            "expected": state.expected_count if state else score.executions.count(),
-            "finished": state.finished_count if state else score.executions.count(),
-        },
+        "outcome": str(standing.outcome),
+        "value": standing.value,
+        "reason": standing.reason,
+        "display": project.tenant.score_representation.represent(
+            standing.value, failed=standing.outcome is CommitScoreOutcome.FAILED
+        ).as_dict(),
+        "standards": {"expected": standing.expected_count, "finished": standing.finished_count},
         "commit": {
             "sha": sha,
             "branch": branch,
-            "committed_at": score.committed_at.isoformat() if score and score.committed_at else None,
+            "committed_at": committed_at.isoformat() if committed_at else None,
         },
     }
 
@@ -92,7 +93,17 @@ def _commit(project, row: commit_checks.CommitRow, branch: str) -> dict:
         "checked": row.checked,
         "running": row.running,
         **_summary(project, row.commit_score, finished),
-        "commit_score": _commit_score(project, row.sha, branch, row.commit_score) if row.checked else None,
+        "commit_score": (
+            _commit_score(
+                project,
+                row.sha,
+                branch,
+                scoring.commit_standing(project, row.sha, branch),
+                row.commit_score.committed_at if row.commit_score else None,
+            )
+            if row.checked
+            else None
+        ),
         "results": [_result(r) for r in row.results],
         "expected_but_never_ran": [{"id": str(s.id), "name": s.name} for s in row.expected_but_never_ran],
     }
@@ -126,7 +137,7 @@ class ProjectHealthService:
     def health(self, tenant: Tenant, project_id: str, branch: str | None = None) -> dict:
         """The project's health — its score, the newest scored commit on the
         default branch — or, with ``branch``, that branch's. ``newer_commit``
-        is a newer commit with no score yet (checking or incomplete)."""
+        is a newer commit with no verdict: still checking, or no score."""
         project = self._project(tenant, project_id)
         on = branch or project.default_branch
         score = scoring.branch_score(project, on)
@@ -141,12 +152,20 @@ class ProjectHealthService:
             "branch": branch or None,
             "default_branch": project.default_branch,
             **_summary(project, score, results),
-            "commit_score": _commit_score(project, score.commit_sha, on, score) if score else None,
+            "commit_score": (
+                _commit_score(project, score.commit_sha, on, _verdict_standing(score), score.committed_at)
+                if score
+                else None
+            ),
             "newer_commit": (
                 {
                     "sha": newer.sha,
-                    "state": newer.state.state,
-                    "standards": {"expected": newer.state.expected_count, "finished": newer.state.finished_count},
+                    "outcome": str(newer.standing.outcome),
+                    "reason": newer.standing.reason,
+                    "standards": {
+                        "expected": newer.standing.expected_count,
+                        "finished": newer.standing.finished_count,
+                    },
                 }
                 if newer
                 else None

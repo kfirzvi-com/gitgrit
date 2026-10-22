@@ -214,3 +214,33 @@ class HomeBranchTests(TestCase):
         self._run(a, 100, status=Status.PASSED)
         self._run(b, 51)
         self.assertEqual(project_score(current_results([self.project])), 76)
+
+
+class OutcomeCountsTests(TestCase):
+    """What the project page counts of a score's results: only a Required
+    standard that failed counts as a Required failure; every error, Required
+    too, counts as errored."""
+
+    def _run(self, status, importance):
+        return StandardExecution(status=status, importance=importance, score=0)
+
+    def test_required_failures_errors_and_the_rest_are_counted_apart(self):
+        from app.application.standard_results import outcome_counts
+
+        counts = outcome_counts(
+            [
+                self._run(Status.FAILED, "required"),
+                self._run(Status.ERROR, "required"),
+                self._run(Status.FAILED, "major"),
+                self._run(Status.ERROR, "minor"),
+                self._run(Status.PASSED, "required"),
+                self._run(Status.PASSED, "minor"),
+            ]
+        )
+
+        assert counts == {"required_failed": 1, "passed": 2, "failed": 1, "errored": 2, "failures": 2, "total": 6}
+
+    def test_nothing_counts_nothing(self):
+        from app.application.standard_results import outcome_counts
+
+        assert outcome_counts([]) == {"required_failed": 0, "passed": 0, "failed": 0, "errored": 0, "failures": 0, "total": 0}

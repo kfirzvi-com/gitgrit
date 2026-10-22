@@ -105,7 +105,7 @@ def results_context(project) -> dict:
     """What the project page's Overview and Standards tabs render: the
     attached standards, the project's score (its newest scored commit on the
     default branch) with the results behind it and their breakdown, and a
-    newer commit still being checked or left incomplete."""
+    newer commit still being checked or with no score."""
     context = {}
     attached_standards = list(project.standards.order_by("ordinal", "name"))
     context["attached_standards"] = attached_standards
@@ -136,7 +136,7 @@ def results_context(project) -> dict:
 
     # The project's score and the results it was computed from. Every run,
     # on any branch and still RUNNING, shows under "Recent Activity" above;
-    # only a complete commit on the default branch moves the score.
+    # only a verdict on the default branch moves the score.
     score = scoring.project_score(project)
     latest_executions = list(score.executions.order_by("-created_at")) if score else []
     context["project_score"] = score
@@ -167,9 +167,9 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
 
 
 def _has_verdict(score) -> bool:
-    """A commit score to show as a grade: failed (no number) or scored, not
-    one where nothing could be averaged."""
-    return score is not None and score.outcome is not CommitScoreOutcome.UNSCORED
+    """A commit score to show as a grade: failed (no number) or scored
+    (``scoring.CommitScoreOutcome.is_verdict``)."""
+    return score is not None and score.outcome.is_verdict
 
 
 def _history(request, project, branch, page=1, notice="", open_sha=""):

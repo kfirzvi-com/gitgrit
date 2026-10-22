@@ -1,13 +1,13 @@
-{% comment %}Under a score: why it is 0 (a Required standard failed or could not be verified;
-with show_reason), which commit it is from, and a newer commit that has no score yet.
-Parameters: score (a CommitScore or None), newer (scoring.NewerCommit or None),
-show_reason.{% endcomment %}
+{% comment %}Under a score: why it is an F (the Required standard that failed; with
+show_reason), which commit it is from, and a newer commit with no verdict of its own: still
+checking, or no score and why. Parameters: score (a CommitScore or None), newer
+(scoring.NewerCommit or None), show_reason.{% endcomment %}
 {% if score.failed and show_reason %}<p class="text-sm text-error font-medium" data-score-reason>{{ score.reason|capfirst }}</p>{% endif %}
 {% if score %}<p class="text-xs opacity-50" data-score-commit>From commit {{ score.commit_sha|slice:":7" }}</p>{% endif %}
 {% if newer %}
-  <p class="text-xs opacity-70" data-newer-commit="{{ newer.state.state }}">
+  <p class="text-xs opacity-70" data-newer-commit="{{ newer.standing.outcome }}">
     Newer commit {{ newer.sha|slice:":7" }}:
-    {% if newer.state.state == "in_progress" %}checking, {{ newer.state.finished_count }} of {{ newer.state.expected_count }} standards done…
-    {% else %}incomplete, {{ newer.state.finished_count }} of {{ newer.state.expected_count }} standards finished. It has no score.{% endif %}
+    {% if newer.standing.outcome == "checking" %}checking, {{ newer.standing.finished_count }} of {{ newer.standing.expected_count }} standards done…
+    {% else %}no score, {{ newer.standing.reason|default:"not every standard has a result" }}.{% endif %}
   </p>
 {% endif %}

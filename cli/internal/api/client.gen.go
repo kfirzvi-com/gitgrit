@@ -125,21 +125,42 @@ func (e MatchedByEnum) Valid() bool {
 	}
 }
 
+// Defines values for NewerCommitOutcomeEnum.
+const (
+	Checking NewerCommitOutcomeEnum = "checking"
+	NoScore  NewerCommitOutcomeEnum = "no_score"
+)
+
+// Valid indicates whether the value is a known member of the NewerCommitOutcomeEnum enum.
+func (e NewerCommitOutcomeEnum) Valid() bool {
+	switch e {
+	case Checking:
+		return true
+	case NoScore:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OutcomeEnum.
 const (
+	OutcomeEnumChecking OutcomeEnum = "checking"
 	OutcomeEnumFailed   OutcomeEnum = "failed"
+	OutcomeEnumNoScore  OutcomeEnum = "no_score"
 	OutcomeEnumScored   OutcomeEnum = "scored"
-	OutcomeEnumUnscored OutcomeEnum = "unscored"
 )
 
 // Valid indicates whether the value is a known member of the OutcomeEnum enum.
 func (e OutcomeEnum) Valid() bool {
 	switch e {
+	case OutcomeEnumChecking:
+		return true
 	case OutcomeEnumFailed:
 		return true
-	case OutcomeEnumScored:
+	case OutcomeEnumNoScore:
 		return true
-	case OutcomeEnumUnscored:
+	case OutcomeEnumScored:
 		return true
 	default:
 		return false
@@ -158,27 +179,6 @@ func (e PlatformEnum) Valid() bool {
 	case Github:
 		return true
 	case Gitlab:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for StateEnum.
-const (
-	Complete   StateEnum = "complete"
-	InProgress StateEnum = "in_progress"
-	Incomplete StateEnum = "incomplete"
-)
-
-// Valid indicates whether the value is a known member of the StateEnum enum.
-func (e StateEnum) Valid() bool {
-	switch e {
-	case Complete:
-		return true
-	case InProgress:
-		return true
-	case Incomplete:
 		return true
 	default:
 		return false
@@ -344,14 +344,8 @@ type Commit struct {
 	// ExpectedButNeverRan Standards this commit's check expected that never ran on it.
 	ExpectedButNeverRan []StandardRef `json:"expected_but_never_ran"`
 	Failed              int           `json:"failed"`
-
-	// Level * `healthy` - healthy
-	// * `needs_attention` - needs_attention
-	// * `failed` - failed
-	// * `unknown` - unknown
-	Level   LevelEnum     `json:"level"`
-	Passed  int           `json:"passed"`
-	Results []CheckResult `json:"results"`
+	Passed              int           `json:"passed"`
+	Results             []CheckResult `json:"results"`
 
 	// Running Checks still running on this commit.
 	Running int  `json:"running"`
@@ -379,28 +373,19 @@ type CommitScore struct {
 	// Display A score as the app shows it, so API clients can show it the same way.
 	Display ScoreDisplay `json:"display"`
 
-	// Failed A Required standard failed or could not run: the commit failed and has no value.
-	Failed bool `json:"failed"`
-
-	// Outcome failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+	// Outcome The one answer: read this first. checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 	//
+	// * `checking` - checking
+	// * `no_score` - no_score
 	// * `failed` - failed
 	// * `scored` - scored
-	// * `unscored` - unscored
 	Outcome OutcomeEnum `json:"outcome"`
 
-	// Reason Why the commit failed; empty otherwise.
+	// Reason Why it failed ("X failing") or has no score ("X errored", "Y not run"); empty otherwise.
 	Reason    string            `json:"reason"`
 	Standards StandardsProgress `json:"standards"`
 
-	// State The commit's newest check: complete, in_progress or incomplete (finished without every expected standard).
-	//
-	// * `complete` - complete
-	// * `in_progress` - in_progress
-	// * `incomplete` - incomplete
-	State StateEnum `json:"state"`
-
-	// Value The commit's last complete score, 0-100; null when it failed (see outcome) or until every expected standard has finished on it.
+	// Value The score, 0-100; only when outcome is scored, null otherwise.
 	Value *int `json:"value"`
 }
 
@@ -525,14 +510,21 @@ type Me struct {
 
 // NewerCommit defines model for NewerCommit.
 type NewerCommit struct {
+	// Outcome checking, or no_score (reason says why).
+	//
+	// * `checking` - checking
+	// * `no_score` - no_score
+	Outcome NewerCommitOutcomeEnum `json:"outcome"`
+
+	// Reason Why it has no score ("X errored", "Y not run"); empty while checking.
+	Reason    string            `json:"reason"`
 	Sha       string            `json:"sha"`
 	Standards StandardsProgress `json:"standards"`
-
-	// State * `complete` - complete
-	// * `in_progress` - in_progress
-	// * `incomplete` - incomplete
-	State StateEnum `json:"state"`
 }
+
+// NewerCommitOutcomeEnum * `checking` - checking
+// * `no_score` - no_score
+type NewerCommitOutcomeEnum string
 
 // NullEnum defines model for NullEnum.
 type NullEnum = interface{}
@@ -546,9 +538,10 @@ type Offender struct {
 	StandardId openapi_types.UUID `json:"standard_id"`
 }
 
-// OutcomeEnum * `failed` - failed
+// OutcomeEnum * `checking` - checking
+// * `no_score` - no_score
+// * `failed` - failed
 // * `scored` - scored
-// * `unscored` - unscored
 type OutcomeEnum string
 
 // PackInstall defines model for PackInstall.
@@ -682,19 +675,13 @@ type ProjectHealth struct {
 	// Branch Null for the project's health (its default branch).
 	Branch *string `json:"branch"`
 
-	// CommitScore The newest scored commit on the branch; null when none is.
+	// CommitScore The newest commit on the branch with a verdict (failed or scored); null when none has.
 	CommitScore   *CommitScore `json:"commit_score"`
 	DefaultBranch string       `json:"default_branch"`
 	Errored       int          `json:"errored"`
 	Failed        int          `json:"failed"`
 
-	// Level * `healthy` - healthy
-	// * `needs_attention` - needs_attention
-	// * `failed` - failed
-	// * `unknown` - unknown
-	Level LevelEnum `json:"level"`
-
-	// NewerCommit A newer commit with no score yet: still checking, or incomplete.
+	// NewerCommit A newer commit with no verdict: still checking, or no score.
 	NewerCommit *NewerCommit  `json:"newer_commit"`
 	Passed      int           `json:"passed"`
 	Project     ProjectRef    `json:"project"`
@@ -737,11 +724,12 @@ type ProjectStatus struct {
 	// Grade The score as the app shows it (same as display.text).
 	Grade string `json:"grade"`
 
-	// Outcome failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+	// Outcome checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 	//
+	// * `checking` - checking
+	// * `no_score` - no_score
 	// * `failed` - failed
 	// * `scored` - scored
-	// * `unscored` - unscored
 	Outcome *ProjectStatus_Outcome `json:"outcome"`
 
 	// OverallScore The project's score: its newest fully checked commit on the default branch. Null when that commit failed (see outcome) or has no score.
@@ -752,17 +740,18 @@ type ProjectStatus struct {
 	// Reason Why the project failed; empty otherwise.
 	Reason string `json:"reason"`
 
-	// ScoreFailed A Required standard failed or could not run: the project failed and has no score.
+	// ScoreFailed Every standard ran and a Required one failed: the project failed and has no score.
 	ScoreFailed    bool       `json:"score_failed"`
 	TopOffenders   []Offender `json:"top_offenders"`
 	TotalStandards int        `json:"total_standards"`
 }
 
-// ProjectStatus_Outcome failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+// ProjectStatus_Outcome checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 //
+// * `checking` - checking
+// * `no_score` - no_score
 // * `failed` - failed
 // * `scored` - scored
-// * `unscored` - unscored
 type ProjectStatus_Outcome struct {
 	union json.RawMessage
 }
@@ -948,11 +937,6 @@ type StandardsProgress struct {
 	// Finished Of those, how many have a finished result.
 	Finished int `json:"finished"`
 }
-
-// StateEnum * `complete` - complete
-// * `in_progress` - in_progress
-// * `incomplete` - incomplete
-type StateEnum string
 
 // StatusEnum * `running` - running
 // * `passed` - passed

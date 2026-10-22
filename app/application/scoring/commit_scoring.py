@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import logging
 
+from django.db.models import Q
+
 from app.application.scoring.newer_commit import NewerCommit
 from app.domain import scoring
 from app.domain.importance import Importance
-from app.domain.models import CommitCheck, CommitScore, StandardExecution
+from app.domain.models import CommitCheck, CommitScore, Standard, StandardExecution
 from app.domain.standard_criteria import applies
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,24 @@ def _runs_on_commit(project_id, branch: str, sha: str) -> scoring.StandardRunRes
         project_id=project_id, commit_check__branch=branch, commit_check__commit_sha=sha
     ).order_by("-created_at")
     return scoring.StandardRunResultsOnCommit(_run_result(e) for e in executions)
+
+
+# How a standard the check expected but that no longer exists is named.
+REMOVED_STANDARD = "a removed standard"
+
+
+def _standard_names(expected_ids) -> dict[str, str]:
+    """Each expected standard's name (id -> name), to name the ones that
+    never ran."""
+    ids = [str(i) for i in expected_ids]
+    names = {str(pk): name for pk, name in Standard.objects.filter(pk__in=ids).values_list("pk", "name")}
+    return {i: names.get(i, REMOVED_STANDARD) for i in ids}
+
+
+def _saved_value(score: CommitScore | None) -> scoring.CommitScoreValue | None:
+    if score is None:
+        return None
+    return scoring.CommitScoreValue(score.value, failed_by_required_standard=score.failed, reason=score.reason)
 
 
 def _scorable(check: CommitCheck) -> scoring.ScorableCommitCheck:
@@ -75,9 +95,11 @@ def expected_standards(project, branch: str) -> list[str]:
 
 def score_check(check: CommitCheck) -> CommitScore | None:
     """Save the score ``check`` gives its commit
-    (``scoring.ScorableCommitCheck.new_commit_score``), if it gives one."""
+    (``scoring.ScorableCommitCheck.new_commit_score``) once none of its runs
+    is going: a verdict, or no score and why."""
     new_score = _scorable(check).new_commit_score(
-        _runs_on_commit(check.project_id, check.branch, check.commit_sha)
+        _runs_on_commit(check.project_id, check.branch, check.commit_sha),
+        _standard_names(check.expected_standard_ids),
     )
     if new_score is None:
         return None
@@ -90,7 +112,7 @@ def score_check(check: CommitCheck) -> CommitScore | None:
         ordered_at=scoring.BranchCommitTimeline.commit_ordered_at(check.committed_at, check.created_at),
         value=new_score.score.value,
         failed=new_score.score.failed_by_required_standard,
-        reason=new_score.score.failure_reason,
+        reason=new_score.score.reason,
     )
     commit_score.executions.set([r.execution_id for r in new_score.run_results])
     return commit_score
@@ -114,11 +136,19 @@ def _newest_first(queryset):
     return queryset.order_by("-ordered_at", "-created_at")
 
 
+def _with_a_verdict(scores):
+    """Only the verdicts: failed or a number
+    (``scoring.CommitScoreOutcome.is_verdict``). A commit with no score
+    never hides the one before."""
+    return scores.filter(Q(failed=True) | Q(value__isnull=False))
+
+
 def branch_score(project, branch: str, excluding=()) -> CommitScore | None:
-    """The score of the newest scored commit on ``branch``. ``excluding``
-    (execution ids) leaves out scores computed from those results, which
-    gives the branch's score as it was before a run."""
-    scores = CommitScore.objects.filter(project=project, branch=branch)
+    """The score of the newest commit on ``branch`` with a verdict (failed
+    or a number; a commit with no score is skipped). ``excluding`` (execution
+    ids) leaves out scores computed from those results, which gives the
+    branch's score as it was before a run."""
+    scores = _with_a_verdict(CommitScore.objects.filter(project=project, branch=branch))
     if excluding:
         scores = scores.exclude(executions__in=list(excluding))
     return _newest_first(scores).first()
@@ -135,7 +165,9 @@ def project_scores(projects) -> dict:
     projects = list(projects)
     default_branch = {p.pk: p.default_branch for p in projects}
     picked = {}
-    scores = _newest_first(CommitScore.objects.filter(project__in=projects)).prefetch_related("executions")
+    scores = _newest_first(_with_a_verdict(CommitScore.objects.filter(project__in=projects))).prefetch_related(
+        "executions"
+    )
     for score in scores:
         if score.branch == default_branch[score.project_id]:
             picked.setdefault(score.project_id, score)
@@ -165,42 +197,37 @@ def commit_branch(project, sha: str, score: CommitScore | None) -> str:
     )
 
 
-CommitScoringState = scoring.CommitScoringState
-COMPLETE = CommitScoringState.COMPLETE
-IN_PROGRESS = CommitScoringState.IN_PROGRESS
-INCOMPLETE = CommitScoringState.INCOMPLETE
+def _newest_check(project, sha: str, branch: str) -> CommitCheck | None:
+    return CommitCheck.objects.filter(project=project, commit_sha=sha, branch=branch).order_by("-created_at").first()
 
 
-def commit_state(project, sha: str, branch: str) -> CommitScoringState | None:
-    """The scoring state of ``sha`` on ``branch``
-    (``scoring.ScorableCommitCheck.commit_scoring_state`` of its newest
-    check); None when it was never checked there."""
-    newest = (
-        CommitCheck.objects.filter(project=project, commit_sha=sha, branch=branch)
-        .order_by("-created_at")
-        .first()
-    )
+def commit_standing(project, sha: str, branch: str) -> scoring.CommitStanding | None:
+    """Where ``sha`` stands on ``branch``
+    (``scoring.ScorableCommitCheck.standing`` of its newest check); None
+    when it was never checked there."""
+    newest = _newest_check(project, sha, branch)
     if newest is None:
         return None
-    return _scorable(newest).commit_scoring_state(
+    return _scorable(newest).standing(
         _runs_on_commit(project.pk, branch, sha),
         any_run_going=StandardExecution.objects.filter(
             project=project, commit_check__commit_sha=sha, commit_check__branch=branch, status=Status.RUNNING
         ).exists(),
-        scored_by_this_check=newest.scores.exists(),
+        saved=_saved_value(newest.scores.order_by("-created_at").first()),
+        standard_names=_standard_names(newest.expected_standard_ids),
     )
 
 
 def newer_commit(project, branch: str, score: CommitScore | None) -> NewerCommit | None:
     """The branch's newest checked commit
-    (``scoring.BranchCommitTimeline.newest_checked_commit``) when it
-    is not the scored one and has no score of its own: still checking, or
-    incomplete."""
+    (``scoring.BranchCommitTimeline.newest_checked_commit``) when it is not
+    the one with the verdict and has none of its own: still checking, or no
+    score (``standing.reason`` says why)."""
     recent = CommitCheck.objects.filter(project=project, branch=branch).exclude(commit_sha="")
     newest = scoring.BranchCommitTimeline.newest_checked_commit(recent.order_by("-created_at")[:RECENT_CHECKS])
     if newest is None or (score and newest.commit_sha == score.commit_sha):
         return None
-    if CommitScore.objects.filter(project=project, branch=branch, commit_sha=newest.commit_sha).exists():
+    standing = commit_standing(project, newest.commit_sha, branch)
+    if standing is None or standing.outcome.is_verdict:
         return None
-    state = commit_state(project, newest.commit_sha, branch)
-    return NewerCommit(newest.commit_sha, state) if state else None
+    return NewerCommit(newest.commit_sha, standing)

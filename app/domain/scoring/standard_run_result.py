@@ -26,8 +26,11 @@ class StandardRunResult:
 
     @property
     def fails_the_commit(self) -> bool:
-        """A Required standard that failed or errored."""
-        return self.importance is Importance.REQUIRED and self.status in (
-            StandardRunStatus.FAILED,
-            StandardRunStatus.ERROR,
-        )
+        """A Required standard that ran and failed: it fails the commit, once
+        every other expected standard has a result too."""
+        return self.importance is Importance.REQUIRED and self.status == StandardRunStatus.FAILED
+
+    @property
+    def errored(self) -> bool:
+        """It produced no result: the commit has no score."""
+        return self.status == StandardRunStatus.ERROR

@@ -52,13 +52,13 @@ def _represented(commit_score, representation):
 
 def _component_issues(commit_score):
     """Why a project needs attention: the Required standard that failed it,
-    else its standards that failed or could not run (their own status, not
+    else its standards that failed or errored (their own status, not
     their numbers), failures first."""
     if commit_score is None:
         return []
     if commit_score.failed:
         return [commit_score.reason]
-    status_text = {StandardExecution.Status.FAILED: "failed", StandardExecution.Status.ERROR: "could not run"}
+    status_text = {StandardExecution.Status.FAILED: "failed", StandardExecution.Status.ERROR: "errored"}
     problems = sorted(
         (e for e in commit_score.executions.all() if e.status in status_text),
         key=lambda e: (e.status != StandardExecution.Status.FAILED, e.standard_name.lower()),

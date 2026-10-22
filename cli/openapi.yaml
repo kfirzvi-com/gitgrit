@@ -537,10 +537,10 @@ paths:
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/commits/{sha}/:
     get:
       operationId: get_project_commit
-      description: From what GitGrit recorded; 404 when the commit was never checked.
-        Poll this after `run_project_check` until `running` is 0; `commit_score.state`
-        then says whether the commit is scored (`complete`) or not every expected
-        standard finished (`incomplete`).
+      description: 'From what GitGrit recorded; 404 when the commit was never checked.
+        Poll this after `run_project_check` until `commit_score.outcome` is no longer
+        `checking`: then it is `failed`, `scored`, or `no_score` (`reason` says which
+        standard errored or was not run).'
       summary: One commit's checks
       parameters:
       - in: path
@@ -577,14 +577,15 @@ paths:
     get:
       operationId: get_project_health
       description: 'Without `branch`: the project''s health — its score, the newest
-        commit on the default branch that every expected standard finished on (`commit_score`),
-        and the results behind it. With `branch`: that branch''s. A Required standard
-        that failed or could not run fails the commit (`outcome` failed, no score,
-        it reads F); otherwise the score is the average of the standards'' scores
-        weighted by importance (Required and Major 2, Minor 1). `newer_commit` is
-        a newer commit with no score yet. `level` is the health: healthy (A+, A),
-        needs_attention (B to D), failed (a Required standard failed), unknown (no
-        score).'
+        commit on the default branch with a verdict (`commit_score`), and the results
+        behind it. With `branch`: that branch''s. A commit''s `outcome` is decided
+        in order: `checking` while a run is going; `no_score` when an expected standard
+        errored or never ran (Required too); `failed` when every standard ran and
+        a Required one failed (no value, it reads F); otherwise `scored`, the average
+        of the standards'' scores weighted by importance (Required and Major 2, Minor
+        1). `newer_commit` is a newer commit with no verdict: checking, or no_score
+        and why. `score_display.tone` is the health: healthy (A+, A), needs_attention
+        (B to D), failed (F), unknown (no score).'
       summary: Project or branch health
       parameters:
       - in: query
@@ -1258,8 +1259,6 @@ components:
           nullable: true
         score_display:
           $ref: '#/components/schemas/ScoreDisplay'
-        level:
-          $ref: '#/components/schemas/LevelEnum'
         passed:
           type: integer
         failed:
@@ -1305,7 +1304,6 @@ components:
       - errored
       - expected_but_never_ran
       - failed
-      - level
       - passed
       - results
       - running
@@ -1335,38 +1333,26 @@ components:
     CommitScore:
       type: object
       properties:
-        value:
-          type: integer
-          nullable: true
-          description: The commit's last complete score, 0-100; null when it failed
-            (see outcome) or until every expected standard has finished on it.
         outcome:
           allOf:
           - $ref: '#/components/schemas/OutcomeEnum'
           description: |-
-            failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+            The one answer: read this first. checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 
+            * `checking` - checking
+            * `no_score` - no_score
             * `failed` - failed
             * `scored` - scored
-            * `unscored` - unscored
-        display:
-          $ref: '#/components/schemas/ScoreDisplay'
-        failed:
-          type: boolean
-          description: 'A Required standard failed or could not run: the commit failed
-            and has no value.'
+        value:
+          type: integer
+          nullable: true
+          description: The score, 0-100; only when outcome is scored, null otherwise.
         reason:
           type: string
-          description: Why the commit failed; empty otherwise.
-        state:
-          allOf:
-          - $ref: '#/components/schemas/StateEnum'
-          description: |-
-            The commit's newest check: complete, in_progress or incomplete (finished without every expected standard).
-
-            * `complete` - complete
-            * `in_progress` - in_progress
-            * `incomplete` - incomplete
+          description: Why it failed ("X failing") or has no score ("X errored", "Y
+            not run"); empty otherwise.
+        display:
+          $ref: '#/components/schemas/ScoreDisplay'
         standards:
           $ref: '#/components/schemas/StandardsProgress'
         commit:
@@ -1374,11 +1360,9 @@ components:
       required:
       - commit
       - display
-      - failed
       - outcome
       - reason
       - standards
-      - state
       - value
     Connection:
       type: object
@@ -1628,14 +1612,33 @@ components:
       properties:
         sha:
           type: string
-        state:
-          $ref: '#/components/schemas/StateEnum'
+        outcome:
+          allOf:
+          - $ref: '#/components/schemas/NewerCommitOutcomeEnum'
+          description: |-
+            checking, or no_score (reason says why).
+
+            * `checking` - checking
+            * `no_score` - no_score
+        reason:
+          type: string
+          description: Why it has no score ("X errored", "Y not run"); empty while
+            checking.
         standards:
           $ref: '#/components/schemas/StandardsProgress'
       required:
+      - outcome
+      - reason
       - sha
       - standards
-      - state
+    NewerCommitOutcomeEnum:
+      enum:
+      - checking
+      - no_score
+      type: string
+      description: |-
+        * `checking` - checking
+        * `no_score` - no_score
     NullEnum:
       enum:
       - null
@@ -1663,14 +1666,16 @@ components:
       - standard_id
     OutcomeEnum:
       enum:
+      - checking
+      - no_score
       - failed
       - scored
-      - unscored
       type: string
       description: |-
+        * `checking` - checking
+        * `no_score` - no_score
         * `failed` - failed
         * `scored` - scored
-        * `unscored` - unscored
     PackInstall:
       type: object
       properties:
@@ -1961,8 +1966,6 @@ components:
           nullable: true
         score_display:
           $ref: '#/components/schemas/ScoreDisplay'
-        level:
-          $ref: '#/components/schemas/LevelEnum'
         passed:
           type: integer
         failed:
@@ -1981,12 +1984,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/CommitScore'
           nullable: true
-          description: The newest scored commit on the branch; null when none is.
+          description: The newest commit on the branch with a verdict (failed or scored);
+            null when none has.
         newer_commit:
           allOf:
           - $ref: '#/components/schemas/NewerCommit'
           nullable: true
-          description: 'A newer commit with no score yet: still checking, or incomplete.'
+          description: 'A newer commit with no verdict: still checking, or no score.'
         running:
           type: boolean
         results:
@@ -1999,7 +2003,6 @@ components:
       - default_branch
       - errored
       - failed
-      - level
       - newer_commit
       - passed
       - project
@@ -2059,11 +2062,12 @@ components:
         outcome:
           nullable: true
           description: |-
-            failed: a Required standard failed or could not run (no value, it reads F); scored: the importance-weighted average, 0-100, even 0; unscored: every run errored, so nothing could be averaged.
+            checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 
+            * `checking` - checking
+            * `no_score` - no_score
             * `failed` - failed
             * `scored` - scored
-            * `unscored` - unscored
           oneOf:
           - $ref: '#/components/schemas/OutcomeEnum'
           - $ref: '#/components/schemas/NullEnum'
@@ -2074,8 +2078,8 @@ components:
           $ref: '#/components/schemas/ScoreDisplay'
         score_failed:
           type: boolean
-          description: 'A Required standard failed or could not run: the project failed
-            and has no score.'
+          description: 'Every standard ran and a Required one failed: the project
+            failed and has no score.'
         reason:
           type: string
           description: Why the project failed; empty otherwise.
@@ -2495,16 +2499,6 @@ components:
       required:
       - expected
       - finished
-    StateEnum:
-      enum:
-      - complete
-      - in_progress
-      - incomplete
-      type: string
-      description: |-
-        * `complete` - complete
-        * `in_progress` - in_progress
-        * `incomplete` - incomplete
     StatusEnum:
       enum:
       - running

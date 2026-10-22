@@ -28,9 +28,9 @@ func printResults(w io.Writer, results []api.CheckResult) {
 }
 
 // summary leads with the grade as the app shows it ("B", "F"), so a failed
-// project reads F, never a number.
-func summary(display api.ScoreDisplay, level api.LevelEnum, passed, failed, errored int) string {
-	return fmt.Sprintf("Grade %s · %s · %d passed, %d failed, %d errored", display.Text, level, passed, failed, errored)
+// project reads F, never a number, then its health (display.tone).
+func summary(display api.ScoreDisplay, passed, failed, errored int) string {
+	return fmt.Sprintf("Grade %s · %s · %d passed, %d failed, %d errored", display.Text, display.Tone, passed, failed, errored)
 }
 
 func newHealthCmd() *cobra.Command {
@@ -64,7 +64,7 @@ show that branch's own health instead.`,
 				if h.Branch != nil {
 					scope = "branch " + *h.Branch
 				}
-				fmt.Fprintf(w, "%s · %s\n%s\n", h.Project.Name, scope, summary(h.ScoreDisplay, h.Level, h.Passed, h.Failed, h.Errored))
+				fmt.Fprintf(w, "%s · %s\n%s\n", h.Project.Name, scope, summary(h.ScoreDisplay, h.Passed, h.Failed, h.Errored))
 				if h.Running {
 					fmt.Fprintln(w, "Checks are running…")
 				}
@@ -195,7 +195,7 @@ func printCommit(w io.Writer, c *api.Commit) {
 	if c.Title != "" {
 		header += " " + c.Title
 	}
-	fmt.Fprintf(w, "%s\n%s\n", header, summary(c.ScoreDisplay, c.Level, c.Passed, c.Failed, c.Errored))
+	fmt.Fprintf(w, "%s\n%s\n", header, summary(c.ScoreDisplay, c.Passed, c.Failed, c.Errored))
 	if c.Running > 0 {
 		fmt.Fprintf(w, "%d still running…\n", c.Running)
 	}

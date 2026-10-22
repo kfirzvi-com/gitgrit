@@ -8,10 +8,10 @@ by default).{% endcomment %}
       {{ counts.failures }} of {{ counts.total }} standard{{ counts.total|pluralize }} failed
       {% if counts.required_failed %}
         <span class="text-error font-semibold whitespace-nowrap" data-summary="required_failed"
-              title="Required standards that failed or could not run. Each one fails the project.">· {% include "partials/importance_icon.html" with value="required" %} {{ counts.required_failed }} Required</span>
+              title="Required standards that failed. Each one fails the project.">· {% include "partials/importance_icon.html" with value="required" %} {{ counts.required_failed }} Required</span>
       {% endif %}
     {% elif counts.errored %}
-      No failures, {{ counts.errored }} could not run
+      No failures, {{ counts.errored }} errored
     {% else %}
       All {{ counts.total }} standard{{ counts.total|pluralize }} passed
     {% endif %}

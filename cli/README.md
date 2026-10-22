@@ -56,7 +56,7 @@ Create a workspace token (workspace settings → API Tokens) and:
     GITGRIT_TOKEN: ${{ secrets.GITGRIT_TOKEN }}
 ```
 
-By default the build fails only when the commit fails (a Required standard failed or could not run). `--fail-under 90` also fails it below an A.
+By default the build fails only when the commit fails (every standard ran and a Required one failed); it exits 2 when the commit has no score (a standard errored or never ran). `--fail-under 90` also fails it below an A.
 
 ## Develop
 

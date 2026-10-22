@@ -75,7 +75,7 @@ def backfill(apps, schema_editor):
             ordered_at=scoring.BranchCommitTimeline.commit_ordered_at(check.committed_at, check.created_at),
             value=new_score.score.value,
             failed=new_score.score.failed_by_required_standard,
-            reason=new_score.score.failure_reason,
+            reason=new_score.score.reason,
         )
         commit_score.executions.set([r.execution_id for r in new_score.run_results])
 
