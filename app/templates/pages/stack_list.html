@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load score_tags %}
 
 {% block title %}Stacks — GitGrit{% endblock %}
 
@@ -11,15 +12,28 @@
 {% if stacks %}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for stack in stacks %}
-      <a href="{% url 'stack_detail' stack.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+      {# Like a project card: the stack reads as its least healthy project (StackHealth), in that grade's colour. #}
+      {% score_tone stack.health.worst.value stack.health.worst.failed as tone %}
+      <a href="{% url 'stack_detail' stack.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow gg-tone-card gg-tone-card-{{ tone }}" data-stack-card="{{ tone }}">
         <div class="card-body">
-          <h2 class="card-title text-lg">{{ stack.name }}</h2>
-          {% if stack.description %}
-            <p class="text-sm opacity-70 line-clamp-2">{{ stack.description }}</p>
-          {% endif %}
-          <div class="mt-2">
-            <span class="badge badge-outline badge-sm">{{ stack.component_count }} component{{ stack.component_count|pluralize }}</span>
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h2 class="card-title text-lg min-w-0 break-words">{{ stack.name }}</h2>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="badge badge-outline badge-sm">{{ stack.component_count }} component{{ stack.component_count|pluralize }}</span>
+              </div>
+            </div>
+            {# The same fixed-width, centred column as the project cards. #}
+            <div class="-mr-3 w-14 shrink-0 flex flex-col items-center text-center" data-stack-score>
+              {% score stack.health.worst.value failed=stack.health.worst.failed size="card" %}
+              {% if stack.health.failed %}
+                <span class="gg-required-failed mt-1.5 text-xs leading-tight" data-stack-failed><span class="text-center whitespace-nowrap">{{ stack.health.failed }} project{{ stack.health.failed|pluralize }}<br>failed</span></span>
+              {% endif %}
+            </div>
           </div>
+          {% if stack.description %}
+            <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ stack.description }}</p>
+          {% endif %}
         </div>
       </a>
     {% endfor %}

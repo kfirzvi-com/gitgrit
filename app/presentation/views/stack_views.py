@@ -10,6 +10,8 @@ from django.views.generic import CreateView, DetailView, ListView
 
 from app.application import stack_service
 from app.domain.models import Component, Stack
+from app.application import scoring
+from app.application.stack_health import StackHealth
 from app.presentation.architecture import stack_graph
 
 
@@ -24,7 +26,22 @@ class StackListView(LoginRequiredMixin, ListView):
         return (
             Stack.objects.filter(tenant=tenant)
             .annotate(component_count=Count("components"))
+            .prefetch_related("components__project")
         )
+
+    def get_context_data(self, **kwargs):
+        """Each stack with its health (``StackHealth``): it reads as its least
+        healthy project, like the projects page reads each project."""
+        context = super().get_context_data(**kwargs)
+        stacks = list(context["stacks"])
+        projects_by_stack = {
+            stack.pk: list({c.project_id: c.project for c in stack.components.all()}.values()) for stack in stacks
+        }
+        project_scores = scoring.project_scores({p for ps in projects_by_stack.values() for p in ps})
+        for stack in stacks:
+            stack.health = StackHealth.of(projects_by_stack[stack.pk], project_scores)
+        context["stacks"] = stacks
+        return context
 
 
 class CreateStackView(LoginRequiredMixin, CreateView):

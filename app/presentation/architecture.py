@@ -29,6 +29,7 @@ from django.urls import reverse
 from app.application import scoring
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.application.naming import canonical_key
+from app.application.stack_health import StackHealth
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
@@ -37,19 +38,9 @@ from app.domain.models import (
     Stack,
     StandardExecution,
 )
-from app.domain.health import (
-    project_level,
-    stack_level,
-)
+from app.domain.health import project_level
 
 MAX_TECHNOLOGIES = 8
-
-
-def _project_health(commit_score):
-    """A project's health from its commit score (``ScoreHealth``)."""
-    if commit_score is None:
-        return project_level(None)
-    return project_level(commit_score.value, failed=commit_score.failed)
 
 
 def _grade(commit_score):
@@ -57,13 +48,6 @@ def _grade(commit_score):
     if commit_score is None:
         return _score_text(None)
     return _score_text(commit_score.value, failed=commit_score.failed)
-
-
-def _worst_first(commit_score):
-    """Sort key: failed first, then the lowest score, then no score."""
-    health = _project_health(commit_score)
-    value = commit_score.value if commit_score and commit_score.value is not None else 101
-    return (-health.severity if health.needs_attention else 0, value)
 
 
 def _component_issues(commit_score):
@@ -154,17 +138,16 @@ def workspace_graph(tenant):
         # Health is per repository: score each distinct project once, however
         # many of its components sit in this stack.
         projects = list({c.project_id: c.project for c in components}.values())
-        scored = sorted(((p, project_scores.get(p.id)) for p in projects), key=lambda t: _worst_first(t[1]))
-        # The stack reads as its worst project: one failed project fails the
-        # stack's colour, however healthy the rest look.
-        worst = next((s for _, s in scored if s is not None), None)
+        # The stack reads as its least healthy project (StackHealth).
+        health = StackHealth.of(projects, project_scores)
+        worst = health.worst
 
         # Issues = the projects that need attention (worst first), so the
         # hover explains which project to look at.
         issues = [
             "{} — {}{}".format(p.name, _grade(s), ": " + s.reason if s.failed and s.reason else "")
-            for p, s in scored
-            if _project_health(s).needs_attention
+            for p, s in health.ranked
+            if StackHealth.project_health(s).needs_attention
         ]
 
         stack_nodes.append(
@@ -180,7 +163,7 @@ def workspace_graph(tenant):
                 "score_shade": _grade_shade(worst),
                 # Worst-of across projects, so a single failed project lights
                 # up the whole stack even when the rest look healthy.
-                "health": stack_level([_project_health(s) for _, s in scored]),
+                "health": health.tone,
                 "issues": issues,
                 # True while any member project's dependency analysis is queued
                 # or running — drives the "regenerating…" hint.
