@@ -338,17 +338,17 @@ class ProjectHealthView(WorkspaceAPIView):
         tags=["health"],
         summary="Project or branch health",
         description=(
-            "Without `branch`: the project's health — its score, the newest commit "
-            "on the default branch with a verdict (`commit_score`), and the results "
-            "behind it. With `branch`: that branch's. A commit's `outcome` is decided "
-            "in order: `checking` while a run is going; `no_score` when an expected "
-            "standard errored or never ran (Required too); `failed` when every "
+            "Without `branch`: the project's health — its default branch's newest "
+            "commit (`commit_score`), whatever its outcome, and the results of that "
+            "commit's newest run. With `branch`: that branch's. A commit reads its "
+            "newest run alone, and its `outcome` is decided in order: `checking` "
+            "while a standard is running; `no_score` when an expected standard "
+            "errored or never ran in that run (Required too); `failed` when every "
             "standard ran and a Required one failed (no value, it reads F); "
             "otherwise `scored`, the average of the standards' scores weighted by "
-            "importance (Required and Major 2, Minor 1). "
-            "`newer_commit` is a newer commit with no verdict: checking, or no_score "
-            "and why. `score_display.tone` is the health: healthy (A+, A), "
-            "needs_attention (B to D), failed (F), unknown (no score)."
+            "importance (Required and Major 2, Minor 1). `score_display.tone` is "
+            "the health: healthy (A+, A), needs_attention (B to D), failed (F), "
+            "unknown (no score)."
         ),
         parameters=[_BRANCH],
         responses=s.ProjectHealthSerializer,

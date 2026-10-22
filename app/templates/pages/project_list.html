@@ -41,7 +41,7 @@
           {% if project.description %}
             <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>
           {% endif %}
-          {% include "partials/older_commit_note.html" with newest=project.newest_without_score shown=project.commit_score %}
+          {% include "partials/no_score_note.html" with subject=project.head %}
         </div>
       </a>
     {% endfor %}

@@ -37,11 +37,9 @@ class StackListView(LoginRequiredMixin, ListView):
         projects_by_stack = {
             stack.pk: list({c.project_id: c.project for c in stack.components.all()}.values()) for stack in stacks
         }
-        every_project = {p for ps in projects_by_stack.values() for p in ps}
-        project_scores = scoring.project_scores(every_project)
-        without_score = scoring.newest_without_score(every_project)
+        project_scores = scoring.project_scores({p for ps in projects_by_stack.values() for p in ps})
         for stack in stacks:
-            stack.project_health = ProjectHealthCounts.of(projects_by_stack[stack.pk], project_scores, without_score)
+            stack.project_health = ProjectHealthCounts.of(projects_by_stack[stack.pk], project_scores)
         context["stacks"] = stacks
         return context
 

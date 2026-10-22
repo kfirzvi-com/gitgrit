@@ -3,8 +3,9 @@ standard runs a commit is scored from, the commit's one outcome (decided in
 order: checking while a run goes; no score while an expected standard errored
 or never ran, Required too; failed when every standard ran and a Required one
 failed; otherwise the importance-weighted average, Required and Major
-counting 2 and Minor 1), where a commit stands, and how a branch's commits
-are ordered."""
+counting 2 and Minor 1), decided from one check's own runs; where a commit
+stands (its newest check), and how a branch's commits are ordered (a branch
+reads its newest commit)."""
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -243,10 +244,10 @@ class NewCommitScoreTests(SimpleTestCase):
     def test_a_standard_with_no_known_name_is_named_by_its_id(self):
         assert check().new_commit_score(StandardRunResultsOnCommit([run("a")])).score.reason == "b not run"
 
-    def test_a_run_still_going_in_another_check_is_not_a_result(self):
-        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("b", RUNNING, 0), run("a")]))
+    def test_a_run_of_its_own_that_never_finished_is_not_a_result(self):
+        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("b", SKIPPED, 0), run("a")]))
 
-        assert new_score.score.outcome is NO_SCORE
+        assert new_score.score == CommitScoreValue(None, reason="b not run")
 
     def test_a_required_failure_with_a_standard_never_run_is_no_score(self):
         new_score = check().new_commit_score(StandardRunResultsOnCommit([run("a", FAILED, 0, REQUIRED)]))
@@ -265,19 +266,20 @@ class NewCommitScoreTests(SimpleTestCase):
 
 
 class CommitStandingTests(SimpleTestCase):
-    def standing(self, runs, going=False, saved=None, newest=None):
+    """A check's outcome, from its own runs: its commit's when it is the
+    commit's newest."""
+
+    def standing(self, runs, saved=None, newest=None):
         return (newest or check()).standing(
-            StandardRunResultsOnCommit(runs), any_run_going=going, saved=saved, standard_names={"b": "Lint"}
+            StandardRunResultsOnCommit(runs), saved=saved, standard_names={"b": "Lint"}
         )
 
-    def test_checking_while_a_run_on_the_commit_goes(self):
-        assert self.standing([run("a")], going=True) == CommitStanding(CHECKING, "", 2, 1)
-
-    def test_checking_while_its_own_runs_go(self):
+    def test_checking_while_one_of_its_runs_goes(self):
         assert self.standing([run("a")], newest=check(running=True)) == CommitStanding(CHECKING, "", 2, 1)
 
-    def test_checking_even_when_an_earlier_check_already_decided_it(self):
-        assert self.standing([run("a"), run("b")], going=True, saved=CommitScoreValue(90)) == CommitStanding(CHECKING, "", 2, 2)
+    def test_checking_even_with_a_score_saved(self):
+        newest = check(running=True)
+        assert self.standing([run("a"), run("b")], saved=CommitScoreValue(90), newest=newest) == CommitStanding(CHECKING, "", 2, 2)
 
     def test_a_saved_score_is_its_outcome_with_its_value(self):
         assert self.standing([run("a"), run("b", standard_score=80)], saved=CommitScoreValue(90)) == CommitStanding(SCORED, "", 2, 2, 90)
@@ -328,6 +330,17 @@ class BranchCommitTimelineTests(SimpleTestCase):
         assert BranchCommitTimeline.commit_ordered_at(T0, T0 + timedelta(days=3)) == T0
         assert BranchCommitTimeline.commit_ordered_at(None, T0) == T0
 
+    def test_a_branch_reads_its_newest_commits_newest_check(self):
+        first = SimpleNamespace(commit_sha="c1", committed_at=T0, created_at=T0)
+        rerun = SimpleNamespace(commit_sha="c1", committed_at=T0, created_at=T0 + timedelta(hours=1))
+        older = SimpleNamespace(commit_sha="c0", committed_at=T0 - timedelta(days=1), created_at=T0 + timedelta(hours=2))
+
+        assert BranchCommitTimeline.newest_checked_commit([first, older, rerun]) is rerun
+
+    def test_checks_without_a_commit_yet_are_left_out(self):
+        pending = SimpleNamespace(commit_sha="", committed_at=None, created_at=T0 + timedelta(days=1))
+        assert BranchCommitTimeline.newest_checked_commit([pending]) is None
+
     def test_the_newest_commit_is_by_commit_time_not_by_check_time(self):
         old_rechecked = SimpleNamespace(commit_sha="old", committed_at=T0, created_at=T0 + timedelta(days=5))
         new = SimpleNamespace(commit_sha="new", committed_at=T0 + timedelta(days=1), created_at=T0 + timedelta(days=1))
@@ -344,15 +357,6 @@ class BranchCommitTimelineTests(SimpleTestCase):
         assert read_on("main", ["feature"], "main") == "main"
         assert read_on(None, ["feature", "main"], "main") == "feature"
         assert read_on(None, [], "main") == "main"
-
-
-class ShowsAnOlderCommitTests(SimpleTestCase):
-    def test_a_branch_shows_an_older_commit_when_its_newest_has_no_score(self):
-        shows = BranchCommitTimeline.shows_an_older_commit
-        assert shows(SimpleNamespace(outcome=NO_SCORE))
-        assert not shows(SimpleNamespace(outcome=SCORED))
-        assert not shows(SimpleNamespace(outcome=OUTCOME_FAILED))
-        assert not shows(None)
 
 
 class ListedRunsTests(SimpleTestCase):

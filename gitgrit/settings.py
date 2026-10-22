@@ -473,7 +473,6 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "LevelEnum": "app.presentation.api.serializers.LEVEL_CHOICES",
         "OutcomeEnum": "app.presentation.api.serializers.OUTCOME_CHOICES",
-        "NewerCommitOutcomeEnum": "app.presentation.api.serializers.NEWER_OUTCOME_CHOICES",
     },
 }
 

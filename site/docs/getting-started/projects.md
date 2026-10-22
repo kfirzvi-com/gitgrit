@@ -71,18 +71,16 @@ Each run remembers the importance its standard had when it ran, so changing impo
 
 ## The score
 
-A commit reports nothing until **every expected standard has a result on it**: it passed or it failed. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when its check started. Each commit has one **outcome**, decided in this order:
+Each time the standards run on a commit (a push, a pull request, **Run**) is one **check** of it, and a commit reads its **newest check, alone**: a standard the newest check did not run is "not run", even if an earlier check ran it. A check reports nothing until **every expected standard has a result in it**: it passed or it failed. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when the check started. Each check, and so each commit, has one **outcome**, decided in this order:
 
 1. **Checking**: a standard is still running on it.
-2. **No score**: an expected standard **errored** (its run produced no result, for any reason, GitGrit's own failures and a run stuck for over an hour included) or **never ran** (for example, only one standard was run by hand). This holds for every importance, Required too, and even when a Required standard failed. The project page says which standard errored or was not run; run it again.
+2. **No score**: an expected standard **errored** (its run produced no result, for any reason, GitGrit's own failures and a run stuck for over an hour included) or **never ran** in that check (for example, only one standard was run by hand). This holds for every importance, Required too, and even when a Required standard failed. The project page says which standard errored or was not run; run them all on the commit again.
 3. **Failed**: every standard ran and a **Required** standard failed. Failed is a verdict, not a number: the commit has no score, reads **F**, and the project page says which standard failed it.
 4. **Scored**: every standard ran and no Required standard failed. The score is the **average of the standards' scores, weighted by importance**: Required and Major count 2, Minor counts 1. Every standard can fail and the score still be a number, even 0: that is a low score, not a failed project.
 
 Whether a standard **passed or failed** is the standard's own decision; its score is its partial credit. A standard can fail with a high score, and only its score counts toward the average.
 
-The **project's score** is the newest **verdict** on the default branch: the newest commit that failed or is scored. Checking an old commit again never replaces a newer commit's score. A newer commit that is still checking or has no score never hides it.
-
-When the newest commit has **no score**, the score you see is an **older commit's**, and GitGrit says so wherever it shows it: a warning on the project's Overview and Results tabs (which commit is shown, which standard errored or was not run, and a button to run the newest commit again), a line on the project's card, a flag next to the project in the dashboard's and stacks' counts, the map's hover, `newer_commit` in the API (`/health/` and `/status/`), and a warning in `gitgrit health`.
+A **branch** reads its **newest commit**, whatever its outcome, and the **project's score** is its default branch's. Checking an old commit again never replaces a newer commit's. While the newest commit is being checked the project has no grade yet; when it has **no score**, neither does the project, and GitGrit says why wherever it shows the project: the Overview and Results tabs (which standard errored or was not run, and a button to run the commit again), the project's card, the dashboard's and stacks' counts (as no data, with the reason on hover), the map's hover, the API's `commit_score` and `gitgrit health`.
 
 Changing attachments or importance does not rescore anything: the next check does.
 

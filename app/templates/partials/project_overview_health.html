@@ -14,8 +14,6 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
         <p class="text-xl font-semibold mt-4" data-required-failed="0">No Required failures</p>
       {% endif %}
       <p class="text-sm opacity-60 mt-1">Based on {{ health_breakdown.total }} standard{{ health_breakdown.total|pluralize }}</p>
-      {% if newer_commit %}<div class="mt-1">{% include "partials/score_note.html" with score=None newer=newer_commit %}</div>{% endif %}
-      {% if newer_commit %}<div class="w-full max-w-lg mt-4">{% include "partials/older_commit_alert.html" with newer=newer_commit score=project_score run_url="" %}</div>{% endif %}
 
       <div class="w-full max-w-lg mt-6 space-y-2.5" data-health-breakdown>
         {% include "partials/outcome_bar.html" with counts=health_breakdown %}
@@ -40,8 +38,8 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
       <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
       {% if attached_standards %}
         <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has a result on it (passed or failed).</p>
-        {% include "partials/score_note.html" with score=None newer=newer_commit %}
-        {% include "partials/older_commit_alert.html" with newer=newer_commit score=None run_url="" %}
+        {% include "partials/score_note.html" with score=None head=branch_head %}
+        {% include "partials/no_score_alert.html" with head=branch_head run_url="" %}
         <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
       {% else %}
         <p class="text-base opacity-60 text-center">No standards attached. Pick the standards that apply to this project.</p>

@@ -33,22 +33,25 @@ func summary(display api.ScoreDisplay, passed, failed, errored int) string {
 	return fmt.Sprintf("Grade %s · %s · %d passed, %d failed, %d errored", display.Text, display.Tone, passed, failed, errored)
 }
 
-// olderCommitNote says the health shown is an older commit's, because the
-// newest commit has no score (a standard errored or never ran); "" otherwise.
-// The same wording as the app.
-func olderCommitNote(score *api.CommitScore, newer *api.NewerCommit) string {
-	if newer == nil || newer.Outcome != api.NoScore {
+// noScoreNote says why the branch shows no grade: its newest commit is
+// still being checked, or has no score (a standard errored or never ran in
+// its newest run); "" for a verdict. The same wording as the app.
+func noScoreNote(score *api.CommitScore) string {
+	if score == nil {
 		return ""
 	}
-	reason := newer.Reason
-	if reason == "" {
-		reason = "not every standard has a result"
+	sha := output.Short(score.Commit.Sha)
+	switch score.Outcome {
+	case api.OutcomeEnumChecking:
+		return fmt.Sprintf("Checking commit %s: %d of %d standards done…", sha, score.Standards.Finished, score.Standards.Expected)
+	case api.OutcomeEnumNoScore:
+		reason := score.Reason
+		if reason == "" {
+			reason = "not every standard has a result"
+		}
+		return fmt.Sprintf("! No score on commit %s: %s.\n  Run its standards again: gitgrit check --sha %s", sha, reason, score.Commit.Sha)
 	}
-	if score == nil {
-		return fmt.Sprintf("! No score: the newest commit, %s, has none (%s).\n  Run its standards again: gitgrit check --sha %s", output.Short(newer.Sha), reason, newer.Sha)
-	}
-	return fmt.Sprintf("! Not the latest commit: showing %s. The newest, %s, has no score (%s).\n  Run its standards again: gitgrit check --sha %s",
-		output.Short(score.Commit.Sha), output.Short(newer.Sha), reason, newer.Sha)
+	return ""
 }
 
 func newHealthCmd() *cobra.Command {
@@ -83,7 +86,7 @@ show that branch's own health instead.`,
 					scope = "branch " + *h.Branch
 				}
 				fmt.Fprintf(w, "%s · %s\n%s\n", h.Project.Name, scope, summary(h.ScoreDisplay, h.Passed, h.Failed, h.Errored))
-				if note := olderCommitNote(h.CommitScore, h.NewerCommit); note != "" {
+				if note := noScoreNote(h.CommitScore); note != "" {
 					fmt.Fprintln(w, note)
 				}
 				if h.Running {

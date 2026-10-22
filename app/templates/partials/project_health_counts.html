@@ -3,12 +3,11 @@
 projects show together (the dashboard, a stack), which never get one grade or colour of their own.
 A zero is left out, except healthy when nothing else has a count. Expects `counts`; with
 `linked=True` (not inside a link) hovering or focusing a count lists its projects, each with its
-grade and linking to its page. Projects whose newest commit has no score (a standard errored or
-never ran) are flagged: they show an older commit's score.{% endcomment %}{% load score_tags %}
+grade and linking to its page. A project whose newest commit has no score (a standard errored or
+never ran) says why in that list.{% endcomment %}{% load score_tags %}
 <span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1" data-project-health-counts>
   {% if counts.failed %}{% include "partials/project_health_count.html" with key="failed" tone="failed" number=counts.failed label="failed" rows=counts.failed_projects %}{% endif %}
   {% if counts.needs_attention %}{% include "partials/project_health_count.html" with key="needs_attention" tone="needs_attention" number=counts.needs_attention label=counts.needs_attention|pluralize:"needs attention,need attention" rows=counts.needs_attention_projects %}{% endif %}
   {% if counts.healthy or not counts.failed and not counts.needs_attention and not counts.no_data %}{% include "partials/project_health_count.html" with key="healthy" tone="healthy" number=counts.healthy label="healthy" rows=counts.healthy_projects %}{% endif %}
   {% if counts.no_data %}{% include "partials/project_health_count.html" with key="no_data" tone="unknown" number=counts.no_data label="no data" rows=counts.no_data_projects %}{% endif %}
-  {% if counts.older_commit %}<span class="inline-flex items-center gap-1 text-warning" title="Not the latest commit: the newest commit of {{ counts.older_commit_names|join:', ' }} has no score (a standard errored or never ran), so {{ counts.older_commit|length|pluralize:'its,their' }} score is an older commit's." data-older-commit-count><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.49 2.86c.66-1.15 2.36-1.15 3.02 0l6.27 10.9c.66 1.15-.18 2.6-1.51 2.6H3.73c-1.33 0-2.17-1.45-1.51-2.6L8.5 2.86ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg><b>{{ counts.older_commit|length }}</b> not the latest commit</span>{% endif %}
 </span>

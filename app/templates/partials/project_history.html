@@ -24,7 +24,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
               title="Run the current standards that apply to {{ branch }} on its latest commit">Run on latest commit</button>
     </div>
     {% if notice %}<p class="text-sm text-info -mt-4" data-run-notice>{{ notice }}</p>{% endif %}
-    {% include "partials/older_commit_alert.html" with newer=newer_commit score=branch_score run_url=run_url branch=branch %}
+    {% include "partials/no_score_alert.html" with head=branch_head run_url=run_url branch=branch %}
 
     <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-5 sm:px-6 py-5" data-branch-status>
       {% if status_has_score %}
@@ -34,12 +34,12 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
         <div class="space-y-1.5">
           {% include "partials/health_breakdown.html" with counts=status_breakdown align="start" %}
           <p class="text-xs opacity-50">{% if is_default %}Project score{% else %}Score on {{ branch }} · Only the default branch counts toward the project score{% endif %}</p>
-          {% include "partials/score_note.html" with score=branch_score newer=newer_commit show_reason=True %}
+          {% include "partials/score_note.html" with score=branch_score head=branch_head show_reason=True %}
         </div>
       {% else %}
         <div class="space-y-1">
           <p class="text-sm opacity-60">No score on {{ branch }} yet: a commit gets one when every standard has a result on it (passed or failed). Run the standards on its latest commit.</p>
-          {% include "partials/score_note.html" with score=None newer=newer_commit %}
+          {% include "partials/score_note.html" with score=None head=branch_head %}
         </div>
       {% endif %}
     </div>

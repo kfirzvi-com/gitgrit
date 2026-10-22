@@ -16,7 +16,9 @@ from app.domain.scoring.standard_run_results_on_commit import StandardRunResults
 @dataclass(frozen=True)
 class ScorableCommitCheck:
     """One check of one commit, seen for scoring: the commit, the standards
-    it expects, and whether any of its own runs is still going."""
+    it expects, and whether any of its own runs is still going. A commit
+    reads its newest check alone: an earlier check's runs never fill in for
+    a standard this one did not run."""
 
     commit_sha: str
     expected_standards: ExpectedStandards
@@ -24,47 +26,47 @@ class ScorableCommitCheck:
 
     def new_commit_score(
         self,
-        runs_on_commit: StandardRunResultsOnCommit,
+        runs_of_check: StandardRunResultsOnCommit,
         standard_names: Mapping[str, str] | None = None,
         policy: CommitScoringPolicy = COMMIT_SCORING_POLICY,
     ) -> NewCommitScore | None:
-        """The commit's score once this check is done, from each expected
-        standard's newest finished run on the commit (across its checks).
-        None while there is nothing to decide: the check has no commit
-        yet, expects nothing, or one of its runs is still going. Otherwise
-        always a score, no score included: an expected standard with no
-        finished run is "not run" (named by ``standard_names``, standard
-        id to name)."""
+        """The commit's score once this check is done, from this check's own
+        runs (``runs_of_check``): each expected standard's newest finished
+        run in it. None while there is nothing to decide: the check has no
+        commit yet, expects nothing, or one of its runs is still going.
+        Otherwise always a score, no score included: an expected standard
+        with no finished run in this check is "not run" (named by
+        ``standard_names``, standard id to name), even if an earlier check
+        ran it."""
         if not self.commit_sha or not self.expected_standards or self.has_running_runs:
             return None
-        scored_from = runs_on_commit.newest_finished_per_expected_standard(self.expected_standards)
+        scored_from = runs_of_check.newest_finished_per_expected_standard(self.expected_standards)
         names = standard_names or {}
         not_run = [names.get(i, i) for i in self.expected_standards.without_finished_result(scored_from)]
         return NewCommitScore(policy.score_commit(scored_from, not_run), scored_from)
 
     def standing(
         self,
-        runs_on_commit: StandardRunResultsOnCommit,
+        runs_of_check: StandardRunResultsOnCommit,
         *,
-        any_run_going: bool,
         saved: CommitScoreValue | None,
         standard_names: Mapping[str, str] | None = None,
     ) -> CommitStanding | None:
-        """Where the commit stands when this is its newest check: checking
-        while any run on the commit is going; otherwise the score this check
-        saved (``saved``), or, for a check that saved none, the one it
-        gives now. None when the check expects nothing or has no commit."""
+        """This check's outcome, which is its commit's when it is the
+        commit's newest: checking while one of its runs is going; otherwise
+        the score it saved (``saved``), or, for a check that saved none, the
+        one it gives now. None when it expects nothing or has no commit."""
         if not self.expected_standards:
             return None
         expected_count = len(self.expected_standards)
         finished_count = expected_count - len(
             self.expected_standards.without_finished_result(
-                runs_on_commit.newest_finished_per_expected_standard(self.expected_standards)
+                runs_of_check.newest_finished_per_expected_standard(self.expected_standards)
             )
         )
-        going = any_run_going or self.has_running_runs
+        going = self.has_running_runs
         if saved is None and not going:
-            new_score = self.new_commit_score(runs_on_commit, standard_names)
+            new_score = self.new_commit_score(runs_of_check, standard_names)
             saved = new_score.score if new_score else None
         outcome = CommitScoreOutcome.of_commit(going, saved.outcome if saved else None)
         if outcome is None:

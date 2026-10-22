@@ -576,16 +576,16 @@ paths:
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/health/:
     get:
       operationId: get_project_health
-      description: 'Without `branch`: the project''s health — its score, the newest
-        commit on the default branch with a verdict (`commit_score`), and the results
-        behind it. With `branch`: that branch''s. A commit''s `outcome` is decided
-        in order: `checking` while a run is going; `no_score` when an expected standard
-        errored or never ran (Required too); `failed` when every standard ran and
-        a Required one failed (no value, it reads F); otherwise `scored`, the average
-        of the standards'' scores weighted by importance (Required and Major 2, Minor
-        1). `newer_commit` is a newer commit with no verdict: checking, or no_score
-        and why. `score_display.tone` is the health: healthy (A+, A), needs_attention
-        (B to D), failed (F), unknown (no score).'
+      description: 'Without `branch`: the project''s health — its default branch''s
+        newest commit (`commit_score`), whatever its outcome, and the results of that
+        commit''s newest run. With `branch`: that branch''s. A commit reads its newest
+        run alone, and its `outcome` is decided in order: `checking` while a standard
+        is running; `no_score` when an expected standard errored or never ran in that
+        run (Required too); `failed` when every standard ran and a Required one failed
+        (no value, it reads F); otherwise `scored`, the average of the standards''
+        scores weighted by importance (Required and Major 2, Minor 1). `score_display.tone`
+        is the health: healthy (A+, A), needs_attention (B to D), failed (F), unknown
+        (no score).'
       summary: Project or branch health
       parameters:
       - in: query
@@ -1607,38 +1607,6 @@ components:
       - token_type
       - user
       - workspaces
-    NewerCommit:
-      type: object
-      properties:
-        sha:
-          type: string
-        outcome:
-          allOf:
-          - $ref: '#/components/schemas/NewerCommitOutcomeEnum'
-          description: |-
-            checking, or no_score (reason says why).
-
-            * `checking` - checking
-            * `no_score` - no_score
-        reason:
-          type: string
-          description: Why it has no score ("X errored", "Y not run"); empty while
-            checking.
-        standards:
-          $ref: '#/components/schemas/StandardsProgress'
-      required:
-      - outcome
-      - reason
-      - sha
-      - standards
-    NewerCommitOutcomeEnum:
-      enum:
-      - checking
-      - no_score
-      type: string
-      description: |-
-        * `checking` - checking
-        * `no_score` - no_score
     NullEnum:
       enum:
       - null
@@ -1984,13 +1952,8 @@ components:
           allOf:
           - $ref: '#/components/schemas/CommitScore'
           nullable: true
-          description: The newest commit on the branch with a verdict (failed or scored);
-            null when none has.
-        newer_commit:
-          allOf:
-          - $ref: '#/components/schemas/NewerCommit'
-          nullable: true
-          description: 'A newer commit with no verdict: still checking, or no score.'
+          description: The branch's newest commit, whatever its outcome (checking,
+            no_score, failed, scored); null when nothing on it was checked.
         running:
           type: boolean
         results:
@@ -2003,7 +1966,6 @@ components:
       - default_branch
       - errored
       - failed
-      - newer_commit
       - passed
       - project
       - results
@@ -2057,8 +2019,9 @@ components:
           type: number
           format: double
           nullable: true
-          description: 'The project''s score: its newest fully checked commit on the
-            default branch. Null when that commit failed (see outcome) or has no score.'
+          description: 'The project''s score: its default branch''s newest commit''s.
+            Null when that commit failed (see outcome), has no score, or is still
+            being checked.'
         outcome:
           nullable: true
           description: |-
@@ -2087,12 +2050,6 @@ components:
           type: string
           nullable: true
           description: The commit the score is from.
-        newer_commit:
-          allOf:
-          - $ref: '#/components/schemas/NewerCommit'
-          nullable: true
-          description: 'A newer commit with no verdict: still checking, or no score
-            (then the score is an older commit''s).'
         total_standards:
           type: integer
         passed:
@@ -2108,7 +2065,6 @@ components:
       - display
       - failed
       - grade
-      - newer_commit
       - outcome
       - overall_score
       - passed

@@ -10,7 +10,7 @@ class ProjectStatusService:
         self, tenant: Tenant, project_id: str, exclude_execution_ids=()
     ) -> dict:
         """Return an at-a-glance compliance snapshot for a project: its score
-        (the newest scored commit on its default branch, see
+        (its default branch's newest commit, whatever its outcome, see
         ``app.application.scoring``) and the results behind it.
         ``exclude_execution_ids`` leaves out a score computed from those
         executions, which gives the project's picture as it was before a run.
@@ -20,8 +20,11 @@ class ProjectStatusService:
         except (Project.DoesNotExist, ValidationError):
             raise NotFoundError(f"Project {project_id} not found")
 
-        score = scoring.project_score(project, excluding=exclude_execution_ids)
-        newer = scoring.newer_commit(project, project.default_branch, score)
+        # Its default branch's newest commit, whatever its outcome; before a
+        # run (``exclude_execution_ids``), its newest score without it.
+        head = None if exclude_execution_ids else scoring.branch_head(project, project.default_branch)
+        score = head.score if head else scoring.project_score(project, excluding=exclude_execution_ids)
+        standing = head.standing if head else None
         results = list(score.executions.all()) if score else []
         overall = score.value if score else None
         represented = tenant.score_representation.represent(overall, failed=bool(score and score.failed))
@@ -30,28 +33,13 @@ class ProjectStatusService:
         return {
             "project": {"id": str(project.id), "name": project.name},
             "overall_score": overall,
-            "outcome": str(score.outcome) if score else None,
+            "outcome": str(standing.outcome) if standing else str(score.outcome) if score else None,
             # The score as the workspace reads it (letters or numbers).
             "grade": represented.text,
             "display": represented.as_dict(),
             "score_failed": score.failed if score else False,
-            "reason": score.reason if score else "",
+            "reason": standing.reason if standing else score.reason if score else "",
             "commit_sha": score.commit_sha if score else None,
-            # A newer commit with no verdict: still checking, or no score
-            # (then the score above is an older commit's).
-            "newer_commit": (
-                {
-                    "sha": newer.sha,
-                    "outcome": str(newer.standing.outcome),
-                    "reason": newer.standing.reason,
-                    "standards": {
-                        "expected": newer.standing.expected_count,
-                        "finished": newer.standing.finished_count,
-                    },
-                }
-                if newer
-                else None
-            ),
             "total_standards": len(results),
             "passed": sum(
                 1 for e in results if e.status == StandardExecution.Status.PASSED

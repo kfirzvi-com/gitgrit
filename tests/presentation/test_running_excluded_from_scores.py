@@ -54,7 +54,10 @@ def _passed_then_running(project, standard):
         standard_name=standard.name,
         score=0,
         status=StandardExecution.Status.RUNNING,
-        commit_check=baker.make("app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40),
+        commit_check=baker.make(
+            "app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40,
+            expected_standard_ids=[str(standard.pk)],
+        ),
     )
 
 
@@ -68,25 +71,27 @@ class TestRunningRowsDoNotMoveScores(TestCase):
         self.project.standards.add(self.standard)
         self.running = _passed_then_running(self.project, self.standard)
 
-    def test_project_page_score_ignores_the_running_row(self):
+    def test_a_commit_checked_again_has_no_score_until_the_run_ends(self):
+        # A commit reads its newest run: while it goes, the project is being
+        # checked and has no grade; the running row never scores as a 0.
         resp = self.client.get(reverse("project_detail", args=[self.project.pk]))
 
         assert resp.status_code == 200
-        assert resp.context["compliance_score"] == 100
-        assert [ex.pk for ex in resp.context["latest_executions"]] != [
-            self.running.pk
-        ]
+        assert resp.context["compliance_score"] is None
+        assert resp.context["branch_head"].checking
+        assert resp.context["latest_executions"] == []
         # ... but it is still visible in the activity list.
         assert self.running.pk in [
             ex.pk for ex in resp.context["recent_executions"]
         ]
 
-    def test_badge_score_ignores_the_running_row(self):
+    def test_badge_shows_no_score_while_the_commit_is_checked_again(self):
         svg = self.client.get(
             reverse("project_badge", args=[self.project.pk])
         ).content.decode()
 
-        assert "GitGrit compliance: A+" in svg
+        assert "GitGrit compliance: A+" not in svg
+        assert "GitGrit compliance: 0" not in svg
 
     def test_attention_list_ignores_the_running_row(self):
         # A RUNNING row scores 0; without the exclusion it would show as

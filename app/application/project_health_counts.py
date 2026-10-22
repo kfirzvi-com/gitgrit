@@ -18,22 +18,14 @@ class ProjectHealthCounts:
     healthy (A+, A), no data (no score yet). ``projects`` holds the projects
     behind each count, with their scores, lowest first then by name (so a
     count can list them); ``attention`` the failed and needing-attention ones,
-    failed first: each one as itself, never combined. Each project carries
-    ``newest_without_score``: its newest commit's CommitScore when that
-    commit has no score (so its score is an older commit's), else None."""
+    failed first: each one as itself, never combined. A project whose
+    newest commit has no score counts as no data."""
 
     failed: int
     needs_attention: int
     healthy: int
     no_data: int
     projects: dict = None  # {ScoreTone: ((project, CommitScore | None), ...)}
-    # The projects showing an older commit, because their newest has no
-    # score, whatever their health; by name.
-    older_commit: tuple = ()
-
-    @property
-    def older_commit_names(self) -> list[str]:
-        return [p.name for p in self.older_commit]
 
     @property
     def attention(self) -> tuple:
@@ -62,18 +54,14 @@ class ProjectHealthCounts:
         return self.projects_with(ScoreTone.UNKNOWN)
 
     @classmethod
-    def of(cls, projects, project_scores=None, without_score=None) -> "ProjectHealthCounts":
+    def of(cls, projects, project_scores=None) -> "ProjectHealthCounts":
         """``projects`` counted; ``project_scores`` (project id -> score)
-        and ``without_score`` (``scoring.newest_without_score``) when already
-        read, else read here."""
+        when already read, else read here."""
         projects = list(projects)
         if project_scores is None:
             project_scores = scoring.project_scores(projects)
-        if without_score is None:
-            without_score = scoring.newest_without_score(projects)
         by_tone = {tone: [] for tone in ScoreTone}
         for project in projects:
-            project.newest_without_score = without_score.get(project.pk)
             score = project_scores.get(project.pk)
             by_tone[cls.project_health(score)].append((project, score))
         lowest_first = lambda t: (t[1].value if t[1] and t[1].value is not None else 0, t[0].name.lower())  # noqa: E731
@@ -83,7 +71,6 @@ class ProjectHealthCounts:
             healthy=len(by_tone[ScoreTone.HEALTHY]),
             no_data=len(by_tone[ScoreTone.UNKNOWN]),
             projects={tone: tuple(sorted(rows, key=lowest_first)) for tone, rows in by_tone.items()},
-            older_commit=tuple(sorted((p for p in projects if p.newest_without_score), key=lambda p: p.name.lower())),
         )
 
     @classmethod

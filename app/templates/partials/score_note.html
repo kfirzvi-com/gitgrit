@@ -1,11 +1,11 @@
 {% comment %}Under a score: why it is an F (the Required standard that failed; with
-show_reason), which commit it is from, and a newer commit still being checked. (A newer commit
-with no score gets partials/older_commit_alert.html instead.) Parameters: score (a CommitScore
-or None), newer (scoring.NewerCommit or None), show_reason.{% endcomment %}
+show_reason) and which commit it is from; or, with no grade, that the newest commit is being
+checked. Parameters: score (the CommitScore shown, or None), head (the scoring.CheckRun the
+branch reads, or None), show_reason.{% endcomment %}
 {% if score.failed and show_reason %}<p class="text-sm text-error font-medium" data-score-reason>{{ score.reason|capfirst }}</p>{% endif %}
 {% if score %}<p class="text-xs opacity-50" data-score-commit>From commit {{ score.commit_sha|slice:":7" }}</p>{% endif %}
-{% if newer and newer.standing.outcome == "checking" %}
-  <p class="text-xs opacity-70" data-newer-commit="checking">
-    Newer commit {{ newer.sha|slice:":7" }}: checking, {{ newer.standing.finished_count }} of {{ newer.standing.expected_count }} standards done…
+{% if head.outcome == "checking" %}
+  <p class="text-xs opacity-70" data-checking-commit>
+    Checking commit {{ head.sha|slice:":7" }}: {{ head.standing.finished_count }} of {{ head.standing.expected_count }} standards done…
   </p>
 {% endif %}

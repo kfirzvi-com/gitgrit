@@ -1,32 +1,36 @@
-"""Scoring commits and reading project scores: the database side of
-``app.domain.scoring`` (``commit_scoring``), and what it hands to the
-screens (``NewerCommit``)."""
+"""Scoring commits and reading branch and project scores: the database side
+of ``app.domain.scoring`` (``commit_scoring``), and what it hands to the
+screens (``CheckRun``: one run of the standards on a commit)."""
+from app.application.scoring.check_run import CheckRun
 from app.application.scoring.commit_scoring import (
     RECENT_CHECKS,
+    branch_head,
     branch_score,
+    check_run,
     commit_branch,
+    commit_history,
     commit_scores,
     commit_standing,
     expected_standards,
-    newer_commit,
-    newest_without_score,
+    project_heads,
     project_score,
     project_scores,
     score_check,
     score_checks,
 )
-from app.application.scoring.newer_commit import NewerCommit
 
 __all__ = [
     "RECENT_CHECKS",
-    "NewerCommit",
+    "CheckRun",
+    "branch_head",
     "branch_score",
+    "check_run",
     "commit_branch",
+    "commit_history",
     "commit_scores",
     "commit_standing",
     "expected_standards",
-    "newer_commit",
-    "newest_without_score",
+    "project_heads",
     "project_score",
     "project_scores",
     "score_check",

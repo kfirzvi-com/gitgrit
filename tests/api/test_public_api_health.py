@@ -83,7 +83,7 @@ class TestBranchesAndHealth(HealthAPITestCase):
             "standards": {"expected": 1, "finished": 1},
             "commit": {"sha": A, "branch": "main", "committed_at": None},
         }
-        assert body["newer_commit"] is None
+        assert "newer_commit" not in body
 
     def test_a_failing_required_standard_fails_the_project_with_no_score(self):
         self.project.project_standards.update(importance="required")
@@ -103,7 +103,7 @@ class TestBranchesAndHealth(HealthAPITestCase):
         assert body["commit_score"]["display"] == {"text": "F", "tone": "failed", "spoken": body["commit_score"]["display"]["spoken"]}
         assert body["commit_score"]["reason"] == "Pinned CI failing"
 
-    def test_a_newer_commit_still_checking_is_reported(self):
+    def test_the_newest_commit_still_checking_has_no_score_yet(self):
         self.check(A, status=Status.PASSED, score=100)
         running = baker.make(
             "app.CommitCheck", project=self.project, branch="main", commit_sha=C,
@@ -116,29 +116,23 @@ class TestBranchesAndHealth(HealthAPITestCase):
 
         body = self.get(f"{self.p}/health/").json()
 
-        assert body["score"] == 100
-        assert body["newer_commit"] == {
-            "sha": C, "outcome": "checking", "reason": "", "standards": {"expected": 1, "finished": 0},
-        }
+        assert (body["score"], body["score_display"]["text"]) == (None, "—")
+        assert body["commit_score"]["commit"]["sha"] == C
+        assert (body["commit_score"]["outcome"], body["commit_score"]["standards"]) == (
+            "checking", {"expected": 1, "finished": 0}
+        )
 
-    def test_a_newer_commit_with_no_score_says_why_and_the_project_keeps_its_verdict(self):
+    def test_the_newest_commit_with_no_score_is_the_projects_and_says_why(self):
         self.check(A, status=Status.PASSED, score=100)
         self.check(C, status=Status.ERROR, score=0)
 
         body = self.get(f"{self.p}/health/").json()
 
-        assert (body["score"], body["commit_score"]["commit"]["sha"]) == (100, A)
-        assert body["newer_commit"] == {
-            "sha": C, "outcome": "no_score", "reason": "Pinned CI errored", "standards": {"expected": 1, "finished": 1},
-        }
-
-    def test_only_a_commit_with_no_score_means_no_project_score(self):
-        self.check(A, status=Status.ERROR, score=0)
-
-        body = self.get(f"{self.p}/health/").json()
-
-        assert (body["score"], body["commit_score"], body["score_display"]["text"]) == (None, None, "—")
-        assert body["newer_commit"]["outcome"] == "no_score"
+        assert (body["score"], body["score_display"]["text"]) == (None, "—")
+        assert (body["commit_score"]["commit"]["sha"], body["commit_score"]["outcome"], body["commit_score"]["reason"]) == (
+            C, "no_score", "Pinned CI errored"
+        )
+        assert [r["status"] for r in body["results"]] == ["error"]
 
     def test_a_branch_does_not_move_project_health_but_has_its_own(self):
         self.check(A, branch="main", score=100)
@@ -150,7 +144,7 @@ class TestBranchesAndHealth(HealthAPITestCase):
     def test_no_results_is_unknown(self):
         body = self.get(f"{self.p}/health/").json()
         assert (body["score"], body["score_display"]["tone"], body["results"]) == (None, "unknown", [])
-        assert (body["commit_score"], body["newer_commit"]) == (None, None)
+        assert body["commit_score"] is None
 
     def test_foreign_project_is_404(self):
         foreign = baker.make("app.Project", tenant=baker.make("app.Tenant"))

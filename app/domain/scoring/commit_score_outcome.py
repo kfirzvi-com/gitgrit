@@ -35,6 +35,5 @@ class CommitScoreOutcome(StrEnum):
 
     @property
     def is_verdict(self) -> bool:
-        """An F or a number: what a branch and a project show. A commit that
-        is checking or has no score never hides an earlier verdict."""
+        """An F or a number: what shows as a grade."""
         return self in (CommitScoreOutcome.FAILED, CommitScoreOutcome.SCORED)

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
-
 
 class BranchCommitTimeline:
-    """How a branch's commits and their scores are ordered. A branch shows
-    its newest commit's score, never merely the newest run's: checking an old
-    commit again must not replace a newer commit's score."""
+    """How a branch's commits and their scores are ordered. A branch reads
+    its newest commit, whatever its outcome (checking, no score, failed or
+    scored), never merely the newest run's: checking an old commit again
+    must not replace a newer commit's. And a commit reads its newest
+    check."""
 
     @staticmethod
     def commit_ordered_at(committed_at: datetime | None, first_checked_at: datetime) -> datetime:
@@ -19,7 +19,8 @@ class BranchCommitTimeline:
     @classmethod
     def newest_checked_commit(cls, commit_checks):
         """The newest commit among a branch's commit checks (rows with
-        ``commit_sha``, ``committed_at`` and ``created_at``), or None."""
+        ``commit_sha``, ``committed_at`` and ``created_at``), as its newest
+        check: the one the branch reads. None without any."""
         with_commit = [c for c in commit_checks if c.commit_sha]
         if not with_commit:
             return None
@@ -28,18 +29,9 @@ class BranchCommitTimeline:
         )
 
     @staticmethod
-    def shows_an_older_commit(newest_decided) -> bool:
-        """Does the branch show an older commit than its newest? Yes when its
-        newest decided commit (the newest saved score, or None) has no score
-        (a standard errored or never ran): the branch then shows an older
-        commit's verdict, or none, and must say why."""
-        return newest_decided is not None and newest_decided.outcome is CommitScoreOutcome.NO_SCORE
-
-    @staticmethod
     def last_score_per_commit(commit_scores_newest_first) -> dict:
-        """Each commit's score (sha -> score row): the last one it reached. A
-        newer check replaces it only when it completes too, so a commit's
-        newest score row is its score."""
+        """Each commit's score (sha -> score row): its newest check's, the
+        newest row, since every check saves one when it ends."""
         latest = {}
         for row in commit_scores_newest_first:
             latest.setdefault(row.commit_sha, row)

@@ -29,7 +29,7 @@ from django.urls import reverse
 from app.application import scoring
 from app.application.naming import canonical_key
 from app.application.project_health_counts import ProjectHealthCounts
-from app.presentation.older_commit_note import OlderCommitNote
+from app.presentation.no_score_note import NoScoreNote
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
@@ -59,6 +59,8 @@ def _component_issues(commit_score):
         return []
     if commit_score.failed:
         return [commit_score.reason]
+    if NoScoreNote.text(commit_score):
+        return [NoScoreNote.text(commit_score)]
     status_text = {StandardExecution.Status.FAILED: "failed", StandardExecution.Status.ERROR: "errored"}
     problems = sorted(
         (e for e in commit_score.executions.all() if e.status in status_text),
@@ -120,7 +122,6 @@ def workspace_map_status(tenant):
 def workspace_graph(tenant):
     stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
     project_scores = scoring.project_scores(Project.objects.filter(tenant=tenant))
-    without_score = scoring.newest_without_score(Project.objects.filter(tenant=tenant))
     representation = tenant.score_representation
 
     stack_nodes = []
@@ -131,7 +132,7 @@ def workspace_graph(tenant):
         projects = list({c.project_id: c.project for c in components}.values())
         # A stack is never one grade or colour: it shows how many of its
         # projects are failed, need attention, are healthy or have no data.
-        counts = ProjectHealthCounts.of(projects, project_scores, without_score)
+        counts = ProjectHealthCounts.of(projects, project_scores)
 
         # Issues = the projects that need attention, each with its own grade,
         # so the hover says which project to look at.
@@ -139,12 +140,11 @@ def workspace_graph(tenant):
             "{} — {}{}".format(p.name, _represented(s, representation).text, ": " + s.reason if s.failed and s.reason else "")
             for p, s in counts.attention
         ]
-        # And the projects showing an older commit, because their newest has
-        # no score, whatever their health.
+        # And the projects whose newest commit has no score, and why.
         issues += [
-            "{} — {}".format(p.name, OlderCommitNote.text(p.newest_without_score, project_scores.get(p.pk)))
+            "{} — {}".format(p.name, NoScoreNote.text(project_scores[p.pk]))
             for p in sorted(projects, key=lambda p: p.name.lower())
-            if p.newest_without_score
+            if NoScoreNote.text(project_scores.get(p.pk))
         ]
 
         stack_nodes.append(
@@ -243,14 +243,11 @@ def workspace_graph(tenant):
 # --- Per-stack graph --------------------------------------------------------
 
 
-def _component_node(component, monorepo_projects, project_scores, representation, without_score=None):
+def _component_node(component, monorepo_projects, project_scores, representation):
     """A component in the stack diagram, scored by its project's score
-    (``app.application.scoring``). The stack's own score is computed apart.
-    ``without_score`` (``scoring.newest_without_score``) says when that
-    score is an older commit's."""
+    (``app.application.scoring``). The stack's own score is computed apart."""
     project = component.project
     commit_score = project_scores.get(project.id)
-    newest = (without_score or {}).get(project.id)
     score = commit_score.value if commit_score else None
     failed = bool(commit_score and commit_score.failed)
     return {
@@ -270,8 +267,7 @@ def _component_node(component, monorepo_projects, project_scores, representation
         "score_text": _represented(commit_score, representation).text,
         "score_shade": _represented(commit_score, representation).shade,
         "health": project_level(score, failed=failed),
-        # First, when it shows an older commit because its newest has no score.
-        "issues": ([OlderCommitNote.text(newest, commit_score)] if newest else []) + _component_issues(commit_score),
+        "issues": _component_issues(commit_score),
         "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),
     }
@@ -326,10 +322,8 @@ def stack_graph(stack):
     )
 
     project_scores = scoring.project_scores({c.project for c in internal})
-    without_score = scoring.newest_without_score({c.project for c in internal})
     components = [
-        _component_node(c, monorepo_projects, project_scores, tenant.score_representation, without_score)
-        for c in internal
+        _component_node(c, monorepo_projects, project_scores, tenant.score_representation) for c in internal
     ]
     consumers = {}
     consuming = {}

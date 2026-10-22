@@ -52,13 +52,6 @@ def _display(project, score) -> dict:
     ).as_dict()
 
 
-def _verdict_standing(score) -> CommitStanding:
-    """A branch's verdict (a saved failed or scored CommitScore) as a
-    standing: every standard it expected has a result."""
-    count = score.executions.count()
-    return CommitStanding(score.outcome, score.reason, count, count, score.value)
-
-
 def _commit_score(project, sha: str, branch: str, standing: CommitStanding | None, committed_at=None) -> dict | None:
     """A commit's score as the API shows it: its one ``outcome`` (checking,
     no_score, failed or scored), ``value`` (only when scored), ``reason``
@@ -94,13 +87,7 @@ def _commit(project, row: commit_checks.CommitRow, branch: str) -> dict:
         "running": row.running,
         **_summary(project, row.commit_score, finished),
         "commit_score": (
-            _commit_score(
-                project,
-                row.sha,
-                branch,
-                scoring.commit_standing(project, row.sha, branch),
-                row.commit_score.committed_at if row.commit_score else None,
-            )
+            _commit_score(project, row.sha, branch, row.shown.standing, row.shown.check.committed_at)
             if row.checked
             else None
         ),
@@ -135,40 +122,22 @@ class ProjectHealthService:
         ]
 
     def health(self, tenant: Tenant, project_id: str, branch: str | None = None) -> dict:
-        """The project's health — its score, the newest scored commit on the
-        default branch — or, with ``branch``, that branch's. ``newer_commit``
-        is a newer commit with no verdict: still checking, or no score."""
+        """The project's health — its default branch's newest commit
+        (``scoring.branch_head``), whatever its outcome — or, with
+        ``branch``, that branch's: its ``commit_score`` and the results of
+        that commit's newest run."""
         project = self._project(tenant, project_id)
         on = branch or project.default_branch
-        score = scoring.branch_score(project, on)
-        results = (
-            sorted(score.executions.select_related("commit_check"), key=lambda ex: ex.created_at, reverse=True)
-            if score
-            else []
-        )
-        newer = scoring.newer_commit(project, on, score)
+        head = scoring.branch_head(project, on)
+        score = head.score if head else None
+        results = head.latest_runs if head else []
         return {
             "project": {"id": str(project.id), "name": project.name},
             "branch": branch or None,
             "default_branch": project.default_branch,
             **_summary(project, score, results),
             "commit_score": (
-                _commit_score(project, score.commit_sha, on, _verdict_standing(score), score.committed_at)
-                if score
-                else None
-            ),
-            "newer_commit": (
-                {
-                    "sha": newer.sha,
-                    "outcome": str(newer.standing.outcome),
-                    "reason": newer.standing.reason,
-                    "standards": {
-                        "expected": newer.standing.expected_count,
-                        "finished": newer.standing.finished_count,
-                    },
-                }
-                if newer
-                else None
+                _commit_score(project, head.sha, on, head.standing, head.check.committed_at) if head else None
             ),
             "running": self._running(project, branch),
             "results": [_result(ex) for ex in results],
@@ -192,7 +161,7 @@ class ProjectHealthService:
         row = commit_checks.commit_results(project, sha)
         if not row.checked:
             raise NotFoundError(f"No checks recorded for commit {sha}")
-        return _commit(project, row, scoring.commit_branch(project, sha, row.commit_score))
+        return _commit(project, row, row.branch)
 
     def run(self, tenant: Tenant, user, project_id: str, branch: str | None, sha: str = "") -> dict:
         """Check a branch's latest commit, or one commit, now."""

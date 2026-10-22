@@ -125,24 +125,6 @@ func (e MatchedByEnum) Valid() bool {
 	}
 }
 
-// Defines values for NewerCommitOutcomeEnum.
-const (
-	Checking NewerCommitOutcomeEnum = "checking"
-	NoScore  NewerCommitOutcomeEnum = "no_score"
-)
-
-// Valid indicates whether the value is a known member of the NewerCommitOutcomeEnum enum.
-func (e NewerCommitOutcomeEnum) Valid() bool {
-	switch e {
-	case Checking:
-		return true
-	case NoScore:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for OutcomeEnum.
 const (
 	OutcomeEnumChecking OutcomeEnum = "checking"
@@ -508,24 +490,6 @@ type Me struct {
 	Workspaces []Workspace   `json:"workspaces"`
 }
 
-// NewerCommit defines model for NewerCommit.
-type NewerCommit struct {
-	// Outcome checking, or no_score (reason says why).
-	//
-	// * `checking` - checking
-	// * `no_score` - no_score
-	Outcome NewerCommitOutcomeEnum `json:"outcome"`
-
-	// Reason Why it has no score ("X errored", "Y not run"); empty while checking.
-	Reason    string            `json:"reason"`
-	Sha       string            `json:"sha"`
-	Standards StandardsProgress `json:"standards"`
-}
-
-// NewerCommitOutcomeEnum * `checking` - checking
-// * `no_score` - no_score
-type NewerCommitOutcomeEnum string
-
 // NullEnum defines model for NullEnum.
 type NullEnum = interface{}
 
@@ -675,19 +639,16 @@ type ProjectHealth struct {
 	// Branch Null for the project's health (its default branch).
 	Branch *string `json:"branch"`
 
-	// CommitScore The newest commit on the branch with a verdict (failed or scored); null when none has.
-	CommitScore   *CommitScore `json:"commit_score"`
-	DefaultBranch string       `json:"default_branch"`
-	Errored       int          `json:"errored"`
-	Failed        int          `json:"failed"`
-
-	// NewerCommit A newer commit with no verdict: still checking, or no score.
-	NewerCommit *NewerCommit  `json:"newer_commit"`
-	Passed      int           `json:"passed"`
-	Project     ProjectRef    `json:"project"`
-	Results     []CheckResult `json:"results"`
-	Running     bool          `json:"running"`
-	Score       *int          `json:"score"`
+	// CommitScore The branch's newest commit, whatever its outcome (checking, no_score, failed, scored); null when nothing on it was checked.
+	CommitScore   *CommitScore  `json:"commit_score"`
+	DefaultBranch string        `json:"default_branch"`
+	Errored       int           `json:"errored"`
+	Failed        int           `json:"failed"`
+	Passed        int           `json:"passed"`
+	Project       ProjectRef    `json:"project"`
+	Results       []CheckResult `json:"results"`
+	Running       bool          `json:"running"`
+	Score         *int          `json:"score"`
 
 	// ScoreDisplay A score as the app shows it, so API clients can show it the same way.
 	ScoreDisplay ScoreDisplay `json:"score_display"`
@@ -724,9 +685,6 @@ type ProjectStatus struct {
 	// Grade The score as the app shows it (same as display.text).
 	Grade string `json:"grade"`
 
-	// NewerCommit A newer commit with no verdict: still checking, or no score (then the score is an older commit's).
-	NewerCommit *NewerCommit `json:"newer_commit"`
-
 	// Outcome checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 	//
 	// * `checking` - checking
@@ -735,7 +693,7 @@ type ProjectStatus struct {
 	// * `scored` - scored
 	Outcome *ProjectStatus_Outcome `json:"outcome"`
 
-	// OverallScore The project's score: its newest fully checked commit on the default branch. Null when that commit failed (see outcome) or has no score.
+	// OverallScore The project's score: its default branch's newest commit's. Null when that commit failed (see outcome), has no score, or is still being checked.
 	OverallScore *float64   `json:"overall_score"`
 	Passed       int        `json:"passed"`
 	Project      ProjectRef `json:"project"`
