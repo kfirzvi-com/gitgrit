@@ -46,3 +46,12 @@ class MissingScoreTests(SimpleTestCase):
     def test_a_missing_value_reads_as_no_score(self):
         assert ">—</span>" in render("{% score project.commit_score.value %}", project=object())
         assert render("{% score_tone missing.value as tone %}{{ tone }}") == "unknown"
+
+
+class LowShadeTests(SimpleTestCase):
+    def test_a_d_reads_orange(self):
+        from app.presentation.score_tones import ScoreToneStyle
+
+        html = render('{% score value %}', value=40)
+        assert ">D</span>" in html and "gg-tone-text-low" in html
+        assert ScoreToneStyle.for_tone("low") == ScoreToneStyle("low", "#fb923c", "Needs attention")

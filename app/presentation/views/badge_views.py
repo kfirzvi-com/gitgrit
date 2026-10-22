@@ -40,7 +40,7 @@ def _render_badge(represented):
     the project score as ``COMMIT_SCORE_REPRESENTATION`` shows it."""
     value = represented.text
     # An external SVG needs the colour itself (hex), from ScoreToneStyle.
-    color = ScoreToneStyle.for_tone(represented.tone).color
+    color = ScoreToneStyle.for_tone(represented.shade).color
 
     logo_size = 14
     label_width = logo_size + 12  # 6px padding each side

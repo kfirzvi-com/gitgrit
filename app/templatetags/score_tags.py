@@ -66,16 +66,17 @@ def standard_result_score(value, failed=False, size="md", toned=True, data_attr=
 
 @register.simple_tag
 def score_tone(value, failed=False):
-    """A score's tone (``COMMIT_SCORE_REPRESENTATION``), e.g. for a card's class:
+    """The colour a commit score is painted in (its ``shade``: its health's,
+    or orange for a D), e.g. for a card's class:
     ``{% score_tone value failed as tone %}``."""
-    return str(COMMIT_SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).tone)
+    return COMMIT_SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).shade
 
 
 @register.simple_tag
 def score_scale():
     """Every value ``COMMIT_SCORE_REPRESENTATION`` can show, best first, as
     ``[{"text", "tone"}]`` (A+ to F for letters; empty for numbers)."""
-    return [{"text": text, "tone": str(tone)} for text, tone in COMMIT_SCORE_REPRESENTATION.scale()]
+    return [{"text": step.text, "tone": step.shade} for step in COMMIT_SCORE_REPRESENTATION.scale()]
 
 
 @register.simple_tag

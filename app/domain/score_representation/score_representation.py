@@ -22,7 +22,13 @@ class ScoreRepresentation(ABC):
             return RepresentedScore(self.failed_text(), ScoreTone.FAILED, self.failed_spoken())
         if value is None:
             return RepresentedScore(self.no_score_text(), ScoreTone.UNKNOWN, "No score yet")
-        return RepresentedScore(self.text_for(value), ScoreHealth.tone(value), self.spoken_for(value))
+        return RepresentedScore(
+            self.text_for(value), ScoreHealth.tone(value), self.spoken_for(value), self.shade_for(value)
+        )
+
+    def shade_for(self, value) -> str:
+        """The colour a score is painted in; "" for its tone's."""
+        return ""
 
     def tone(self, value, *, failed: bool = False) -> ScoreTone:
         return ScoreHealth.tone(value, failed=failed)
@@ -30,10 +36,10 @@ class ScoreRepresentation(ABC):
     def no_score_text(self) -> str:
         return "—"
 
-    def scale(self) -> list[tuple[str, ScoreTone]]:
-        """Every value this representation can show, best first, with its
-        tone: what a scale of it (the Overview's grade row) lists. Empty
-        when it has no short scale (numbers)."""
+    def scale(self) -> list[RepresentedScore]:
+        """Every value this representation can show, best first: what a
+        scale of it (the Overview's grade row) lists. Empty when it has no
+        short scale (numbers)."""
         return []
 
     @abstractmethod

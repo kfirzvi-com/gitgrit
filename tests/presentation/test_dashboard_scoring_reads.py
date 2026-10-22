@@ -1,9 +1,6 @@
-"""Dashboard and badge scoring reads count only currently-attached standards.
-
-Attachment defines which standards apply to a project; detaching (or deleting)
-a standard must also remove its execution history from the project's score, so
-old runs stop dragging the numbers. (The attention list's version of this rule
-is tested in tests/application/test_standard_results.py.)
+"""Dashboard and badge reads: the dashboard counts projects by health, and
+the badge scores only the standards attached to the project. (The attention
+list's attachment rule is tested in tests/application/test_standard_results.py.)
 """
 import pytest
 from django.test import TestCase
@@ -12,7 +9,7 @@ from model_bakery import baker
 
 from app.application import scoring
 from app.domain.models import StandardExecution
-from app.presentation.architecture import latest_scores_by_project
+from app.application.workspace_health import WorkspaceHealth
 
 
 def _execution(project, standard, score, status=StandardExecution.Status.PASSED):
@@ -26,45 +23,28 @@ def _execution(project, standard, score, status=StandardExecution.Status.PASSED)
     )
 
 
-@pytest.mark.django_db
-class TestLatestScoresByProject(TestCase):
-    def test_only_attached_standards_count(self):
-        tenant = baker.make("app.Tenant")
+class TestWorkspaceHealth(TestCase):
+    """The dashboard counts projects by health, from each one's commit
+    score: failed only when a Required standard failed it."""
+
+    def _project_scored(self, tenant, value, failed=False):
         project = baker.make("app.Project", tenant=tenant)
-        attached = baker.make("app.Standard", tenant=tenant)
-        detached = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(attached)
-        _execution(project, attached, score=90)
-        _execution(project, detached, score=10)
+        check = baker.make("app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40)
+        baker.make(
+            "app.CommitScore", project=project, commit_check=check, branch=project.default_branch,
+            commit_sha="a" * 40, value=value, failed=failed, ordered_at=check.created_at,
+        )
+        return project
 
-        latest = latest_scores_by_project(tenant)
-
-        assert set(latest[project.id]) == {attached.id}
-        assert latest[project.id][attached.id]["score"] == 90
-
-    def test_deleted_standard_executions_are_excluded(self):
+    def test_counts_projects_by_health(self):
         tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        standard = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(standard)
-        _execution(project, standard, score=10)
-        standard.delete()
+        self._project_scored(tenant, None, failed=True)
+        self._project_scored(tenant, 0)
+        self._project_scored(tenant, 89)
+        self._project_scored(tenant, 90)
+        baker.make("app.Project", tenant=tenant)
 
-        assert latest_scores_by_project(tenant) == {}
-
-    def test_attachment_is_per_project(self):
-        tenant = baker.make("app.Tenant")
-        with_standard = baker.make("app.Project", tenant=tenant)
-        without_standard = baker.make("app.Project", tenant=tenant)
-        standard = baker.make("app.Standard", tenant=tenant)
-        with_standard.standards.add(standard)
-        _execution(with_standard, standard, score=80)
-        _execution(without_standard, standard, score=80)
-
-        latest = latest_scores_by_project(tenant)
-
-        assert with_standard.id in latest
-        assert without_standard.id not in latest
+        assert WorkspaceHealth.of(tenant) == WorkspaceHealth(failed=1, needs_attention=2, healthy=1, no_data=1)
 
 
 @pytest.mark.django_db

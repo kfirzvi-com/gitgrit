@@ -10,7 +10,7 @@ from django.views.generic import CreateView, DetailView, ListView
 
 from app.application import stack_service
 from app.domain.models import Component, Stack
-from app.presentation.architecture import latest_scores_by_project, stack_graph
+from app.presentation.architecture import stack_graph
 
 
 class StackListView(LoginRequiredMixin, ListView):
@@ -64,8 +64,7 @@ class StackDetailView(LoginRequiredMixin, DetailView):
         context["stack_components"] = Component.objects.filter(
             tenant=stack.tenant, stacks=stack
         ).select_related("project", "project__platform_connection")
-        latest = latest_scores_by_project(stack.tenant)
-        context["architecture_data"] = json.dumps(stack_graph(stack, latest))
+        context["architecture_data"] = json.dumps(stack_graph(stack))
         return context
 
 

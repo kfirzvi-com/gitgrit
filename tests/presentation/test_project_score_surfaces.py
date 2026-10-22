@@ -6,7 +6,7 @@ from model_bakery import baker
 
 from app.domain.models import StandardExecution
 from app.presentation.score_tones import ScoreToneStyle
-from app.presentation.architecture import latest_scores_by_project, stack_graph
+from app.presentation.architecture import stack_graph
 from tests.support import score_commit
 
 Status = StandardExecution.Status
@@ -37,7 +37,7 @@ class ProjectScoreSurfacesTests(TestCase):
         component = self.project.root_component
         component.stacks.add(stack)
 
-        graph = stack_graph(stack, latest_scores_by_project(self.tenant))
+        graph = stack_graph(stack)
         node = next(n for n in graph["components"] if n["id"] == str(component.id))
 
         assert (node["score"], node["score_text"], node["health"], node["issues"]) == (

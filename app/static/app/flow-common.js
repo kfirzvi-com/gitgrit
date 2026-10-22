@@ -43,9 +43,9 @@ window.GitGritFlow = (function () {
     };
   }
 
-  // A score badge in its node's health band: the server decides how a score
-  // reads (score_text) and which band it is in (health); the colour is the
-  // band's, so no threshold or colour lives here.
+  // A score badge in its grade's colour: the server decides how a score reads
+  // (score_text) and the colour it is painted in (score_shade: its health's,
+  // or orange for a D), so no threshold or colour lives here.
   function scoreBadgeStyle(level) {
     return {
       backgroundColor: HEALTH_COLOR[level] || HEALTH_COLOR.unknown,
@@ -291,7 +291,7 @@ window.GitGritFlow = (function () {
     head.className = "gg-flow-tooltip__head";
     var dot = document.createElement("span");
     dot.className = "gg-flow-tooltip__dot";
-    dot.style.background = HEALTH_COLOR[d.health] || HEALTH_COLOR.unknown;
+    dot.style.background = HEALTH_COLOR[d.score_shade] || HEALTH_COLOR[d.health] || HEALTH_COLOR.unknown;
     var label = document.createElement("span");
     label.textContent =
       (d.name ? d.name + " — " : "") + (HEALTH_LABEL[d.health] || "");

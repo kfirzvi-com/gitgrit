@@ -48,7 +48,7 @@
   function ComponentNode(props) {
     var d = props.data;
     var techs = d.technologies || [];
-    var hp = GF.healthProps(d.health);
+    var hp = GF.healthProps(d.score_shade || d.health);
     return h(
       "div",
       { className: "gg-stack-node gg-clickable " + hp.className, style: hp.style },
@@ -67,7 +67,7 @@
         d.score != null
           ? h(
               "span",
-              { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.health) },
+              { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.score_shade || d.health) },
               d.score_text
             )
           : null

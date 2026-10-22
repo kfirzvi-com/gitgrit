@@ -36,11 +36,17 @@ class LetterScoreRepresentationTests(SimpleTestCase):
             ScoreTone.NEEDS_ATTENTION, ScoreTone.NEEDS_ATTENTION, ScoreTone.NEEDS_ATTENTION,
         ]
 
-    def test_the_scale_lists_each_letter_with_its_health(self):
-        assert LetterScoreRepresentation().scale() == [
-            ("A+", ScoreTone.HEALTHY), ("A", ScoreTone.HEALTHY), ("B", ScoreTone.NEEDS_ATTENTION),
-            ("C", ScoreTone.NEEDS_ATTENTION), ("D", ScoreTone.NEEDS_ATTENTION), ("F", ScoreTone.FAILED),
+    def test_the_scale_lists_each_letter_with_its_health_and_shade(self):
+        assert [(s.text, s.tone, s.shade) for s in LetterScoreRepresentation().scale()] == [
+            ("A+", ScoreTone.HEALTHY, "healthy"), ("A", ScoreTone.HEALTHY, "healthy"),
+            ("B", ScoreTone.NEEDS_ATTENTION, "needs_attention"), ("C", ScoreTone.NEEDS_ATTENTION, "needs_attention"),
+            ("D", ScoreTone.NEEDS_ATTENTION, "low"), ("F", ScoreTone.FAILED, "failed"),
         ]
+
+    def test_a_d_is_painted_orange_but_still_needs_attention(self):
+        d = LetterScoreRepresentation().represent(40)
+        assert (d.text, d.tone, d.shade) == ("D", ScoreTone.NEEDS_ATTENTION, "low")
+        assert d.as_dict() == {"text": "D", "tone": "needs_attention", "spoken": "Grade D, score 40 out of 100"}
 
     def test_f_only_when_a_required_standard_failed(self):
         assert COMMIT_SCORE_REPRESENTATION.represent(0).text == "D"
