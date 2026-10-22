@@ -99,6 +99,13 @@ STATUS    SCORE  STANDARD           COMMIT   RAN       MESSAGE
 ✗ failed  0      .gitignore Exists  1fc38e8  just now  No .gitignore file found
 ```
 
+If the newest commit has no score (a standard errored or never ran), `health` still shows the last score and says it is an older commit's:
+
+```console
+! Not the latest commit: showing 1fc38e8. The newest, 9a2b4c1, has no score (License File errored).
+  Run its standards again: gitgrit check --sha 9a2b4c1…
+```
+
 ## Commands
 
 Project commands act on the repository you're in. Pass `--project org/repo` (or `-p`) to pick another one.

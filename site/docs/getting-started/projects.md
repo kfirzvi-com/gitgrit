@@ -80,7 +80,9 @@ A commit reports nothing until **every expected standard has a result on it**: i
 
 Whether a standard **passed or failed** is the standard's own decision; its score is its partial credit. A standard can fail with a high score, and only its score counts toward the average.
 
-The **project's score** is the newest **verdict** on the default branch: the newest commit that failed or is scored. Checking an old commit again never replaces a newer commit's score. A newer commit that is still checking or has no score never hides it: the project page says so under the score, and why.
+The **project's score** is the newest **verdict** on the default branch: the newest commit that failed or is scored. Checking an old commit again never replaces a newer commit's score. A newer commit that is still checking or has no score never hides it.
+
+When the newest commit has **no score**, the score you see is an **older commit's**, and GitGrit says so wherever it shows it: a warning on the project's Overview and Results tabs (which commit is shown, which standard errored or was not run, and a button to run the newest commit again), a line on the project's card, a flag next to the project in the dashboard's and stacks' counts, the map's hover, `newer_commit` in the API (`/health/` and `/status/`), and a warning in `gitgrit health`.
 
 Changing attachments or importance does not rescore anything: the next check does.
 

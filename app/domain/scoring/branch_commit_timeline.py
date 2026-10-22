@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
+
 
 class BranchCommitTimeline:
     """How a branch's commits and their scores are ordered. A branch shows
@@ -24,6 +26,14 @@ class BranchCommitTimeline:
         return max(
             with_commit, key=lambda c: (cls.commit_ordered_at(c.committed_at, c.created_at), c.created_at)
         )
+
+    @staticmethod
+    def shows_an_older_commit(newest_decided) -> bool:
+        """Does the branch show an older commit than its newest? Yes when its
+        newest decided commit (the newest saved score, or None) has no score
+        (a standard errored or never ran): the branch then shows an older
+        commit's verdict, or none, and must say why."""
+        return newest_decided is not None and newest_decided.outcome is CommitScoreOutcome.NO_SCORE
 
     @staticmethod
     def last_score_per_commit(commit_scores_newest_first) -> dict:

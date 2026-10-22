@@ -346,6 +346,15 @@ class BranchCommitTimelineTests(SimpleTestCase):
         assert read_on(None, [], "main") == "main"
 
 
+class ShowsAnOlderCommitTests(SimpleTestCase):
+    def test_a_branch_shows_an_older_commit_when_its_newest_has_no_score(self):
+        shows = BranchCommitTimeline.shows_an_older_commit
+        assert shows(SimpleNamespace(outcome=NO_SCORE))
+        assert not shows(SimpleNamespace(outcome=SCORED))
+        assert not shows(SimpleNamespace(outcome=OUTCOME_FAILED))
+        assert not shows(None)
+
+
 class ListedRunsTests(SimpleTestCase):
     def test_a_commit_lists_only_the_standards_its_newest_check_expects(self):
         expected = ExpectedStandards(("a",))

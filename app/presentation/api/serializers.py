@@ -130,6 +130,24 @@ class ScoreDisplaySerializer(serializers.Serializer):
     spoken = serializers.CharField(help_text='The same in words, e.g. "Score 82 out of 100".')
 
 
+class StandardsProgressSerializer(serializers.Serializer):
+    expected = serializers.IntegerField(help_text="Standards the commit's newest check expects.")
+    finished = serializers.IntegerField(help_text="Of those, how many have a finished result.")
+
+
+# A newer commit with no verdict of its own.
+NEWER_OUTCOME_CHOICES = [CommitScoreOutcome.CHECKING.value, CommitScoreOutcome.NO_SCORE.value]
+
+
+class NewerCommitSerializer(serializers.Serializer):
+    sha = serializers.CharField()
+    outcome = serializers.ChoiceField(
+        choices=NEWER_OUTCOME_CHOICES, help_text="checking, or no_score (reason says why)."
+    )
+    reason = serializers.CharField(help_text='Why it has no score ("X errored", "Y not run"); empty while checking.')
+    standards = StandardsProgressSerializer()
+
+
 class ProjectStatusSerializer(serializers.Serializer):
     project = ProjectRefSerializer()
     overall_score = serializers.FloatField(
@@ -147,6 +165,10 @@ class ProjectStatusSerializer(serializers.Serializer):
     )
     reason = serializers.CharField(help_text="Why the project failed; empty otherwise.")
     commit_sha = serializers.CharField(allow_null=True, help_text="The commit the score is from.")
+    newer_commit = NewerCommitSerializer(
+        allow_null=True,
+        help_text="A newer commit with no verdict: still checking, or no score (then the score is an older commit's).",
+    )
     total_standards = serializers.IntegerField()
     passed = serializers.IntegerField()
     failed = serializers.IntegerField()
@@ -303,11 +325,6 @@ class HealthSummaryFields(serializers.Serializer):
     errored = serializers.IntegerField()
 
 
-class StandardsProgressSerializer(serializers.Serializer):
-    expected = serializers.IntegerField(help_text="Standards the commit's newest check expects.")
-    finished = serializers.IntegerField(help_text="Of those, how many have a finished result.")
-
-
 class ScoredCommitRefSerializer(serializers.Serializer):
     sha = serializers.CharField()
     branch = serializers.CharField()
@@ -327,19 +344,6 @@ class CommitScoreSerializer(serializers.Serializer):
     display = ScoreDisplaySerializer()
     standards = StandardsProgressSerializer()
     commit = ScoredCommitRefSerializer()
-
-
-# A newer commit with no verdict of its own.
-NEWER_OUTCOME_CHOICES = [CommitScoreOutcome.CHECKING.value, CommitScoreOutcome.NO_SCORE.value]
-
-
-class NewerCommitSerializer(serializers.Serializer):
-    sha = serializers.CharField()
-    outcome = serializers.ChoiceField(
-        choices=NEWER_OUTCOME_CHOICES, help_text="checking, or no_score (reason says why)."
-    )
-    reason = serializers.CharField(help_text='Why it has no score ("X errored", "Y not run"); empty while checking.')
-    standards = StandardsProgressSerializer()
 
 
 class ProjectHealthSerializer(HealthSummaryFields):

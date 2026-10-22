@@ -2087,6 +2087,12 @@ components:
           type: string
           nullable: true
           description: The commit the score is from.
+        newer_commit:
+          allOf:
+          - $ref: '#/components/schemas/NewerCommit'
+          nullable: true
+          description: 'A newer commit with no verdict: still checking, or no score
+            (then the score is an older commit''s).'
         total_standards:
           type: integer
         passed:
@@ -2102,6 +2108,7 @@ components:
       - display
       - failed
       - grade
+      - newer_commit
       - outcome
       - overall_score
       - passed

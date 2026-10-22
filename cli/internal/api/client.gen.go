@@ -724,6 +724,9 @@ type ProjectStatus struct {
 	// Grade The score as the app shows it (same as display.text).
 	Grade string `json:"grade"`
 
+	// NewerCommit A newer commit with no verdict: still checking, or no score (then the score is an older commit's).
+	NewerCommit *NewerCommit `json:"newer_commit"`
+
 	// Outcome checking: a run on the commit is still going; no_score: an expected standard errored or never ran (Required too), so nothing is reported; failed: every standard ran and a Required one failed (no value, it reads F); scored: every standard ran, none Required failed: the importance-weighted average, 0-100, even 0.
 	//
 	// * `checking` - checking

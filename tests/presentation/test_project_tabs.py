@@ -90,8 +90,10 @@ class ProjectTabsTests(TestCase):
         self.assertFalse(response.context["project_has_score"])
         body = response.content.decode()
         self.assertIn("gg-tone-card-unknown", body)
-        self.assertIn('data-newer-commit="no_score"', body)
-        self.assertIn(f"no score, {errored.standard_name} errored.", body)
+        self.assertIn("data-older-commit-alert", body)
+        self.assertIn("The newest commit has no score", body)
+        self.assertIn(f"has no score: {errored.standard_name} errored.", body)
+        self.assertNotIn("This score is from commit", body)
 
     def test_results_and_standards_load_when_first_opened(self):
         body = self._page().content.decode()

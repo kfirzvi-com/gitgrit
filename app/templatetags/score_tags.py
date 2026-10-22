@@ -18,6 +18,7 @@ from django.utils.html import json_script
 from django.utils.safestring import mark_safe
 
 from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, STANDARD_RESULT_REPRESENTATION
+from app.presentation.older_commit_note import OlderCommitNote
 from app.presentation.score_tones import ScoreToneStyle
 
 register = template.Library()
@@ -106,6 +107,12 @@ def score_scale_step_of(context, value, failed=False):
 def score_text_of(context, value, failed=False):
     """A score's text with its failed flag: ``{% score_text_of v f as text %}``."""
     return _commit_representation(context).represent(_value(value), failed=bool(failed)).text
+
+
+@register.simple_tag
+def older_commit_text(newest, shown=None):
+    """``OlderCommitNote.text``: why a project shows an older commit."""
+    return OlderCommitNote.text(newest, shown) if newest else ""
 
 
 @register.filter

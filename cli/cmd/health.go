@@ -33,6 +33,24 @@ func summary(display api.ScoreDisplay, passed, failed, errored int) string {
 	return fmt.Sprintf("Grade %s · %s · %d passed, %d failed, %d errored", display.Text, display.Tone, passed, failed, errored)
 }
 
+// olderCommitNote says the health shown is an older commit's, because the
+// newest commit has no score (a standard errored or never ran); "" otherwise.
+// The same wording as the app.
+func olderCommitNote(score *api.CommitScore, newer *api.NewerCommit) string {
+	if newer == nil || newer.Outcome != api.NoScore {
+		return ""
+	}
+	reason := newer.Reason
+	if reason == "" {
+		reason = "not every standard has a result"
+	}
+	if score == nil {
+		return fmt.Sprintf("! No score: the newest commit, %s, has none (%s).\n  Run its standards again: gitgrit check --sha %s", output.Short(newer.Sha), reason, newer.Sha)
+	}
+	return fmt.Sprintf("! Not the latest commit: showing %s. The newest, %s, has no score (%s).\n  Run its standards again: gitgrit check --sha %s",
+		output.Short(score.Commit.Sha), output.Short(newer.Sha), reason, newer.Sha)
+}
+
 func newHealthCmd() *cobra.Command {
 	var project, branch string
 	cmd := &cobra.Command{
@@ -65,6 +83,9 @@ show that branch's own health instead.`,
 					scope = "branch " + *h.Branch
 				}
 				fmt.Fprintf(w, "%s · %s\n%s\n", h.Project.Name, scope, summary(h.ScoreDisplay, h.Passed, h.Failed, h.Errored))
+				if note := olderCommitNote(h.CommitScore, h.NewerCommit); note != "" {
+					fmt.Fprintln(w, note)
+				}
 				if h.Running {
 					fmt.Fprintln(w, "Checks are running…")
 				}

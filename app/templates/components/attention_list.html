@@ -5,7 +5,12 @@ notifications pane. Expects `attention_items` and `attention_total`; shows three
 rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score_tags %}
 <div data-attention>
   <div class="flex items-baseline justify-between gap-2 mb-2">
-    <h3 class="text-sm font-semibold uppercase tracking-wide opacity-70">Needs attention</h3>
+    <h3 class="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide">
+      <span class="opacity-70">Needs attention</span>
+      <span class="inline-flex opacity-70 cursor-help" title="Only failed projects (a Required standard failed) and standard runs that errored (their commit has no score until they run). Other failures only lower a score." data-attention-help>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="Only failed projects (a Required standard failed) and standard runs that errored (their commit has no score until they run). Other failures only lower a score."><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd"/></svg>
+      </span>
+    </h3>
     {% if attention_total > 3 %}
       <button type="button" class="text-xs link link-hover opacity-70" data-attention-toggle data-total="{{ attention_total }}">Show all {{ attention_total }}</button>
     {% endif %}

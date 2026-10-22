@@ -96,8 +96,12 @@ class ProjectListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         # Each card shows its project's score; read in one query.
         scores = scoring.project_scores(context["projects"])
+        # And the projects whose newest commit has no score: their card says
+        # it shows an older commit.
+        without_score = scoring.newest_without_score(context["projects"])
         for project in context["projects"]:
             project.commit_score = scores.get(project.pk)
+            project.newest_without_score = without_score.get(project.pk)
         return context
 
 

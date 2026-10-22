@@ -21,6 +21,7 @@ class ProjectStatusService:
             raise NotFoundError(f"Project {project_id} not found")
 
         score = scoring.project_score(project, excluding=exclude_execution_ids)
+        newer = scoring.newer_commit(project, project.default_branch, score)
         results = list(score.executions.all()) if score else []
         overall = score.value if score else None
         represented = tenant.score_representation.represent(overall, failed=bool(score and score.failed))
@@ -36,6 +37,21 @@ class ProjectStatusService:
             "score_failed": score.failed if score else False,
             "reason": score.reason if score else "",
             "commit_sha": score.commit_sha if score else None,
+            # A newer commit with no verdict: still checking, or no score
+            # (then the score above is an older commit's).
+            "newer_commit": (
+                {
+                    "sha": newer.sha,
+                    "outcome": str(newer.standing.outcome),
+                    "reason": newer.standing.reason,
+                    "standards": {
+                        "expected": newer.standing.expected_count,
+                        "finished": newer.standing.finished_count,
+                    },
+                }
+                if newer
+                else None
+            ),
             "total_standards": len(results),
             "passed": sum(
                 1 for e in results if e.status == StandardExecution.Status.PASSED

@@ -174,6 +174,26 @@ def project_scores(projects) -> dict:
     return picked
 
 
+def newest_without_score(projects) -> dict:
+    """The projects whose newest decided commit on their default branch has
+    no score (``scoring.BranchCommitTimeline.shows_an_older_commit``):
+    project id -> that commit's CommitScore, whose ``reason`` says which
+    standard errored or never ran. Their score, if any, is an older
+    commit's. One query."""
+    projects = list(projects)
+    if not projects:
+        return {}
+    on_default_branch = Q()
+    for p in projects:
+        on_default_branch |= Q(project_id=p.pk, branch=p.default_branch)
+    newest = (
+        CommitScore.objects.filter(on_default_branch)
+        .order_by("project_id", "-ordered_at", "-created_at")
+        .distinct("project_id")
+    )
+    return {s.project_id: s for s in newest if scoring.BranchCommitTimeline.shows_an_older_commit(s)}
+
+
 def commit_scores(project, shas, branch: str | None = None) -> dict[str, CommitScore]:
     """Each commit's score (sha -> CommitScore,
     ``scoring.BranchCommitTimeline.last_score_per_commit``), on ``branch`` when
