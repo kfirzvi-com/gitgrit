@@ -12,7 +12,6 @@ from app.application.errors import NotFoundError
 from app.application.standard_results import breakdown
 from app.application.standard_runs import in_flight
 from app.domain.health import level_from_score
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.domain.scoring import CommitScoreOutcome
 from app.domain.models import Project, StandardExecution, Tenant
 
@@ -37,19 +36,20 @@ def _result(ex: StandardExecution) -> dict:
     return data
 
 
-def _summary(score, results) -> dict:
+def _summary(project, score, results) -> dict:
     value = score.value if score else None
     return {
         "score": value,
-        "score_display": _display(score),
+        "score_display": _display(project, score),
         "level": level_from_score(value, failed=bool(score and score.failed)),
         **breakdown(results),
     }
 
 
-def _display(score) -> dict:
-    """How the app shows ``score`` (a CommitScore or None): ``COMMIT_SCORE_REPRESENTATION``."""
-    return COMMIT_SCORE_REPRESENTATION.represent(
+def _display(project, score) -> dict:
+    """How the app shows ``score`` (a CommitScore or None): as the project's
+    workspace reads scores, letters or numbers."""
+    return project.tenant.score_representation.represent(
         score.value if score else None, failed=bool(score and score.failed)
     ).as_dict()
 
@@ -65,7 +65,7 @@ def _commit_score(project, sha: str, branch: str, score) -> dict | None:
     return {
         "value": score.value if score else None,
         "outcome": str(score.outcome) if score else str(CommitScoreOutcome.UNSCORED),
-        "display": _display(score),
+        "display": _display(project, score),
         "failed": score.failed if score else False,
         "reason": score.reason if score else "",
         "state": state.state if state else scoring.COMPLETE,
@@ -91,7 +91,7 @@ def _commit(project, row: commit_checks.CommitRow, branch: str) -> dict:
         "url": row.url,
         "checked": row.checked,
         "running": row.running,
-        **_summary(row.commit_score, finished),
+        **_summary(project, row.commit_score, finished),
         "commit_score": _commit_score(project, row.sha, branch, row.commit_score) if row.checked else None,
         "results": [_result(r) for r in row.results],
         "expected_but_never_ran": [{"id": str(s.id), "name": s.name} for s in row.expected_but_never_ran],
@@ -101,7 +101,7 @@ def _commit(project, row: commit_checks.CommitRow, branch: str) -> dict:
 class ProjectHealthService:
     def _project(self, tenant: Tenant, project_id: str) -> Project:
         try:
-            return Project.objects.select_related("platform_connection").get(
+            return Project.objects.select_related("platform_connection", "tenant").get(
                 tenant=tenant, id=project_id
             )
         except (Project.DoesNotExist, ValidationError):
@@ -140,7 +140,7 @@ class ProjectHealthService:
             "project": {"id": str(project.id), "name": project.name},
             "branch": branch or None,
             "default_branch": project.default_branch,
-            **_summary(score, results),
+            **_summary(project, score, results),
             "commit_score": _commit_score(project, score.commit_sha, on, score) if score else None,
             "newer_commit": (
                 {

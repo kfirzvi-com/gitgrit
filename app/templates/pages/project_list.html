@@ -33,7 +33,9 @@
             {# A fixed-width column, centred, so the letters line up across cards. #}
             <div class="-mr-3 w-14 shrink-0 flex flex-col items-center text-center" data-project-score>
               {% score project.commit_score.value failed=project.commit_score.failed size="card" %}
-              {% if project.commit_score.failed %}
+              {% score_text_of project.commit_score.value project.commit_score.failed as score_text_shown %}
+              {# A letter (F) needs the words; a workspace that reads "Failed" already has them. #}
+              {% if project.commit_score.failed and score_text_shown|length == 1 %}
                 <span class="gg-required-failed mt-1.5 text-xs leading-tight" data-project-failed><span class="w-min text-center">Project failed!</span></span>
               {% endif %}
             </div>

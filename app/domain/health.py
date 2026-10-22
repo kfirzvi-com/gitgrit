@@ -13,7 +13,7 @@ A project's level is the worst across its signals. Many projects together
 (``app.application.project_health_counts``).
 """
 
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, ScoreTone
+from app.domain.score_representation import ScoreHealth, ScoreTone
 
 # Health levels are score tones (``ScoreTone``), one list for everything.
 HEALTHY = ScoreTone.HEALTHY
@@ -23,9 +23,9 @@ UNKNOWN = ScoreTone.UNKNOWN
 
 
 def level_from_score(score, failed: bool = False):
-    """A score's health level: its tone (``COMMIT_SCORE_REPRESENTATION.tone``);
+    """A score's health level (``ScoreHealth``), the same however the score reads;
     ``failed`` marks a score a Required standard failed."""
-    return COMMIT_SCORE_REPRESENTATION.tone(score, failed=failed)
+    return ScoreHealth.tone(score, failed=failed)
 
 
 def worst(levels):

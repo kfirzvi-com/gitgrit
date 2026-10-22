@@ -7,8 +7,10 @@ and one standard's result on a commit, each 0-100. Pure, no I/O.
 - ``LetterScoreRepresentation``: "B" (A+ 100, A 90+, B 75+, C 60+, D below; F
   only when a Required standard failed).
 - ``NumberScoreRepresentation``: "82".
-- ``COMMIT_SCORE_REPRESENTATION``: how a commit's, a branch's and a project's
-  score reads (letters). ``STANDARD_RESULT_REPRESENTATION``: how one
+- ``ScoreDisplay``: a workspace's preference for how a commit's, a branch's
+  and a project's score reads: letters or numbers (``representation``).
+  ``COMMIT_SCORE_REPRESENTATION`` is the default (letters), for anything
+  outside a workspace. ``STANDARD_RESULT_REPRESENTATION``: how one
   standard's result on a commit reads (numbers). Changing either changes how
   those scores read everywhere; the value underneath (and the API's numbers)
   never change.
@@ -20,6 +22,7 @@ and one standard's result on a commit, each 0-100. Pure, no I/O.
 from app.domain.score_representation.letter_score_representation import LetterScoreRepresentation
 from app.domain.score_representation.number_score_representation import NumberScoreRepresentation
 from app.domain.score_representation.represented_score import RepresentedScore
+from app.domain.score_representation.score_display import ScoreDisplay
 from app.domain.score_representation.score_health import ScoreHealth
 from app.domain.score_representation.score_representation import ScoreRepresentation
 from app.domain.score_representation.score_representation_in_use import (
@@ -34,6 +37,7 @@ __all__ = [
     "LetterScoreRepresentation",
     "NumberScoreRepresentation",
     "RepresentedScore",
+    "ScoreDisplay",
     "ScoreHealth",
     "ScoreRepresentation",
     "ScoreTone",

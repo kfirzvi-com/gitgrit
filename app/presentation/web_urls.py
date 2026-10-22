@@ -76,6 +76,7 @@ from app.presentation.views.tenant_views import (
     reveal_connection_token,
     revoke_invitation,
     set_llm_role,
+    set_score_display,
     switch_tenant,
     test_connection,
     test_llm_provider,
@@ -261,6 +262,7 @@ urlpatterns = [
         name="fetch_llm_models",
     ),
     path("tenants/llm/roles/<str:role_name>/set/", set_llm_role, name="set_llm_role"),
+    path("tenants/scores/display/", set_score_display, name="set_score_display"),
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/add/", add_project_select, name="add_project_select"),

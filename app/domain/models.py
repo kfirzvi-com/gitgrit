@@ -12,7 +12,7 @@ from django.utils import timezone
 from app.domain import importance as importance_domain
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
+from app.domain.score_representation import ScoreDisplay
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -35,6 +35,12 @@ class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
+    # How the workspace shows commit scores: letters or numbers (ScoreDisplay).
+    score_display = models.CharField(
+        max_length=10,
+        choices=[(d.value, d.label) for d in ScoreDisplay],
+        default=ScoreDisplay.LETTERS.value,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -44,6 +50,11 @@ class Tenant(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def score_representation(self):
+        """How this workspace reads commit scores (``ScoreDisplay``)."""
+        return ScoreDisplay.of(self.score_display).representation
 
 
 class Membership(models.Model):
@@ -1612,7 +1623,7 @@ class Notification(models.Model):
         """A run failed the project: a Required standard failed or could not
         run on its newest commit. ``reason`` says which ("No secrets failing")."""
         context = _run_context(execution_ids, trigger, triggered_by_user_ids)
-        context["grade"] = COMMIT_SCORE_REPRESENTATION.represent(None, failed=True).text
+        context["grade"] = project.tenant.score_representation.represent(None, failed=True).text
         return cls._new(
             project=project,
             kind=Kind.PROJECT_CRITICAL,

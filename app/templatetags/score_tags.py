@@ -1,6 +1,7 @@
 """Scores in templates. A commit's score (and a branch's or a project's)
-goes through ``COMMIT_SCORE_REPRESENTATION``; one standard's result through
-``STANDARD_RESULT_REPRESENTATION``.
+reads as the request's workspace prefers (``Tenant.score_representation``:
+letters or numbers; ``COMMIT_SCORE_REPRESENTATION`` outside a workspace);
+one standard's result through ``STANDARD_RESULT_REPRESENTATION``.
 
     {% load score_tags %}
     {% score project_score.value failed=project_score.failed size="xl" %}
@@ -39,6 +40,13 @@ def score_tone_styles():
     )
 
 
+def _commit_representation(context):
+    """How the request's workspace reads commit scores; the default (letters)
+    outside one (an email, a page without a workspace)."""
+    tenant = getattr(context.get("request"), "tenant", None)
+    return tenant.score_representation if tenant else COMMIT_SCORE_REPRESENTATION
+
+
 def _score_context(representation, value, failed, size, toned, data_attr):
     return {
         "represented": representation.represent(_value(value), failed=bool(failed)),
@@ -48,12 +56,11 @@ def _score_context(representation, value, failed, size, toned, data_attr):
     }
 
 
-@register.inclusion_tag("partials/score.html")
-def score(value, failed=False, size="md", toned=True, data_attr=""):
-    """A commit's score (or a branch's or a project's), as
-    ``COMMIT_SCORE_REPRESENTATION`` shows it. ``size``: sm, md, card, lg, xl,
-    hero."""
-    return _score_context(COMMIT_SCORE_REPRESENTATION, value, failed, size, toned, data_attr)
+@register.inclusion_tag("partials/score.html", takes_context=True)
+def score(context, value, failed=False, size="md", toned=True, data_attr=""):
+    """A commit's score (or a branch's or a project's), as the workspace reads
+    it (letters or numbers). ``size``: sm, md, card, lg, xl, hero."""
+    return _score_context(_commit_representation(context), value, failed, size, toned, data_attr)
 
 
 @register.inclusion_tag("partials/score.html")
@@ -64,28 +71,29 @@ def standard_result_score(value, failed=False, size="md", toned=True, data_attr=
     return _score_context(STANDARD_RESULT_REPRESENTATION, value, failed, size, toned, data_attr)
 
 
-@register.simple_tag
-def score_tone(value, failed=False):
+@register.simple_tag(takes_context=True)
+def score_tone(context, value, failed=False):
     """The colour a commit score is painted in (its ``shade``: its health's,
     or orange for a D), e.g. for a card's class:
     ``{% score_tone value failed as tone %}``."""
-    return COMMIT_SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).shade
+    return _commit_representation(context).represent(_value(value), failed=bool(failed)).shade
 
 
-@register.simple_tag
-def score_scale():
-    """Every value ``COMMIT_SCORE_REPRESENTATION`` can show, best first, as
+@register.simple_tag(takes_context=True)
+def score_scale(context):
+    """Every value the workspace's representation can show, best first, as
     ``[{"text", "tone"}]`` (A+ to F for letters; empty for numbers)."""
-    return [{"text": step.text, "tone": step.shade} for step in COMMIT_SCORE_REPRESENTATION.scale()]
+    return [{"text": step.text, "tone": step.shade} for step in _commit_representation(context).scale()]
 
 
-@register.simple_tag
-def score_text_of(value, failed=False):
+@register.simple_tag(takes_context=True)
+def score_text_of(context, value, failed=False):
     """A score's text with its failed flag: ``{% score_text_of v f as text %}``."""
-    return COMMIT_SCORE_REPRESENTATION.represent(_value(value), failed=bool(failed)).text
+    return _commit_representation(context).represent(_value(value), failed=bool(failed)).text
 
 
 @register.filter
 def score_text(value):
-    """The score's text alone ("82", "—")."""
+    """The score's text alone ("B", "—"), in the default representation (a
+    filter sees no workspace): for old notifications' saved scores."""
     return COMMIT_SCORE_REPRESENTATION.represent(_value(value)).text

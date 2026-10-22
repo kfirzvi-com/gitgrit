@@ -27,7 +27,6 @@ from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application import scoring
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
 from app.application.naming import canonical_key
 from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.models import (
@@ -43,11 +42,12 @@ from app.domain.health import project_level
 MAX_TECHNOLOGIES = 8
 
 
-def _grade(commit_score):
-    """A project's grade as the app shows it ("B", "F", "—")."""
+def _represented(commit_score, representation):
+    """A project's commit score as its workspace reads it ("B" or "82", "F",
+    "—"), with the colour it is painted in."""
     if commit_score is None:
-        return _score_text(None)
-    return _score_text(commit_score.value, failed=commit_score.failed)
+        return representation.represent(None)
+    return representation.represent(commit_score.value, failed=commit_score.failed)
 
 
 def _component_issues(commit_score):
@@ -64,18 +64,6 @@ def _component_issues(commit_score):
         key=lambda e: (e.status != StandardExecution.Status.FAILED, e.standard_name.lower()),
     )
     return ["{} — {}".format(e.standard_name, status_text[e.status]) for e in problems[:4]]
-
-
-def _grade_shade(commit_score):
-    """The colour a project's grade is painted in (orange for a D)."""
-    if commit_score is None:
-        return COMMIT_SCORE_REPRESENTATION.represent(None).shade
-    return COMMIT_SCORE_REPRESENTATION.represent(commit_score.value, failed=commit_score.failed).shade
-
-
-def _score_text(value, failed: bool = False):
-    """A commit score as ``COMMIT_SCORE_REPRESENTATION`` shows it, for the diagrams."""
-    return COMMIT_SCORE_REPRESENTATION.represent(value, failed=failed).text
 
 
 def _merge_tech(*lists):
@@ -131,6 +119,7 @@ def workspace_map_status(tenant):
 def workspace_graph(tenant):
     stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
     project_scores = scoring.project_scores(Project.objects.filter(tenant=tenant))
+    representation = tenant.score_representation
 
     stack_nodes = []
     for stack in stacks:
@@ -145,7 +134,7 @@ def workspace_graph(tenant):
         # Issues = the projects that need attention, each with its own grade,
         # so the hover says which project to look at.
         issues = [
-            "{} — {}{}".format(p.name, _grade(s), ": " + s.reason if s.failed and s.reason else "")
+            "{} — {}{}".format(p.name, _represented(s, representation).text, ": " + s.reason if s.failed and s.reason else "")
             for p, s in counts.attention
         ]
 
@@ -245,7 +234,7 @@ def workspace_graph(tenant):
 # --- Per-stack graph --------------------------------------------------------
 
 
-def _component_node(component, monorepo_projects, project_scores):
+def _component_node(component, monorepo_projects, project_scores, representation):
     """A component in the stack diagram, scored by its project's score
     (``app.application.scoring``). The stack's own score is computed apart."""
     project = component.project
@@ -266,8 +255,8 @@ def _component_node(component, monorepo_projects, project_scores):
         "lifecycle": project.get_lifecycle_display(),
         "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
         "score": score,
-        "score_text": _score_text(score, failed=failed),
-        "score_shade": _grade_shade(commit_score),
+        "score_text": _represented(commit_score, representation).text,
+        "score_shade": _represented(commit_score, representation).shade,
         "health": project_level(score, failed=failed),
         "issues": _component_issues(commit_score),
         "analyzing": _analyzing(project),
@@ -325,7 +314,7 @@ def stack_graph(stack):
 
     project_scores = scoring.project_scores({c.project for c in internal})
     components = [
-        _component_node(c, monorepo_projects, project_scores) for c in internal
+        _component_node(c, monorepo_projects, project_scores, tenant.score_representation) for c in internal
     ]
     consumers = {}
     consuming = {}

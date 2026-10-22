@@ -15,6 +15,7 @@
         <li><a href="#section-members" data-settings-link>Members &amp; Permissions</a></li>
         <li><a href="#section-connections" data-settings-link>Git Platform Connections</a></li>
         <li><a href="#section-llm" data-settings-link>LLM Providers</a></li>
+        <li><a href="#section-scores" data-settings-link>Scores</a></li>
         {% if is_admin %}<li><a href="#section-api-tokens" data-settings-link>API Tokens</a></li>{% endif %}
         {% if can_delete_workspace %}<li><a href="#section-danger" data-settings-link class="text-error">Danger Zone</a></li>{% endif %}
       </ul>
@@ -318,6 +319,15 @@
           </div>
         </div>
       {% endif %}
+        </div>
+      </section>
+
+      <section id="section-scores" class="collapse collapse-arrow bg-base-100 shadow-xl mb-6"
+               data-settings-section>
+        <input type="radio" name="settings-section" aria-label="Toggle Scores">
+        <h2 class="collapse-title text-xl font-semibold">Scores</h2>
+        <div class="collapse-content">
+          {% include "partials/score_display_setting.html" %}
         </div>
       </section>
 
