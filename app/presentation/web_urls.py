@@ -41,6 +41,7 @@ from app.presentation.views.project_views import (
     add_project_search,
     add_project_select,
     delete_project,
+    project_commit_check,
     project_history,
     run_on_branch,
     project_standards,
@@ -288,6 +289,11 @@ urlpatterns = [
         "projects/<uuid:pk>/history/",
         project_history,
         name="project_history",
+    ),
+    path(
+        "projects/<uuid:pk>/history/checks/<uuid:check_id>/",
+        project_commit_check,
+        name="project_commit_check",
     ),
     path(
         "projects/<uuid:pk>/history/run/",

@@ -181,7 +181,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
     for row in rows:
-        row.result_groups = CommitResultGrouping.of(row.results)
+        row.result_groups = CommitResultGrouping.of(row.selected.latest_runs if row.selected else [])
     # The branch's score: its newest commit's, and the results behind it.
     head = scoring.branch_head(project, branch)
     score = head.score if head else None
@@ -229,6 +229,23 @@ def project_history(request, pk):
     project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
     branch = request.GET.get("branch") or project.default_branch
     return _history(request, project, branch, _page(request.GET.get("page")))
+
+
+@login_required
+def project_commit_check(request, pk, check_id):
+    """One run of the standards on a commit, picked on the Results tab's
+    timeline: the timeline with that run selected and its results, swapped
+    in place of the commit's open body."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    row = commit_checks.commit_runs(project, check_id)
+    if row is None:
+        raise Http404("No such check")
+    row.result_groups = CommitResultGrouping.of(row.selected.latest_runs)
+    return render(
+        request,
+        "partials/commit_check_runs.html",
+        {"project": project, "row": row, "branch": row.branch, "page": _page(request.GET.get("page"))},
+    )
 
 
 @login_required

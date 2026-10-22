@@ -82,6 +82,8 @@ Whether a standard **passed or failed** is the standard's own decision; its scor
 
 A **branch** reads its **newest commit**, whatever its outcome, and the **project's score** is its default branch's. Checking an old commit again never replaces a newer commit's. While the newest commit is being checked the project has no grade yet; when it has **no score**, neither does the project, and GitGrit says why wherever it shows the project: the Overview and Results tabs (which standard errored or was not run, and a button to run the commit again), the project's card, the dashboard's and stacks' counts (as no data, with the reason on hover), the map's hover, the API's `commit_score` and `gitgrit health`.
 
+On the **Results** tab, open a commit to see every check of it on a timeline, oldest on the left; the newest is selected, since the commit reads it. Step through them with the arrows, or pick one, to see what that check found.
+
 Changing attachments or importance does not rescore anything: the next check does.
 
 ### Letters

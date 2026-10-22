@@ -1,0 +1,78 @@
+{% comment %}An open commit on the Results tab: every run of the standards on it as a timeline,
+oldest on the left, with arrows to step between them; then the selected run's results, worst first
+(row.result_groups), the standards it expected that never ran, and a button to run them again.
+The commit reads its newest run. Picking a run swaps this in place (project_commit_check).
+Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomment %}{% load score_tags project_tags %}
+{% url 'run_on_branch' project.pk as run_url %}
+{% with selected=row.selected %}
+<div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5" data-commit-runs="{{ row.sha }}">
+  <div class="flex items-start gap-2 px-1 pt-2 pb-1" data-check-timeline>
+    {% with previous=row.previous_check %}
+      <button type="button" class="btn btn-ghost btn-xs btn-square mt-0.5"
+              {% if previous %}hx-get="{% url 'project_commit_check' project.pk previous.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
+              aria-label="Previous run" title="Previous run" data-check-previous>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>
+      </button>
+    {% endwith %}
+    <ol class="flex-1 min-w-0 flex items-start overflow-x-auto px-1 pb-1" aria-label="Runs on {{ row.short_sha }}, oldest first">
+      {% for run in row.checks %}
+        <li class="flex items-start{% if not forloop.last %} flex-1 min-w-24{% endif %}">
+          <button type="button"
+                  class="flex flex-col items-center gap-1 rounded-lg px-2 py-1 shrink-0 text-center hover:bg-base-200{% if forloop.counter0 == row.selected_index %} bg-base-200 ring-1 ring-primary/50{% endif %}"
+                  hx-get="{% url 'project_commit_check' project.pk run.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader
+                  {% if forloop.counter0 == row.selected_index %}aria-current="true"{% endif %}
+                  title="Run {{ forloop.counter }} of {{ row.checks|length }}: {{ run.check|trigger_label }}, {{ run.check.created_at|date:'j M Y, H:i' }}"
+                  data-check-node="{{ run.outcome }}">
+            {% if run.outcome == "checking" %}
+              <span class="loading loading-spinner loading-xs"></span>
+            {% elif run.outcome == "no_score" or not run.outcome %}
+              <span class="h-3 w-3 rounded-full gg-tone-bg-unknown"></span>
+            {% else %}
+              {% score_tone run.score.value run.score.failed as tone %}
+              <span class="h-3 w-3 rounded-full gg-tone-bg-{{ tone }}"></span>
+            {% endif %}
+            <span class="text-[11px] leading-tight whitespace-nowrap">{{ run.check.created_at|date:"j M, H:i" }}</span>
+            <span class="text-[11px] leading-tight opacity-60 whitespace-nowrap">{{ run.check|trigger_label }}</span>
+            <span class="text-xs leading-tight">{% if run.outcome == "checking" %}<span class="opacity-60">checking</span>{% elif run.outcome == "failed" or run.outcome == "scored" %}{% score run.score.value failed=run.score.failed size="sm" %}{% else %}<span class="opacity-60">no score</span>{% endif %}</span>
+          </button>
+          {% if not forloop.last %}<span class="flex-1 h-px bg-base-content/20 mt-3" aria-hidden="true"></span>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+    {% with next=row.next_check %}
+      <button type="button" class="btn btn-ghost btn-xs btn-square mt-0.5"
+              {% if next %}hx-get="{% url 'project_commit_check' project.pk next.check.pk %}?page={{ page }}" hx-target="closest [data-commit-runs]" hx-swap="outerHTML" data-no-loader{% else %}disabled{% endif %}
+              aria-label="Next run" title="Next run" data-check-next>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+      </button>
+    {% endwith %}
+  </div>
+  <p class="px-3 pb-1 text-xs opacity-60" data-check-selected>
+    Run {{ row.selected_index|add:1 }} of {{ row.checks|length }} · {{ selected.check|trigger_label }} · {{ selected.check.created_at|date:"j M Y, H:i" }}
+    {% if row.next_check %}· an earlier run: the commit reads its newest{% else %}· the commit's outcome{% endif %}
+    {% if selected.standing.reason %}· {{ selected.standing.reason|capfirst }}{% endif %}
+  </p>
+  {% for group in row.result_groups %}
+    <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="{{ group.key }}">{{ group.heading }} · {{ group.runs|length }}</h4>
+    {% for ex in group.runs %}
+      {% include "partials/project_history_result.html" with show_event=True %}
+    {% endfor %}
+  {% endfor %}
+  {% if selected.never_ran %}
+    <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="expected_but_never_ran">Did not run · {{ selected.never_ran|length }}</h4>
+    {% for standard in selected.never_ran %}
+      <div class="flex items-center gap-3 px-3 py-1.5 opacity-60" title="This run expected it, but it never ran in it">
+        <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
+        <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
+        <span class="text-xs">Expected, never ran</span>
+      </div>
+    {% endfor %}
+  {% endif %}
+  <div class="flex justify-end pt-2">
+    <button type="button" class="btn btn-ghost btn-xs"
+            hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'
+            hx-target="#project-history" hx-swap="outerHTML" data-no-loader
+            title="Run the current standards on {{ row.short_sha }}">Run current standards on {{ row.short_sha }}</button>
+  </div>
+</div>
+{% endwith %}

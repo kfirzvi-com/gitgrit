@@ -162,11 +162,39 @@ class CommitRow:
     branch: str = ""
     # The runs of the standards on it (``scoring.CheckRun``), oldest first.
     checks: list = field(default_factory=list)
+    # The run the Results tab's timeline shows (a check id); its newest when
+    # None.
+    selected_id: object = None
 
     @property
     def shown(self):
         """The run the commit reads: its newest."""
         return self.checks[-1] if self.checks else None
+
+    @property
+    def selected_index(self) -> int:
+        """Where the timeline's selected run is among ``checks`` (0-based)."""
+        for i, run in enumerate(self.checks):
+            if run.check.pk == self.selected_id:
+                return i
+        return len(self.checks) - 1
+
+    @property
+    def selected(self):
+        """The run the timeline shows: ``selected_id``'s, else the newest."""
+        return self.checks[self.selected_index] if self.checks else None
+
+    @property
+    def previous_check(self):
+        """The run before the selected one, if any."""
+        i = self.selected_index
+        return self.checks[i - 1] if self.checks and i > 0 else None
+
+    @property
+    def next_check(self):
+        """The run after the selected one, if any."""
+        i = self.selected_index
+        return self.checks[i + 1] if self.checks and i + 1 < len(self.checks) else None
 
     @property
     def results(self) -> list:
@@ -292,6 +320,18 @@ def commit_results(project, sha: str) -> CommitRow:
     the branch it is read on (``scoring.commit_branch``, ``row.branch``)."""
     row = CommitRow(sha=sha, branch=commit_branch(project, sha, None))
     _attach_checks(project, [row], row.branch)
+    return row
+
+
+def commit_runs(project, check_id) -> CommitRow | None:
+    """The commit of one of the project's checks, with every run on it on
+    that check's branch, that check selected (the Results tab's timeline).
+    None when the check is not the project's."""
+    check = CommitCheck.objects.filter(project=project, pk=check_id).exclude(commit_sha="").first()
+    if check is None:
+        return None
+    row = CommitRow(sha=check.commit_sha, branch=check.branch, selected_id=check.pk)
+    _attach_checks(project, [row], check.branch)
     return row
 
 
