@@ -14,7 +14,7 @@ class NoScoreNote:
 
     @staticmethod
     def text(subject) -> str:
-        """``subject``: a ``scoring.CheckRun`` (a commit's run, checking
+        """``subject``: a ``scoring.CheckRunRecord`` (a commit's run, checking
         included) or a CommitScore. Empty for a verdict (an F or a number)."""
         if subject is None or subject.outcome is None:
             return ""

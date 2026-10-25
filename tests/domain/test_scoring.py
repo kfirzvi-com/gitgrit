@@ -16,11 +16,11 @@ from app.domain.scoring import (
     COMMIT_SCORING_POLICY,
     AttachedStandard,
     BranchCommitTimeline,
+    CheckRun,
     CommitScoreOutcome,
     CommitScoreValue,
     CommitStanding,
     ExpectedStandards,
-    ScorableCommitCheck,
     StandardRunResult,
     StandardRunResultsOnCommit,
     StandardRunStatus,
@@ -216,70 +216,66 @@ class StandardRunResultsOnCommitTests(SimpleTestCase):
         assert [p.status for p in runs.newest_finished_per_expected_standard(ExpectedStandards(("a",)))] == [ERROR]
 
 
-def check(sha="c1", expected=("a", "b"), running=False):
-    return ScorableCommitCheck(
-        commit_sha=sha, expected_standards=ExpectedStandards(tuple(expected)), has_running_runs=running
+def check(results=(), sha="c1", expected=("a", "b"), names=None, saved=None):
+    """A check of commit ``sha`` expecting ``expected``, with its own
+    ``results`` (newest first)."""
+    return CheckRun(
+        commit_sha=sha, expected=ExpectedStandards(tuple(expected)), results=tuple(results),
+        standard_names=names or {}, saved=saved,
     )
 
 
-class NewCommitScoreTests(SimpleTestCase):
+class DecideTests(SimpleTestCase):
+    """``CheckRun.decide``: the score a check saves, from its own runs."""
+
     def test_every_standard_ran_scores_the_commit_from_their_runs(self):
-        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("a"), run("b", FAILED, 50)]))
+        new_score = check([run("a"), run("b", FAILED, 50)]).decide()
 
         assert new_score.score == CommitScoreValue(75)
         assert {r.standard_id for r in new_score.run_results} == {"a", "b"}
 
-    def test_nothing_to_decide_without_a_commit_expectations_or_while_its_runs_go(self):
-        runs = StandardRunResultsOnCommit([run("a"), run("b")])
-        assert check(sha="").new_commit_score(runs) is None
-        assert check(expected=()).new_commit_score(runs) is None
-        assert check(running=True).new_commit_score(runs) is None
+    def test_nothing_to_decide_without_a_commit_expectations_or_while_a_run_goes(self):
+        assert check([run("a"), run("b")], sha="").decide() is None
+        assert check([run("a"), run("b")], expected=()).decide() is None
+        assert check([run("a"), run("b", RUNNING, 0)]).decide() is None
 
     def test_an_expected_standard_that_never_finished_is_no_score_named_by_its_name(self):
-        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("a")]), {"a": "Readme", "b": "Lint"})
+        new_score = check([run("a")], names={"a": "Readme", "b": "Lint"}).decide()
 
         assert new_score.score == CommitScoreValue(None, reason="Lint not run")
         assert [r.standard_id for r in new_score.run_results] == ["a"]
 
     def test_a_standard_with_no_known_name_is_named_by_its_id(self):
-        assert check().new_commit_score(StandardRunResultsOnCommit([run("a")])).score.reason == "b not run"
+        assert check([run("a")]).decide().score.reason == "b not run"
 
     def test_a_run_of_its_own_that_never_finished_is_not_a_result(self):
-        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("b", SKIPPED, 0), run("a")]))
-
-        assert new_score.score == CommitScoreValue(None, reason="b not run")
+        assert check([run("b", SKIPPED, 0), run("a")]).decide().score == CommitScoreValue(None, reason="b not run")
 
     def test_a_required_failure_with_a_standard_never_run_is_no_score(self):
-        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("a", FAILED, 0, REQUIRED)]))
-
-        assert new_score.score == CommitScoreValue(None, reason="b not run")
+        assert check([run("a", FAILED, 0, REQUIRED)]).decide().score == CommitScoreValue(None, reason="b not run")
 
     def test_a_required_failure_once_every_standard_ran_fails_the_commit(self):
-        new_score = check().new_commit_score(StandardRunResultsOnCommit([run("a", FAILED, 0, REQUIRED), run("b")]))
-
-        assert new_score.score.outcome is OUTCOME_FAILED
+        assert check([run("a", FAILED, 0, REQUIRED), run("b")]).decide().score.outcome is OUTCOME_FAILED
 
     def test_runs_of_standards_the_check_does_not_expect_are_left_out(self):
-        new_score = check(expected=("a",)).new_commit_score(StandardRunResultsOnCommit([run("a"), run("z", ERROR, 0)]))
+        assert check([run("a"), run("z", ERROR, 0)], expected=("a",)).decide().score == CommitScoreValue(100)
 
-        assert new_score.score == CommitScoreValue(100)
+    def test_a_newer_run_of_a_standard_in_the_same_check_replaces_its_older_one(self):
+        assert check([run("b"), run("a"), run("b", ERROR, 0)]).decide().score == CommitScoreValue(100)
 
 
-class CommitStandingTests(SimpleTestCase):
-    """A check's outcome, from its own runs: its commit's when it is the
+class StandingTests(SimpleTestCase):
+    """``CheckRun.standing``: its outcome, its commit's when it is the
     commit's newest."""
 
-    def standing(self, runs, saved=None, newest=None):
-        return (newest or check()).standing(
-            StandardRunResultsOnCommit(runs), saved=saved, standard_names={"b": "Lint"}
-        )
+    def standing(self, results, saved=None, **kwargs):
+        return check(results, names={"b": "Lint"}, saved=saved, **kwargs).standing
 
     def test_checking_while_one_of_its_runs_goes(self):
-        assert self.standing([run("a")], newest=check(running=True)) == CommitStanding(CHECKING, "", 2, 1)
+        assert self.standing([run("a"), run("b", RUNNING, 0)]) == CommitStanding(CHECKING, "", 2, 1)
 
     def test_checking_even_with_a_score_saved(self):
-        newest = check(running=True)
-        assert self.standing([run("a"), run("b")], saved=CommitScoreValue(90), newest=newest) == CommitStanding(CHECKING, "", 2, 2)
+        assert self.standing([run("a"), run("b", RUNNING, 0)], saved=CommitScoreValue(90)) == CommitStanding(CHECKING, "", 2, 1)
 
     def test_a_saved_score_is_its_outcome_with_its_value(self):
         assert self.standing([run("a"), run("b", standard_score=80)], saved=CommitScoreValue(90)) == CommitStanding(SCORED, "", 2, 2, 90)
@@ -302,8 +298,29 @@ class CommitStandingTests(SimpleTestCase):
         assert self.standing([run("a"), run("b", ERROR, 0)]) == CommitStanding(NO_SCORE, "b errored", 2, 2)
 
     def test_nothing_expected_or_no_commit_has_no_standing(self):
-        assert self.standing([run("a")], newest=check(expected=())) is None
-        assert self.standing([run("a")], newest=check(sha="")) is None
+        assert self.standing([run("a")], expected=()) is None
+        assert self.standing([run("a")], sha="") is None
+        assert check([run("a")], expected=()).outcome is None
+
+
+class ListedResultsTests(SimpleTestCase):
+    """What the Results tab lists for a check."""
+
+    def test_its_newest_result_of_each_standard_running_ones_included(self):
+        newest_a, running_b = run("a"), run("b", RUNNING, 0)
+        assert check([newest_a, running_b, run("a", FAILED, 0)]).latest_results == [newest_a, running_b]
+
+    def test_a_standard_it_no_longer_expects_drops_off(self):
+        assert [r.standard_id for r in check([run("a"), run("detached")], expected=("a",)).latest_results] == ["a"]
+
+    def test_runs_of_a_deleted_standard_are_told_apart_by_name(self):
+        gone_1 = StandardRunResult("", "Old lint", PASSED, 100)
+        gone_2 = StandardRunResult("", "Old docs", FAILED, 0)
+        assert check([gone_1, gone_2], expected=()).latest_results == [gone_1, gone_2]
+
+    def test_the_expected_standards_that_never_ran_in_it(self):
+        assert check([run("a")], expected=("a", "b", "c")).never_ran_ids == ["b", "c"]
+        assert check([run("a")], expected=()).never_ran_ids == []
 
 
 class CommitScoreOutcomeTests(SimpleTestCase):

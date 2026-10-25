@@ -1,7 +1,8 @@
 """Scoring commits and reading branch and project scores: the database side
 of ``app.domain.scoring`` (``commit_scoring``), and what it hands to the
-screens (``CheckRun``: one run of the standards on a commit)."""
-from app.application.scoring.check_run import CheckRun
+screens (``CheckRunRecord``: a stored check beside its domain
+``scoring.CheckRun``)."""
+from app.application.scoring.check_run_record import CheckRunRecord
 from app.application.scoring.commit_scoring import (
     RECENT_CHECKS,
     branch_head,
@@ -21,7 +22,7 @@ from app.application.scoring.commit_scoring import (
 
 __all__ = [
     "RECENT_CHECKS",
-    "CheckRun",
+    "CheckRunRecord",
     "branch_head",
     "branch_score",
     "check_run",

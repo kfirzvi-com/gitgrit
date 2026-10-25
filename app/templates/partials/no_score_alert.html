@@ -1,6 +1,6 @@
 {% comment %}On the Overview and Results tabs, when the newest commit has no score (a standard
 errored or never ran in its newest run), so its branch and project have none: which commit, why,
-and how to fix it. Parameters: head (the scoring.CheckRun the branch reads; renders only when its
+and how to fix it. Parameters: head (the scoring.CheckRunRecord the branch reads; renders only when its
 outcome is no_score), run_url and branch (on the Results tab: a button that runs the standards on
 that commit again), else a link to the Results tab.{% endcomment %}
 {% if head.outcome == "no_score" %}

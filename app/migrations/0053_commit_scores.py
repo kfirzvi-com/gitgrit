@@ -4,16 +4,13 @@
 # project keeps a score after the deploy:
 # - each run gets its standard's current importance on the project (all Major
 #   before importance existed);
-# - each check expects the standards that ran in it (what it was queued with);
-# - each checked commit is scored once, by its newest finished check
-#   (scoring.ScorableCommitCheck.new_commit_score), if that check is complete.
+# - each check expects the standards that ran in it (what it was queued with).
+# Commit scores themselves are saved by 0054, from each check's own runs.
 
 import django.db.models.deletion
 import uuid
 from django.db import migrations, models
 
-from app.domain import scoring
-from app.domain.importance import Importance
 
 
 def backfill(apps, schema_editor):
@@ -35,49 +32,6 @@ def backfill(apps, schema_editor):
             .distinct()
         ]
         check.save(update_fields=["expected_standard_ids"])
-
-    newest = {}
-    for check in CommitCheck.objects.exclude(commit_sha="").order_by("created_at"):
-        if check.executions.filter(status="running").exists():
-            continue
-        newest[(check.project_id, check.branch, check.commit_sha)] = check
-    for (project_id, branch, sha), check in newest.items():
-        executions = list(
-            StandardExecution.objects.filter(
-                project_id=project_id, commit_check__branch=branch, commit_check__commit_sha=sha
-            ).order_by("-created_at")
-        )
-        new_score = scoring.ScorableCommitCheck(
-            commit_sha=sha,
-            expected_standards=scoring.ExpectedStandards(tuple(check.expected_standard_ids)),
-            has_running_runs=False,
-        ).new_commit_score(
-            scoring.StandardRunResultsOnCommit([
-                scoring.StandardRunResult(
-                    standard_id=str(e.standard_id),
-                    standard_name=e.standard_name,
-                    status=scoring.StandardRunStatus(e.status),
-                    standard_score=e.score,
-                    importance=Importance(e.importance),
-                    execution_id=str(e.pk),
-                )
-                for e in executions
-            ])
-        )
-        if new_score is None:
-            continue
-        commit_score = CommitScore.objects.create(
-            project_id=project_id,
-            commit_check=check,
-            branch=branch,
-            commit_sha=sha,
-            committed_at=check.committed_at,
-            ordered_at=scoring.BranchCommitTimeline.commit_ordered_at(check.committed_at, check.created_at),
-            value=new_score.score.value,
-            failed=new_score.score.failed_by_required_standard,
-            reason=new_score.score.reason,
-        )
-        commit_score.executions.set([r.execution_id for r in new_score.run_results])
 
 
 class Migration(migrations.Migration):

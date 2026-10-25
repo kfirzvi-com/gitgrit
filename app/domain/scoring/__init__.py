@@ -20,10 +20,10 @@ Vocabulary, one class per term:
   no score), whether a Required standard failed it, and why.
 - ``CommitScoreOutcome``: a commit's one outcome: checking, no score,
   failed or scored.
-- ``ScorableCommitCheck``: one commit check seen for scoring; once none of
-  its runs is going it gives a ``NewCommitScore``, and it says where the
-  commit stands (``CommitStanding``: its outcome and how many standards
-  finished).
+- ``CheckRun``: one check of a commit, one run of its standards, built from
+  facts: ``decide()`` gives the score to save, ``standing`` where it stands
+  (``CommitStanding``), ``latest_results`` and ``never_ran_ids`` what to
+  list. A commit reads its newest CheckRun alone.
 - ``BranchCommitTimeline``: how a branch's commits and scores are ordered.
 
 Each run keeps the importance its standard had when it ran, so changing
@@ -31,6 +31,7 @@ importance or attachments later never rescores a commit.
 """
 from app.domain.scoring.attached_standard import AttachedStandard
 from app.domain.scoring.branch_commit_timeline import BranchCommitTimeline
+from app.domain.scoring.check_run import CheckRun
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.scoring.commit_score_value import CommitScoreValue
 from app.domain.scoring.commit_scoring_policy import CommitScoringPolicy
@@ -39,7 +40,6 @@ from app.domain.scoring.commit_standing import CommitStanding
 from app.domain.scoring.expected_standards import ExpectedStandards
 from app.domain.scoring.new_commit_score import NewCommitScore
 from app.domain.scoring.required_gate_weighted_average_policy import RequiredGateWeightedAveragePolicy
-from app.domain.scoring.scorable_commit_check import ScorableCommitCheck
 from app.domain.scoring.standard_run_result import StandardRunResult
 from app.domain.scoring.standard_run_results_on_commit import StandardRunResultsOnCommit
 from app.domain.scoring.standard_run_status import StandardRunStatus
@@ -48,6 +48,7 @@ __all__ = [
     "COMMIT_SCORING_POLICY",
     "AttachedStandard",
     "BranchCommitTimeline",
+    "CheckRun",
     "CommitScoreOutcome",
     "CommitScoreValue",
     "CommitScoringPolicy",
@@ -55,7 +56,6 @@ __all__ = [
     "ExpectedStandards",
     "NewCommitScore",
     "RequiredGateWeightedAveragePolicy",
-    "ScorableCommitCheck",
     "StandardRunResult",
     "StandardRunResultsOnCommit",
     "StandardRunStatus",

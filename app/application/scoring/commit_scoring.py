@@ -1,7 +1,7 @@
 """Scoring commits and reading branch and project scores: the database side
-of ``app.domain.scoring``, where every rule lives. This module loads the
-facts those rules need (checks, results, scores), hands them over, and saves
-what they decide.
+of ``app.domain.scoring``, where every rule lives. This module only loads a
+check's facts into a ``scoring.CheckRun`` (``_runs_of``), asks it, and saves
+what it decides.
 
 A commit reads its newest check, alone; a branch reads its newest commit
 (``scoring.BranchCommitTimeline.newest_checked_commit``), whatever its
@@ -15,15 +15,13 @@ from collections import defaultdict
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 
-from app.application.scoring.check_run import CheckRun
+from app.application.scoring.check_run_record import CheckRunRecord
 from app.domain import scoring
 from app.domain.importance import Importance
 from app.domain.models import CommitCheck, CommitScore, Standard, StandardExecution
 from app.domain.standard_criteria import applies
 
 logger = logging.getLogger(__name__)
-
-Status = StandardExecution.Status
 
 # How many of a branch's newest checks are read to find its newest commit.
 RECENT_CHECKS = 50
@@ -37,17 +35,14 @@ REMOVED_STANDARD = "a removed standard"
 
 def _run_result(execution) -> scoring.StandardRunResult:
     return scoring.StandardRunResult(
-        standard_id=str(execution.standard_id),
+        # A run of a standard deleted since has no standard left.
+        standard_id=str(execution.standard_id) if execution.standard_id else "",
         standard_name=execution.standard_name,
         status=scoring.StandardRunStatus(execution.status),
         standard_score=execution.score,
         importance=Importance(execution.importance),
         execution_id=str(execution.pk),
     )
-
-
-def _runs(executions_newest_first) -> scoring.StandardRunResultsOnCommit:
-    return scoring.StandardRunResultsOnCommit(_run_result(e) for e in executions_newest_first)
 
 
 def _standard_names(expected_ids) -> dict[str, str]:
@@ -64,12 +59,40 @@ def _saved_value(score: CommitScore | None) -> scoring.CommitScoreValue | None:
     return scoring.CommitScoreValue(score.value, failed_by_required_standard=score.failed, reason=score.reason)
 
 
-def _scorable(check: CommitCheck, running: bool) -> scoring.ScorableCommitCheck:
-    return scoring.ScorableCommitCheck(
-        commit_sha=check.commit_sha,
-        expected_standards=scoring.ExpectedStandards(tuple(check.expected_standard_ids)),
-        has_running_runs=running,
-    )
+def _runs_of(checks) -> dict:
+    """Each check as a ``CheckRunRecord`` (check id -> record): its domain
+    ``scoring.CheckRun`` built from its facts, beside its rows. A few queries
+    for them all."""
+    checks = list(checks)
+    if not checks:
+        return {}
+    executions = defaultdict(list)
+    for ex in (
+        StandardExecution.objects.filter(commit_check__in=checks)
+        .select_related("standard", "standard_version", "commit_check")
+        .order_by("-created_at")
+    ):
+        executions[ex.commit_check_id].append(ex)
+    scores = {
+        s.commit_check_id: s
+        for s in CommitScore.objects.filter(commit_check__in=checks)
+        .order_by("commit_check_id", "-created_at")
+        .distinct("commit_check_id")
+    }
+    names = _standard_names({i for c in checks for i in c.expected_standard_ids})
+    records = {}
+    for check in checks:
+        own = executions[check.pk]
+        run = scoring.CheckRun(
+            commit_sha=check.commit_sha,
+            expected=scoring.ExpectedStandards(tuple(check.expected_standard_ids)),
+            results=tuple(_run_result(e) for e in own),
+            standard_names=names,
+            saved=_saved_value(scores.get(check.pk)),
+        )
+        score = None if run.running else scores.get(check.pk)
+        records[check.pk] = CheckRunRecord(check=check, run=run, executions=tuple(own), score=score)
+    return records
 
 
 # --- Writing ------------------------------------------------------------------------
@@ -95,14 +118,9 @@ def expected_standards(project, branch: str) -> list[str]:
 
 
 def score_check(check: CommitCheck) -> CommitScore | None:
-    """Save the score ``check`` gives its commit, from its own runs
-    (``scoring.ScorableCommitCheck.new_commit_score``), once none of them
-    is going: a verdict, or no score and why."""
-    executions = list(check.executions.order_by("-created_at"))
-    running = any(e.status == Status.RUNNING for e in executions)
-    new_score = _scorable(check, running).new_commit_score(
-        _runs(executions), _standard_names(check.expected_standard_ids)
-    )
+    """Save the score ``check`` gives its commit (``scoring.CheckRun.decide``)
+    once none of its runs is going: a verdict, or no score and why."""
+    new_score = _runs_of([check])[check.pk].run.decide()
     if new_score is None:
         return None
     commit_score = CommitScore.objects.create(
@@ -133,56 +151,26 @@ def score_checks(check_ids) -> list[CommitScore]:
 # --- Reading: checks ------------------------------------------------------------------
 
 
-def _check_runs(checks) -> dict:
-    """Each check as a ``CheckRun`` (check id -> CheckRun): its own runs, its
-    outcome and the score it saved. A few queries for them all."""
-    checks = list(checks)
-    if not checks:
-        return {}
-    executions = defaultdict(list)
-    for ex in (
-        StandardExecution.objects.filter(commit_check__in=checks)
-        .select_related("standard", "standard_version", "commit_check")
-        .order_by("-created_at")
-    ):
-        executions[ex.commit_check_id].append(ex)
-    scores = {
-        s.commit_check_id: s
-        for s in CommitScore.objects.filter(commit_check__in=checks)
-        .order_by("commit_check_id", "-created_at")
-        .distinct("commit_check_id")
-    }
-    names = _standard_names({i for c in checks for i in c.expected_standard_ids})
-    runs = {}
-    for check in checks:
-        own = executions[check.pk]
-        running = any(e.status == Status.RUNNING for e in own)
-        score = None if running else scores.get(check.pk)
-        standing = _scorable(check, running).standing(_runs(own), saved=_saved_value(score), standard_names=names)
-        runs[check.pk] = CheckRun(check=check, executions=tuple(own), standing=standing, score=score)
-    return runs
-
-
 def commit_history(project, shas, branch: str | None = None) -> dict:
-    """Each commit's checks (sha -> [CheckRun], oldest first; on ``branch``
+    """Each commit's checks (sha -> [CheckRunRecord], oldest first; on ``branch``
     when given): every run of the standards on it. The newest is the
     commit's outcome."""
     checks = CommitCheck.objects.filter(project=project, commit_sha__in=list(shas)).order_by("created_at")
     if branch is not None:
         checks = checks.filter(branch=branch)
     checks = list(checks)
-    runs = _check_runs(checks)
+    runs = _runs_of(checks)
     history = defaultdict(list)
     for check in checks:
         history[check.commit_sha].append(runs[check.pk])
     return dict(history)
 
 
-def check_run(project, check_id) -> CheckRun | None:
-    """One check of the project as a ``CheckRun``; None when it is not the
+def check_run(project, check_id) -> CheckRunRecord | None:
+    """One check of the project as a ``CheckRunRecord``; None when it is not the
     project's."""
     check = CommitCheck.objects.filter(project=project, pk=check_id).first()
-    return _check_runs([check])[check.pk] if check else None
+    return _runs_of([check])[check.pk] if check else None
 
 
 # --- Reading: branches and projects ---------------------------------------------------
@@ -196,18 +184,18 @@ def _recent_checks(project, branch: str):
     )
 
 
-def branch_head(project, branch: str) -> CheckRun | None:
+def branch_head(project, branch: str) -> CheckRunRecord | None:
     """What ``branch`` reads: its newest commit's newest check
     (``scoring.BranchCommitTimeline.newest_checked_commit``), whatever its
     outcome: checking, no score, failed or scored. None when nothing on it
     was checked."""
     check = scoring.BranchCommitTimeline.newest_checked_commit(_recent_checks(project, branch))
-    return _check_runs([check])[check.pk] if check else None
+    return _runs_of([check])[check.pk] if check else None
 
 
 def project_heads(projects) -> dict:
     """Each project's ``branch_head`` on its default branch (project id ->
-    CheckRun), read for them all at once. The query orders checks the way
+    CheckRunRecord), read for them all at once. The query orders checks the way
     ``scoring.BranchCommitTimeline.newest_checked_commit`` does."""
     projects = list(projects)
     if not projects:
@@ -222,7 +210,7 @@ def project_heads(projects) -> dict:
         .order_by("project_id", "-commit_ordered_at", "-created_at")
         .distinct("project_id")
     )
-    runs = _check_runs(heads)
+    runs = _runs_of(heads)
     return {check.project_id: runs[check.pk] for check in heads}
 
 
@@ -291,4 +279,4 @@ def commit_standing(project, sha: str, branch: str) -> scoring.CommitStanding | 
     newest = (
         CommitCheck.objects.filter(project=project, commit_sha=sha, branch=branch).order_by("-created_at").first()
     )
-    return _check_runs([newest])[newest.pk].standing if newest else None
+    return _runs_of([newest])[newest.pk].standing if newest else None

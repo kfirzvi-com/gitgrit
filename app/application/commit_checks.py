@@ -160,7 +160,7 @@ class CommitRow:
     url: str = ""
     # The branch its runs are read on.
     branch: str = ""
-    # The runs of the standards on it (``scoring.CheckRun``), oldest first.
+    # The runs of the standards on it (``scoring.CheckRunRecord``), oldest first.
     checks: list = field(default_factory=list)
     # The run the Results tab's timeline shows (a check id); its newest when
     # None.
@@ -204,7 +204,7 @@ class CommitRow:
     @property
     def expected_but_never_ran(self) -> list:
         """The standards the newest run expected that never ran in it
-        (``CheckRun.never_ran``): why the commit may have no score."""
+        (``CheckRunRecord.never_ran``): why the commit may have no score."""
         return list(self.shown.never_ran) if self.shown else []
 
     @property
