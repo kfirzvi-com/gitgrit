@@ -1,5 +1,5 @@
-"""0057: a check's score comes from its own runs only, and every finished
-check gets one."""
+"""0054: a check's score comes from its own runs only, under the one-outcome
+rule, and every finished check gets one."""
 from importlib import import_module
 
 from django.apps import apps
@@ -8,7 +8,7 @@ from model_bakery import baker
 
 from app.domain.models import CommitScore, StandardExecution
 
-migration = import_module("app.migrations.0057_commit_scores_from_their_own_check")
+migration = import_module("app.migrations.0054_commit_score_outcomes")
 Status = StandardExecution.Status
 
 
@@ -68,3 +68,43 @@ class RescoreTests(TestCase):
         migration.rescore(apps, None)
 
         assert CommitScore.objects.get(commit_check=check).reason == "a removed standard not run"
+
+    def test_an_errored_required_standard_is_no_score_before_a_failed_one_fails_it(self):
+        check = self.check([(self.a, Status.FAILED, 0), (self.b, Status.ERROR, 0)])
+        StandardExecution.objects.filter(commit_check=check).update(importance="required")
+
+        migration.rescore(apps, None)
+
+        score = CommitScore.objects.get(commit_check=check)
+        assert (score.value, score.failed, score.reason) == (None, False, "B errored")
+
+    def test_a_failed_required_standard_fails_it_with_no_value(self):
+        check = self.check([(self.a, Status.FAILED, 90), (self.b, Status.PASSED, 100)])
+        StandardExecution.objects.filter(commit_check=check, standard=self.a).update(importance="required")
+
+        migration.rescore(apps, None)
+
+        score = CommitScore.objects.get(commit_check=check)
+        assert (score.value, score.failed, score.reason) == (None, True, "A failing")
+
+    def test_the_frozen_rule_matches_the_domain_rule(self):
+        from app.domain.importance import Importance
+        from app.domain.scoring import COMMIT_SCORING_POLICY, StandardRunResult, StandardRunStatus
+
+        cases = [
+            ([("a", "passed", 90, "major"), ("b", "failed", 30, "minor")], []),
+            ([("a", "failed", 0, "required"), ("b", "passed", 100, "major")], []),
+            ([("a", "failed", 0, "required"), ("b", "error", 0, "minor")], []),
+            ([("a", "failed", 0, "required")], ["c"]),
+            ([("a", "error", 0, "required")], ["c", "d"]),
+            ([("a", "failed", 0, "major"), ("b", "failed", 0, "minor")], []),
+        ]
+        for runs, not_run in cases:
+            with self.subTest(runs=runs, not_run=not_run):
+                frozen = migration.decide(
+                    [StandardExecution(standard_name=n, status=s, score=p, importance=i) for n, s, p, i in runs], not_run
+                )
+                domain = COMMIT_SCORING_POLICY.score_commit(
+                    [StandardRunResult(n, n, StandardRunStatus(s), p, Importance(i)) for n, s, p, i in runs], not_run
+                )
+                assert frozen == (domain.value, domain.failed_by_required_standard, domain.reason)

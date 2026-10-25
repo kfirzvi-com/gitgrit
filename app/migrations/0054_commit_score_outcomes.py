@@ -1,12 +1,16 @@
-# A commit reads its newest check alone: a check's score comes from its own
-# runs, never filled in from an earlier check's
-# (app.domain.scoring.ScorableCommitCheck.new_commit_score). Every saved score
-# is re-decided from its own check's runs, and every finished check that never
-# saved one (it was "incomplete" before) gets one, so each commit reads its
-# newest check. The rule is copied here, frozen, so later changes to the
-# domain never change what this migration does.
+# Commit scores, one outcome per commit (app.domain.scoring), and how a
+# workspace shows them:
+# - a workspace reads scores as letters (default) or numbers;
+# - every saved score is re-decided from its own check's runs alone, and every
+#   finished check that never saved one gets one, so each commit reads its
+#   newest check. In order: no score while an expected standard errored or
+#   never ran in the check (Required too); else failed when a Required one
+#   failed (a verdict: no value); else the importance-weighted average;
+# - a failed score never carries a value (a check constraint).
+# The rule is copied here, frozen, so later changes to the domain never change
+# what this migration does.
 
-from django.db import migrations
+from django.db import migrations, models
 
 WEIGHT = {"required": 2, "major": 2, "minor": 1}
 FINISHED = ("passed", "failed", "error")
@@ -74,12 +78,35 @@ def rescore(apps, schema_editor):
             score.executions.set(runs)
 
 
+def failed_has_no_value(apps, schema_editor):
+    apps.get_model("app", "CommitScore").objects.filter(failed=True).update(value=None)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("app", "0056_rescore_commit_scores_no_score_first"),
+        ("app", "0053_commit_scores"),
     ]
 
     operations = [
+        migrations.AddField(
+            model_name="tenant",
+            name="score_display",
+            field=models.CharField(
+                choices=[("letters", "Letters (A+ to F)"), ("numbers", "Numbers (0 to 100)")],
+                default="letters",
+                max_length=10,
+            ),
+        ),
         migrations.RunPython(rescore, migrations.RunPython.noop),
+        # Scores rescore left alone (a check still running or expecting
+        # nothing) may still read 0 when failed.
+        migrations.RunPython(failed_has_no_value, migrations.RunPython.noop),
+        migrations.AddConstraint(
+            model_name="commitscore",
+            constraint=models.CheckConstraint(
+                condition=models.Q(failed=False) | models.Q(value__isnull=True),
+                name="commit_score_failed_has_no_value",
+            ),
+        ),
     ]
