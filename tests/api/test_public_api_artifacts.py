@@ -48,14 +48,35 @@ class TestCreateArtifactProject(ArtifactAPITestCase):
         assert again.status_code == 200
         assert again.json()["id"] == body["id"]
 
-    def test_only_artifact_projects_are_created_here(self):
+    def test_an_unknown_type_is_400(self):
         assert self.create(type="github").status_code == 400
+
+    def test_a_repository_still_needs_one(self):
+        r = self.send("post", f"{self.ws}/projects/", {"type": "repository"})
+        assert r.status_code == 400
+        assert "repository" in r.json()
+
+    def test_by_default_it_gets_the_standards_that_run_on_uploads(self):
+        body = self.create().json()
+        assert [s["name"] for s in body["standards"]] == ["No source maps"]
+        assert body["webhook"] == "none"
+
+    def test_named_standards_replace_the_default(self):
+        other = baker.make("app.Standard", tenant=self.tenant, name="Other")
+        body = self.create(standards=[str(other.id)]).json()
+        assert [s["name"] for s in body["standards"]] == ["Other"]
+
+    def test_the_artifact_connection_is_not_a_connection(self):
+        self.create()
+        r = self.get(f"{self.ws}/connections/")
+        assert r.status_code == 200
+        assert r.json() == []
 
     def test_a_name_is_required(self):
         assert self.create(name="").status_code == 400
 
     def test_an_unknown_standard_is_404(self):
-        r = self.create(standard_ids=["00000000-0000-0000-0000-000000000000"])
+        r = self.create(standards=["00000000-0000-0000-0000-000000000000"])
         assert r.status_code == 404
 
 

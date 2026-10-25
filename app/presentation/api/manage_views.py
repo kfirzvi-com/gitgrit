@@ -58,6 +58,7 @@ def _project(p: Project) -> dict:
         "name": p.name,
         "description": p.description,
         "platform": p.platform,
+        "external_id": p.external_id,
         "full_path": p.full_path,
         "web_url": p.web_url,
         "default_branch": p.default_branch,

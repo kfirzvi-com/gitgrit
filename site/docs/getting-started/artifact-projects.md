@@ -34,10 +34,10 @@ standards run on it again.
 === "CLI"
 
     ```sh
-    gitgrit project create --name "Storefront" --stack "Web Team"
+    gitgrit project add --artifact --name "Storefront" --stack "Web Team"
     ```
 
-    Running it again returns the same project. `--external-id` sets the id that
+    Adding it again returns the same project. `--external-id` sets the id that
     makes it idempotent (the name by default).
 
 === "API"
@@ -49,7 +49,7 @@ standards run on it again.
     ```
 
     `201` when created, `200` with the existing project when `external_id` is
-    already taken. Without `standard_ids`, the project gets every published
+    already taken. Without `standards`, the project gets every published
     standard whose events include `upload`.
 
 ## Upload a commit
@@ -65,9 +65,9 @@ standards run on it again.
     gitgrit project upload dist.zip --project Storefront -m "Release 1.4.2" --wait
     ```
 
-    `--wait` waits for the results and exits `1` when any standard fails or
-    errors (`--fail-under 80` fails on the score instead), so a pipeline can
-    gate on it.
+    `--wait` waits for the check and exits by the commit's score, the same way
+    as [`gitgrit check`](cli.md) (`--fail-under 80` also fails a score under
+    80), so a pipeline can gate on it.
 
 === "API"
 
