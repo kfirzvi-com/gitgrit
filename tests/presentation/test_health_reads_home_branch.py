@@ -57,7 +57,8 @@ class HealthIgnoresOtherBranchesTests(TestCase):
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.context["attention_items"], [])
-        self.assertEqual(response.context["compliance_score"], 100)
+        health = response.context["workspace_health"]
+        self.assertEqual((health.failed, health.needs_attention, health.healthy), (0, 0, 1))
 
     def test_project_status_service_scores_the_default_branch(self):
         status = ProjectStatusService().get_project_status(self.tenant, str(self.project.pk))

@@ -18,6 +18,7 @@ from app.application.commit_checks import (
     waiting_for_commit,
 )
 from app.application import scoring
+from app.domain.scoring import CommitScoreOutcome
 from app.presentation.commit_results import CommitResultGrouping
 from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
@@ -94,17 +95,19 @@ class ProjectListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Each card shows its project's score; read in one query.
-        scores = scoring.project_scores(context["projects"])
+        # Each card reads its project's newest commit: a grade, or why none.
+        heads = scoring.project_heads(context["projects"])
         for project in context["projects"]:
-            project.commit_score = scores.get(project.pk)
+            project.head = heads.get(project.pk)
+            project.commit_score = project.head.score if project.head else None
         return context
 
 
 def results_context(project) -> dict:
     """What the project page's Overview and Standards tabs render: the
     attached standards, the project's score (its newest scored commit on the
-    default branch) with the results behind it and their breakdown, and a
-    newer commit still being checked or left incomplete."""
+    default branch's newest commit, whatever its outcome) with the results
+    behind it and their breakdown."""
     context = {}
     attached_standards = list(project.standards.order_by("ordinal", "name"))
     context["attached_standards"] = attached_standards
@@ -133,16 +136,19 @@ def results_context(project) -> dict:
         ).values_list("standard_id", flat=True)
     )
 
-    # The project's score and the results it was computed from. Every run,
-    # on any branch and still RUNNING, shows under "Recent Activity" above;
-    # only a complete commit on the default branch moves the score.
-    score = scoring.project_score(project)
+    # The project's score: its default branch's newest commit, and the
+    # results it was decided from. Every run, on any branch and still
+    # RUNNING, shows under "Recent Activity" above.
+    head = scoring.branch_head(project, project.default_branch)
+    score = head.score if head else None
     latest_executions = list(score.executions.order_by("-created_at")) if score else []
+    context["branch_head"] = head
     context["project_score"] = score
     context["latest_executions"] = latest_executions
     context["compliance_score"] = score.value if score else None
+    # A verdict to show: failed (no number) or scored.
+    context["project_has_score"] = _has_verdict(score)
     context["health_breakdown"] = outcome_counts(latest_executions)
-    context["newer_commit"] = scoring.newer_commit(project, project.default_branch, score)
 
     return context
 
@@ -163,15 +169,22 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+def _has_verdict(score) -> bool:
+    """A commit score to show as a grade: failed (no number) or scored
+    (``scoring.CommitScoreOutcome.is_verdict``)."""
+    return score is not None and score.outcome.is_verdict
+
+
 def _history(request, project, branch, page=1, notice="", open_sha=""):
     branch_names = branches(project)
     if branch not in branch_names:
         branch_names.append(branch)
     rows, has_more = branch_commits(project, branch, page)
     for row in rows:
-        row.result_groups = CommitResultGrouping.of(row.results)
-    # The branch's score: its newest scored commit, and the results behind it.
-    score = scoring.branch_score(project, branch)
+        row.result_groups = CommitResultGrouping.of(row.selected.latest_runs if row.selected else [])
+    # The branch's score: its newest commit's, and the results behind it.
+    head = scoring.branch_head(project, branch)
+    score = head.score if head else None
     status = list(score.executions.select_related("commit_check")) if score else []
     # The commit that starts open: the one just run, else the newest checked.
     if not open_sha and page == 1:
@@ -189,9 +202,10 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "has_more": has_more,
             "status": status,
             "status_score": score.value if score else None,
+            "status_has_score": _has_verdict(score),
             "branch_score": score,
             "status_breakdown": outcome_counts(status),
-            "newer_commit": scoring.newer_commit(project, branch, score),
+            "branch_head": head,
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),
             "notice": notice,
@@ -215,6 +229,23 @@ def project_history(request, pk):
     project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
     branch = request.GET.get("branch") or project.default_branch
     return _history(request, project, branch, _page(request.GET.get("page")))
+
+
+@login_required
+def project_commit_check(request, pk, check_id):
+    """One run of the standards on a commit, picked on the Results tab's
+    timeline: the timeline with that run selected and its results, swapped
+    in place of the commit's open body."""
+    project = get_object_or_404(Project, pk=pk, tenant=request.tenant)
+    row = commit_checks.commit_runs(project, check_id)
+    if row is None:
+        raise Http404("No such check")
+    row.result_groups = CommitResultGrouping.of(row.selected.latest_runs)
+    return render(
+        request,
+        "partials/commit_check_runs.html",
+        {"project": project, "row": row, "branch": row.branch, "page": _page(request.GET.get("page"))},
+    )
 
 
 @login_required

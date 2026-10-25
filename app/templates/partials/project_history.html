@@ -24,21 +24,22 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
               title="Run the current standards that apply to {{ branch }} on its latest commit">Run on latest commit</button>
     </div>
     {% if notice %}<p class="text-sm text-info -mt-4" data-run-notice>{{ notice }}</p>{% endif %}
+    {% include "partials/no_score_alert.html" with head=branch_head run_url=run_url branch=branch %}
 
     <div class="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-2xl bg-base-200/50 px-5 sm:px-6 py-5" data-branch-status>
-      {% if status_score is not None %}
+      {% if status_has_score %}
         <div class="flex items-start gap-1">
           {% score status_score failed=branch_score.failed size="lg" data_attr="data-branch-score" %}
         </div>
         <div class="space-y-1.5">
           {% include "partials/health_breakdown.html" with counts=status_breakdown align="start" %}
           <p class="text-xs opacity-50">{% if is_default %}Project score{% else %}Score on {{ branch }} · Only the default branch counts toward the project score{% endif %}</p>
-          {% include "partials/score_note.html" with score=branch_score newer=newer_commit show_reason=True %}
+          {% include "partials/score_note.html" with score=branch_score head=branch_head show_reason=True %}
         </div>
       {% else %}
         <div class="space-y-1">
-          <p class="text-sm opacity-60">No score on {{ branch }} yet: a commit gets one when every standard has finished on it. Run the standards on its latest commit.</p>
-          {% include "partials/score_note.html" with score=None newer=newer_commit %}
+          <p class="text-sm opacity-60">No score on {{ branch }} yet: a commit gets one when every standard has a result on it (passed or failed). Run the standards on its latest commit.</p>
+          {% include "partials/score_note.html" with score=None head=branch_head %}
         </div>
       {% endif %}
     </div>
@@ -53,38 +54,15 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
                 <details class="group rounded-xl open:bg-base-200/50" {% if row.sha == open_sha %}open{% endif %}>
                   <summary class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-base-200 list-none">
                     {% include "partials/project_history_commit_line.html" %}
-                    {% if row.scored %}
-                      <span class="w-10 text-right shrink-0"{% if row.failed_score %} title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% score row.score failed=row.failed_score %}</span>
-                    {% elif row.running %}
+                    {% if row.outcome == "checking" %}
                       <span class="text-xs opacity-60 shrink-0" data-commit-score="checking">checking…</span>
+                    {% elif row.scored %}
+                      <span class="w-10 text-right shrink-0"{% if row.failed_score %} title="{{ row.commit_score.reason|capfirst }}"{% endif %} data-commit-score>{% score row.score failed=row.failed_score %}</span>
                     {% else %}
-                      <span class="text-xs opacity-60 shrink-0" title="Not every standard finished on this commit, so it has no score" data-commit-score="incomplete">incomplete</span>
+                      <span class="w-10 flex justify-end shrink-0" data-commit-score="no_score">{% include "partials/no_grade.html" with subject=row.shown size="sm" %}</span>
                     {% endif %}
                   </summary>
-                  <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5">
-                    {% for group in row.result_groups %}
-                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="{{ group.key }}">{{ group.heading }} · {{ group.runs|length }}</h4>
-                      {% for ex in group.runs %}
-                        {% include "partials/project_history_result.html" with show_event=True %}
-                      {% endfor %}
-                    {% endfor %}
-                    {% if row.expected_but_never_ran %}
-                      <h4 class="px-3 pt-2 pb-0.5 text-xs font-semibold opacity-50" data-result-group="expected_but_never_ran">Did not run · {{ row.expected_but_never_ran|length }}</h4>
-                      {% for standard in row.expected_but_never_ran %}
-                        <div class="flex items-center gap-3 px-3 py-1.5 opacity-60" title="This commit's check expected it, but it never ran here">
-                          <span class="h-2 w-2 rounded-full bg-base-content/30 shrink-0"></span>
-                          <span class="flex-1 min-w-0 text-sm">{{ standard.name }}</span>
-                          <span class="text-xs">Expected, never ran</span>
-                        </div>
-                      {% endfor %}
-                    {% endif %}
-                    <div class="flex justify-end pt-2">
-                      <button type="button" class="btn btn-ghost btn-xs"
-                              hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "sha": "{{ row.sha }}", "committed_at": "{{ row.date|date:'c' }}", "page": "{{ page }}"}'
-                              hx-target="#project-history" hx-swap="outerHTML" data-no-loader
-                              title="Run the current standards on {{ row.short_sha }}">Run current standards on {{ row.short_sha }}</button>
-                    </div>
-                  </div>
+                  {% include "partials/commit_check_runs.html" %}
                 </details>
               {% else %}
                 <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">

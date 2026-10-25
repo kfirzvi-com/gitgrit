@@ -472,6 +472,7 @@ SPECTACULAR_SETTINGS = {
     # the same set: one schema enum for both.
     "ENUM_NAME_OVERRIDES": {
         "LevelEnum": "app.presentation.api.serializers.LEVEL_CHOICES",
+        "OutcomeEnum": "app.presentation.api.serializers.OUTCOME_CHOICES",
     },
 }
 

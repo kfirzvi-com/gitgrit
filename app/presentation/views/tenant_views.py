@@ -20,6 +20,7 @@ from app.application.workspace_service import (
     create_workspace,
     delete_workspace,
 )
+from app.domain.score_representation import ScoreDisplay
 from app.domain.workspace_roles import ROLE_LABELS, LastOwner, MembershipRuleError
 from app.domain.models import (
     APIToken,
@@ -296,6 +297,8 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             }
 
             context["is_admin"] = is_workspace_admin(self.request)
+            context["tenant"] = self.request.tenant
+            context["score_displays"] = list(ScoreDisplay)
             if context["is_admin"]:
                 context["workspace_tokens"] = APIToken.objects.filter(
                     kind=APIToken.Kind.WORKSPACE, tenant=tenant
@@ -706,6 +709,28 @@ def fetch_llm_models(request, provider_id):
         )
     title = f' title="{escape(found.reason)}"' if found.reason else ""
     return HttpResponse(f'<span class="badge badge-warning"{title}>none found</span>')
+
+
+@login_required
+@require_POST
+def set_score_display(request):
+    """Set how the workspace shows commit scores (``ScoreDisplay``): letters
+    or numbers. Admins only; answers in place with the setting and a toast."""
+    tenant, deny = _require_workspace_admin(request)
+    if deny:
+        return deny
+    choice = request.POST.get("score_display", "")
+    if choice not in set(ScoreDisplay):
+        response = render(request, "partials/score_display_setting.html", _score_display_context(tenant, True))
+        return toast(response, "Pick letters or numbers.", "error")
+    tenant.score_display = choice
+    tenant.save(update_fields=["score_display", "updated_at"])
+    response = render(request, "partials/score_display_setting.html", _score_display_context(tenant, True))
+    return toast(response, f"Scores now show as {ScoreDisplay(choice).label.split(' (')[0].lower()}.")
+
+
+def _score_display_context(tenant, is_admin) -> dict:
+    return {"tenant": tenant, "score_displays": list(ScoreDisplay), "is_admin": is_admin}
 
 
 @login_required

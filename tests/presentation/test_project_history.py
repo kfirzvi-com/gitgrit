@@ -108,10 +108,15 @@ class ProjectHistoryViewTests(TestCase):
         response = self._get()
         content = response.content.decode()
 
-        # The branch keeps the older commit's score and says the newer one is incomplete.
-        self.assertEqual(response.context["branch_score"].commit_sha, "b" * 40)
-        self.assertIn('data-newer-commit="incomplete"', content)
-        self.assertIn('data-commit-score="incomplete"', content)
+        # The branch reads its newest commit, which has no score: it says
+        # why and offers to run that commit again.
+        self.assertEqual(response.context["branch_head"].sha, "a" * 40)
+        self.assertIsNone(response.context["branch_score"])
+        self.assertIn("data-no-score-alert", content)
+        self.assertIn(f"The newest commit, aaaaaaa, has no score: {self.standard.name} not run.", content)
+        self.assertIn("data-no-score-run", content)
+        self.assertIn('"sha": "' + "a" * 40 + '"', content)
+        self.assertIn('data-commit-score="no_score"', content)
 
     def test_another_branch_shows_its_own_results_and_does_not_count(self):
         self._check("c" * 40, branch="feature/x", status=Status.PASSED, score=100, ref="refs/heads/feature/x")

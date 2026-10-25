@@ -32,7 +32,7 @@
             </div>
             {# A fixed-width column, centred, so the letters line up across cards. #}
             <div class="-mr-3 w-14 shrink-0 flex flex-col items-center text-center" data-project-score>
-              {% score project.commit_score.value failed=project.commit_score.failed size="card" %}
+              {% if project.head.outcome == "checking" or project.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=project.head size="card" %}{% else %}{% score project.commit_score.value failed=project.commit_score.failed size="card" %}{% endif %}
               {% if project.commit_score.failed %}
                 <span class="gg-required-failed mt-1.5 text-xs leading-tight" data-project-failed><span class="w-min text-center">Project failed!</span></span>
               {% endif %}

@@ -61,25 +61,38 @@ class ProjectTabsTests(TestCase):
     def test_overview_shows_the_score_without_a_percent_and_its_breakdown(self):
         self._result(Status.PASSED, 100)
         self._result(Status.FAILED, 0)
-        self._result(Status.ERROR, 0)
         score_commit(self.project, "a" * 40)
 
         response = self._page()
 
-        # The error is left out of the average: (100 + 0) / 2.
+        # (100 + 0) / 2.
         self.assertEqual(response.context["compliance_score"], 50)
         self.assertEqual(
             response.context["health_breakdown"],
-            {"required_failed": 0, "passed": 1, "failed": 1, "errored": 1, "failures": 1, "total": 3},
+            {"required_failed": 0, "passed": 1, "failed": 1, "errored": 0, "failures": 1, "total": 2},
         )
         body = response.content.decode()
         self.assertIn('data-score-value>D<', body)
         self.assertIn("No Required failures", body)
-        self.assertIn("Based on 3 standards", body)
+        self.assertIn("Based on 2 standards", body)
         self.assertNotIn(">50%", body)
         self.assertIn("See results by commit", body)
         self.assertIn('data-grade-scale', body)
         self.assertIn("data-health-breakdown", body)
+
+    def test_an_errored_standard_leaves_the_overview_without_a_score_and_says_why(self):
+        self._result(Status.PASSED, 100)
+        errored = self._result(Status.ERROR, 0)
+        score_commit(self.project, "a" * 40)
+
+        response = self._page()
+
+        self.assertFalse(response.context["project_has_score"])
+        body = response.content.decode()
+        self.assertIn("gg-tone-card-unknown", body)
+        self.assertIn("data-no-score-alert", body)
+        self.assertIn(f"The newest commit, aaaaaaa, has no score: {errored.standard_name} errored.", body)
+        self.assertIn('data-open-tab="results">See results', body)
 
     def test_results_and_standards_load_when_first_opened(self):
         body = self._page().content.decode()
@@ -126,7 +139,7 @@ class OverviewRequiredFailuresTests(TestCase):
         check = baker.make("app.CommitCheck", project=self.project, branch="main", commit_sha="a" * 40)
         for name, status, importance in (
             ("No secrets", Status.FAILED, "required"),
-            ("License", Status.ERROR, "required"),
+            ("License", Status.FAILED, "required"),
             ("README", Status.FAILED, "major"),
             ("Linter", Status.PASSED, "minor"),
         ):
@@ -149,8 +162,8 @@ class OverviewRequiredFailuresTests(TestCase):
         self.assertIn('data-required-failed="2"', body)
         self.assertIn("2 Required standards failed", body)
         self.assertIn('data-score-value>F<', body)
-        self.assertIn("gg-tone-card-severe", body)
-        self.assertIn('gg-chip gg-chip-current gg-tone-bg-severe" aria-current="true">F<', body)
+        self.assertIn("gg-tone-card-failed", body)
+        self.assertIn('gg-chip gg-chip-current gg-tone-bg-failed" aria-current="true" title="Failed: a Required standard failed">F<', body)
         self.assertNotIn("data-score-reason", body)
 
     def test_the_overview_and_results_tabs_show_the_same_bar_and_legend(self):
@@ -164,7 +177,7 @@ class OverviewRequiredFailuresTests(TestCase):
                 self.assertRegex(body, r'data-legend="required_failed">\s*<span class="gg-importance-icon')
                 self.assertIn("<b>2</b> Required failed", body)
                 self.assertIn('<b>1</b> <span class="opacity-70">other failed', body)
-                self.assertIn('<b>0</b> <span class="opacity-70">could not run', body)
+                self.assertIn('<b>0</b> <span class="opacity-70">errored', body)
 
     def test_the_results_tab_shows_each_standard_as_a_number_and_the_commit_as_a_letter(self):
         body = self.client.get(reverse("project_history", args=[self.project.pk]), HTTP_HX_REQUEST="true").content.decode()

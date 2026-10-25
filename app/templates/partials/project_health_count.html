@@ -1,0 +1,15 @@
+{% comment %}One count of partials/project_health_counts.html: its dot, number and words; with
+`linked`, a hover / focus list of its projects (`rows`: (project, score) pairs), each linking to
+its page with its grade.{% endcomment %}{% load score_tags %}{% if linked and rows %}<span class="dropdown dropdown-hover dropdown-bottom" data-count="{{ key }}">
+  <span tabindex="0" role="button" class="inline-flex items-center gap-1.5 cursor-pointer" aria-haspopup="true" title="Show these projects">
+    <span class="h-2 w-2 rounded-full gg-tone-bg-{{ tone }}"></span><b>{{ number }}</b> {{ label }}
+  </span>
+  <ul tabindex="0" class="dropdown-content menu menu-sm z-50 w-72 max-h-80 overflow-y-auto flex-nowrap rounded-box border border-base-content/10 bg-base-100 p-1 shadow-lg" data-count-projects="{{ key }}">
+    {% for project, score in rows %}
+      <li><a href="{% url 'project_detail' project.pk %}" class="flex items-center justify-between gap-3">
+        <span class="truncate">{{ project.name }}</span>
+        <span class="shrink-0">{% if score.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=score size="sm" %}{% else %}{% score score.value failed=score.failed size="sm" %}{% endif %}</span>
+      </a></li>
+    {% endfor %}
+  </ul>
+</span>{% else %}<span class="inline-flex items-center gap-1.5" data-count="{{ key }}"><span class="h-2 w-2 rounded-full gg-tone-bg-{{ tone }}"></span><b>{{ number }}</b> {{ label }}</span>{% endif %}

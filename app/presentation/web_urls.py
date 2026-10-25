@@ -41,6 +41,7 @@ from app.presentation.views.project_views import (
     add_project_search,
     add_project_select,
     delete_project,
+    project_commit_check,
     project_history,
     run_on_branch,
     project_standards,
@@ -76,6 +77,7 @@ from app.presentation.views.tenant_views import (
     reveal_connection_token,
     revoke_invitation,
     set_llm_role,
+    set_score_display,
     switch_tenant,
     test_connection,
     test_llm_provider,
@@ -261,6 +263,7 @@ urlpatterns = [
         name="fetch_llm_models",
     ),
     path("tenants/llm/roles/<str:role_name>/set/", set_llm_role, name="set_llm_role"),
+    path("tenants/scores/display/", set_score_display, name="set_score_display"),
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/add/", add_project_select, name="add_project_select"),
@@ -286,6 +289,11 @@ urlpatterns = [
         "projects/<uuid:pk>/history/",
         project_history,
         name="project_history",
+    ),
+    path(
+        "projects/<uuid:pk>/history/checks/<uuid:check_id>/",
+        project_commit_check,
+        name="project_commit_check",
     ),
     path(
         "projects/<uuid:pk>/history/run/",

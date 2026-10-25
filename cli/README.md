@@ -24,7 +24,7 @@ gitgrit workspace use "Acme"            # if you're in several
 cd ~/src/acme/api                       # project commands default to this repo
 gitgrit health                          # project health; --branch for a branch's
 gitgrit commits --branch feature/x      # commits with their checks
-gitgrit check --wait                    # check the branch's latest commit; exit 1 on failures
+gitgrit check --wait                    # check the branch's latest commit; exit 1 if it fails
 gitgrit standard list
 gitgrit api workspaces/{workspace}/projects/   # anything else in /api/v1
 ```
@@ -56,7 +56,7 @@ Create a workspace token (workspace settings → API Tokens) and:
     GITGRIT_TOKEN: ${{ secrets.GITGRIT_TOKEN }}
 ```
 
-`--fail-under 80` fails on the score instead of on any failing standard.
+By default the build fails only when the commit fails (every standard ran and a Required one failed); it exits 2 when the commit has no score (a standard errored or never ran). `--fail-under 90` also fails it below an A.
 
 ## Develop
 

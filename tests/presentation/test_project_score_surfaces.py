@@ -6,7 +6,7 @@ from model_bakery import baker
 
 from app.domain.models import StandardExecution
 from app.presentation.score_tones import ScoreToneStyle
-from app.presentation.architecture import latest_scores_by_project, stack_graph
+from app.presentation.architecture import stack_graph
 from tests.support import score_commit
 
 Status = StandardExecution.Status
@@ -30,18 +30,18 @@ class ProjectScoreSurfacesTests(TestCase):
         svg = self.client.get(reverse("project_badge", args=[self.project.pk])).content.decode()
 
         assert "GitGrit compliance: F" in svg
-        assert ScoreToneStyle.for_tone("severe").color in svg
+        assert ScoreToneStyle.for_tone("failed").color in svg
 
     def test_a_component_shows_the_project_score_and_why(self):
         stack = baker.make("app.Stack", tenant=self.tenant)
         component = self.project.root_component
         component.stacks.add(stack)
 
-        graph = stack_graph(stack, latest_scores_by_project(self.tenant))
+        graph = stack_graph(stack)
         node = next(n for n in graph["components"] if n["id"] == str(component.id))
 
         assert (node["score"], node["score_text"], node["health"], node["issues"]) == (
-            0, "F", "severe", ["No secrets failing"]
+            None, "F", "failed", ["No secrets failing"]
         )
 
     def test_a_project_card_glows_in_its_letter_and_says_when_the_project_failed(self):
@@ -54,6 +54,22 @@ class ProjectScoreSurfacesTests(TestCase):
 
         body = self.client.get(reverse("project_list")).content.decode()
 
-        assert 'gg-tone-card gg-tone-card-severe" data-project-card="severe"' in body
+        assert 'gg-tone-card gg-tone-card-failed" data-project-card="failed"' in body
         assert ">F</span>" in body
         assert "Project failed!" in body
+
+    def test_a_stack_card_counts_its_projects_and_has_no_grade_of_its_own(self):
+        user = baker.make("app.User")
+        baker.make("app.Membership", user=user, tenant=self.tenant, role="owner")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(self.tenant.id)
+        session.save()
+        stack = baker.make("app.Stack", tenant=self.tenant, name="Orders")
+        self.project.root_component.stacks.add(stack)
+
+        body = self.client.get(reverse("stack_list")).content.decode()
+
+        assert 'data-stack-card>' in body
+        assert 'data-count="failed"' in body and "<b>1</b> failed" in body
+        assert "gg-tone-card" not in body.split("data-stack-card")[1].split("</a>")[0]

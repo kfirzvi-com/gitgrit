@@ -184,8 +184,10 @@ class BranchHistoryTests(TestCase):
         checked, unchecked = rows
         self.assertEqual((checked.short_sha, checked.title, checked.author), ("1111111", "Do a thing", "Dana"))
         self.assertEqual((checked.passed, checked.failed, checked.errored), (1, 0, 1))
-        # The commit's saved score: A's newest result; B's error is left out.
-        self.assertEqual(checked.score, 100)
+        # A's newest result passed, but B errored: the commit has no score.
+        self.assertIsNone(checked.score)
+        self.assertEqual((checked.outcome, checked.commit_score.reason), ("no_score", "B errored"))
+        self.assertFalse(checked.scored)
         self.assertFalse(unchecked.checked)
         self.assertFalse(has_more)
 
@@ -208,12 +210,16 @@ class BranchHistoryTests(TestCase):
 
 
 class CommitRowTests(SimpleTestCase):
-    def test_a_running_result_does_not_move_the_saved_score(self):
-        row = CommitRow(sha="f" * 40, results=[
-            mock.Mock(status=Status.PASSED, score=100),
-            mock.Mock(status=Status.RUNNING, score=0),
-        ], commit_score=mock.Mock(value=100, failed=False))
-        self.assertEqual((row.running, row.score), (1, 100))
+    def test_a_commit_reads_its_newest_run(self):
+        older = mock.Mock(latest_runs=[mock.Mock(status=Status.FAILED)], score=mock.Mock(value=0, failed=False), outcome="scored")
+        newest = mock.Mock(
+            latest_runs=[mock.Mock(status=Status.PASSED), mock.Mock(status=Status.RUNNING)],
+            score=None, outcome="checking",
+        )
+        row = CommitRow(sha="f" * 40, checks=[older, newest])
+
+        self.assertIs(row.shown, newest)
+        self.assertEqual((row.running, row.passed, row.failed, row.score, row.outcome), (1, 1, 0, None, "checking"))
 
     def test_an_unchecked_commit(self):
         row = CommitRow(sha="f" * 40)

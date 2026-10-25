@@ -27,66 +27,58 @@ from django.db.models import Count, Max, Q
 from django.urls import reverse
 
 from app.application import scoring
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION, STANDARD_RESULT_REPRESENTATION
 from app.application.naming import canonical_key
-from app.application.standard_results import current_results
+from app.application.project_health_counts import ProjectHealthCounts
+from app.presentation.no_score_note import NoScoreNote
 from app.domain.models import (
     ComponentDependency,
     ExternalDependency,
     InfrastructureComponent,
     Project,
     Stack,
+    StandardExecution,
 )
-from app.domain.health import (
-    HEALTHY,
-    project_level,
-    stack_level,
-)
+from app.domain.health import project_level
 
 MAX_TECHNOLOGIES = 8
 
 
-def latest_scores_by_project(tenant):
-    """Map each attached project/standard pair to its current result (see
-    ``app.application.standard_results``).
-
-    Returns ``{project_id: {standard_id: {"name", "score"}}}``. The standard
-    name is kept so health tooltips can name the specific standards dragging a
-    project down.
-    """
-    latest = defaultdict(dict)
-    for ex in current_results(Project.objects.filter(tenant=tenant)):
-        latest[ex.project_id][ex.standard_id] = {"name": ex.standard_name, "score": ex.score}
-    return latest
+def _represented(commit_score, representation):
+    """A project's commit score as its workspace reads it ("B" or "82", "F",
+    "—"), with the colour it is painted in."""
+    if commit_score is None:
+        return representation.represent(None)
+    return representation.represent(commit_score.value, failed=commit_score.failed)
 
 
-def _project_score(project_id, latest):
-    results = latest.get(project_id, {})
-    if not results:
-        return None
-    return round(sum(r["score"] for r in results.values()) / len(results))
+def _project_issue(project, commit_score, representation):
+    """One line of a stack's hover: a project that needs attention, as
+    itself: its grade (and why it failed), why it has no score, or that it
+    has none yet."""
+    if NoScoreNote.text(commit_score):
+        return "{} — {}".format(project.name, NoScoreNote.text(commit_score))
+    if commit_score is None:
+        return "{} — no score yet".format(project.name)
+    represented = _represented(commit_score, representation).text
+    return "{} — {}{}".format(project.name, represented, ": " + commit_score.reason if commit_score.failed and commit_score.reason else "")
 
 
 def _component_issues(commit_score):
     """Why a project needs attention: the Required standard that failed it,
-    else its lowest standards that are not healthy."""
+    else its standards that failed or errored (their own status, not
+    their numbers), failures first."""
     if commit_score is None:
         return []
     if commit_score.failed:
         return [commit_score.reason]
-    low = sorted(
-        (e for e in commit_score.executions.all() if STANDARD_RESULT_REPRESENTATION.tone(e.score) is not HEALTHY),
-        key=lambda e: e.score,
+    if NoScoreNote.text(commit_score):
+        return [NoScoreNote.text(commit_score)]
+    status_text = {StandardExecution.Status.FAILED: "failed", StandardExecution.Status.ERROR: "errored"}
+    problems = sorted(
+        (e for e in commit_score.executions.all() if e.status in status_text),
+        key=lambda e: (e.status != StandardExecution.Status.FAILED, e.standard_name.lower()),
     )
-    return [
-        "{} — {}".format(e.standard_name, STANDARD_RESULT_REPRESENTATION.represent(e.score).text)
-        for e in low[:4]
-    ]
-
-
-def _score_text(value, failed: bool = False):
-    """A commit score as ``COMMIT_SCORE_REPRESENTATION`` shows it, for the diagrams."""
-    return COMMIT_SCORE_REPRESENTATION.represent(value, failed=failed).text
+    return ["{} — {}".format(e.standard_name, status_text[e.status]) for e in problems[:4]]
 
 
 def _merge_tech(*lists):
@@ -139,8 +131,10 @@ def workspace_map_status(tenant):
     }
 
 
-def workspace_graph(tenant, latest):
+def workspace_graph(tenant):
     stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
+    project_scores = scoring.project_scores(Project.objects.filter(tenant=tenant))
+    representation = tenant.score_representation
 
     stack_nodes = []
     for stack in stacks:
@@ -148,24 +142,14 @@ def workspace_graph(tenant, latest):
         # Health is per repository: score each distinct project once, however
         # many of its components sit in this stack.
         projects = list({c.project_id: c.project for c in components}.values())
-        scores = [_project_score(p.id, latest) for p in projects]
-        known = [s for s in scores if s is not None]
-        score = round(sum(known) / len(known)) if known else None
+        # A stack is never one grade or colour: it shows how many of its
+        # projects are failed, need attention (no grade included) or are
+        # healthy.
+        counts = ProjectHealthCounts.of(projects, project_scores)
 
-        # Issues = the projects dragging the stack down (worst first), so the
-        # hover explains which project to look at.
-        offenders = sorted(
-            (
-                (p, s, project_level(s))
-                for p, s in zip(projects, scores)
-            ),
-            key=lambda t: (t[1] if t[1] is not None else 999),
-        )
-        issues = [
-            "{} — {} ({})".format(p.name, _score_text(s), lvl)
-            for p, s, lvl in offenders
-            if lvl.needs_attention
-        ]
+        # Issues = the projects that need attention, each with its own grade,
+        # so the hover says which project to look at.
+        issues = [_project_issue(p, s, representation) for p, s in counts.attention]
 
         stack_nodes.append(
             {
@@ -175,11 +159,7 @@ def workspace_graph(tenant, latest):
                 "component_count": len(components),
                 "project_count": len(projects),
                 "technologies": _technologies(components),
-                "score": score,
-                "score_text": _score_text(score),
-                # Worst-of across projects, so a single failing project lights
-                # up the whole stack even when the average looks healthy.
-                "health": stack_level([project_level(s) for s in scores]),
+                "project_health": counts.as_dict(),
                 "issues": issues,
                 # True while any member project's dependency analysis is queued
                 # or running — drives the "regenerating…" hint.
@@ -267,7 +247,7 @@ def workspace_graph(tenant, latest):
 # --- Per-stack graph --------------------------------------------------------
 
 
-def _component_node(component, latest, monorepo_projects, project_scores):
+def _component_node(component, monorepo_projects, project_scores, representation):
     """A component in the stack diagram, scored by its project's score
     (``app.application.scoring``). The stack's own score is computed apart."""
     project = component.project
@@ -288,9 +268,13 @@ def _component_node(component, latest, monorepo_projects, project_scores):
         "lifecycle": project.get_lifecycle_display(),
         "technologies": _component_technologies(component)[:MAX_TECHNOLOGIES],
         "score": score,
-        "score_text": _score_text(score, failed=failed),
+        "score_text": _represented(commit_score, representation).text,
+        "score_shade": _represented(commit_score, representation).shade,
         "health": project_level(score, failed=failed),
         "issues": _component_issues(commit_score),
+        # Why there is no grade (no score, a standard errored or never ran):
+        # the node shows a warning sign in its place, this on hover.
+        "no_score": NoScoreNote.text(commit_score),
         "analyzing": _analyzing(project),
         "url": reverse("project_detail", args=[project.id]),
     }
@@ -315,7 +299,7 @@ def _boundary_node(node_id, component):
     }
 
 
-def stack_graph(stack, latest):
+def stack_graph(stack):
     """Build the architecture graph for a single stack.
 
     Node kinds:
@@ -346,7 +330,7 @@ def stack_graph(stack, latest):
 
     project_scores = scoring.project_scores({c.project for c in internal})
     components = [
-        _component_node(c, latest, monorepo_projects, project_scores) for c in internal
+        _component_node(c, monorepo_projects, project_scores, tenant.score_representation) for c in internal
     ]
     consumers = {}
     consuming = {}

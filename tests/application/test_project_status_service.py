@@ -53,12 +53,14 @@ class TestGetProjectStatus(APITestCase):
         assert (result["total_standards"], result["passed"], result["failed"]) == (3, 3, 0)
         assert result["commit_sha"] == "a" * 40
 
-    def test_a_failing_required_standard_makes_it_zero_with_the_reason(self):
+    def test_a_failing_required_standard_fails_it_with_the_reason_and_no_score(self):
         self._commit((90, Status.FAILED), importance="required")
 
         result = self._status()
 
-        assert (result["overall_score"], result["score_failed"]) == (0, True)
+        assert (result["overall_score"], result["outcome"], result["score_failed"], result["grade"]) == (
+            None, "failed", True, "F"
+        )
         assert result["reason"].endswith("failing")
 
     def test_top_offenders_are_three_lowest_scoring(self):

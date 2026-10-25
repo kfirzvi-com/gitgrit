@@ -344,8 +344,8 @@ class TestNotificationPaneAndBell(TestCase):
 @pytest.mark.django_db
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class TestNeedsAttentionInPane(TestCase):
-    """The pane always shows the workspace's current failing results, the same
-    list the dashboard's Needs attention card shows."""
+    """The pane always shows the workspace's current Required failures and
+    errored runs, the same list the dashboard's Needs attention card shows."""
 
     def setUp(self):
         self.user = baker.make("app.User")
@@ -356,14 +356,14 @@ class TestNeedsAttentionInPane(TestCase):
         session["active_tenant_id"] = str(self.tenant.id)
         session.save()
 
-    def _result(self, name, score, tenant=None, status=StandardExecution.Status.FAILED):
+    def _result(self, name, score, tenant=None, status=StandardExecution.Status.FAILED, importance="required"):
         tenant = tenant or self.tenant
         project = baker.make("app.Project", tenant=tenant, name=f"{name}-project")
         standard = baker.make("app.Standard", tenant=tenant, name=name)
         project.standards.add(standard)
         return baker.make(
             "app.StandardExecution", project=project, standard=standard,
-            standard_name=name, score=score, status=status,
+            standard_name=name, score=score, status=status, importance=importance,
         )
 
     def test_lists_current_failing_results_worst_first(self):
@@ -379,6 +379,19 @@ class TestNeedsAttentionInPane(TestCase):
         self.assertIn("data-attention-section", content)
         self.assertIn("Critical standard-project", content)
         self.assertNotIn("Healthy standard", content)
+
+    def test_a_major_failure_is_left_out_and_an_error_reads_error(self):
+        self._result("Major standard", 10, importance="major")
+        self._result("Broken standard", 0, status=StandardExecution.Status.ERROR, importance="minor")
+
+        response = self.client.get(reverse("notification_panel"))
+
+        names = [i.standard_name for i in response.context["attention_items"]]
+        self.assertEqual(names, ["Broken standard"])
+        content = response.content.decode()
+        self.assertNotIn("Major standard", content)
+        self.assertIn('title="Errored: the commit has no score"', content)
+        self.assertIn('<span class="text-xs opacity-60">error</span>', content)
 
     def test_other_workspaces_results_are_not_shown(self):
         self._result("Elsewhere standard", 10, tenant=baker.make("app.Tenant"))

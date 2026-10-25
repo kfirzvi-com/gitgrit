@@ -11,7 +11,8 @@ from django.utils import timezone
 
 from app.domain import importance as importance_domain
 from app.domain.scoring import StandardRunResult, StandardRunStatus
-from app.domain.score_representation import COMMIT_SCORE_REPRESENTATION
+from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
+from app.domain.score_representation import ScoreDisplay
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -34,6 +35,12 @@ class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
+    # How the workspace shows commit scores: letters or numbers (ScoreDisplay).
+    score_display = models.CharField(
+        max_length=10,
+        choices=[(d.value, d.label) for d in ScoreDisplay],
+        default=ScoreDisplay.LETTERS.value,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -43,6 +50,11 @@ class Tenant(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def score_representation(self):
+        """How this workspace reads commit scores (``ScoreDisplay``)."""
+        return ScoreDisplay.of(self.score_display).representation
 
 
 class Membership(models.Model):
@@ -1280,31 +1292,41 @@ class StandardExecution(models.Model):
     def __str__(self):
         return f"{self.standard_name} — {self.status} ({self.project})"
 
-    @property
-    def fails_the_commit(self) -> bool:
-        """This run fails its commit: a Required standard that failed or
-        errored (``scoring.StandardRunResult.fails_the_commit``)."""
+    def _run_result(self) -> StandardRunResult:
         return StandardRunResult(
             standard_id=str(self.standard_id),
             standard_name=self.standard_name,
             status=StandardRunStatus(self.status),
             standard_score=self.score,
             importance=importance_domain.Importance(self.importance),
-        ).fails_the_commit
+        )
+
+    @property
+    def fails_the_commit(self) -> bool:
+        """This run fails its commit: a Required standard that failed, once
+        every other standard has a result
+        (``scoring.StandardRunResult.fails_the_commit``)."""
+        return self._run_result().fails_the_commit
+
+    @property
+    def needs_attention(self) -> bool:
+        """A Required standard that failed, or a run that errored
+        (``scoring.StandardRunResult.needs_attention``)."""
+        return self._run_result().needs_attention
 
 
 class CommitScore(models.Model):
-    """A commit's score, saved when one of its checks finishes and every
-    standard the check expected has a finished result on the commit
-    (``app.domain.scoring``). A commit keeps the last score it reached: a
-    newer check replaces it only when it completes too. The project's score
-    is the newest one on its default branch."""
+    """A commit's outcome, saved each time one of its checks has no run
+    going (``app.domain.scoring``): failed, scored, or no score (a standard
+    the check expected errored or never ran). A commit reads its newest. The
+    project's score is the newest verdict (failed or scored) on its default
+    branch."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="commit_scores"
     )
-    # The check whose finish completed the commit.
+    # The check that decided it.
     commit_check = models.ForeignKey(
         CommitCheck, on_delete=models.CASCADE, related_name="scores"
     )
@@ -1314,12 +1336,14 @@ class CommitScore(models.Model):
     # When the commit counts as made (``BranchCommitTimeline.commit_ordered_at``): a
     # branch shows the score with the newest one.
     ordered_at = models.DateTimeField()
-    # 0-100; None when no result could be averaged (every one errored).
+    # 0-100; None when a Required standard failed the commit, or when it has
+    # no score (a standard errored or never ran). See ``outcome``.
     value = models.IntegerField(null=True, blank=True)
-    # A Required standard failed or errored: the value is 0.
+    # Every standard ran and a Required one failed: a verdict, so no value.
     failed = models.BooleanField(default=False)
     reason = models.TextField(blank=True, default="")
-    # The results the score was computed from, one per expected standard.
+    # The results the score was decided from: each expected standard's
+    # newest finished run.
     executions = models.ManyToManyField(
         StandardExecution, related_name="commit_scores", blank=True
     )
@@ -1332,9 +1356,21 @@ class CommitScore(models.Model):
             models.Index(fields=["project", "branch", "commit_sha"], name="idx_commit_score_commit"),
             models.Index(fields=["project", "branch", "-ordered_at"], name="idx_commit_score_branch"),
         ]
+        constraints = [
+            # Failed is a verdict, not a number.
+            models.CheckConstraint(
+                condition=models.Q(failed=False) | models.Q(value__isnull=True),
+                name="commit_score_failed_has_no_value",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.branch}@{self.commit_sha[:7]}: {self.value}"
+        return f"{self.branch}@{self.commit_sha[:7]}: {self.outcome}"
+
+    @property
+    def outcome(self) -> CommitScoreOutcome:
+        """Failed, scored or no score (``scoring.CommitScoreOutcome``)."""
+        return CommitScoreOutcome.of(self.value, self.failed)
 
 
 class FeedbackReport(models.Model):
@@ -1592,22 +1628,20 @@ class Notification(models.Model):
         )
 
     @classmethod
-    def project_turned_critical(
-        cls, *, project, score_before, score_after, execution_ids=(), trigger=None,
-        triggered_by_user_ids=(),
+    def project_failed(
+        cls, *, project, reason, execution_ids=(), trigger=None, triggered_by_user_ids=(),
     ):
-        """A run dropped the project's overall score into critical."""
+        """A run failed the project: on its newest commit every standard has
+        a result and a Required one failed. ``reason`` says which ("No
+        secrets failing")."""
         context = _run_context(execution_ids, trigger, triggered_by_user_ids)
-        context["score"] = round(score_after)
+        context["grade"] = project.tenant.score_representation.represent(None, failed=True).text
         return cls._new(
             project=project,
             kind=Kind.PROJECT_CRITICAL,
             severity=Severity.CRITICAL,
-            title="Score dropped to critical",
-            body=(
-                f"From {COMMIT_SCORE_REPRESENTATION.represent(score_before).text}"
-                f" to {COMMIT_SCORE_REPRESENTATION.represent(score_after).text}."
-            ),
+            title="Project failed",
+            body=f"{reason[:1].upper()}{reason[1:]}." if reason else "A Required standard failed.",
             url=reverse("project_detail", args=[project.pk]) + "#compliance",
             context=context,
         )

@@ -48,7 +48,7 @@
   function ComponentNode(props) {
     var d = props.data;
     var techs = d.technologies || [];
-    var hp = GF.healthProps(d.health);
+    var hp = GF.healthProps(d.score_shade || d.health);
     return h(
       "div",
       { className: "gg-stack-node gg-clickable " + hp.className, style: hp.style },
@@ -67,10 +67,12 @@
         d.score != null
           ? h(
               "span",
-              { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.health) },
+              { className: "badge badge-sm", style: GF.scoreBadgeStyle(d.score_shade || d.health) },
               d.score_text
             )
-          : null
+          : d.no_score
+            ? h("span", { className: "badge badge-sm badge-warning", title: d.no_score, "aria-label": d.no_score }, "⚠")
+            : null
       ),
       d.path ? h("div", { className: "gg-stack-node__path" }, d.path) : null,
       h(
@@ -237,8 +239,8 @@
       { key: "health", className: "gg-legend__section" },
       h("div", { className: "gg-legend__title" }, "Health (per repository)"),
       healthRow("healthy"),
-      healthRow("warning"),
-      healthRow("critical"),
+      healthRow("needs_attention"),
+      healthRow("failed"),
       healthRow("unknown")
     ),
     h(

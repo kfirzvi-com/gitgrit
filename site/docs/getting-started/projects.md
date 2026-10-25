@@ -71,12 +71,18 @@ Each run remembers the importance its standard had when it ran, so changing impo
 
 ## The score
 
-Every checked commit gets a **score** from 0 to 100, once **every expected standard has finished on it**. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when its check started. Until then the commit has no score: it is *checking*, or *incomplete* if a standard never finished (for example, only one standard was run by hand).
+Each time the standards run on a commit (a push, a pull request, **Run**) is one **check** of it, and a commit reads its **newest check, alone**: a standard the newest check did not run is "not run", even if an earlier check ran it. A check reports nothing until **every expected standard has a result in it**: it passed or it failed. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when the check started. Each check, and so each commit, has one **outcome**, decided in this order:
 
-- A **Required** standard that fails, or could not be verified (its run errored, for any reason, GitGrit's own failures included), makes the score **0**. The project page says which.
-- Otherwise the score is the **average of the standards' scores, weighted by importance**: Required and Major count 2, Minor counts 1. A Major or Minor standard that errored is left out.
+1. **Checking**: a standard is still running on it.
+2. **No score**: an expected standard **errored** (its run produced no result, for any reason, GitGrit's own failures and a run stuck for over an hour included) or **never ran** in that check (for example, only one standard was run by hand). This holds for every importance, Required too, and even when a Required standard failed. The project page says which standard errored or was not run; run them all on the commit again.
+3. **Failed**: every standard ran and a **Required** standard failed. Failed is a verdict, not a number: the commit has no score, reads **F**, and the project page says which standard failed it.
+4. **Scored**: every standard ran and no Required standard failed. The score is the **average of the standards' scores, weighted by importance**: Required and Major count 2, Minor counts 1. Every standard can fail and the score still be a number, even 0: that is a low score, not a failed project.
 
-The **project's score** is the score of the newest commit on the default branch that has one. Checking an old commit again never replaces a newer commit's score. A commit keeps its score while it is checked again, and the new check replaces it only once every expected standard has finished; if a newer commit is still checking or incomplete, the project page says so under the score.
+Whether a standard **passed or failed** is the standard's own decision; its score is its partial credit. A standard can fail with a high score, and only its score counts toward the average.
+
+A **branch** reads its **newest commit**, whatever its outcome, and the **project's score** is its default branch's. Checking an old commit again never replaces a newer commit's. While the newest commit is being checked the project has no grade yet; when it has **no score**, neither does the project, and GitGrit says why wherever it shows the project: the Overview and Results tabs (which standard errored or was not run, and a button to run the commit again), the project's card, the dashboard's and stacks' counts (as needing attention, with the reason on hover), the map's hover, the API's `commit_score` and `gitgrit health`.
+
+On the **Results** tab, open a commit to see every check of it on a timeline: a circle per check with its score inside, newest on the left and selected, since the commit reads it. Hover a circle for when and how it ran; step through them with the arrows, or pick one, to see what that check found.
 
 Changing attachments or importance does not rescore anything: the next check does.
 
@@ -84,15 +90,22 @@ Changing attachments or importance does not rescore anything: the next check doe
 
 GitGrit shows a commit's score, and so a branch's and a project's, as a letter. The number underneath stays the same, and the API returns both. Each standard's own result on a commit stays a number from 0 to 100.
 
-| Letter | Score |
-|---|---|
-| **A+** | 100 |
-| **A** | 90 or more |
-| **B** | 75 or more |
-| **C** | 60 or more |
-| **D** | below 60 |
-| **F** | a Required standard failed or could not be verified |
+| Letter | Score | Health |
+|---|---|---|
+| **A+** | 100 | Healthy |
+| **A** | 90 or more | Healthy |
+| **B** | 75 or more | Needs attention |
+| **C** | 60 or more | Needs attention |
+| **D** | below 60 (in orange) | Needs attention |
+| **F** | every standard ran and a Required one failed | Failed |
+| **—** | no score: a standard errored or never ran | No data |
 
 An **F** always means the project failed; a low average is a D.
 
-In the API every commit score comes with a `display` object (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show that instead of formatting the number yourself, and your screens read like GitGrit's. `/status/`'s `grade` is the same as its `display.text`.
+### Health
+
+Everywhere GitGrit colours a project, a stack or a score, it means one of four things, from one rule: **healthy** (90 or more), **needs attention** (below 90), **failed** (a Required standard failed, in red; nothing else is red), and **no data**. A project has one health; many projects together never do: a stack and the dashboard show how many of their projects are failed, need attention or are healthy. There, a project with no grade (no score, no standards, never checked) needs attention: the list puts errors first, then the ones with no score at all, then the lowest grades.
+
+"Needs attention" on the dashboard and in the notifications pane lists only what stops a project from having a good score: **Required standards that failed** (each fails its project; listed first, in red), then **runs that errored**, of any importance (the commit has no score until they run). A Major or Minor standard that failed only lowers the score, so it is not listed.
+
+In the API a commit score is one object: `outcome` (`checking`, `no_score`, `failed` or `scored`: read it first), `value` (the score, only when scored; `null` otherwise), `reason` (why it failed, "X failing", or has no score, "X errored", "Y not run") and `display` (`text`, `tone`, `spoken`): how GitGrit itself shows it. Show `display` instead of formatting the number yourself, and your screens read like GitGrit's; `display.tone` is the health: `healthy`, `needs_attention`, `failed` or `unknown`. `/status/`'s `grade` is the same as its `display.text`.

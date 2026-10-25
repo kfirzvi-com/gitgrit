@@ -5,7 +5,8 @@ from app.domain.score_representation.number_score_representation import NumberSc
 from app.domain.score_representation.score_representation import ScoreRepresentation
 
 # A commit's score, and so a branch's and a project's (the newest scored
-# commit on it): "B".
+# commit on it), by default: "B". Each workspace picks letters or numbers
+# (``ScoreDisplay``); this is what a workspace without a preference sees.
 COMMIT_SCORE_REPRESENTATION: ScoreRepresentation = LetterScoreRepresentation()
 
 # One standard's result on a commit: "82".

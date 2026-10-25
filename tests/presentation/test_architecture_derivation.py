@@ -4,7 +4,6 @@ from model_bakery import baker
 from app.application.naming import canonical_key
 from app.domain.models import ExternalDependency
 from app.presentation.architecture import (
-    latest_scores_by_project,
     stack_graph,
     workspace_graph,
 )
@@ -41,7 +40,7 @@ class WorkspaceGraphTests(TestCase):
             "app.ComponentDependency", tenant=tenant, source=a, target=b, label="REST"
         )
 
-        graph = workspace_graph(tenant, latest_scores_by_project(tenant))
+        graph = workspace_graph(tenant)
         deps = graph["dependencies"]
 
         self.assertEqual(len(deps), 1)
@@ -59,7 +58,7 @@ class WorkspaceGraphTests(TestCase):
         b.stacks.add(stack)
         baker.make("app.ComponentDependency", tenant=tenant, source=a, target=b)
 
-        graph = workspace_graph(tenant, latest_scores_by_project(tenant))
+        graph = workspace_graph(tenant)
 
         # An intra-stack dep is not a stack→stack edge.
         self.assertEqual(graph["dependencies"], [])
@@ -78,7 +77,7 @@ class WorkspaceGraphTests(TestCase):
         auth.stacks.add(identity)
         baker.make("app.ComponentDependency", tenant=tenant, source=gateway, target=auth)
 
-        graph = workspace_graph(tenant, latest_scores_by_project(tenant))
+        graph = workspace_graph(tenant)
 
         self.assertEqual(
             [(d["source"], d["target"]) for d in graph["dependencies"]],
@@ -94,7 +93,7 @@ class WorkspaceGraphTests(TestCase):
         root.stacks.add(stack)
         other.stacks.add(stack)
 
-        graph = workspace_graph(tenant, latest_scores_by_project(tenant))
+        graph = workspace_graph(tenant)
         node = graph["stacks"][0]
 
         self.assertEqual(node["component_count"], 2)
@@ -124,7 +123,7 @@ class StackGraphTests(TestCase):
             direction=ExternalDependency.Direction.INBOUND,
         )
 
-        g = stack_graph(stack, latest_scores_by_project(tenant))
+        g = stack_graph(stack)
 
         self.assertEqual([n["name"] for n in g["thirdparties"]], ["Stripe"])
         self.assertEqual([n["name"] for n in g["external_consumers"]], ["Partner API"])
@@ -143,7 +142,7 @@ class StackGraphTests(TestCase):
         root.save()
         root.stacks.add(stack)
 
-        g = stack_graph(stack, latest_scores_by_project(tenant))
+        g = stack_graph(stack)
         techs = g["components"][0]["technologies"]
 
         self.assertEqual(techs, ["TypeScript", "Go", "Next.js", "Express"])
@@ -156,7 +155,7 @@ class StackGraphTests(TestCase):
         auth = _component(mono, "services/auth-service", technologies=["FastAPI"])
         auth.stacks.add(stack)
 
-        g = stack_graph(stack, latest_scores_by_project(tenant))
+        g = stack_graph(stack)
         node = g["components"][0]
 
         self.assertEqual(node["technologies"], ["FastAPI"])
@@ -176,7 +175,7 @@ class StackGraphTests(TestCase):
         auth.stacks.add(identity)
         baker.make("app.ComponentDependency", tenant=tenant, source=orders, target=auth, label="OAuth")
 
-        g = stack_graph(orders_stack, latest_scores_by_project(tenant))
+        g = stack_graph(orders_stack)
 
         self.assertEqual(len(g["consuming"]), 1)
         node = g["consuming"][0]
@@ -199,7 +198,7 @@ class StackGraphTests(TestCase):
             kind="database",
         )
 
-        g = stack_graph(stack, latest_scores_by_project(tenant))
+        g = stack_graph(stack)
 
         self.assertEqual([n["name"] for n in g["infrastructure"]], ["PostgreSQL"])
         infra_id = g["infrastructure"][0]["id"]

@@ -338,16 +338,17 @@ class ProjectHealthView(WorkspaceAPIView):
         tags=["health"],
         summary="Project or branch health",
         description=(
-            "Without `branch`: the project's health — its score, the newest commit "
-            "on the default branch that every expected standard finished on "
-            "(`commit_score`), and the results behind it. With `branch`: that "
-            "branch's. A Required standard that failed or could not be verified "
-            "makes the score 0; otherwise it is the average of the standards' "
-            "scores weighted by importance (Required and Major 2, Minor 1). "
-            "`newer_commit` is a newer commit with no score yet. "
-            "`level` is the score's band as the app shows it: healthy (A+, A), "
-            "warning (B), caution (C), critical (D), severe (F: a Required "
-            "standard failed), unknown (no score)."
+            "Without `branch`: the project's health — its default branch's newest "
+            "commit (`commit_score`), whatever its outcome, and the results of that "
+            "commit's newest run. With `branch`: that branch's. A commit reads its "
+            "newest run alone, and its `outcome` is decided in order: `checking` "
+            "while a standard is running; `no_score` when an expected standard "
+            "errored or never ran in that run (Required too); `failed` when every "
+            "standard ran and a Required one failed (no value, it reads F); "
+            "otherwise `scored`, the average of the standards' scores weighted by "
+            "importance (Required and Major 2, Minor 1). `score_display.tone` is "
+            "the health: healthy (A+, A), needs_attention (B to D), failed (F), "
+            "unknown (no score)."
         ),
         parameters=[_BRANCH],
         responses=s.ProjectHealthSerializer,
@@ -389,9 +390,9 @@ class ProjectCommitView(WorkspaceAPIView):
         summary="One commit's checks",
         description=(
             "From what GitGrit recorded; 404 when the commit was never checked. "
-            "Poll this after `run_project_check` until `running` is 0; "
-            "`commit_score.state` then says whether the commit is scored "
-            "(`complete`) or not every expected standard finished (`incomplete`)."
+            "Poll this after `run_project_check` until `commit_score.outcome` "
+            "is no longer `checking`: then it is `failed`, `scored`, or `no_score` "
+            "(`reason` says which standard errored or was not run)."
         ),
         responses=s.CommitSerializer,
     )

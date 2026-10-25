@@ -3,6 +3,7 @@ from unittest import TestCase
 
 from app.domain.events import DependencyInferenceFailed, StandardRunFinished
 from app.domain.notifications import notification_rules as rules
+from app.domain.score_representation import ScoreTone
 
 
 def _run(passed=0, failed=0, errored=0, error=""):
@@ -47,17 +48,18 @@ def _map_failure(error="boom", status=None, had_worked_before=True):
     )
 
 
-class TurnedCriticalTests(TestCase):
-    def test_crossing_into_a_failing_band_turns_critical(self):
-        self.assertTrue(rules.turned_critical(80, 40))
-        self.assertTrue(rules.turned_critical(60, 59))
+class BecameFailedTests(TestCase):
+    def test_failing_a_required_standard_fails_the_project(self):
+        for before in (ScoreTone.HEALTHY, ScoreTone.NEEDS_ATTENTION):
+            with self.subTest(before=before):
+                self.assertTrue(rules.became_failed(before, ScoreTone.FAILED))
 
-    def test_already_critical_or_no_score_did_not_drop(self):
-        self.assertFalse(rules.turned_critical(30, 10))
-        self.assertFalse(rules.turned_critical(None, 10))
+    def test_a_low_score_never_fails_the_project(self):
+        self.assertFalse(rules.became_failed(ScoreTone.HEALTHY, ScoreTone.NEEDS_ATTENTION))
 
-    def test_staying_above_critical_is_not_a_drop(self):
-        self.assertFalse(rules.turned_critical(90, 60))
+    def test_already_failed_or_no_score_did_not_change(self):
+        self.assertFalse(rules.became_failed(ScoreTone.FAILED, ScoreTone.FAILED))
+        self.assertFalse(rules.became_failed(ScoreTone.UNKNOWN, ScoreTone.FAILED))
 
 
 class AIProviderTests(TestCase):

@@ -1,29 +1,22 @@
 from __future__ import annotations
 
 from app.domain.score_representation.score_representation import ScoreRepresentation
-from app.domain.score_representation.score_tone import ScoreTone
 
 
 class NumberScoreRepresentation(ScoreRepresentation):
-    """A score as a whole number out of 100: "82". Healthy from 80, warning
-    from 50, critical below; a score a Required standard failed is severe."""
+    """A score as a whole number out of 100: "82", painted like its band's
+    letter (a score below 60 orange, like a D). A failed commit reads F, as
+    in every representation. Its scale is the bands as numbers: 100, 90–99,
+    75–89, 60–74, 0–59, F."""
 
-    HEALTHY_MIN = 80
-    WARNING_MIN = 50
+    def band_text(self, band) -> str:
+        return band.range_text
 
-    def text(self, value, *, failed: bool = False) -> str:
+    def band_spoken(self, band) -> str:
+        return f"Score {band.range_text} (grade {band.letter})"
+
+    def text_for(self, value) -> str:
         return str(round(value))
 
-    def tone(self, value, *, failed: bool = False) -> ScoreTone:
-        if value is None:
-            return ScoreTone.UNKNOWN
-        if failed:
-            return ScoreTone.SEVERE
-        if value >= self.HEALTHY_MIN:
-            return ScoreTone.HEALTHY
-        if value >= self.WARNING_MIN:
-            return ScoreTone.WARNING
-        return ScoreTone.CRITICAL
-
-    def spoken(self, value, *, failed: bool = False) -> str:
+    def spoken_for(self, value) -> str:
         return f"Score {round(value)} out of 100"

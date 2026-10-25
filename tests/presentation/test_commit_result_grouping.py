@@ -1,6 +1,6 @@
 """A commit's runs on the Results tab, worst first: running, then failed
-(Required first, failures before errors, lowest score first), then passed;
-each run grouped by the importance it ran with."""
+(Required first, lowest score first), then could not run (never "failed"),
+then passed; each run grouped by the importance it ran with."""
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase
@@ -29,8 +29,10 @@ class CommitResultGroupingTests(SimpleTestCase):
 
         assert [(g.key, [r.standard_name for r in g.runs]) for g in groups] == [
             ("running", ["Docs"]),
-            # Required, then Major (failures before errors, lowest score), then Minor.
-            ("failed", ["No secrets", "Changelog", "Linter", "License", "Typos"]),
+            # Errored before failed: no result means no score at all.
+            ("errored", ["License"]),
+            # Required, then Major (lowest score first), then Minor.
+            ("failed", ["No secrets", "Changelog", "Linter", "Typos"]),
             ("passed", ["Pinned", "Readme"]),
         ]
 

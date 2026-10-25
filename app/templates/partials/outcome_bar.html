@@ -1,20 +1,20 @@
 {% comment %}One bar of a score's results and its legend: the same on the Overview and the Results
 tab. Segments, worst first: Required failures (red, striped: each one fails the project), other
-failures (red), could not run (amber), passed (green). The legend names each one with its own
+failures (red), errored (amber), passed (green). The legend names each one with its own
 shape, so it reads without colour; Required failures lead with the Required stop sign. A zero stays
-quiet. Could-not-run opens the Notification Center, where each one is reported. Expects `counts`
+quiet. Errored opens the Notification Center, where each one is reported. Expects `counts`
 (standard_results.outcome_counts); `align="start"` left-aligns the legend (centred by default).{% endcomment %}
 {% if counts.total %}
   <div class="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full" role="img"
-       aria-label="{{ counts.required_failed }} Required failed, {{ counts.failed }} other{{ counts.failed|pluralize }} failed, {{ counts.errored }} could not run, {{ counts.passed }} passed">
+       aria-label="{{ counts.required_failed }} Required failed, {{ counts.failed }} other{{ counts.failed|pluralize }} failed, {{ counts.errored }} errored, {{ counts.passed }} passed">
     {% if counts.required_failed %}<span class="bg-error gg-segment-required" style="flex: {{ counts.required_failed }}" title="{{ counts.required_failed }} Required failed" data-segment="required_failed"></span>{% endif %}
     {% if counts.failed %}<span class="bg-error" style="flex: {{ counts.failed }}" title="{{ counts.failed }} failed" data-segment="failed"></span>{% endif %}
-    {% if counts.errored %}<span class="bg-warning" style="flex: {{ counts.errored }}" title="{{ counts.errored }} could not run" data-segment="errored"></span>{% endif %}
+    {% if counts.errored %}<span class="bg-warning" style="flex: {{ counts.errored }}" title="{{ counts.errored }} errored" data-segment="errored"></span>{% endif %}
     {% if counts.passed %}<span class="bg-success" style="flex: {{ counts.passed }}" title="{{ counts.passed }} passed" data-segment="passed"></span>{% endif %}
   </div>
 {% endif %}
 <div class="flex flex-wrap items-center {% if align == 'start' %}justify-start{% else %}justify-center{% endif %} gap-x-4 gap-y-1 text-sm" data-outcome-legend>
-  <span class="inline-flex items-center gap-1.5 text-error{% if not counts.required_failed %} gg-status-zero{% endif %}" title="Required standards that failed or could not run. Each one fails the project." data-legend="required_failed">
+  <span class="inline-flex items-center gap-1.5 text-error{% if not counts.required_failed %} gg-status-zero{% endif %}" title="Required standards that failed. Each one fails the project." data-legend="required_failed">
     {% include "partials/importance_icon.html" with value="required" %}
     <span><b>{{ counts.required_failed }}</b> Required failed</span>
   </span>
@@ -23,12 +23,12 @@ quiet. Could-not-run opens the Notification Center, where each one is reported. 
     <span><b>{{ counts.failed }}</b> <span class="opacity-70">{% if counts.required_failed %}other{{ counts.failed|pluralize }} {% endif %}failed</span></span>
   </span>
   {% if counts.errored %}
-    <a href="#notifications" class="link link-hover inline-flex items-center gap-1.5" title="Standards whose run errored: left out of the score. See why in the Notification Center." data-notification-open data-legend="errored">
+    <a href="#notifications" class="link link-hover inline-flex items-center gap-1.5" title="Standards whose run errored: no result, so no score. See why in the Notification Center." data-notification-open data-legend="errored">
   {% else %}
-    <span class="inline-flex items-center gap-1.5 gg-status-zero" title="Standards whose run errored: left out of the score" data-legend="errored">
+    <span class="inline-flex items-center gap-1.5 gg-status-zero" title="Standards whose run errored: no result, so no score" data-legend="errored">
   {% endif %}
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.49 2.86c.66-1.15 2.36-1.15 3.02 0l6.27 10.9c.66 1.15-.18 2.6-1.51 2.6H3.73c-1.33 0-2.17-1.45-1.51-2.6L8.5 2.86ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
-    <span><b>{{ counts.errored }}</b> <span class="opacity-70">could not run</span></span>
+    <span><b>{{ counts.errored }}</b> <span class="opacity-70">errored</span></span>
   {% if counts.errored %}</a>{% else %}</span>{% endif %}
   <span class="inline-flex items-center gap-1.5{% if not counts.passed %} gg-status-zero{% endif %}" title="Standards that passed" data-legend="passed">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.86-9.86a.75.75 0 0 0-1.22-.88l-3.24 4.48-1.6-1.6a.75.75 0 1 0-1.06 1.06l2.22 2.22a.75.75 0 0 0 1.14-.09l3.76-5.19Z" clip-rule="evenodd"/></svg>

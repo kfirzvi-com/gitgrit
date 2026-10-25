@@ -125,22 +125,24 @@ def running_executions(project=None):
 
 
 def score_commit(project, sha, branch=None):
-    """Score ``sha`` the way a finished check does: a check expecting every
-    standard with a result on the commit, scored by
-    ``app.application.scoring.score_check``. Returns the CommitScore."""
+    """Score ``sha`` the way a finished check does, as one run of every
+    standard with a result on it: its runs gather into its newest check,
+    which expects those standards, and ``app.application.scoring.score_check``
+    scores it (a commit reads its newest check alone). Returns the
+    CommitScore."""
     from app.application import scoring
     from app.domain.models import CommitCheck, StandardExecution
 
     branch = branch or project.default_branch
-    ids = sorted(
-        {
-            str(i)
-            for i in StandardExecution.objects.filter(
-                project=project, commit_check__commit_sha=sha, commit_check__branch=branch
-            ).values_list("standard_id", flat=True)
-        }
+    runs = StandardExecution.objects.filter(
+        project=project, commit_check__commit_sha=sha, commit_check__branch=branch
     )
-    check = CommitCheck.objects.create(
-        project=project, branch=branch, commit_sha=sha, event_type="push", expected_standard_ids=ids
-    )
+    check = (
+        CommitCheck.objects.filter(project=project, commit_sha=sha, branch=branch, executions__isnull=False)
+        .order_by("-created_at")
+        .first()
+    ) or CommitCheck.objects.create(project=project, branch=branch, commit_sha=sha, event_type="push")
+    runs.update(commit_check=check)
+    check.expected_standard_ids = sorted({str(i) for i in runs.values_list("standard_id", flat=True)})
+    check.save(update_fields=["expected_standard_ids"])
     return scoring.score_check(check)

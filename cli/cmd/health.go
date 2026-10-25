@@ -27,8 +27,31 @@ func printResults(w io.Writer, results []api.CheckResult) {
 	t.Flush()
 }
 
-func summary(score *int, level api.LevelEnum, passed, failed, errored int) string {
-	return fmt.Sprintf("Score %s · %s · %d passed, %d failed, %d errored", output.Score(score), level, passed, failed, errored)
+// summary leads with the grade as the app shows it ("B", "F"), so a failed
+// project reads F, never a number, then its health (display.tone).
+func summary(display api.ScoreDisplay, passed, failed, errored int) string {
+	return fmt.Sprintf("Grade %s · %s · %d passed, %d failed, %d errored", display.Text, display.Tone, passed, failed, errored)
+}
+
+// noScoreNote says why the branch shows no grade: its newest commit is
+// still being checked, or has no score (a standard errored or never ran in
+// its newest run); "" for a verdict. The same wording as the app.
+func noScoreNote(score *api.CommitScore) string {
+	if score == nil {
+		return ""
+	}
+	sha := output.Short(score.Commit.Sha)
+	switch score.Outcome {
+	case api.OutcomeEnumChecking:
+		return fmt.Sprintf("Checking commit %s: %d of %d standards done…", sha, score.Standards.Finished, score.Standards.Expected)
+	case api.OutcomeEnumNoScore:
+		reason := score.Reason
+		if reason == "" {
+			reason = "not every standard has a result"
+		}
+		return fmt.Sprintf("! No score on commit %s: %s.\n  Run its standards again: gitgrit check --sha %s", sha, reason, score.Commit.Sha)
+	}
+	return ""
 }
 
 func newHealthCmd() *cobra.Command {
@@ -62,7 +85,10 @@ show that branch's own health instead.`,
 				if h.Branch != nil {
 					scope = "branch " + *h.Branch
 				}
-				fmt.Fprintf(w, "%s · %s\n%s\n", h.Project.Name, scope, summary(h.Score, h.Level, h.Passed, h.Failed, h.Errored))
+				fmt.Fprintf(w, "%s · %s\n%s\n", h.Project.Name, scope, summary(h.ScoreDisplay, h.Passed, h.Failed, h.Errored))
+				if note := noScoreNote(h.CommitScore); note != "" {
+					fmt.Fprintln(w, note)
+				}
 				if h.Running {
 					fmt.Fprintln(w, "Checks are running…")
 				}
@@ -193,7 +219,7 @@ func printCommit(w io.Writer, c *api.Commit) {
 	if c.Title != "" {
 		header += " " + c.Title
 	}
-	fmt.Fprintf(w, "%s\n%s\n", header, summary(c.Score, c.Level, c.Passed, c.Failed, c.Errored))
+	fmt.Fprintf(w, "%s\n%s\n", header, summary(c.ScoreDisplay, c.Passed, c.Failed, c.Errored))
 	if c.Running > 0 {
 		fmt.Fprintf(w, "%d still running…\n", c.Running)
 	}

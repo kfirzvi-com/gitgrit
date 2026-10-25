@@ -13,7 +13,6 @@ from app.application.standard_results import (
     project_score,
 )
 from app.domain.score_representation import ScoreTone
-from app.domain.health import CRITICAL, WARNING
 from app.domain.models import StandardExecution
 
 Status = StandardExecution.Status
@@ -31,10 +30,10 @@ class AttentionItemsTests(TestCase):
             project.standards.add(standard)
         return standard
 
-    def _result(self, standard, score, status=Status.FAILED, project=None, ago=None):
+    def _result(self, standard, score, status=Status.FAILED, project=None, ago=None, importance="required"):
         execution = baker.make(
             "app.StandardExecution", project=project or self.project, standard=standard,
-            standard_name=standard.name, score=score, status=status,
+            standard_name=standard.name, score=score, status=status, importance=importance,
         )
         if ago is not None:
             StandardExecution.objects.filter(pk=execution.pk).update(
@@ -49,7 +48,7 @@ class AttentionItemsTests(TestCase):
         [item] = attention_items(self.tenant)
 
         self.assertIsInstance(item, AttentionItem)
-        self.assertEqual(item.level, CRITICAL)
+        self.assertEqual(item.level, ScoreTone.FAILED)
         self.assertEqual(item.project_id, self.project.pk)
         self.assertEqual(item.project_name, "Acme")
         self.assertEqual(item.standard_id, standard.pk)
@@ -57,23 +56,37 @@ class AttentionItemsTests(TestCase):
         self.assertEqual(item.execution_id, execution.pk)
         self.assertEqual(item.score, 20)
         self.assertEqual(item.status, "Failed")
+        self.assertFalse(item.errored)
 
-    def test_levels_follow_the_score_representation(self):
-        self._result(self._standard("D"), 59)
-        self._result(self._standard("C"), 60)
-        self._result(self._standard("B"), 80, status=Status.PASSED)
-        self._result(self._standard("A"), 95, status=Status.PASSED)
+    def test_only_required_failures_and_errored_runs_need_attention_whatever_their_score(self):
+        self._result(self._standard("Required failed high"), 95)
+        self._result(self._standard("Major failed"), 10, importance="major")
+        self._result(self._standard("Minor failed"), 0, importance="minor")
+        self._result(self._standard("Minor errored"), 0, status=Status.ERROR, importance="minor")
+        self._result(self._standard("Required errored"), 0, status=Status.ERROR)
+        self._result(self._standard("Required passed low"), 10, status=Status.PASSED)
 
-        levels = {i.standard_name: i.level for i in attention_items(self.tenant)}
+        names = {i.standard_name for i in attention_items(self.tenant)}
 
-        self.assertEqual(levels, {"D": CRITICAL, "C": ScoreTone.CAUTION, "B": WARNING})
+        self.assertEqual(names, {"Required failed high", "Minor errored", "Required errored"})
 
-    def test_a_failed_run_that_scored_well_is_a_warning(self):
-        self._result(self._standard("Flaky"), 90, status=Status.ERROR)
+    def test_a_required_failure_is_failed_and_comes_before_errored_runs(self):
+        self._result(self._standard("Errored"), 0, status=Status.ERROR, importance="major")
+        self._result(self._standard("Required"), 50, ago=timedelta(days=1))
+
+        items = attention_items(self.tenant)
+
+        self.assertEqual(
+            [(i.standard_name, i.level, i.errored) for i in items],
+            [("Required", ScoreTone.FAILED, False), ("Errored", ScoreTone.NEEDS_ATTENTION, True)],
+        )
+
+    def test_a_required_standard_that_errored_needs_attention_but_does_not_fail_the_project(self):
+        self._result(self._standard("Required"), 0, status=Status.ERROR)
 
         [item] = attention_items(self.tenant)
 
-        self.assertEqual(item.level, WARNING)
+        self.assertEqual((item.level, item.errored, item.status), (ScoreTone.NEEDS_ATTENTION, True, "Error"))
 
     def test_only_the_latest_result_per_standard_counts(self):
         standard = self._standard("Pinned CI")
@@ -99,14 +112,13 @@ class AttentionItemsTests(TestCase):
 
         self.assertEqual(names, ["Attached"])
 
-    def test_critical_first_then_newest(self):
-        self._result(self._standard("Old critical"), 10, ago=timedelta(days=2))
-        self._result(self._standard("New warning"), 60)
-        self._result(self._standard("New critical"), 10, ago=timedelta(hours=1))
+    def test_newest_first_within_a_level(self):
+        self._result(self._standard("Old"), 10, ago=timedelta(days=2))
+        self._result(self._standard("New"), 60)
 
         names = [i.standard_name for i in attention_items(self.tenant)]
 
-        self.assertEqual(names, ["New critical", "Old critical", "New warning"])
+        self.assertEqual(names, ["New", "Old"])
 
     def test_other_workspaces_are_not_included(self):
         other = baker.make("app.Project", tenant=baker.make("app.Tenant"))
@@ -130,10 +142,11 @@ class HomeBranchTests(TestCase):
         return standard
 
     def _run(self, standard, score, ref="", status=Status.FAILED, ago=None, event_type="push"):
+        # Required, so a failure needs attention.
         execution = baker.make(
             "app.StandardExecution", project=self.project, standard=standard,
             standard_name=standard.name, score=score, status=status, ref=ref,
-            event_type=event_type,
+            event_type=event_type, importance="required",
         )
         if ago is not None:
             StandardExecution.objects.filter(pk=execution.pk).update(created_at=timezone.now() - ago)
@@ -212,3 +225,33 @@ class HomeBranchTests(TestCase):
         self._run(a, 100, status=Status.PASSED)
         self._run(b, 51)
         self.assertEqual(project_score(current_results([self.project])), 76)
+
+
+class OutcomeCountsTests(TestCase):
+    """What the project page counts of a score's results: only a Required
+    standard that failed counts as a Required failure; every error, Required
+    too, counts as errored."""
+
+    def _run(self, status, importance):
+        return StandardExecution(status=status, importance=importance, score=0)
+
+    def test_required_failures_errors_and_the_rest_are_counted_apart(self):
+        from app.application.standard_results import outcome_counts
+
+        counts = outcome_counts(
+            [
+                self._run(Status.FAILED, "required"),
+                self._run(Status.ERROR, "required"),
+                self._run(Status.FAILED, "major"),
+                self._run(Status.ERROR, "minor"),
+                self._run(Status.PASSED, "required"),
+                self._run(Status.PASSED, "minor"),
+            ]
+        )
+
+        assert counts == {"required_failed": 1, "passed": 2, "failed": 1, "errored": 2, "failures": 2, "total": 6}
+
+    def test_nothing_counts_nothing(self):
+        from app.application.standard_results import outcome_counts
+
+        assert outcome_counts([]) == {"required_failed": 0, "passed": 0, "failed": 0, "errored": 0, "failures": 0, "total": 0}

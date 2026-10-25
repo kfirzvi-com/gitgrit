@@ -1,9 +1,6 @@
-"""Dashboard and badge scoring reads count only currently-attached standards.
-
-Attachment defines which standards apply to a project; detaching (or deleting)
-a standard must also remove its execution history from the project's score, so
-old runs stop dragging the numbers. (The attention list's version of this rule
-is tested in tests/application/test_standard_results.py.)
+"""Dashboard and badge reads: the dashboard counts projects by health, and
+the badge scores only the standards attached to the project. (The attention
+list's attachment rule is tested in tests/application/test_standard_results.py.)
 """
 import pytest
 from django.test import TestCase
@@ -12,7 +9,7 @@ from model_bakery import baker
 
 from app.application import scoring
 from app.domain.models import StandardExecution
-from app.presentation.architecture import latest_scores_by_project
+from app.application.project_health_counts import ProjectHealthCounts
 
 
 def _execution(project, standard, score, status=StandardExecution.Status.PASSED):
@@ -26,45 +23,50 @@ def _execution(project, standard, score, status=StandardExecution.Status.PASSED)
     )
 
 
-@pytest.mark.django_db
-class TestLatestScoresByProject(TestCase):
-    def test_only_attached_standards_count(self):
-        tenant = baker.make("app.Tenant")
+class TestProjectHealthCounts(TestCase):
+    """The dashboard counts projects by health, from each one's commit
+    score: failed only when a Required standard failed it; a project with no
+    grade needs attention (there is no "no data" count)."""
+
+    def _project_scored(self, tenant, value, failed=False):
         project = baker.make("app.Project", tenant=tenant)
-        attached = baker.make("app.Standard", tenant=tenant)
-        detached = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(attached)
-        _execution(project, attached, score=90)
-        _execution(project, detached, score=10)
+        check = baker.make("app.CommitCheck", project=project, branch=project.default_branch, commit_sha="a" * 40)
+        baker.make(
+            "app.CommitScore", project=project, commit_check=check, branch=project.default_branch,
+            commit_sha="a" * 40, value=value, failed=failed, ordered_at=check.created_at,
+        )
+        return project
 
-        latest = latest_scores_by_project(tenant)
-
-        assert set(latest[project.id]) == {attached.id}
-        assert latest[project.id][attached.id]["score"] == 90
-
-    def test_deleted_standard_executions_are_excluded(self):
+    def test_counts_projects_by_health(self):
         tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        standard = baker.make("app.Standard", tenant=tenant)
-        project.standards.add(standard)
-        _execution(project, standard, score=10)
-        standard.delete()
+        self._project_scored(tenant, None, failed=True)
+        self._project_scored(tenant, 0)
+        self._project_scored(tenant, 89)
+        self._project_scored(tenant, 90)
+        never_checked = baker.make("app.Project", tenant=tenant)
+        no_score = self._project_scored(tenant, None)
 
-        assert latest_scores_by_project(tenant) == {}
+        counts = ProjectHealthCounts.for_workspace(tenant)
+        assert counts.as_dict() == {"failed": 1, "needs_attention": 4, "healthy": 1}
+        # Each project that needs attention, as itself: failed first; then
+        # no score from an error, no score at all, and grades, lowest first.
+        attention = counts.attention
+        assert attention[0][1].failed
+        assert [p for p, _ in attention[1:3]] == [no_score, never_checked]
+        assert [s.value for _, s in attention[3:]] == [0, 89]
 
-    def test_attachment_is_per_project(self):
+    def test_a_stack_node_counts_its_projects_and_has_no_grade_of_its_own(self):
+        from app.presentation.architecture import workspace_graph
+
         tenant = baker.make("app.Tenant")
-        with_standard = baker.make("app.Project", tenant=tenant)
-        without_standard = baker.make("app.Project", tenant=tenant)
-        standard = baker.make("app.Standard", tenant=tenant)
-        with_standard.standards.add(standard)
-        _execution(with_standard, standard, score=80)
-        _execution(without_standard, standard, score=80)
+        stack = baker.make("app.Stack", tenant=tenant)
+        for project in (self._project_scored(tenant, None, failed=True), self._project_scored(tenant, 95)):
+            project.root_component.stacks.add(stack)
 
-        latest = latest_scores_by_project(tenant)
+        [node] = workspace_graph(tenant)["stacks"]
 
-        assert with_standard.id in latest
-        assert without_standard.id not in latest
+        assert node["project_health"] == {"failed": 1, "needs_attention": 0, "healthy": 1}
+        assert not {"health", "score", "score_text", "score_shade"} & set(node)
 
 
 @pytest.mark.django_db
@@ -104,3 +106,20 @@ class TestProjectBadge(TestCase):
         ).content.decode()
 
         assert "GitGrit compliance: —" in svg
+
+    def test_the_dashboard_counts_list_their_projects_with_links(self):
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role="owner")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(tenant.id)
+        session.save()
+        failed = TestProjectHealthCounts._project_scored(self, tenant, None, failed=True)
+        baker.make("app.Stack", tenant=tenant)
+
+        body = self.client.get(reverse("dashboard")).content.decode()
+
+        listed = body.split('data-count-projects="failed"')[1].split("</ul>")[0]
+        assert f'href="{reverse("project_detail", args=[failed.pk])}"' in listed
+        assert failed.name in listed and ">F</span>" in listed

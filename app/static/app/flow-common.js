@@ -43,15 +43,42 @@ window.GitGritFlow = (function () {
     };
   }
 
-  // A score badge in its node's health band: the server decides how a score
-  // reads (score_text) and which band it is in (health); the colour is the
-  // band's, so no threshold or colour lives here.
+  // A score badge in its grade's colour: the server decides how a score reads
+  // (score_text) and the colour it is painted in (score_shade: its health's,
+  // or orange for a D), so no threshold or colour lives here.
   function scoreBadgeStyle(level) {
     return {
       backgroundColor: HEALTH_COLOR[level] || HEALTH_COLOR.unknown,
       borderColor: "transparent",
       color: "#0c0e13",
     };
+  }
+
+  // Projects counted by health ({failed, needs_attention, healthy}; a project
+  // with no grade needs attention),
+  // for a stack: one dot and number per non-zero count, never a single
+  // grade or colour for many projects.
+  var HEALTH_COUNT_ORDER = [
+    ["failed", "failed", "failed"],
+    ["needs_attention", "needs_attention", "need attention"],
+    ["healthy", "healthy", "healthy"],
+  ];
+  function healthCounts(counts) {
+    var h = window.React.createElement;
+    if (!counts) return null;
+    var parts = HEALTH_COUNT_ORDER.filter(function (c) { return counts[c[0]] > 0; });
+    return h(
+      "div",
+      { className: "gg-stack-node__counts" },
+      parts.map(function (c) {
+        return h(
+          "span",
+          { key: c[0], className: "gg-stack-node__count", title: counts[c[0]] + " " + c[2] },
+          h("span", { className: "gg-stack-node__count-dot", style: { background: HEALTH_COLOR[c[1]] } }),
+          String(counts[c[0]])
+        );
+      })
+    );
   }
 
   // Edge colours by kind — shared by both diagrams.
@@ -265,7 +292,7 @@ window.GitGritFlow = (function () {
   // --- Health hover tooltip --------------------------------------------------
   // A single fixed-position element reused across nodes (so it isn't scaled by
   // the canvas zoom and isn't clipped by the flow container). Shown only for
-  // nodes that carry `issues` — i.e. needs-attention / critical.
+  // nodes that carry `issues` — i.e. needs attention / failed.
   function tooltipEl() {
     var el = document.getElementById("gg-flow-tooltip");
     if (!el) {
@@ -289,13 +316,16 @@ window.GitGritFlow = (function () {
 
     var head = document.createElement("div");
     head.className = "gg-flow-tooltip__head";
-    var dot = document.createElement("span");
-    dot.className = "gg-flow-tooltip__dot";
-    dot.style.background = HEALTH_COLOR[d.health] || HEALTH_COLOR.unknown;
+    // A node with its own health (a component) shows its dot; a stack, which
+    // has none, just its name above the projects that need attention.
+    if (d.health) {
+      var dot = document.createElement("span");
+      dot.className = "gg-flow-tooltip__dot";
+      dot.style.background = HEALTH_COLOR[d.score_shade] || HEALTH_COLOR[d.health] || HEALTH_COLOR.unknown;
+      head.appendChild(dot);
+    }
     var label = document.createElement("span");
-    label.textContent =
-      (d.name ? d.name + " — " : "") + (HEALTH_LABEL[d.health] || "");
-    head.appendChild(dot);
+    label.textContent = d.health ? (d.name ? d.name + " — " : "") + (HEALTH_LABEL[d.health] || "") : d.name || "";
     head.appendChild(label);
     el.appendChild(head);
 
@@ -350,6 +380,7 @@ window.GitGritFlow = (function () {
     HEALTH_COLOR: HEALTH_COLOR,
     HEALTH_LABEL: HEALTH_LABEL,
     healthProps: healthProps,
+    healthCounts: healthCounts,
     dagreLayout: dagreLayout,
     mount: mount,
     readData: readData,

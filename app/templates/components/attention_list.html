@@ -1,10 +1,19 @@
-{% comment %}"Needs attention": the workspace's current failing results, worst first
+{% comment %}"Needs attention": the workspace's current Required standards that failed (they fail their project, first),
+then runs that errored (their commit has no score)
 (app.application.standard_results.attention_items). Shared by the dashboard card and the
 notifications pane. Expects `attention_items` and `attention_total`; shows three and hides the
 rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score_tags %}
 <div data-attention>
-  <div class="flex items-baseline justify-between gap-2 mb-2">
-    <h3 class="text-sm font-semibold uppercase tracking-wide opacity-70">Needs attention</h3>
+  {# relative: the help tooltip spans this header's width, so a narrow column never clips it. #}
+  <div class="relative flex items-baseline justify-between gap-2 mb-2">
+    <h3 class="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide">
+      <span class="opacity-70">Needs attention</span>
+      {# A tooltip that shows at once on hover or focus (a title attribute waits). #}
+      <span class="group/help inline-flex cursor-help" tabindex="0" aria-describedby="attention-help" data-attention-help>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd"/></svg>
+        <span id="attention-help" role="tooltip" class="pointer-events-none invisible absolute inset-x-0 top-full z-50 mt-1 rounded-lg border border-base-content/10 bg-base-100 p-2.5 text-xs font-normal normal-case tracking-normal text-base-content shadow-xl group-hover/help:visible group-focus/help:visible">Only failed projects (a Required standard failed) and standard runs that errored (their commit has no score until they run). Other failures only lower a score.</span>
+      </span>
+    </h3>
     {% if attention_total > 3 %}
       <button type="button" class="text-xs link link-hover opacity-70" data-attention-toggle data-total="{{ attention_total }}">Show all {{ attention_total }}</button>
     {% endif %}
@@ -12,11 +21,11 @@ rest behind Show all (toggled by app/attention.js).{% endcomment %}{% load score
   {% for item in attention_items %}
     <a href="{% url 'standard_execution_detail' item.execution_id %}"
        class="flex items-start gap-3 -mx-2 px-2 py-2 rounded hover:bg-base-200{% if forloop.counter > 3 %} hidden{% endif %}"{% if forloop.counter > 3 %} data-attention-extra{% endif %}>
-      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ item.level }}" title="{{ item.level|title }}"></span>
+      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ item.level }}" title="{% if item.level == 'failed' %}Fails the project{% else %}Errored: the commit has no score{% endif %}"></span>
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline justify-between gap-2">
           <span class="font-semibold truncate" title="{{ item.standard_name }}">{{ item.standard_name }}</span>
-          <span class="shrink-0">{% standard_result_score item.score size="sm" %}</span>
+          <span class="shrink-0">{% if item.errored %}<span class="text-xs opacity-60">error</span>{% else %}{% standard_result_score item.score size="sm" toned=False %}{% endif %}</span>
         </div>
         <div class="text-xs opacity-70 truncate">{{ item.project_name }} &middot; {{ item.status }} &middot; {{ item.when|timesince }} ago</div>
       </div>

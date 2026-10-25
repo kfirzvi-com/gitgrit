@@ -10,7 +10,9 @@ from django.views.generic import CreateView, DetailView, ListView
 
 from app.application import stack_service
 from app.domain.models import Component, Stack
-from app.presentation.architecture import latest_scores_by_project, stack_graph
+from app.application import scoring
+from app.application.project_health_counts import ProjectHealthCounts
+from app.presentation.architecture import stack_graph
 
 
 class StackListView(LoginRequiredMixin, ListView):
@@ -24,7 +26,22 @@ class StackListView(LoginRequiredMixin, ListView):
         return (
             Stack.objects.filter(tenant=tenant)
             .annotate(component_count=Count("components"))
+            .prefetch_related("components__project")
         )
+
+    def get_context_data(self, **kwargs):
+        """Each stack with its projects counted by health
+        (``ProjectHealthCounts``): never one grade or colour for the stack."""
+        context = super().get_context_data(**kwargs)
+        stacks = list(context["stacks"])
+        projects_by_stack = {
+            stack.pk: list({c.project_id: c.project for c in stack.components.all()}.values()) for stack in stacks
+        }
+        project_scores = scoring.project_scores({p for ps in projects_by_stack.values() for p in ps})
+        for stack in stacks:
+            stack.project_health = ProjectHealthCounts.of(projects_by_stack[stack.pk], project_scores)
+        context["stacks"] = stacks
+        return context
 
 
 class CreateStackView(LoginRequiredMixin, CreateView):
@@ -64,8 +81,7 @@ class StackDetailView(LoginRequiredMixin, DetailView):
         context["stack_components"] = Component.objects.filter(
             tenant=stack.tenant, stacks=stack
         ).select_related("project", "project__platform_connection")
-        latest = latest_scores_by_project(stack.tenant)
-        context["architecture_data"] = json.dumps(stack_graph(stack, latest))
+        context["architecture_data"] = json.dumps(stack_graph(stack))
         return context
 
 

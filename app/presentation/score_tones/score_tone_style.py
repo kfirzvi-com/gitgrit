@@ -12,31 +12,35 @@ class ScoreToneStyle:
     ``{% score_tone_styles %}``), the diagrams (the same values as JSON) and
     the README badge (an external SVG, so hex) all read it."""
 
-    tone: ScoreTone
+    tone: str  # a ScoreTone, or a shade a representation paints apart ("low")
     color: str
+    label: str
 
-    # Michal's palette: A+/A mint, B yellow, C orange, D coral, F deep red.
+    # From Michal's palette: healthy (A+, A) mint, needs attention (B, C)
+    # yellow, failed (F) red, no data gray. Red means failed, nothing else.
     COLOR_BY_TONE = {
         ScoreTone.HEALTHY: "#00d390",
-        ScoreTone.WARNING: "#facc15",
-        ScoreTone.CAUTION: "#fb923c",
-        ScoreTone.CRITICAL: "#ff627d",
-        ScoreTone.SEVERE: "#ef4444",
+        ScoreTone.NEEDS_ATTENTION: "#facc15",
+        ScoreTone.FAILED: "#ef4444",
         ScoreTone.UNKNOWN: "#64748b",
     }
-
-    @property
-    def label(self) -> str:
-        return self.tone.label
+    # Shades that paint a tone apart, with the tone they still mean: a D is
+    # orange (``ScoreBands.LOW_SHADE``, the lowest band), and needs attention.
+    SHADES = {"low": ("#fb923c", ScoreTone.NEEDS_ATTENTION)}
 
     @classmethod
     def for_tone(cls, tone) -> "ScoreToneStyle":
+        """The style of a tone or a shade; unknown for anything else."""
+        if tone in cls.SHADES:
+            color, meaning = cls.SHADES[tone]
+            return cls(str(tone), color, meaning.label)
         tone = ScoreTone(tone) if tone in set(ScoreTone) else ScoreTone.UNKNOWN
-        return cls(tone, cls.COLOR_BY_TONE[tone])
+        return cls(str(tone), cls.COLOR_BY_TONE[tone], tone.label)
 
     @classmethod
     def every_tone(cls) -> list["ScoreToneStyle"]:
-        return [cls.for_tone(tone) for tone in ScoreTone]
+        """Every tone, then every shade."""
+        return [cls.for_tone(tone) for tone in ScoreTone] + [cls.for_tone(shade) for shade in cls.SHADES]
 
     @classmethod
     def as_css(cls) -> str:

@@ -11,15 +11,17 @@
 {% if stacks %}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for stack in stacks %}
-      <a href="{% url 'stack_detail' stack.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+      {# A stack is never one grade or colour: it shows its projects counted by health (ProjectHealthCounts). #}
+      <a href="{% url 'stack_detail' stack.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow" data-stack-card>
         <div class="card-body">
-          <h2 class="card-title text-lg">{{ stack.name }}</h2>
-          {% if stack.description %}
-            <p class="text-sm opacity-70 line-clamp-2">{{ stack.description }}</p>
-          {% endif %}
-          <div class="mt-2">
+          <h2 class="card-title text-lg min-w-0 break-words">{{ stack.name }}</h2>
+          <div class="flex flex-wrap gap-2 mt-1">
             <span class="badge badge-outline badge-sm">{{ stack.component_count }} component{{ stack.component_count|pluralize }}</span>
           </div>
+          <div class="text-sm mt-2">{% include "partials/project_health_counts.html" with counts=stack.project_health %}</div>
+          {% if stack.description %}
+            <p class="text-sm opacity-60 mt-1 line-clamp-2">{{ stack.description }}</p>
+          {% endif %}
         </div>
       </a>
     {% endfor %}

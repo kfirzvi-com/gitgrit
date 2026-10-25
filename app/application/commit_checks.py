@@ -16,15 +16,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from django.core.cache import caches
 from django.utils.dateparse import parse_datetime
 
 from app.application.standard_engine import StandardEngine
-from app.application.scoring import commit_scores
-from app.domain.scoring import ExpectedStandards
+from app.application.scoring import commit_branch, commit_history
+from app.domain.scoring import CommitScoreOutcome
 from app.application.standard_results import current_results
 from app.domain.models import CommitCheck, Standard, StandardExecution
 
@@ -148,22 +148,69 @@ def run_on_branch(project, branch: str, *, sha: str = "", committed_at=None, use
 
 @dataclass
 class CommitRow:
-    """One commit on a branch, with the latest result of each standard GitGrit
-    ran on it (empty when it was never checked)."""
+    """One commit on a branch: every run of the standards on it (``checks``,
+    oldest first: the Results tab's timeline) and the one it reads, its
+    newest (``shown``), with that run's result of each standard (empty when
+    it was never checked)."""
 
     sha: str
     message: str = ""
     author: str = ""
     date: datetime | None = None
     url: str = ""
-    results: list = field(default_factory=list)
-    # The standards this commit's newest check expected that never ran on it
-    # (ExpectedStandards.without_any_run): what an incomplete commit is
-    # missing. Standards attached since the check are not part of the commit.
-    expected_but_never_ran: list = field(default_factory=list)
-    # The commit's score (``app.application.scoring``): None until a check
-    # completes it.
-    commit_score: object = None
+    # The branch its runs are read on.
+    branch: str = ""
+    # The runs of the standards on it (``scoring.CheckRunRecord``), oldest first.
+    checks: list = field(default_factory=list)
+    # The run the Results tab's timeline shows (a check id); its newest when
+    # None.
+    selected_id: object = None
+
+    @property
+    def shown(self):
+        """The run the commit reads: its newest."""
+        return self.checks[-1] if self.checks else None
+
+    @property
+    def selected_index(self) -> int:
+        """Where the timeline's selected run is among ``checks`` (0-based)."""
+        for i, run in enumerate(self.checks):
+            if run.check.pk == self.selected_id:
+                return i
+        return len(self.checks) - 1
+
+    @property
+    def selected(self):
+        """The run the timeline shows: ``selected_id``'s, else the newest."""
+        return self.checks[self.selected_index] if self.checks else None
+
+    @property
+    def previous_check(self):
+        """The run before the selected one, if any."""
+        i = self.selected_index
+        return self.checks[i - 1] if self.checks and i > 0 else None
+
+    @property
+    def next_check(self):
+        """The run after the selected one, if any."""
+        i = self.selected_index
+        return self.checks[i + 1] if self.checks and i + 1 < len(self.checks) else None
+
+    @property
+    def results(self) -> list:
+        """The newest run's result of each standard it expected."""
+        return self.shown.latest_runs if self.shown else []
+
+    @property
+    def expected_but_never_ran(self) -> list:
+        """The standards the newest run expected that never ran in it
+        (``CheckRunRecord.never_ran``): why the commit may have no score."""
+        return list(self.shown.never_ran) if self.shown else []
+
+    @property
+    def commit_score(self):
+        """The score the newest run saved (None while it runs)."""
+        return self.shown.score if self.shown else None
 
     @property
     def short_sha(self) -> str:
@@ -175,7 +222,7 @@ class CommitRow:
 
     @property
     def checked(self) -> bool:
-        return bool(self.results)
+        return bool(self.checks)
 
     def _count(self, status) -> int:
         return sum(1 for r in self.results if r.status == status)
@@ -201,8 +248,14 @@ class CommitRow:
         return self.commit_score.value if self.commit_score else None
 
     @property
+    def outcome(self) -> CommitScoreOutcome | None:
+        """The commit's one outcome: its newest run's."""
+        return self.shown.outcome if self.shown else None
+
+    @property
     def scored(self) -> bool:
-        return self.commit_score is not None
+        """It has a verdict to show: an F or a number."""
+        return self.outcome is not None and self.outcome.is_verdict
 
     @property
     def failed_score(self) -> bool:
@@ -253,8 +306,7 @@ def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow]
     except Exception:
         logger.warning("Could not list commits of %s on %s", branch, project.name, exc_info=True)
         rows, has_more = _checked_commits(project, branch, page)
-    _attach_results(project, rows)
-    _attach_scores(project, rows, branch)
+    _attach_checks(project, rows, branch)
     return rows, has_more
 
 
@@ -264,11 +316,22 @@ def branch_status(project, branch: str) -> list:
 
 
 def commit_results(project, sha: str) -> CommitRow:
-    """One commit's checks from what GitGrit recorded (no platform call): the
-    latest result of each standard run on it, still RUNNING ones included."""
-    row = CommitRow(sha=sha)
-    _attach_results(project, [row])
-    _attach_scores(project, [row])
+    """One commit's runs from what GitGrit recorded (no platform call), on
+    the branch it is read on (``scoring.commit_branch``, ``row.branch``)."""
+    row = CommitRow(sha=sha, branch=commit_branch(project, sha, None))
+    _attach_checks(project, [row], row.branch)
+    return row
+
+
+def commit_runs(project, check_id) -> CommitRow | None:
+    """The commit of one of the project's checks, with every run on it on
+    that check's branch, that check selected (the Results tab's timeline).
+    None when the check is not the project's."""
+    check = CommitCheck.objects.filter(project=project, pk=check_id).exclude(commit_sha="").first()
+    if check is None:
+        return None
+    row = CommitRow(sha=check.commit_sha, branch=check.branch, selected_id=check.pk)
+    _attach_checks(project, [row], check.branch)
     return row
 
 
@@ -294,56 +357,25 @@ def _checked_commits(project, branch, page):
     return [CommitRow(sha=sha) for sha in window], len(shas) > start + COMMITS_PER_PAGE
 
 
-def _attach_scores(project, rows, branch: str | None = None) -> None:
-    """Give each commit its latest score (on ``branch`` when given)."""
-    scores = commit_scores(project, [row.sha for row in rows], branch=branch)
-    for row in rows:
-        row.commit_score = scores.get(row.sha)
-
-
-def _attach_results(project, rows) -> None:
-    """Give each commit the latest result per standard across its checks,
-    for the standards its newest check expects
-    (``ExpectedStandards.lists_runs_of``): a standard detached since and
-    checked again without it drops off the commit. Each result says whether
-    its standard is still attached, and each checked commit lists the
-    expected standards that never ran on it (``expected_but_never_ran``)."""
-    by_sha = {row.sha: row for row in rows}
-    if not by_sha:
+def _attach_checks(project, rows, branch: str) -> None:
+    """Give each commit its runs on ``branch`` (``scoring.commit_history``),
+    each result saying whether its standard is still attached and each run
+    naming the standards it expected that never ran in it (``never_ran``)."""
+    if not rows:
         return
+    history = commit_history(project, [row.sha for row in rows], branch=branch)
     attached = set(project.standards.values_list("pk", flat=True))
-    expected_by_sha = {}
-    for check in CommitCheck.objects.filter(project=project, commit_sha__in=by_sha).order_by("created_at"):
-        expected_by_sha[check.commit_sha] = ExpectedStandards(tuple(check.expected_standard_ids))
-    seen = set()
-    executions = (
-        StandardExecution.objects.filter(project=project, commit_check__commit_sha__in=by_sha)
-        .select_related("commit_check", "standard", "standard_version")
-        .order_by("-created_at")
-    )
-    for ex in executions:
-        # Runs of standards deleted before archiving existed have no standard
-        # left; tell them apart by name.
-        key = (ex.commit_check.commit_sha, ex.standard_id or ex.standard_name)
-        if key in seen:
-            continue
-        expected = expected_by_sha.get(ex.commit_check.commit_sha)
-        if expected is not None and not expected.lists_runs_of(ex.standard_id):
-            continue
-        seen.add(key)
-        ex.still_attached = ex.standard_id in attached
-        by_sha[ex.commit_check.commit_sha].results.append(ex)
-    # For each checked commit: the standards its newest check expected,
-    # minus those with a run on it (finished or still running).
-    never_ran_by_sha = {}
-    for row in rows:
-        expected = expected_by_sha.get(row.sha)
-        if row.results and expected:
-            never_ran_by_sha[row.sha] = expected.without_any_run(r.standard_id for r in row.results)
+    runs = [run for row in rows for run in history.get(row.sha, [])]
     # One query for the standards' names (archived ones included).
-    never_ran_ids = {i for ids in never_ran_by_sha.values() for i in ids}
+    never_ran_ids = {i for run in runs for i in run.never_ran_ids}
     standards = (
         {str(s.pk): s for s in Standard.all_objects.filter(pk__in=never_ran_ids)} if never_ran_ids else {}
     )
-    for sha, ids in never_ran_by_sha.items():
-        by_sha[sha].expected_but_never_ran = [standards[i] for i in ids if i in standards]
+    for run in runs:
+        for ex in run.executions:
+            ex.still_attached = ex.standard_id in attached
+    for row in rows:
+        row.checks = [
+            replace(run, never_ran=tuple(standards[i] for i in run.never_ran_ids if i in standards))
+            for run in history.get(row.sha, [])
+        ]

@@ -3,12 +3,12 @@
  * gg-tone-*-<tone> classes). From Michal's grade-card design.
  *
  *   .gg-score                 a score (partials/score.html)
- *   .gg-score-severe          an F: heavier, so it never reads as a D
+ *   .gg-score-failed          an F: heavier, so it never reads as a D
  *   .gg-tone-card             a card in its score's tone (--gg-card-tone, from
  *                             .gg-tone-card-<tone>): a glowing bar on the left
  */
 .gg-score { line-height: 1; white-space: nowrap; }
-.gg-score-severe { font-weight: 900; }
+.gg-score-failed { font-weight: 900; }
 
 .card.gg-tone-card, .gg-tone-card { position: relative; overflow: hidden; }
 .gg-tone-card::before {             /* the side bar */
@@ -22,7 +22,7 @@
   box-shadow: 0 0 12px color-mix(in srgb, var(--gg-card-tone) 45%, transparent);
 }
 /* F: a wider bar with a stronger glow. */
-.gg-tone-card-severe::before {
+.gg-tone-card-failed::before {
   width: 6px;
   box-shadow: 0 0 18px color-mix(in srgb, var(--gg-card-tone) 70%, transparent);
 }
@@ -34,7 +34,7 @@
 .gg-required-failed {
   display: inline-flex; align-items: center; gap: 0.4em;
   font-weight: 700;
-  color: var(--gg-tone-severe);
+  color: var(--gg-tone-failed);
 }
 .gg-required-failed .gg-importance-icon { width: 1.15em; height: 1.15em; }
 .gg-score-hero { font-size: clamp(4rem, 10vw, 7.5rem); font-weight: 800; }
