@@ -5,8 +5,9 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
 {% load score_tags project_tags %}
 {% if project_has_score %}
   {% score_tone compliance_score project_score.failed as tone %}
-  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} h-full flex flex-col" data-overview-health>
-    <div class="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">
+  {# As tall as its content, not stretched to the About card beside it (long for a monorepo). #}
+  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} flex flex-col" data-overview-health>
+    <div class="flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">
       {% score compliance_score failed=project_score.failed size="hero" data_attr="data-score-value" %}
       {% if health_breakdown.required_failed %}
         <p class="gg-required-failed text-xl mt-4" data-required-failed="{{ health_breakdown.required_failed }}">{% include "partials/importance_icon.html" with value="required" %}{{ health_breakdown.required_failed }} Required standard{{ health_breakdown.required_failed|pluralize }} failed</p>
