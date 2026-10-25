@@ -83,6 +83,10 @@ def failed_has_no_value(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    # Each step in its own transaction: Postgres refuses to add the
+    # constraint to commit_scores in the transaction that just rescored its
+    # rows ("pending trigger events").
+    atomic = False
 
     dependencies = [
         ("app", "0053_commit_scores"),
@@ -98,10 +102,10 @@ class Migration(migrations.Migration):
                 max_length=10,
             ),
         ),
-        migrations.RunPython(rescore, migrations.RunPython.noop),
+        migrations.RunPython(rescore, migrations.RunPython.noop, atomic=True),
         # Scores rescore left alone (a check still running or expecting
         # nothing) may still read 0 when failed.
-        migrations.RunPython(failed_has_no_value, migrations.RunPython.noop),
+        migrations.RunPython(failed_has_no_value, migrations.RunPython.noop, atomic=True),
         migrations.AddConstraint(
             model_name="commitscore",
             constraint=models.CheckConstraint(
