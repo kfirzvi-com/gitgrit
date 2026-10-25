@@ -80,6 +80,17 @@ class ProjectTabsTests(TestCase):
         self.assertIn('data-grade-scale', body)
         self.assertIn("data-health-breakdown", body)
 
+    def test_the_overview_card_is_as_tall_as_its_content_with_or_without_a_score(self):
+        import re
+
+        def card_classes(body):
+            return re.search(r'<div class="([^"]*)" data-overview-health>', body).group(1).split()
+
+        assert "h-full" not in card_classes(self._page().content.decode())
+        self._result(Status.PASSED, 100)
+        score_commit(self.project, "a" * 40)
+        assert "h-full" not in card_classes(self._page().content.decode())
+
     def test_an_errored_standard_leaves_the_overview_without_a_score_and_says_why(self):
         self._result(Status.PASSED, 100)
         errored = self._result(Status.ERROR, 0)
