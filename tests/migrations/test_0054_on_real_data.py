@@ -73,3 +73,54 @@ class MigrateWithDataTests(TransactionTestCase):
         assert apps.get_model("app", "Tenant").objects.get().score_display == "letters"
         saved = apps.get_model("app", "CommitScore").objects.get(commit_check_id=self.unsaved_id)
         assert (saved.value, saved.failed) == (100, False)
+
+
+class MigrateFromProductionTests(TransactionTestCase):
+    """Production is at 0051: one deploy runs 0052, 0053 and 0054 on its
+    checks and runs, which have no commit scores yet."""
+
+    FROM = [("app", "0051_workspace_invitations")]
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_it_migrates_runs_and_checks_into_commit_scores(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(self.FROM)
+        apps = executor.loader.project_state(self.FROM).apps
+        Tenant = apps.get_model("app", "Tenant")
+        PlatformConnection = apps.get_model("app", "PlatformConnection")
+        Project = apps.get_model("app", "Project")
+        Standard = apps.get_model("app", "Standard")
+        CommitCheck = apps.get_model("app", "CommitCheck")
+        StandardExecution = apps.get_model("app", "StandardExecution")
+        tenant = Tenant.objects.create(name="Acme", slug="acme")
+        platform = PlatformConnection.objects.create(tenant=tenant, platform="github", display_name="Acme")
+        project = Project.objects.create(
+            tenant=tenant, platform_connection=platform, platform="github", external_id="1",
+            name="api", full_path="acme/api", default_branch="main",
+        )
+        lint = Standard.objects.create(tenant=tenant, name="Lint")
+        docs = Standard.objects.create(tenant=tenant, name="Docs")
+        project.standards.add(lint, docs)
+        shas = {}
+        for sha, statuses in (("a" * 40, ("passed", "failed")), ("b" * 40, ("passed", "error")), ("c" * 40, ("running", "passed"))):
+            check = CommitCheck.objects.create(project=project, branch="main", commit_sha=sha, event_type="push")
+            for standard, status in zip((lint, docs), statuses):
+                StandardExecution.objects.create(
+                    project=project, standard=standard, standard_name=standard.name, commit_check=check,
+                    status=status, score=100 if status == "passed" else 0,
+                )
+            shas[sha] = check.pk
+
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+        apps = executor.loader.project_state(executor.loader.graph.leaf_nodes()).apps
+        scores = {s.commit_sha: s for s in apps.get_model("app", "CommitScore").objects.all()}
+        assert (scores["a" * 40].value, scores["a" * 40].failed) == (50, False)
+        assert (scores["b" * 40].value, scores["b" * 40].reason) == (None, "Docs errored")
+        # Still running: nothing to decide yet.
+        assert "c" * 40 not in scores
