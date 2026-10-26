@@ -136,7 +136,7 @@
 
   </script>
 
-  <script id="architecture-data" type="application/json">{{ architecture_data|safe }}</script>
+  {{ architecture_data|json_script:"architecture-data" }}
 
   <script src="{% static 'app/vendor/react.production.min.js' %}"></script>
   <script src="{% static 'app/vendor/react-dom.production.min.js' %}"></script>

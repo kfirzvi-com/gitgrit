@@ -34,7 +34,11 @@ def _value(value):
 def score_tone_styles():
     """The tones' colours for the whole page, from ``ScoreToneStyle``: CSS
     custom properties and ``gg-tone-*`` classes, and the same values as JSON
-    (``#gg-score-tones``) for the diagrams. Once, in base.html."""
+    (``#gg-score-tones``) for the diagrams. Once, in base.html.
+
+    mark_safe is sound here: the CSS comes from ScoreToneStyle's own
+    constants (no user or workspace input) and the JSON goes through
+    json_script."""
     return mark_safe(
         f"<style>\n{ScoreToneStyle.as_css()}\n</style>\n"
         + json_script(ScoreToneStyle.as_json(), "gg-score-tones")
