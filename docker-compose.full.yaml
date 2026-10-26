@@ -35,6 +35,9 @@ x-gitgrit-service: &gitgrit-service
     SECRET_KEY: ${SECRET_KEY}
     GITGRIT_ENCRYPTION_KEY: ${GITGRIT_ENCRYPTION_KEY}
     SITE_URL: ${SITE_URL}
+    SECURITY_CONTACT_EMAIL: ${SECURITY_CONTACT_EMAIL:-}
+    SECURITY_ADVISORY_URL: ${SECURITY_ADVISORY_URL:-}
+    SECURITY_POLICY_URL: ${SECURITY_POLICY_URL:-}
     # DB — settings.py reads these individually, not as a URL.
     DB_HOST: db
     DB_PORT: "5432"

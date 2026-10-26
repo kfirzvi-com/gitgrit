@@ -1,0 +1,6 @@
+Contact: mailto:kfir@kfirzvi.com
+Contact: https://github.com/kfirzvi-com/gitgrit/security/advisories/new
+Expires: 2027-04-26T00:00:00Z
+Policy: https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md
+Canonical: https://gitgrit.dev/.well-known/security.txt
+Preferred-Languages: en

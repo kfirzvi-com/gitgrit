@@ -9,6 +9,8 @@ GitGrit's threat surface is unusually wide for an open-source web app: it execut
 1. **GitHub Private Vulnerability Reporting** — preferred. From the [Security tab](https://github.com/kfirzvi-com/gitgrit/security/advisories/new) on this repo, click *Report a vulnerability*.
 2. **Email** — `kfir@kfirzvi.com`.
 
+These contacts are also published at `https://app.gitgrit.dev/.well-known/security.txt`.
+
 GitGrit is maintained on a best-effort basis without a dedicated security on-call, so we cannot commit to specific response, triage, or fix timelines. We aim to work through reports as quickly as we reasonably can. We follow coordinated disclosure where practical: ship a fix, then a CVE/advisory, then credit the reporter (unless they prefer to remain anonymous).
 
 If you would like to encrypt your report, request our PGP key at the same address.
