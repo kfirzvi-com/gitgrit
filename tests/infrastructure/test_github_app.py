@@ -47,8 +47,8 @@ class GitHubAppTokenCacheTestCase(SimpleTestCase):
     """Base class clearing the module-level token cache around each test."""
 
     def setUp(self):
-        github_app._token_cache.clear()
-        self.addCleanup(github_app._token_cache.clear)
+        github_app.clear_token_cache()
+        self.addCleanup(github_app.clear_token_cache)
 
 
 class TestBuildAppJWT(SimpleTestCase):
@@ -109,6 +109,41 @@ class TestGetInstallationToken(GitHubAppTokenCacheTestCase):
         self.assertEqual(first, "tok-old")
         self.assertEqual(second, "tok-new")
         self.assertEqual(mock_post.call_count, 2)
+
+
+class TestCachedTokens(GitHubAppTokenCacheTestCase):
+    """What the failure paths redact: every token cached for an installation."""
+
+    @mock.patch.object(github_app, "build_app_jwt", return_value="fake.jwt")
+    @mock.patch.object(github_app.requests, "post")
+    def test_every_scope_of_one_installation_only(self, mock_post, _mock_jwt):
+        mock_post.side_effect = [
+            _mock_token_response(token="tok-all"),
+            _mock_token_response(token="tok-scoped"),
+            _mock_token_response(token="tok-other"),
+        ]
+        github_app.get_installation_token(42)
+        github_app.get_installation_token(42, repositories=["acme/app"])
+        github_app.get_installation_token(43)
+
+        self.assertEqual(github_app.cached_tokens(42), {"tok-all", "tok-scoped"})
+        self.assertEqual(github_app.cached_tokens(99), set())
+
+    @mock.patch.object(github_app, "build_app_jwt", return_value="fake.jwt")
+    @mock.patch.object(github_app.requests, "post")
+    def test_a_token_replaced_by_a_re_mint_counts_until_it_really_expires(self, mock_post, _mock_jwt):
+        # Inside the safety buffer: the cache re-mints, but GitHub still
+        # accepts the old token, which a running job may hold.
+        mock_post.side_effect = [
+            _mock_token_response(expires_in_seconds=30, token="tok-old"),
+            _mock_token_response(token="tok-new"),
+        ]
+        github_app.get_installation_token(42)
+        github_app.get_installation_token(42)
+        self.assertEqual(github_app.cached_tokens(42), {"tok-old", "tok-new"})
+
+        with mock.patch.object(github_app.time, "time", return_value=time.time() + 120):
+            self.assertEqual(github_app.cached_tokens(42), {"tok-new"})
 
 
 class TestRepositoryScopeIsSentAsGitHubExpects(GitHubAppTokenCacheTestCase):

@@ -11,6 +11,7 @@ import logging
 
 from django.db import transaction
 
+from app.domain.limits import MAX_ERROR_TEXT
 from app.domain.models import DeliveryLog, Notification
 from app.domain.notifications.channels import Channel, InboxChannel
 from app.domain.notifications.notification_routing import route_for
@@ -59,5 +60,5 @@ def dispatch(notification_id: str) -> None:
                 notification=notification,
                 channel=name,
                 status=DeliveryLog.Status.FAILED,
-                error=str(exc)[:2000],
+                error=str(exc)[:MAX_ERROR_TEXT],
             )

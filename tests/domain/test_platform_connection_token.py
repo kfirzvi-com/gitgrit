@@ -72,8 +72,8 @@ class ScopedTokenReachesGitHubCorrectlyTests(TestCase):
         from app.infrastructure import github_app
 
         self.github_app = github_app
-        github_app._token_cache.clear()
-        self.addCleanup(github_app._token_cache.clear)
+        github_app.clear_token_cache()
+        self.addCleanup(github_app.clear_token_cache)
 
         self.tenant = Tenant.objects.create(name="Acme", slug="acme-scoped")
         self.conn = PlatformConnection.objects.create(

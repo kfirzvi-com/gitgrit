@@ -33,6 +33,8 @@ _JWT_LIFETIME = 8 * 60
 
 # In-process cache: {(installation_id, scope): (token, expires_at_epoch)}.
 _token_cache: dict[tuple[int, str], tuple[str, float]] = {}
+# installation_id -> {token: real expiry} for cached tokens a re-mint replaced.
+_replaced_tokens: dict[int, dict[str, float]] = {}
 _cache_lock = threading.Lock()
 
 
@@ -124,10 +126,42 @@ def get_installation_token(
     data = resp.json()
 
     token = data["token"]
-    expires_at = _parse_expires_at(data["expires_at"]) - _EXPIRY_SAFETY_BUFFER
+    real_expiry = _parse_expires_at(data["expires_at"])
     with _cache_lock:
-        _token_cache[cache_key] = (token, expires_at)
+        replaced = _token_cache.get(cache_key)
+        if replaced:
+            # Still valid at GitHub for the safety buffer; a job holding it can
+            # still fail and must still have it redacted.
+            _replaced_tokens.setdefault(installation_id, {})[replaced[0]] = (
+                replaced[1] + _EXPIRY_SAFETY_BUFFER
+            )
+        _token_cache[cache_key] = (token, real_expiry - _EXPIRY_SAFETY_BUFFER)
     return token
+
+
+def clear_token_cache() -> None:
+    """Forget every minted token (tests; a process restart does the same)."""
+    with _cache_lock:
+        _token_cache.clear()
+        _replaced_tokens.clear()
+
+
+def cached_tokens(installation_id: int) -> set[str]:
+    """The installation tokens minted for ``installation_id`` in this process
+    that GitHub may still accept, for redacting errors (a minted token is
+    stored nowhere else): every cached scope, plus tokens replaced by a re-mint
+    until their real expiry."""
+    now = time.time()
+    with _cache_lock:
+        replaced = _replaced_tokens.get(installation_id, {})
+        for token, expiry in list(replaced.items()):
+            if expiry <= now:
+                del replaced[token]
+        return {
+            token
+            for (cached_id, _scope), (token, _expires) in _token_cache.items()
+            if cached_id == installation_id
+        } | set(replaced)
 
 
 def get_installation(installation_id: int) -> dict:
