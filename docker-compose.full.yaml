@@ -35,6 +35,8 @@ x-gitgrit-service: &gitgrit-service
     SECRET_KEY: ${SECRET_KEY}
     GITGRIT_ENCRYPTION_KEY: ${GITGRIT_ENCRYPTION_KEY}
     SITE_URL: ${SITE_URL}
+    # Empty = follow SITE_URL's scheme (https -> HSTS, redirect, Secure cookies).
+    HTTPS_ONLY: ${HTTPS_ONLY:-}
     # DB — settings.py reads these individually, not as a URL.
     DB_HOST: db
     DB_PORT: "5432"
