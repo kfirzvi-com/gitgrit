@@ -39,6 +39,14 @@ def parse_tenant_id(value):
         return None
 
 
+def is_admin_member(user, tenant) -> bool:
+    """True when ``user`` holds an OWNER/ADMIN membership in ``tenant``.
+    Superuser status does not count; callers that allow it say so."""
+    if user is None or tenant is None or not getattr(user, "is_authenticated", False):
+        return False
+    return Membership.objects.filter(user=user, tenant=tenant, role__in=ADMIN_ROLES).exists()
+
+
 def is_workspace_admin(request) -> bool:
     """True when the request user may manage the active workspace.
 
@@ -51,21 +59,14 @@ def is_workspace_admin(request) -> bool:
         return False
     if user.is_superuser:
         return True
-    return Membership.objects.filter(
-        user=user, tenant=tenant, role__in=ADMIN_ROLES
-    ).exists()
+    return is_admin_member(user, tenant)
 
 
 def has_admin_membership(request) -> bool:
     """True only for a real OWNER/ADMIN membership; superuser status does not
     count. Used where the support view must stay out, e.g. revealing a stored
     access token."""
-    tenant = getattr(request, "tenant", None)
-    if tenant is None:
-        return False
-    return Membership.objects.filter(
-        user=request.user, tenant=tenant, role__in=ADMIN_ROLES
-    ).exists()
+    return is_admin_member(getattr(request, "user", None), getattr(request, "tenant", None))
 
 
 def enter_support_view(request, tenant: Tenant) -> None:

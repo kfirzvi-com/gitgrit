@@ -274,7 +274,9 @@ class TestStandards(PublicAPITestCase):
             })
         assert r.status_code == 200
         assert r.json() == result
-        run.assert_called_once_with(GOOD_CODE, {"default_branch": "main"})
+        run.assert_called_once_with(
+            GOOD_CODE, {"default_branch": "main"}, tenant=self.tenant, include_llm=True
+        )
 
 
 class TestSchema(APITestCase):

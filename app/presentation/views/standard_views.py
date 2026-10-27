@@ -18,7 +18,8 @@ from app.domain.models import (
     StandardVersion,
 )
 from app.domain.standard_validator import validate_standard_code
-from app.infrastructure.sandbox.runner import SandboxRunner
+from app.application.project_service import SandboxService
+from app.workspace_access import has_admin_membership
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 LANGUAGE_CHOICES = [
@@ -347,22 +348,14 @@ def run_standard_test(request):
     if not code.strip():
         return JsonResponse({"error": "No standard code provided"}, status=400)
 
-    input_config = {
-        "platform": "mock",
-        "project_id": "test",
-        "access_token": None,
-        "mock_data": mock_data,
-    }
-
-    # Make LLM standards testable in the editor: attach the workspace's roles so
-    # evaluate(project, llm) runs against the mock repo just like a real run.
-    if request.tenant:
-        from app.application.standard_engine import resolve_llm_roles
-
-        llm_roles = resolve_llm_roles(request.tenant)
-        if llm_roles:
-            input_config["llm_roles"] = llm_roles
-
-    runner = SandboxRunner()
-    result = runner.run(code, input_config)
+    # Only owners/admins get the workspace's LLM keys in a test run; they would
+    # otherwise be readable by any member's code. Superusers in the support view
+    # don't count (has_admin_membership). Real runs of a saved standard still
+    # get the keys whoever wrote it (see SECURITY.md).
+    result = SandboxService().run_standard_test(
+        code,
+        mock_data,
+        tenant=request.tenant,
+        include_llm=has_admin_membership(request),
+    )
     return JsonResponse(result)
