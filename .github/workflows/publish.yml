@@ -125,6 +125,12 @@ jobs:
     needs: [detect, publish]
     if: always() && needs.publish.result == 'success'
     runs-on: ubuntu-latest
+    # The production environment requires a reviewer other than the person
+    # who pushed the tag (Settings > Environments > production). The job waits
+    # there before dispatching the deploy, and GitHub keeps who approved, when,
+    # and for which tag: the change approval record (SOC 2 CC8). Staging has
+    # no reviewers, so staging deploys are unchanged.
+    environment: ${{ needs.publish.outputs.environment }}
     steps:
       - name: Trigger deploy
         uses: peter-evans/repository-dispatch@v4

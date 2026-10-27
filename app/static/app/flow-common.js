@@ -23,10 +23,7 @@ window.GitGritFlow = (function () {
   // Health colours and labels come from the page (#gg-score-tones, written by
   // {% score_tone_styles %} from ScoreToneStyle): the one source for node
   // stripes, legend swatches, score badges and the badge SVG alike.
-  var TONES = (function () {
-    var el = document.getElementById("gg-score-tones");
-    try { return el ? JSON.parse(el.textContent) : {}; } catch (e) { return {}; }
-  })();
+  var TONES = readData("gg-score-tones") || {};
   var HEALTH_COLOR = {};
   var HEALTH_LABEL = {};
   Object.keys(TONES).forEach(function (tone) {

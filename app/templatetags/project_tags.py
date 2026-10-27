@@ -3,14 +3,26 @@ from datetime import datetime
 
 from django import template
 from django.utils import timezone
-from django.utils.safestring import mark_safe
 
 register = template.Library()
 
 
 @register.simple_tag
-def to_json(value):
-    return mark_safe(json.dumps(value))
+def json_attr(value):
+    """``value`` as JSON for an HTML attribute (``data-x="{% json_attr v %}"``).
+
+    Returned unmarked, so autoescaping turns quotes and ``<`` into entities
+    and the browser hands the script the original text. Never put it in a
+    <script> block; use the ``json_script`` filter there.
+    """
+    return json.dumps(value)
+
+
+@register.filter
+def names_json(items):
+    """The ``name`` of each item as a JSON list, for an HTML attribute
+    (``data-names="{{ things|names_json }}"``); unmarked, like json_attr."""
+    return json.dumps([item.name for item in items])
 
 
 @register.filter

@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from app.presentation.views.access_views import EmailAwareLoginView
+from app.presentation.views.security_views import security_policy, security_txt
 
 from oauth2_provider import views as oauth2_views
 
@@ -48,6 +49,8 @@ urlpatterns = [
             )
         ),
     ),
+    path(".well-known/security.txt", security_txt, name="security_txt"),
+    path("security/", security_policy, name="security_policy"),
     path(
         ".well-known/oauth-authorization-server",
         oauth2_views.OAuthServerMetadataView.as_view(),
