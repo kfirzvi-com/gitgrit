@@ -1,8 +1,9 @@
+import ast
 import difflib
 import re
 
 from app.domain.models import Project, Tenant
-from app.infrastructure.sandbox.runner import SandboxRunner
+from app.infrastructure.sandbox.runner import SandboxRunner, error_result
 
 RESOLVE_ERROR_NO_MATCH = "no_match"
 
@@ -214,13 +215,69 @@ class ProjectService:
         }
 
 
+LLM_ADMIN_ONLY_MESSAGE = "LLM roles are only available in test runs for workspace owners and admins."
+
+
+def _evaluate_takes_llm(code: str) -> bool:
+    """True when the code's evaluate() asks for the ``llm`` argument, decided
+    as ``sandbox_image/entrypoint.py`` does: any parameter after the first, in
+    signature order, of the ``evaluate`` the module ends up defining (the
+    last definition wins; ``async def`` counts too). The two must agree:
+    tests/test_sandbox_parity.py runs both on the same cases."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return False  # let the sandbox report the syntax error
+    evaluate = None
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "evaluate":
+            evaluate = node
+    if evaluate is None:
+        return False
+    args = evaluate.args
+    names = [a.arg for a in args.posonlyargs + args.args]
+    if args.vararg:
+        names.append(args.vararg.arg)
+    names += [a.arg for a in args.kwonlyargs]
+    if args.kwarg:
+        names.append(args.kwarg.arg)
+    return "llm" in names[1:]
+
+
 class SandboxService:
-    def run_standard_test(self, standard_code: str, input_data: dict) -> dict:
+    def run_standard_test(
+        self,
+        standard_code: str,
+        input_data: dict,
+        tenant=None,
+        include_llm: bool = False,
+    ) -> dict:
+        """Dry-run standard code against mock data. The one builder for the
+        editor and the API.
+
+        The workspace's LLM roles, decrypted API keys included, go in only when
+        the caller says ``include_llm`` (workspace owners/admins): the sandbox has
+        network access, so any member's code could otherwise send the keys out.
+        This covers test runs only: a saved standard's real runs
+        (``StandardEngine.build_input_config``) get the keys whoever wrote it.
+        """
         input_config = {
             "platform": "mock",
             "project_id": "test",
             "access_token": None,
             "mock_data": input_data,
         }
+        if include_llm:
+            # No tenant: an admin with nothing to resolve; the sandbox says
+            # "no LLM role is configured", which is the right reason.
+            if tenant is not None:
+                from app.application.standard_engine import resolve_llm_roles
+
+                llm_roles = resolve_llm_roles(tenant)
+                if llm_roles:
+                    input_config["llm_roles"] = llm_roles
+        elif _evaluate_takes_llm(standard_code):
+            # Say why, rather than the sandbox's "no LLM role is configured".
+            return error_result(LLM_ADMIN_ONLY_MESSAGE)
         runner = SandboxRunner()
         return runner.run(standard_code, input_config)
