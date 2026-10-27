@@ -20,6 +20,7 @@ import docker
 from django.conf import settings
 
 from app.domain.standard_runner import StandardRunner
+from app.infrastructure.redaction import redact, redacted_failure, secrets_in
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,12 @@ SANDBOX_TMP = "/tmp/gitgrit-sandbox"
 # Keep this as the single source of truth — referenced from both the volume
 # bind and the environment dict below.
 CUSTOM_CA_MOUNT_PATH = "/etc/ssl/certs/custom-ca.pem"
+
+
+def error_result(message: str) -> dict:
+    """A failed run's result that is an error, not a standard's verdict
+    (``details.error`` marks it so the execution lands in the error bucket)."""
+    return {"passed": False, "score": 0, "message": message, "details": {"error": True}}
 
 
 class SandboxRunner(StandardRunner):
@@ -67,6 +74,7 @@ class SandboxRunner(StandardRunner):
         standard_path = Path(tmp_dir) / "standard.py"
         input_path = Path(tmp_dir) / "input.json"
         container = None
+        secrets = secrets_in(input_config)
 
         try:
             standard_path.write_text(standard_code)
@@ -135,33 +143,27 @@ class SandboxRunner(StandardRunner):
             stdout = container.logs(stdout=True, stderr=False).decode()
             stderr = container.logs(stdout=False, stderr=True).decode()
 
-            if stderr:
-                logger.warning("Sandbox stderr: %s", stderr)
-
+            # Logged once: with the exit code on failure, else as a warning.
             exit_code = result.get("StatusCode", -1)
             if exit_code != 0:
                 logger.error(
-                    "Sandbox exited with code %d. stderr: %s", exit_code, stderr
+                    "Sandbox exited with code %d. stderr: %s", exit_code, redact(stderr, secrets)
                 )
+            elif stderr:
+                logger.warning("Sandbox stderr: %s", redact(stderr, secrets))
 
-            return json.loads(stdout)
+            # Stored in StandardExecution and shown in the UI.
+            return redact(json.loads(stdout), secrets)
 
         except json.JSONDecodeError:
-            logger.error("Failed to parse sandbox output: %s", stdout)
-            return {
-                "passed": False,
-                "score": 0,
-                "message": "Failed to parse standard output",
-                "details": {"error": True},
-            }
+            logger.error("Failed to parse sandbox output: %s", redact(stdout, secrets))
+            return error_result("Failed to parse standard output")
         except Exception as exc:
-            logger.exception("Sandbox execution failed")
-            return {
-                "passed": False,
-                "score": 0,
-                "message": f"Sandbox error: {exc}",
-                "details": {"error": True},
-            }
+            # The stack is kept, but as redacted text: exc_info would print
+            # the raw exception message.
+            message, stack = redacted_failure(exc, secrets)
+            logger.error("Sandbox execution failed\n%s", stack)
+            return error_result(f"Sandbox error: {message}")
         finally:
             if container:
                 try:

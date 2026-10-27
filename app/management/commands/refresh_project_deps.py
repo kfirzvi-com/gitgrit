@@ -17,7 +17,9 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 
+from app.application.credentials import project_secrets
 from app.domain.models import Project
+from app.infrastructure.redaction import redacted_failure
 from app.tasks import infer_project_dependencies
 
 
@@ -92,10 +94,13 @@ class Command(BaseCommand):
         try:
             summary = infer_and_store(project, **kwargs)
         except Exception as exc:
+            # Same secrets as the task: the output can land in a shared
+            # terminal or a CI log, and deps_error is shown in the UI.
+            error, _ = redacted_failure(exc, project_secrets(project))
             Project.objects.filter(pk=project.pk).update(
-                deps_status=Project.DepsStatus.FAILED, deps_error=str(exc)[:2000]
+                deps_status=Project.DepsStatus.FAILED, deps_error=error
             )
-            self.stderr.write(self.style.ERROR(f"✗ {project.name}: {exc}"))
+            self.stderr.write(self.style.ERROR(f"✗ {project.name}: {error}"))
             return
         shape = ""
         if summary.created or summary.removed:

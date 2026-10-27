@@ -146,10 +146,10 @@ class FirstRunSetupMiddleware:
     def _log_hint(self):
         if self.hint_logged:
             return
-        from app.application.access import setup_token
-
+        # The token itself stays out of the logs (CloudWatch keeps them a
+        # year); whoever can run manage.py on the server can print it.
         logger.warning(
-            "GitGrit has no users yet. Open /setup/?token=%s to create the admin.",
-            setup_token(),
+            "GitGrit has no users yet. Run `python manage.py setup_token` on the "
+            "server and paste the token on /setup/ to create the admin."
         )
         self.hint_logged = True
