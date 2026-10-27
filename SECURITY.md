@@ -59,7 +59,7 @@ Every standard is user-authored Python that runs against a `ProjectContext` expo
 - The container runs as **root** inside the namespace. Capabilities are dropped, but a root-in-namespace + missing-gVisor combination is meaningfully weaker than non-root + gVisor. **Setting a non-root `USER` in `sandbox_image/Dockerfile` is a planned hardening.**
 - There is **no PID limit** on the container. A fork-bomb standard will be killed by the timeout but can briefly stress the host.
 - Fernet-style key rotation for sandbox-passed tokens is not implemented; a long-lived OAuth token leaked from a sandbox compromise stays valid until manually revoked.
-- **Real runs of a saved standard get the workspace's LLM API keys and the repository token, whoever wrote it.** Any workspace member can save a standard, and the sandbox has network access, so a member's code can send those keys out. The admin-only rule (below) covers editor and API **test runs** only. Limit workspace membership to people you trust with those keys. Whether to give keys only to admin-approved standards is an open product decision.
+- **Runs of a standard get the workspace's LLM API keys, and real runs the repository token too, whoever wrote it.** Any workspace member can save or test-run a standard, and the sandbox has network access, so a member's code can send those keys out. Limit workspace membership to people you trust with those keys. Whether to give keys only to admin-approved standards is an open product decision.
 
 ### Webhook ingress
 
@@ -102,7 +102,7 @@ GitGrit stores GitHub and GitLab personal access tokens on `PlatformConnection.a
 
 **Known limitations:**
 - Any member can manage standards through the API, as in the web app; there is no role check beyond membership.
-- `POST .../standards/test/` executes user-supplied standard code in the sandbox with mock data. The sandbox defenses and limitations above apply. LLM roles are attached in test runs only for workspace owners/admins (not for workspace tokens or the superuser support view); real runs of saved standards still get them, see the sandbox limitations.
+- `POST .../standards/test/` executes user-supplied standard code in the sandbox with mock data. The sandbox defenses and limitations above apply.
 - API responses may contain text from PR diffs and repository files. **An LLM agent driving the API is exposed to prompt injection from that content.** Don't let it auto-merge or auto-deploy based on API output; require human review for any write it chains into.
 
 ### OAuth (CLI sign-in)

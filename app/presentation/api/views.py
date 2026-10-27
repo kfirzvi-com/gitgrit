@@ -14,7 +14,7 @@ from app.application.project_service import ProjectService, SandboxService
 from app.application.project_status_service import ProjectStatusService
 from app.application.standard_service import StandardService
 from app.domain.models import APIToken, Membership
-from app.workspace_access import is_admin_member
+from app.workspace_access import ADMIN_ROLES
 from app.presentation.api import serializers as s
 from app.presentation.api.authentication import APITokenAuthentication, HasToken, ReadWriteScope
 
@@ -105,14 +105,13 @@ class WorkspaceAPIView(PublicAPIView):
                 return membership.tenant
         raise exceptions.NotFound("Workspace not found.")
 
-    def _is_admin(self) -> bool:
-        # ``actor`` is None for a workspace token: no person, never an admin.
-        return is_admin_member(self.actor, self.tenant)
-
     def require_admin(self):
         """Only a workspace owner or admin — never a workspace token, which
         has no person behind it."""
-        if not self._is_admin():
+        user = self.actor
+        if user is None or not Membership.objects.filter(
+            user=user, tenant=self.tenant, role__in=ADMIN_ROLES
+        ).exists():
             raise exceptions.PermissionDenied("Only workspace owners and admins can do this.")
 
     def handle_exception(self, exc):
@@ -307,10 +306,7 @@ class StandardTestView(WorkspaceAPIView):
         operation_id="test_standard",
         tags=["standards"],
         summary="Dry-run standard code against mock project data",
-        description=(
-            "Runs in the gVisor sandbox; nothing is saved. The workspace's LLM roles "
-            "are attached in test runs only for workspace owners/admins."
-        ),
+        description="Runs in the gVisor sandbox; nothing is saved.",
         request=s.StandardTestSerializer,
         responses=s.StandardTestResultSerializer,
     )
@@ -319,11 +315,7 @@ class StandardTestView(WorkspaceAPIView):
         body.is_valid(raise_exception=True)
         return Response(
             _sandbox.run_standard_test(
-                body.validated_data["code"],
-                body.validated_data["mock_input"],
-                tenant=self.tenant,
-                # Same rule as the editor: a workspace token has no person behind it.
-                include_llm=self._is_admin(),
+                body.validated_data["code"], body.validated_data["mock_input"]
             )
         )
 

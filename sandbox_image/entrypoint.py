@@ -31,16 +31,6 @@ from project_context import ProjectContext
 from providers.factory import create_provider
 
 
-def _injected_params(evaluate):
-    """The parameters after the first (the project) that get injected by
-    name, in signature order: ``llm`` and ``log``. The host decides whether to
-    allow LLM roles with ``_evaluate_takes_llm`` in
-    ``app/application/project_service.py``; tests/test_sandbox_parity.py keeps
-    the two in step."""
-    params = list(inspect.signature(evaluate).parameters)
-    return [name for name in params[1:] if name in ("llm", "log")]
-
-
 def _first_line(message):
     return str(message).splitlines()[0] if str(message).strip() else ""
 
@@ -98,8 +88,9 @@ def _run(config, logger):
         raise RuntimeError("Standard does not define an evaluate() function")
 
     # First parameter is the project; inject llm/log by parameter name.
+    params = list(inspect.signature(evaluate).parameters)
     kwargs = {}
-    for name in _injected_params(evaluate):
+    for name in params[1:]:
         if name == "llm":
             if llm is None:
                 raise RuntimeError(
