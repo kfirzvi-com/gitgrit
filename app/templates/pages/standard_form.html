@@ -207,6 +207,14 @@ function syncHiddenField() {
   document.getElementById('test-cases-json').value = JSON.stringify(data);
 }
 
+// Test cases and sandbox results are not ours (other members, marketplace
+// copies, a standard's own output): escape them before they go into HTML.
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = value == null ? '' : String(value);
+  return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderTestCase(tc, index) {
   const container = document.getElementById('test-cases-container');
   const div = document.createElement('div');
@@ -214,13 +222,13 @@ function renderTestCase(tc, index) {
   div.innerHTML = `
     <input type="checkbox" checked />
     <div class="collapse-title font-medium flex items-center gap-2">
-      <span class="test-case-title">${tc.name || 'Test Case ' + (index + 1)}</span>
+      <span class="test-case-title">${escapeHtml(tc.name || 'Test Case ' + (index + 1))}</span>
     </div>
     <div class="collapse-content space-y-3">
       <div class="form-control">
         <label class="label"><span class="label-text text-xs">Name</span></label>
         <input type="text" class="input input-bordered input-sm w-full test-name"
-               value="${tc.name || ''}" placeholder="e.g. Has README">
+               value="${escapeHtml(tc.name || '')}" placeholder="e.g. Has README">
       </div>
       <div class="form-control">
         <label class="label"><span class="label-text text-xs">Input (project context)</span></label>
@@ -304,15 +312,15 @@ function renderTestCase(tc, index) {
             allMatch = false;
             diffHtml += `
               <div class="text-xs mt-2 rounded bg-base-300 p-2 space-y-1">
-                <div class="font-semibold text-warning">${key}</div>
+                <div class="font-semibold text-warning">${escapeHtml(key)}</div>
                 <div class="flex gap-4">
                   <div class="flex-1 min-w-0">
                     <div class="opacity-50 mb-1">Expected</div>
-                    <pre class="whitespace-pre-wrap break-all text-success">${exp}</pre>
+                    <pre class="whitespace-pre-wrap break-all text-success">${escapeHtml(exp)}</pre>
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="opacity-50 mb-1">Actual</div>
-                    <pre class="whitespace-pre-wrap break-all text-error">${act}</pre>
+                    <pre class="whitespace-pre-wrap break-all text-error">${escapeHtml(act)}</pre>
                   </div>
                 </div>
               </div>`;
@@ -329,16 +337,16 @@ function renderTestCase(tc, index) {
       resultEl.innerHTML = `
         <div class="flex flex-wrap gap-2 items-center">
           ${statusBadge} ${matchBadge}
-          <span class="text-xs opacity-70">Score: ${result.score}</span>
+          <span class="text-xs opacity-70">Score: ${escapeHtml(result.score)}</span>
         </div>
         ${diffHtml}
         <details class="mt-2">
           <summary class="text-xs opacity-50 cursor-pointer">Full result</summary>
-          <pre class="text-xs bg-base-300 rounded p-2 mt-1 overflow-x-auto whitespace-pre-wrap">${JSON.stringify(result, null, 2)}</pre>
+          <pre class="text-xs bg-base-300 rounded p-2 mt-1 overflow-x-auto whitespace-pre-wrap">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
         </details>
       `;
     } catch (err) {
-      resultEl.innerHTML = '<span class="badge badge-error badge-sm">Request failed: ' + err.message + '</span>';
+      resultEl.innerHTML = '<span class="badge badge-error badge-sm">Request failed: ' + escapeHtml(err.message) + '</span>';
     }
 
     btn.classList.remove('loading');

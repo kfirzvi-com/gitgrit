@@ -67,7 +67,7 @@
                   <form method="post" action="{% url 'delete_standard' standard.pk %}" class="inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-ghost btn-xs text-error"
-                            onclick="return confirm('Delete standard &quot;{{ standard.name }}&quot;?')">
+                            onclick="return confirm('Delete standard &quot;{{ standard.name|escapejs }}&quot;?')">
                       Delete
                     </button>
                   </form>
