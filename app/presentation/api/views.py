@@ -308,7 +308,7 @@ class StandardTestView(WorkspaceAPIView):
         tags=["standards"],
         summary="Dry-run standard code against mock project data",
         description=(
-            "Runs in the gVisor sandbox; nothing is saved. The workspace's LLM roles "
+            "Runs in the sandbox; nothing is saved. The workspace's LLM roles "
             "are attached in test runs only for workspace owners/admins."
         ),
         request=s.StandardTestSerializer,
