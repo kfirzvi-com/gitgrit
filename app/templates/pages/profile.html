@@ -62,7 +62,7 @@
                 <form method="post" action="{% url 'disconnect_social' provider.id %}">
                   {% csrf_token %}
                   <button type="submit" class="btn btn-ghost btn-xs text-error"
-                          onclick="return confirm('Disconnect {{ provider.label }}?')">
+                          onclick="return confirm('Disconnect {{ provider.label|escapejs }}?')">
                     Disconnect
                   </button>
                 </form>
