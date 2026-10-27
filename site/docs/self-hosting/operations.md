@@ -245,6 +245,9 @@ Operator-fillable (you set these in `.env`):
 | `TAG` | Image tag, matches the bundle version. |
 | `SITE_URL` | Public hostname your internal GitLab can reach for webhooks. Must not be `localhost`. |
 | `APP_PORT` | Host port to expose the app on. Default `3000`. |
+| `SECURITY_CONTACT_EMAIL` | Optional. Email listed in `/.well-known/security.txt` for vulnerability reports. Default: the GitGrit maintainers (`kfir@kfirzvi.com`); set it to route reports to your own team. Serve GitGrit over https so the file can name itself as `Canonical` (RFC 9116). |
+| `SECURITY_ADVISORY_URL` | Optional. Private vulnerability-report page listed in `security.txt`. Default: GitGrit's GitHub advisory page, which is left out on `AIRGAPPED` installs unless you set this. |
+| `SECURITY_POLICY_URL` | Optional. Where `/security/` redirects. Default: GitGrit's `SECURITY.md` on GitHub; point it at your own policy. |
 | `HTTPS_ONLY` | Optional. `True` / `False` (exact strings). `True` turns on HSTS, the http→https redirect and Secure cookies. Empty (default) follows `SITE_URL`: on for `https://`, off for `http://`. Browsers remember HSTS for one year, so an install that later drops https stays unreachable over http for them until then. |
 | `SECRET_KEY` | Django signing key. **Never rotate** after deploy — invalidates sessions and stored OAuth tokens. |
 | `GITGRIT_ENCRYPTION_KEY` | Fernet key for OAuth-token-at-rest encryption. **Never rotate** for the same reason. |

@@ -53,6 +53,24 @@ GIT_SHA = os.environ.get("GIT_SHA", "")
 GIT_TAG = os.environ.get("GIT_TAG", "")
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+GITHUB_REPO_URL = "https://github.com/kfirzvi-com/gitgrit"
+# Where vulnerability reports go (security.txt, alongside GitHub's private
+# reporting); matches SECURITY.md. Self-hosters may point these at their own
+# team. `or` so an empty value (docker-compose passes one) means the default.
+SECURITY_CONTACT_EMAIL = os.environ.get("SECURITY_CONTACT_EMAIL") or "kfir@kfirzvi.com"
+SECURITY_POLICY_URL = (
+    os.environ.get("SECURITY_POLICY_URL") or f"{GITHUB_REPO_URL}/blob/main/SECURITY.md"
+)
+SECURITY_ADVISORY_URL = (
+    os.environ.get("SECURITY_ADVISORY_URL")
+    or f"{GITHUB_REPO_URL}/security/advisories/new"
+)
+# Only an explicitly set advisory URL is listed on AIRGAPPED installs, where the
+# GitHub default is unreachable.
+SECURITY_ADVISORY_URL_IS_CUSTOM = bool(os.environ.get("SECURITY_ADVISORY_URL"))
+# RFC 9116 wants an expiry under a year. A fixed date, so a stale file fails the
+# tests (30 days out) instead of silently advertising contacts nobody reviewed.
+SECURITY_TXT_EXPIRES = "2027-04-26T00:00:00Z"
 AIRGAPPED = _env_flag("AIRGAPPED", False)
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [
