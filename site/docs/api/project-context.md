@@ -1,3 +1,7 @@
+---
+title: "ProjectContext API"
+---
+
 # ProjectContext API
 
 The `project` object passed to every standard's `evaluate` function provides these methods:

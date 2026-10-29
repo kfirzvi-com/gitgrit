@@ -1,3 +1,7 @@
+---
+title: "Self-Hosting GitGrit"
+---
+
 # Self-Hosting GitGrit
 
 GitGrit ships a fully self-contained deployment for organisations that
