@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load filter_search_tags %}
 
 {% block title %}Standards — GitGrit{% endblock %}
 
@@ -12,8 +13,10 @@
 </div>
 
 {% if standards %}
-  <div class="card bg-base-100 shadow-xl">
+  <div class="card bg-base-100 shadow-xl" data-filter-scope data-standard-list>
     <div class="card-body">
+      {% standard_list_filter_search standards as list_filter_search %}
+      {% filter_search list_filter_search label="Filter standards" %}
       <div class="overflow-x-auto">
         <table class="table">
           <thead>
@@ -27,7 +30,12 @@
           </thead>
           <tbody>
             {% for standard in standards %}
-              <tr>
+              <tr data-filter-row
+                  data-filter-is="{{ standard|standard_status_values }}"
+                  data-filter-label="{{ standard|standard_label_values }}"
+                  data-filter-name="{{ standard.name|lower }}"
+                  data-filter-description="{{ standard.description|lower }}"
+                  {% if standard.draft %}data-draft{% endif %}>
                 <td class="max-w-xs">
                   <a href="{% url 'standard_detail' standard.pk %}" class="link font-medium">{{ standard.name }}</a>
                   {% if standard.description %}
@@ -36,7 +44,8 @@
                 </td>
                 <td>
                   {% for label in standard.labels.all %}
-                    <span class="badge badge-outline badge-sm">{{ label.name }}</span>
+                    <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this label"
+                            data-filter-toggle="label" data-filter-value="{{ label.name|lower }}">{{ label.name }}</button>
                   {% endfor %}
                 </td>
                 <td>
@@ -74,6 +83,9 @@
                 </td>
               </tr>
             {% endfor %}
+            <tr class="hidden" data-filter-empty>
+              <td colspan="5"><p class="text-sm opacity-70">No standards match these filters.</p></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -88,4 +100,16 @@
     </div>
   </div>
 {% endif %}
+<script>
+  // Enabling or disabling a standard swaps its badge: keep the row's is: values
+  // (data-filter-is) in step, then re-filter.
+  document.addEventListener('htmx:afterSettle', function (event) {
+    var row = event.target.closest && event.target.closest('[data-standard-list] [data-filter-row]');
+    if (!row) return;
+    var values = [event.target.textContent.trim() === 'Enabled' ? 'enabled' : 'disabled'];
+    if (row.hasAttribute('data-draft')) values.push('draft');
+    row.dataset.filterIs = values.join('|');
+    row.closest('[data-filter-scope]').dispatchEvent(new CustomEvent('filter-search:refresh'));
+  });
+</script>
 {% endblock %}

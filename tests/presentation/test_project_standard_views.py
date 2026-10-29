@@ -367,8 +367,12 @@ class TestStandardsTableImportance(TestCase):
         assert _selected_importance(body, required.pk) == "required"
         # Not attached: the row shows what attaching it would start at.
         assert _selected_importance(body, unattached.pk) == "major"
-        assert "Set importance" in body
-        assert 'aria-label="Filter by importance"' in body
+        # Bulk edit: a select box per row, and the header's action bar for the selection.
+        assert body.count('class="checkbox checkbox-sm" data-row-select') == 2
+        assert "data-bulk-bar" in body
+        assert "setSelectedStandardsImportance(this, 'minor')" in body
+        # The filter search's Importance menu (partials/filter_search.html).
+        assert 'role="menu" aria-label="Importance"' in body
         # The menu says what Required means.
         assert "If it fails, the project fails." in body
         assert "standard-picker-gate" in body
