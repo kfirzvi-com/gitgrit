@@ -61,8 +61,10 @@ nav:
 #   - Home (index.md): the logo links to it.
 #   - Legal pages: linked from the footer and product surfaces (OAuth
 #     consent, app footer).
+#   - Compare pages: linked from the footer.
 not_in_nav: |
   /index.md
+  /compare/*.md
   /legal/terms.md
   /legal/privacy.md
   /legal/cookies.md
