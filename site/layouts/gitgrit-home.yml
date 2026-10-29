@@ -1,0 +1,100 @@
+# Share card for the landing page: the hero section in 1200×630 — the
+# headline over Clark and the team, with the hero's fade behind the text.
+#
+# Text positions are measured, not guessed: the plugin sizes a font from
+# its layer's height (one DM Sans line = 1.302 × font size), and two-colour
+# lines are separate layers placed at the measured width of the part before
+# them. After changing a string here, re-measure with Pillow against the
+# fonts in site/.cache/plugin/social/fonts.
+
+definitions:
+  - &title >-
+    {{ page.meta.get("title", config.site_name) }}
+  - &description >-
+    {{ page.meta.get("description", config.site_description) | x }}
+
+tags:
+  og:type: website
+  og:site_name: GitGrit
+  og:title: *title
+  og:description: *description
+  og:image: "{{ image.url }}"
+  og:image:type: "{{ image.type }}"
+  og:image:width: "{{ image.width }}"
+  og:image:height: "{{ image.height }}"
+  og:image:alt: "GitGrit: Engineering best practices can become everyday reality."
+  og:url: "{{ page.canonical_url }}"
+  twitter:card: summary_large_image
+  twitter:title: *title
+  twitter:description: *description
+  twitter:image: "{{ image.url }}"
+
+size: { width: 1200, height: 630 }
+layers:
+  - background:
+      image: "{{ config.docs_dir }}/../layouts/assets/card-bg.svg"
+
+  # Clark and the team (the hero's illustration), full width. The layer is
+  # shorter than the square image, so the plugin crops 80px off its top and
+  # bottom (layers can't take negative offsets): that lifts the team's faces
+  # fully into the card.
+  - size: { width: 1200, height: 1040 }
+    background:
+      image: "{{ config.docs_dir }}/images/story/frame-1.webp"
+  - background:
+      image: "{{ config.docs_dir }}/../layouts/assets/home-fade.svg"
+
+  # Header: logo + wordmark, as in the site's navbar
+  - size: { width: 44, height: 44 }
+    offset: { x: 48, y: 30 }
+    background:
+      image: "{{ config.docs_dir }}/images/logo.svg"
+  - size: { width: 200, height: 40 }
+    offset: { x: 102, y: 33 }
+    typography:
+      content: GitGrit
+      color: "#e2e8f0"
+      font: { family: DM Sans, style: Bold }
+
+  # Headline, 66px: "Engineering best practices" (Light, centred), then
+  # "can become " (Light) + "everyday reality." (ExtraBold, cyan), centred
+  # as one line of 933px.
+  - size: { width: 1200, height: 86 }
+    offset: { x: 0, y: 104 }
+    typography:
+      content: Engineering best practices
+      align: center top
+      color: "#e2e8f0"
+      font: { family: DM Sans, style: Light }
+  - size: { width: 420, height: 86 }
+    offset: { x: 134, y: 177 }
+    typography:
+      content: can become
+      color: "#e2e8f0"
+      font: { family: DM Sans, style: Light }
+  - size: { width: 580, height: 86 }
+    offset: { x: 529, y: 177 }
+    typography:
+      content: everyday reality.
+      color: "#06b6d4"
+      font: { family: DM Sans, style: ExtraBold }
+
+  # Subline, 24px, centred as one line of 897px
+  - size: { width: 340, height: 32 }
+    offset: { x: 152, y: 278 }
+    typography:
+      content: How a team builds belongs in
+      color: "#cfd5df"
+      font: { family: DM Sans, style: Regular }
+  - size: { width: 170, height: 32 }
+    offset: { x: 483, y: 278 }
+    typography:
+      content: running code
+      color: "#e2e8f0"
+      font: { family: DM Sans, style: Bold }
+  - size: { width: 430, height: 32 }
+    offset: { x: 638, y: 278 }
+    typography:
+      content: ", not in a few senior engineers' heads."
+      color: "#cfd5df"
+      font: { family: DM Sans, style: Regular }

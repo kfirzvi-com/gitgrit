@@ -1,0 +1,94 @@
+# Share card for every docs page: the landing card's header, then the page's
+# title and description next to the badger in its cyan glow, and the page's
+# address as the footer. All of it comes from the page, so cards follow the
+# docs.
+#
+# The plugin sizes a font from its layer's height and line count (one line
+# = 1.302 × size in DM Sans, 1.32 × in JetBrains Mono).
+
+definitions:
+  - &title >-
+    {{ page.meta.get("title", page.title) }}
+  - &title_with_site >-
+    {{ page.meta.get("title", page.title) }} - {{ config.site_name }}
+  - &description >-
+    {{ page.meta.get("description", config.site_description) | x }}
+  - &path >-
+    {{ page.url }}
+
+tags:
+  og:type: website
+  og:site_name: GitGrit
+  og:title: *title_with_site
+  og:description: *description
+  og:image: "{{ image.url }}"
+  og:image:type: "{{ image.type }}"
+  og:image:width: "{{ image.width }}"
+  og:image:height: "{{ image.height }}"
+  og:image:alt: *title_with_site
+  og:url: "{{ page.canonical_url }}"
+  twitter:card: summary_large_image
+  twitter:title: *title_with_site
+  twitter:description: *description
+  twitter:image: "{{ image.url }}"
+
+size: { width: 1200, height: 630 }
+layers:
+  - background:
+      image: "{{ config.docs_dir }}/../layouts/assets/card-bg.svg"
+  - background:
+      image: "{{ config.docs_dir }}/../layouts/assets/page-glow.svg"
+
+  # The badger, large, in its glow (centred on the glow at 960,300)
+  - size: { width: 300, height: 300 }
+    offset: { x: 810, y: 150 }
+    background:
+      image: "{{ config.docs_dir }}/images/logo.svg"
+
+  # Header: logo + wordmark, as on the landing card
+  - size: { width: 44, height: 44 }
+    offset: { x: 48, y: 30 }
+    background:
+      image: "{{ config.docs_dir }}/images/logo.svg"
+  - size: { width: 200, height: 40 }
+    offset: { x: 102, y: 33 }
+    typography:
+      content: GitGrit
+      color: "#e2e8f0"
+      font: { family: DM Sans, style: Bold }
+
+  # Title, 58px, up to two lines (shrinks to fit a third), anchored to the
+  # bottom of its box so a one-line title sits right above the description
+  - size: { width: 720, height: 139 }
+    offset: { x: 64, y: 160 }
+    typography:
+      content: *title
+      align: start bottom
+      overflow: shrink
+      color: "#e2e8f0"
+      line: { amount: 2, height: 1.1 }
+      font: { family: DM Sans, style: Bold }
+
+  # Description, 26px, up to two lines
+  - size: { width: 700, height: 70 }
+    offset: { x: 64, y: 322 }
+    typography:
+      content: *description
+      color: "#aab3c2"
+      line: { amount: 2, height: 1.4 }
+      font: { family: DM Sans, style: Regular }
+
+  # Footer: the page's address, 22px mono — "gitgrit.dev/" (158px) dim,
+  # then the path in cyan
+  - size: { width: 170, height: 30 }
+    offset: { x: 64, y: 546 }
+    typography:
+      content: gitgrit.dev/
+      color: "#8892a4"
+      font: { family: JetBrains Mono, style: Medium }
+  - size: { width: 640, height: 30 }
+    offset: { x: 222, y: 546 }
+    typography:
+      content: *path
+      color: "#06b6d4"
+      font: { family: JetBrains Mono, style: Medium }

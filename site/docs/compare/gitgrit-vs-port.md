@@ -1,6 +1,6 @@
 ---
-title: GitGrit vs Port: engineering standards compared
-description: Port is an internal developer portal with scorecards over its software catalog. GitGrit checks your code itself against your engineering standards, on every push. Here's how they differ.
+title: "GitGrit vs Port: engineering standards compared"
+description: "Port is an internal developer portal with scorecards over its software catalog. GitGrit checks your code itself against your engineering standards, on every push. Here's how they differ."
 ---
 
 # GitGrit vs Port
