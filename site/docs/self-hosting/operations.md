@@ -16,7 +16,6 @@ Ordered by how often we see them at install:
 | `airgap_smoketest`: returned 200 (not 401) | The probe is hitting a non-GitLab service at `GITLAB_URL` (reverse proxy, captive portal, wrong service on that hostname) | Fix `GITLAB_URL` in `.env` |
 | `airgap_setup`: `GITGRIT_CUSTOM_CA_FILE_PATH is not set` | Variable empty or commented out in `.env` | [Installation → Configure .env](installation.md#4-configure-env) |
 | OAuth callback: `redirect_uri mismatch` | GitLab application's redirect URI doesn't exactly match `${SITE_URL}/accounts/gitlab/login/callback/` | [Installation → Create the OAuth application](installation.md#3-create-the-oauth-application-in-gitlab) — edit the GitLab application, save |
-| Browser: "too many redirects", or sign-in returns to the login page | `SITE_URL` is `https://` but the TLS proxy doesn't send `X-Forwarded-Proto: https`, or browsers reach the app over plain http | Make the proxy send `X-Forwarded-Proto: https`; with no TLS in front, set `HTTPS_ONLY=False` in `.env` and `docker compose up -d` |
 | App startup: `password authentication failed for user "gitgrit"` against an unexpected IP | A second GitGrit stack on the same host is sharing the fixed-name `gitgrit_internal` bridge — `db` resolves to both containers; the app picks the wrong one | [Network topology](#network-topology) — tear down the older stack with `docker compose -f docker-compose.full.yaml down` |
 | Sandbox runs work but `docker inspect <id> .HostConfig.Runtime` shows `runc` (not `runsc`) | gVisor not registered with Docker | [gVisor](#gvisor-runsc) — `sudo runsc install && sudo systemctl restart docker` |
 | Browser: "your connection is not private" at the redirect to GitLab | OS / browser trust store doesn't have your operator CA | Import the CA into the operator's system or browser trust store |
@@ -245,7 +244,6 @@ Operator-fillable (you set these in `.env`):
 | `TAG` | Image tag, matches the bundle version. |
 | `SITE_URL` | Public hostname your internal GitLab can reach for webhooks. Must not be `localhost`. |
 | `APP_PORT` | Host port to expose the app on. Default `3000`. |
-| `HTTPS_ONLY` | Optional. `True` / `False` (exact strings). `True` turns on HSTS, the http→https redirect and Secure cookies. Empty (default) follows `SITE_URL`: on for `https://`, off for `http://`. Browsers remember HSTS for one year, so an install that later drops https stays unreachable over http for them until then. |
 | `SECRET_KEY` | Django signing key. **Never rotate** after deploy — invalidates sessions and stored OAuth tokens. |
 | `GITGRIT_ENCRYPTION_KEY` | Fernet key for OAuth-token-at-rest encryption. **Never rotate** for the same reason. |
 | `POSTGRES_USER` / `POSTGRES_DB` / `POSTGRES_PASSWORD` | Database credentials. |
