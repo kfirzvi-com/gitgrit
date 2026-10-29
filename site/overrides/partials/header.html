@@ -24,7 +24,7 @@
       {# Wrap the wordmark in a home link so [logo] + [GitGrit text]
          act as one click-target. Styling in custom.css strips the link
          visuals so the text reads as plain wordmark. #}
-      <a href="{{ config.extra.homepage | d(nav.homepage.url, true) | url }}" class="gg-header__wordmark" aria-label="{{ config.site_name }} — home">
+      <a href="{{ config.extra.homepage | d(nav.homepage.url, true) | url }}" class="gg-header__wordmark" aria-label="{{ config.site_name }} home">
         <div class="md-header__ellipsis">
           <div class="md-header__topic">
             <span class="md-ellipsis">

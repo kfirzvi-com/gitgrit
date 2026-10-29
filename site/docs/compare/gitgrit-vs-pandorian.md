@@ -1,5 +1,5 @@
 ---
-title: GitGrit vs Pandorian — engineering standards compared
+title: GitGrit vs Pandorian: engineering standards compared
 description: Pandorian turns standards written in plain English into checks run by an LLM. GitGrit runs your standards as code, with LLM checks only where a rule needs judgment. Here's how they differ.
 ---
 
