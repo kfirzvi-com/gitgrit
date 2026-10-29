@@ -36,6 +36,7 @@ watch:
 
 hooks:
   - hooks/whats_new.py   # generates whats-new.md from GitHub releases
+  - hooks/cache_bust.py  # ?v=<hash> on extra_css so a deploy never pairs new HTML with cached CSS
 
 nav:
   # Home (index.md) is intentionally absent from the sidebar — it's reached
