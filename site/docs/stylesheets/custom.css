@@ -458,6 +458,17 @@
   .md-header__button[for="__search"] {
     margin-left: auto;
   }
+  /* The repo badge would sit under the centered wordmark; the drawer
+     shows it already. */
+  .md-header__source {
+    display: none;
+  }
+}
+/* Tablets: Material swaps the search button for the full search field. */
+@media screen and (min-width: 60em) and (max-width: 76.234375em) {
+  .md-search {
+    margin-left: auto;
+  }
 }
 
 /* Menu drawer: "← GitGrit home" above the docs tree (overrides/partials/
