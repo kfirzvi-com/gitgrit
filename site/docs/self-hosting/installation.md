@@ -1,3 +1,7 @@
+---
+title: "Installing Self-Hosted GitGrit"
+---
+
 # Installation
 
 This page walks you end-to-end through a self-hosted GitGrit install

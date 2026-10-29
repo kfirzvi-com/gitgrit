@@ -1,3 +1,7 @@
+---
+title: "Operating Self-Hosted GitGrit"
+---
+
 # Operations
 
 Reference and ongoing-ops material for a running self-hosted GitGrit
