@@ -14,8 +14,12 @@
 
   --md-default-bg-color: var(--gg-bg-base);
   --md-default-fg-color: var(--gg-text);
-  --md-default-fg-color--light: var(--gg-text-dim);
-  --md-default-fg-color--lighter: var(--gg-text-dimmer);
+  /* Site-only text shades: brighter than the app's --gg-text-dim for long-form reading */
+  --site-text-body: oklch(84% 0.012 264);
+  --site-text-muted: oklch(72% 0.014 264);
+
+  --md-default-fg-color--light: var(--site-text-muted);
+  --md-default-fg-color--lighter: var(--gg-text-dim);
   --md-default-fg-color--lightest: var(--gg-border);
 
   --md-primary-fg-color: var(--gg-bg-base);
@@ -29,8 +33,8 @@
   --md-typeset-a-color: var(--gg-primary);
 
   --md-footer-bg-color: var(--gg-bg-base);
-  --md-footer-fg-color: var(--gg-text-dim);
-  --md-footer-fg-color--light: var(--gg-text-dimmer);
+  --md-footer-fg-color: var(--site-text-body);
+  --md-footer-fg-color--light: var(--site-text-muted);
   --md-footer-fg-color--lighter: var(--gg-border);
 }
 
@@ -215,7 +219,7 @@
 
 .gg-footer {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1fr 1fr 1.2fr 1fr;
   gap: 2.5rem;
   padding: 3rem 0 2rem;
 }
@@ -246,7 +250,7 @@
 }
 
 .gg-footer__tagline {
-  color: var(--gg-text-dim);
+  color: var(--site-text-body);
   font-size: 0.875rem;
   line-height: 1.55;
   max-width: 32ch;
@@ -266,13 +270,13 @@
   height: 2rem;
   border-radius: var(--gg-radius-sm);
   border: 1px solid var(--gg-border);
-  color: var(--gg-text-dim);
+  color: var(--site-text-body);
   transition: color 120ms ease, border-color 120ms ease;
 }
 
 .gg-footer__social-link:hover {
   color: var(--gg-text);
-  border-color: var(--gg-text-dim);
+  border-color: var(--site-text-body);
 }
 
 .gg-footer__social-link svg {
@@ -299,15 +303,16 @@
   padding: 0;
 }
 
-[dir=ltr] .gg-footer__col li,
-[dir=rtl] .gg-footer__col li,
+/* Material indents with [dir=ltr] .md-typeset ul li (0,2,2), so match it plus the column class */
+[dir=ltr] .md-typeset .gg-footer__col ul li,
+[dir=rtl] .md-typeset .gg-footer__col ul li,
 .md-typeset .gg-footer__col li {
   margin: 0 0 0.5rem;
   padding: 0;
 }
 
 .gg-footer__col a {
-  color: var(--gg-text-dim);
+  color: var(--site-text-body);
   font-size: 0.875rem;
   text-decoration: none;
   transition: color 120ms ease;
@@ -321,7 +326,7 @@
   border-top: 1px solid var(--gg-border);
   padding: 1.25rem 0;
   font-size: 0.75rem;
-  color: var(--gg-text-dim);
+  color: var(--site-text-body);
 }
 
 .gg-footer__copy {
@@ -329,7 +334,7 @@
 }
 
 .gg-footer__copy a {
-  color: var(--gg-text-dim);
+  color: var(--site-text-body);
 }
 
 .gg-footer__copy a:hover {

@@ -19,32 +19,31 @@
       background-image:
         radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
       background-size: 24px 24px;
-      overflow: hidden;
+      overflow-x: clip;
+      --site-text-body: var(--gg-text);
+      --site-text-muted: oklch(86% 0.012 264);
     }
 
     /* ── Hero ── */
     .gg-hero {
-      max-width: 1400px;
       margin: 0 auto;
-      padding: 5rem 1.5rem 4rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: center;
+      max-width: 920px;
+      padding: 6rem 1.5rem 3.5rem;
+      text-align: center;
     }
     @media (max-width: 800px) {
-      .gg-hero { grid-template-columns: 1fr; padding: 3rem 1.5rem 2rem; }
+      .gg-hero { padding: 3rem 1.5rem 2rem; }
     }
 
     .gg-hero__tag {
-      font-family: var(--gg-font-mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      font-family: var(--gg-font-sans);
+      font-size: 0.95rem;
+      font-weight: 700;
       color: var(--gg-primary);
       margin-bottom: 1rem;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
     }
     .gg-hero__tag::before {
@@ -55,7 +54,7 @@
 
     .gg-hero h1 {
       font-family: var(--gg-font-sans);
-      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
       font-weight: 700;
       line-height: 1.1;
       color: var(--gg-text);
@@ -69,14 +68,14 @@
 
     .gg-hero__sub {
       font-family: var(--gg-font-sans);
-      font-size: 1.1rem;
-      line-height: 1.6;
-      color: var(--gg-text-dim);
-      margin-bottom: 2rem;
-      max-width: 480px;
+      font-size: 1.2rem;
+      line-height: 1.65;
+      color: var(--site-text-body);
+      margin: 0 auto 2rem;
+      max-width: 680px;
     }
 
-    .gg-hero__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .gg-hero__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
 
     .gg-btn {
       font-family: var(--gg-font-mono);
@@ -101,12 +100,12 @@
     }
     .gg-btn--ghost {
       background: transparent;
-      color: var(--gg-text-dim);
-      border-color: var(--gg-border);
+      color: var(--gg-text);
+      border-color: var(--site-text-muted);
     }
     .gg-btn--ghost:hover {
       color: var(--gg-text);
-      border-color: var(--gg-text-dim);
+      border-color: var(--site-text-body);
     }
 
     /* ── Browser mockup ── */
@@ -148,7 +147,7 @@
       padding: 3px 10px;
       font-family: var(--gg-font-mono);
       font-size: 0.7rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       text-align: center;
       white-space: nowrap;
       overflow: hidden;
@@ -157,42 +156,9 @@
     .gg-browser__content {
       position: relative;
     }
-    .gg-browser__content img,
-    .gg-browser__content video {
+    .gg-browser__content img {
       display: block;
       width: 100%;
-    }
-    .gg-video-cta {
-      position: absolute;
-      bottom: 14px;
-      right: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 14px;
-      background: rgba(20, 184, 166, 0.92);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 999px;
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 8px 24px rgba(20, 184, 166, 0.35);
-      transition: transform 0.15s ease, background 0.15s ease, opacity 0.2s ease;
-    }
-    .gg-video-cta:hover {
-      background: rgba(20, 184, 166, 1);
-      transform: translateY(-1px);
-    }
-    .gg-video-cta[hidden] {
-      display: none;
-    }
-    .gg-video-cta svg {
-      flex-shrink: 0;
     }
 
     /* ── Code panel ── */
@@ -223,7 +189,7 @@
     .gg-code-panel__title {
       margin-left: auto;
       font-size: 0.7rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
     }
     .gg-code-panel__body { padding: 1rem 1.25rem; color: var(--gg-text); }
     .gg-code-panel__body .kw { color: #c678dd; }
@@ -272,267 +238,437 @@
       border-top: 1px solid var(--gg-border);
     }
 
-    /* ── Features ── */
-    .gg-features {
-      max-width: 1400px;
+    /* ── Section shell ── */
+    .gg-sec {
+      max-width: 1200px;
       margin: 0 auto;
       padding: 4rem 1.5rem;
     }
-    .gg-features__header {
+    .gg-sec__header {
       text-align: center;
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
     }
-    .gg-features__header h2 {
+    .gg-sec__header h2 {
       font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
-    .gg-features__header p {
+    .gg-sec__header p {
       font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       font-size: 1rem;
+      line-height: 1.6;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .gg-sec__tag {
+      font-family: var(--gg-font-sans);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gg-primary) !important;
+      margin-bottom: 0.75rem !important;
+    }
+
+    /* ── Shared section system ──
+       One header style, one card style, one icon style.
+       Sections differ by background (base / band) and layout only. */
+    .gg-sec__header { margin-bottom: 3rem; }
+    .gg-sec__header h2 { font-size: 2.2rem; line-height: 1.2; letter-spacing: -0.01em; }
+    .gg-sec__header p { color: var(--gg-text); font-size: 1.05rem; max-width: 560px; }
+    @media (max-width: 600px) { .gg-sec__header h2 { font-size: 1.75rem; } }
+
+    .gg-band {
+      background: var(--gg-surface);
+      border-top: 1px solid var(--gg-bg-300);
+      border-bottom: 1px solid var(--gg-bg-300);
+    }
+    .gg-band .gg-sec { padding: 5rem 1.5rem; }
+
+    .gg-card {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 16px;
+      padding: 1.75rem;
+    }
+    .gg-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 2.75rem; height: 2.75rem;
+      border-radius: 50%;
+      border: 1.5px solid var(--gg-primary);
+      color: var(--gg-primary);
+      font-family: var(--gg-font-sans);
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 1rem;
+    }
+    .gg-icon svg { width: 20px; height: 20px; }
+    .gg-sec h3, .gg-sec h4 {
+      font-family: var(--gg-font-sans);
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--gg-text);
+      margin: 0 0 0.5rem;
+    }
+    .gg-sec .gg-card p, .gg-point p, .gg-step p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.97rem;
+      line-height: 1.6;
+      color: var(--gg-text);
       margin: 0;
     }
 
-    .gg-features__grid {
+    /* ── Sound familiar: three equal cards ── */
+    .gg-pains {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: var(--gg-border);
-      border: 1px solid var(--gg-border);
-      border-radius: 10px;
-      overflow: hidden;
+      gap: 1.25rem;
     }
-    @media (max-width: 800px) {
-      .gg-features__grid { grid-template-columns: 1fr; }
-    }
-
-    .gg-feat {
-      background: var(--gg-surface);
-      padding: 2rem;
-      transition: background 0.25s;
-    }
-    .gg-feat:hover {
-      background: var(--gg-surface-2);
-    }
-    .gg-feat__icon {
-      width: 36px; height: 36px;
-      border-radius: 8px;
-      background: var(--gg-primary-glow);
-      border: 1px solid var(--gg-primary-glow);
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 1rem;
-      color: var(--gg-primary);
-      font-size: 1.1rem;
-    }
-    .gg-feat h3 {
+    @media (max-width: 900px) { .gg-pains { grid-template-columns: 1fr; } }
+    .gg-pain__quote {
       font-family: var(--gg-font-sans);
       font-size: 1rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-feat p {
-      font-family: var(--gg-font-sans);
-      font-size: 0.88rem;
+      font-style: italic;
       line-height: 1.55;
-      color: var(--gg-text-dim);
-      margin: 0;
-    }
-
-    /* ── How it works ── */
-    .gg-how {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 1.5rem;
-    }
-    .gg-how__header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-    .gg-how__header h2 {
-      font-family: var(--gg-font-sans);
-      font-size: 1.8rem;
-      font-weight: 700;
       color: var(--gg-text);
-      margin: 0 0 0.5rem;
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--gg-bg-300);
     }
-    .gg-how__header p {
-      font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
-      margin: 0;
+    .gg-pain__src {
+      display: block;
+      margin-top: 0.6rem;
+      font-size: 0.85rem;
+      font-style: normal;
     }
+    .gg-pain__src i { display: block; opacity: 0.8; }
+    .gg-pain h3 { color: var(--gg-primary); }
 
-    .gg-steps {
+    /* ── Standards as code: four open columns on the band ── */
+    .gg-points {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 1.5rem;
-    }
-    @media (max-width: 800px) {
-      .gg-steps { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 480px) {
-      .gg-steps { grid-template-columns: 1fr; }
-    }
-
-    .gg-step {
-      position: relative;
-      padding-left: 2.5rem;
-    }
-    .gg-step__num {
-      position: absolute;
-      left: 0; top: 0;
-      font-family: var(--gg-font-mono);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-border);
-      line-height: 1;
-    }
-    .gg-step h4 {
-      font-family: var(--gg-font-sans);
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.35rem;
-    }
-    .gg-step p {
-      font-family: var(--gg-font-sans);
-      font-size: 0.85rem;
-      color: var(--gg-text-dim);
-      line-height: 1.5;
-      margin: 0;
-    }
-
-    /* ── Open Source ── */
-    .gg-oss {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 1.5rem;
-    }
-    .gg-oss__grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-    }
-    @media (max-width: 800px) {
-      .gg-oss__grid { grid-template-columns: 1fr; }
-    }
-    .gg-oss__header {
+      gap: 2rem;
       text-align: center;
-      margin-bottom: 3rem;
     }
-    .gg-oss__header h2 {
-      font-family: var(--gg-font-sans);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-oss__header p {
-      font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
-      font-size: 1rem;
-      margin: 0;
-    }
-    .gg-oss__card {
-      background: var(--gg-surface);
-      border: 1px solid var(--gg-border);
-      border-radius: 10px;
-      padding: 2rem;
-    }
-    .gg-oss__card h3 {
-      font-family: var(--gg-font-sans);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-oss__card p {
-      font-family: var(--gg-font-sans);
-      font-size: 0.88rem;
-      color: var(--gg-text-dim);
-      line-height: 1.55;
-      margin: 0;
-    }
+    .gg-point .gg-icon { margin: 0 auto 1rem; }
+    @media (max-width: 900px) { .gg-points { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .gg-points { grid-template-columns: 1fr; } }
 
-    /* ── Roadmap ── */
-    .gg-roadmap {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 1.5rem;
-    }
-    .gg-roadmap__header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-    .gg-roadmap__header h2 {
-      font-family: var(--gg-font-sans);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-roadmap__header p {
-      font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
-      font-size: 1rem;
-      margin: 0;
-    }
-    .gg-pillars {
+    /* ── How it compares: one joined block, GitGrit column highlighted ── */
+    .gg-vs {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 1.5rem;
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 16px;
+      overflow: hidden;
     }
-    @media (max-width: 800px) {
-      .gg-pillars { grid-template-columns: 1fr; }
-    }
-    .gg-pillar {
+    @media (max-width: 800px) { .gg-vs { grid-template-columns: 1fr; } }
+    .gg-vs__item {
       background: var(--gg-surface);
-      border: 1px solid var(--gg-border);
-      border-radius: 10px;
-      padding: 2rem;
+      padding: 1.75rem;
     }
-    .gg-pillar--active {
-      border-color: var(--gg-success);
+    .gg-vs__item + .gg-vs__item { border-left: 1px solid var(--gg-bg-300); }
+    @media (max-width: 800px) {
+      .gg-vs__item + .gg-vs__item { border-left: none; border-top: 1px solid var(--gg-bg-300); }
     }
-    .gg-pillar__status {
-      font-family: var(--gg-font-mono);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.75rem;
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
-    .gg-pillar--active .gg-pillar__status {
-      color: var(--gg-success);
-      background: rgba(34,197,94,0.12);
-    }
-    .gg-pillar--next .gg-pillar__status {
-      color: var(--gg-warning);
-      background: rgba(245,158,11,0.12);
-    }
-    .gg-pillar--planned .gg-pillar__status {
-      color: var(--gg-text-dim);
-      background: var(--gg-surface-2);
-    }
-    .gg-pillar h3 {
+    .gg-vs__item h3 { display: flex; align-items: center; gap: 0.55rem; }
+    .gg-vs__item h3 svg { width: 20px; height: 20px; flex: none; }
+    .gg-vs__item p {
       font-family: var(--gg-font-sans);
-      font-size: 1rem;
-      font-weight: 700;
+      font-size: 0.97rem;
+      line-height: 1.6;
       color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-pillar p {
-      font-family: var(--gg-font-sans);
-      font-size: 0.85rem;
-      color: var(--gg-text-dim);
-      line-height: 1.55;
       margin: 0;
     }
+    .gg-vs__item--us {
+      background: linear-gradient(150deg, rgba(6, 182, 212, 0.16), var(--gg-surface));
+    }
+    .gg-vs__item--us h3 { color: var(--gg-primary); }
+
+    /* ── Get started: three centred steps on the band ── */
+    .gg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 1rem;
+      padding: 0.3rem 0.85rem;
+      border: 1px solid var(--gg-primary);
+      border-radius: 999px;
+      font-family: var(--gg-font-sans);
+      font-size: 0.9rem;
+      color: var(--gg-text);
+    }
+    .gg-badge b { color: var(--gg-primary); }
+    .gg-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      text-align: center;
+    }
+    .gg-step .gg-icon { margin: 0 auto 1rem; }
+    .gg-step p { max-width: 300px; margin: 0 auto; }
+    .gg-step p b { color: var(--gg-primary); }
+    @media (max-width: 800px) { .gg-steps { grid-template-columns: 1fr; } }
+
+    /* ── Display headings: light lead-in + heavy key words ── */
+    .gg-sec__header h2 { font-size: 2.9rem; font-weight: 800; letter-spacing: -0.02em; }
+    .gg-sec__header h2 .lite { font-weight: 300; }
+    .gg-sec__header h2 em { font-style: normal; color: var(--gg-primary); }
+    @media (max-width: 600px) { .gg-sec__header h2 { font-size: 2rem; } }
+
+    /* Curved top edge + soft glow on band sections */
+    .gg-band {
+      border-top: none;
+      border-radius: 50% 50% 0 0 / 70px 70px 0 0;
+      background:
+        radial-gradient(ellipse 50% 220px at 50% 0, oklch(63% 0.158 200 / 0.14), transparent 80%),
+        var(--gg-surface);
+    }
+    .gg-band .gg-sec { padding-top: 6rem; }
+    @media (max-width: 600px) { .gg-band { border-radius: 50% 50% 0 0 / 28px 28px 0 0; } }
+
+    /* Giant faint watermark behind the comparison heading */
+    .gg-sec--vs .gg-sec__header { position: relative; }
+    .gg-sec--vs .gg-sec__header::before {
+      content: 'VS';
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -55%);
+      font-family: var(--gg-font-sans);
+      font-size: 15rem;
+      font-weight: 800;
+      line-height: 1;
+      color: transparent;
+      -webkit-text-stroke: 1.5px oklch(63% 0.158 200 / 0.14);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .gg-sec--vs .gg-sec__header > * { position: relative; z-index: 1; }
+    @media (max-width: 600px) { .gg-sec--vs .gg-sec__header::before { font-size: 8rem; } }
+
+    /* Bold keywords carry the scan; the rest stays regular */
+    .gg-sec .gg-card p b, .gg-point p b, .gg-vs__item p b { font-weight: 700; color: var(--gg-text); }
+
+    /* Cards rise in one after another on scroll */
+    .gg-rise { opacity: 0; transform: translateY(28px); transition: opacity 0.6s ease, transform 0.6s ease; transition-delay: calc(var(--i, 0) * 120ms); }
+    .gg-rise.is-in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) { .gg-rise { opacity: 1; transform: none; transition: none; } }
+
+    .gg-hero__sub b, .gg-sec__header p b, .gg-cta p b, .gg-pain__quote b { font-weight: 700; color: var(--gg-text); }
+
+
+    /* ── Story images: one picture style, one row pattern (image beside content, alternating) ── */
+    .gg-pic {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 20px;
+      border: 1px solid var(--gg-bg-300);
+      box-shadow: 0 20px 60px oklch(0% 0 0 / 0.45), 0 0 50px oklch(63% 0.158 200 / 0.12);
+    }
+    .gg-pic--wide { aspect-ratio: 16 / 7; object-position: center 45%; }
+    .gg-rows { display: flex; flex-direction: column; gap: 4rem; }
+    .gg-row {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+      gap: 3.5rem;
+      align-items: center;
+    }
+    .gg-row--flip > .gg-pic { order: 2; }
+    @media (max-width: 860px) {
+      .gg-row { grid-template-columns: 1fr; gap: 1.75rem; }
+      .gg-row--flip > .gg-pic { order: 0; }
+      .gg-rows { gap: 3rem; }
+    }
+    .gg-row .gg-points { grid-template-columns: 1fr 1fr; gap: 2rem 1.75rem; }
+    @media (max-width: 560px) { .gg-row .gg-points { grid-template-columns: 1fr; } }
+    .gg-row .gg-vs { grid-template-columns: 1fr; }
+    .gg-row .gg-vs__item + .gg-vs__item { border-left: none; border-top: 1px solid var(--gg-bg-300); }
+    .gg-cta__box.gg-row { text-align: left; padding: 2.5rem; }
+    .gg-cta__box.gg-row .gg-cta__actions { justify-content: flex-start; }
+    .gg-cta__box.gg-row h2 { font-size: 3rem; line-height: 1.12; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1.25rem; }
+    @media (max-width: 600px) { .gg-cta__box.gg-row h2 { font-size: 2.2rem; } }
+    .gg-cta__box h2 .lite { font-weight: 300; }
+    .gg-cta__box h2 em { font-style: normal; color: var(--gg-primary); }
+    @media (max-width: 860px) {
+      .gg-cta__box.gg-row { text-align: center; padding: 1.5rem; }
+      .gg-cta__box.gg-row .gg-cta__actions { justify-content: center; }
+    }
+
+    /* ── Sound familiar: problems with pictures, then the three answers together ── */
+    .gg-problem {
+      position: relative;
+      font-family: var(--gg-font-sans);
+      font-size: 1.45rem;
+      font-weight: 500;
+      line-height: 1.5;
+      color: var(--gg-text);
+      padding-left: 2.25rem;
+    }
+    .gg-problem::before {
+      content: '\201C';
+      position: absolute;
+      left: 0; top: -0.6rem;
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--gg-primary);
+    }
+    .gg-problem b { font-weight: 800; }
+    .gg-problem .gg-pain__src { display: block; margin-top: 1rem; font-size: 0.95rem; font-weight: 400; line-height: 1.5; }
+    .gg-problem .gg-pain__src i { display: block; opacity: 0.8; }
+    @media (max-width: 600px) { .gg-problem { font-size: 1.2rem; } }
+    .gg-sec__header--sub { margin: 5rem 0 2.5rem; }
+    .gg-solutions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      text-align: center;
+    }
+    @media (max-width: 860px) { .gg-solutions { grid-template-columns: 1fr; } }
+    .gg-solution {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 20px;
+      padding: 2.25rem 1.75rem;
+    }
+    .gg-solution .gg-icon { width: 4rem; height: 4rem; margin: 0 auto 1.25rem; background: var(--gg-primary-glow); box-shadow: 0 0 30px oklch(63% 0.158 200 / 0.25); }
+    .gg-solution .gg-icon svg { width: 26px; height: 26px; }
+    .gg-solution h3 { color: var(--gg-primary); font-size: 1.2rem; }
+    .gg-solution p { font-family: var(--gg-font-sans); font-size: 0.97rem; line-height: 1.6; color: var(--gg-text); margin: 0; }
+    .gg-solution p b { font-weight: 700; }
+
+    /* ── Hero: headline on dark, Clark's world rising out of it below, curved bottom ── */
+    .gg-hero {
+      position: relative;
+      max-width: none;
+      padding: 7rem 0 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-radius: 0 0 50% 50% / 0 0 90px 90px;
+      box-shadow: 0 30px 80px oklch(63% 0.158 200 / 0.12);
+    }
+    .gg-hero__inner { position: relative; z-index: 1; max-width: 1000px; padding: 0 1.5rem; text-align: center; }
+    .gg-hero__bg {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 7;
+      max-height: 72vh;
+      margin-top: 0.5rem;
+      object-fit: cover;
+      object-position: center 50%;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 35%);
+              mask-image: linear-gradient(to bottom, transparent 0%, #000 35%);
+      animation: gg-hero-zoom 16s ease-out both;
+    }
+    @keyframes gg-hero-zoom { from { transform: scale(1.1); } to { transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .gg-hero__bg { animation: none; } }
+    .gg-hero h1 {
+      font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+      line-height: 1.05;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+    }
+    .gg-hero h1 .lite { font-weight: 300; }
+    .gg-hero__sub { font-size: 1.3rem; max-width: 640px; margin: 0 auto 2rem; }
+    @media (max-width: 800px) {
+      .gg-hero { padding-top: 4.5rem; border-radius: 0 0 50% 50% / 0 0 36px 36px; }
+      .gg-hero__bg { aspect-ratio: 1 / 1; margin-top: -1.5rem; object-position: center 60%; }
+      .gg-hero__sub { font-size: 1.1rem; }
+    }
+
+    /* ── The gap: three equal cards joined by arrows ── */
+    .gg-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: stretch;
+      gap: 0.75rem;
+      margin: 5rem 0 3rem;
+    }
+    .gg-flow__card {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 20px;
+      padding: 1.6rem 1.25rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .gg-flow__card h3 { font-size: 1.15rem; margin-bottom: 1.1rem; }
+    .gg-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem 0.4rem; }
+    .gg-chips li {
+      margin: 0;
+      font-family: var(--gg-font-sans);
+      font-size: 0.88rem;
+      color: var(--gg-text);
+      background: var(--gg-bg-100);
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+      white-space: nowrap;
+    }
+    .gg-flow__card--gap { border-color: oklch(65% 0.2 27 / 0.45); background: linear-gradient(160deg, oklch(65% 0.2 27 / 0.12), var(--gg-surface) 70%); }
+    .gg-flow__card--gap h3 { color: #fca5a5; }
+    .gg-flow__card--gap .gg-chips li { background: oklch(65% 0.2 27 / 0.16); color: #fee2e2; }
+    .gg-flow__card--us { border-color: var(--gg-primary); background: linear-gradient(160deg, oklch(63% 0.158 200 / 0.18), var(--gg-surface) 70%); box-shadow: 0 0 40px oklch(63% 0.158 200 / 0.15); }
+    .gg-flow__card--us h3 { color: var(--gg-primary); }
+    .gg-flow__big { font-family: var(--gg-font-sans); font-size: 1.3rem; font-weight: 700; line-height: 1.35; color: var(--gg-text); margin: 0 0 0.5rem; }
+    .gg-flow__card--us p:not(.gg-flow__big) { font-family: var(--gg-font-sans); font-size: 1rem; color: var(--gg-text); margin: 0; }
+    .gg-flow__arrow { display: flex; align-items: center; color: var(--gg-primary); }
+    .gg-flow__arrow svg { width: 28px; height: 28px; }
+    @media (max-width: 900px) {
+      .gg-flow { grid-template-columns: 1fr; margin-top: 3.5rem; }
+      .gg-flow__arrow { justify-content: center; }
+      .gg-flow__arrow svg { transform: rotate(90deg); }
+    }
+
+    /* GitGrit badger placed in the glowing orb of frame 5 */
+    .gg-pic-wrap { position: relative; }
+    .gg-orb-logo {
+      position: absolute;
+      left: 62.3%;
+      top: 15.4%;
+      width: 15%;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 0 10px oklch(63% 0.158 200 / 0.9)) drop-shadow(0 0 22px oklch(63% 0.158 200 / 0.6));
+      pointer-events: none;
+    }
+
+    /* GitGrit comparison card: a complete, rounded, glowing card inside the block */
+    .gg-vs .gg-vs__item.gg-vs__item--us {
+      border: 1.5px solid var(--gg-primary);
+      border-radius: 14px;
+      margin: 0.6rem;
+      box-shadow: 0 0 18px oklch(63% 0.158 200 / 0.35);
+    }
+
+    .gg-shot {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .gg-shot__cap {
+      text-align: center;
+      font-family: var(--gg-font-sans);
+      font-size: 0.85rem;
+      color: var(--site-text-body);
+      margin-top: 0.85rem;
+    }
+
+    .gg-cta__who {
+      margin-top: 1.25rem;
+      font-family: var(--gg-font-sans);
+      font-size: 0.85rem;
+      color: var(--site-text-body);
+    }
+    .gg-cta__actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
 
     /* ── CTA ── */
     .gg-cta {
@@ -566,7 +702,7 @@
     }
     .gg-cta p {
       font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       margin: 0 0 1.5rem;
       font-size: 1rem;
     }
@@ -588,231 +724,208 @@
 
     <!-- Hero -->
     <section class="gg-hero">
-      <div>
-        <div class="gg-hero__tag">Developer Experience Platform</div>
-        <h1>Know how your teams build.<br><em>Help them do it better.</em></h1>
-        <p class="gg-hero__sub">
-          GitGrit enables engineering leaders <span style="color: var(--gg-primary); font-weight: 700;">move faster</span> by providing visibility into repository standards, team health, and delivery performance — and enables developers actionable guidance to improve.
-        </p>
+      <div class="gg-hero__inner">
+        <h1><span class="lite">Engineering best practices can become</span> <em>everyday reality.</em></h1>
+        <p class="gg-hero__sub">How a team builds belongs in <b>running code</b>, not in a few senior engineers' heads.</p>
         <div class="gg-hero__actions">
-          <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
-          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Open App &rarr;</a>
+          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Let's talk</a>
+          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
       </div>
+      <img class="gg-hero__bg" src="images/story/frame-1.webp" alt="Clark the badger working happily with two teammates at one table" width="1254" height="1254">
+    </section>
 
-      <div style="display:flex;flex-direction:column;gap:1rem;">
-        <div class="gg-browser">
-          <div class="gg-browser__toolbar">
-            <div class="gg-browser__dots">
-              <span class="gg-browser__dot gg-browser__dot--r"></span>
-              <span class="gg-browser__dot gg-browser__dot--y"></span>
-              <span class="gg-browser__dot gg-browser__dot--g"></span>
-            </div>
-            <div class="gg-browser__address">app.gitgrit.dev</div>
-          </div>
-          <div class="gg-browser__content">
-            <video
-              id="gg-hero-video"
-              src="../videos/onboarding.mp4"
-              poster="../videos/onboarding-poster.jpg"
-              autoplay
-              muted
-              loop
-              playsinline
-              preload="metadata"
-              aria-label="GitGrit onboarding walkthrough"
-            ></video>
-            <button
-              type="button"
-              id="gg-hero-play"
-              class="gg-video-cta"
-              aria-label="Play onboarding video with sound"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M8 5v14l11-7L8 5z"/>
-              </svg>
-              <span>Play with sound</span>
-            </button>
-          </div>
+    <!-- Sound familiar -->
+    <section class="gg-sec gg-reveal">
+      <div class="gg-sec__header">
+        <h2><span class="lite">Does any of these sound</span> familiar?</h2>
+      </div>
+<div class="gg-rows">
+      <div class="gg-row">
+        <img class="gg-pic" src="images/story/frame-2.webp" alt="New teammates walk in as desks fill up and a growth chart rises" loading="lazy" width="1254" height="1254">
+        <div class="gg-problem gg-rise">As teams grow, the full picture comes in pieces, from dailies and status updates, and you have to <b>hold it all in your head</b>.</div>
+      </div>
+      <div class="gg-row gg-row--flip">
+        <img class="gg-pic" src="images/story/frame-3.webp" alt="Every developer has an AI helper, and changes pile up into a tower while Clark stares in awe" loading="lazy" width="1254" height="1254">
+        <div class="gg-problem gg-rise">AI ships code faster than I can trust it.
+            <span class="gg-pain__src"><b>Almost half of developers</b> don't trust the accuracy of AI-written code.<i>Stack Overflow Developer Survey 2025</i></span></div>
+      </div>
+      <div class="gg-row">
+        <img class="gg-pic" src="images/story/frame-4.webp" alt="Clark sweats under a tower of tasks among conflicting screens, a packed calendar, arguing teammates and bugs" loading="lazy" width="1254" height="1254">
+        <div class="gg-problem gg-rise">Other teams seem to have it all figured out: the right practices, the right tools, the right culture. And you wonder if you're <b>the only one still figuring it out</b>.</div>
+      </div>
+      </div>
+
+      <!-- The gap: why the chaos happens, and the way out -->
+      <div class="gg-flow">
+        <div class="gg-flow__card">
+          <h3>Standards today</h3>
+          <ul class="gg-chips"><li>the wiki</li><li>a senior's head</li><li>review comments</li><li>per-repo linters</li><li>CLAUDE.md files</li><li>old Slack threads</li></ul>
+        </div>
+        <div class="gg-flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="gg-flow__card gg-flow__card--gap">
+          <h3>The gap</h3>
+          <ul class="gg-chips"><li>3 AM on-call incidents</li><li>unhappy customers</li><li>slow progress</li></ul>
+        </div>
+        <div class="gg-flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="gg-flow__card gg-flow__card--us">
+          <h3>With GitGrit</h3>
+          <p class="gg-flow__big">One set of standards, as running code.</p>
+          <p>Checked on <b>every repository</b>, on <b>every push</b>.</p>
+        </div>
+      </div>
+      <div class="gg-solutions">
+        <div class="gg-solution gg-rise">
+          <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 13l3-3 2 2 5-5"/></svg></div>
+          <h3>Feel in control, never in the dark.</h3>
+          <p><b>One screen</b> shows every repository's grade and exactly why. You know where things stand <b>before anyone has to tell you</b>, and you lead your team with confidence.</p>
+        </div>
+        <div class="gg-solution gg-rise">
+          <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Move fast with AI, on solid ground.</h3>
+          <p>Your agents read the same standards through GitGrit, and <b>every change, human or AI, is checked</b> against them. A stable foundation you can rely on, no matter who, or what, writes the code.</p>
+        </div>
+        <div class="gg-solution gg-rise">
+          <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+          <h3>Keep up, without chasing every trend.</h3>
+          <p>GitGrit puts engineering best practices in one place, simply: <b>pick ready-made standards</b> and see how far each repository is from them. <b>Close the gap one repo at a time.</b></p>
         </div>
       </div>
     </section>
 
-    <div class="gg-divider"><hr></div>
+    <!-- Standards as code -->
+    <div class="gg-band">
+      <section class="gg-sec gg-reveal">
+        <div class="gg-sec__header">
+          <h2><span class="lite">Standards as</span> <em>code.</em></h2>
+          <p>Your rules live in <b>one place</b>, as <b>readable code</b>.</p>
+        </div>
+        <div class="gg-row">
+          <div class="gg-pic-wrap"><img class="gg-pic" src="images/story/frame-5.webp" alt="Clark clicks install and the GitGrit badger rises from the screen in turquoise light" loading="lazy" width="1254" height="1254"><img class="gg-orb-logo" src="images/logo.svg" alt="" aria-hidden="true"></div>
+        <div class="gg-points">
+          <div class="gg-point gg-rise">
+            <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.5"/></svg></div>
+            <h3>Accurate, in real time</h3>
+            <p>Every check is code that gives <b>the same answer every time</b>, on every push.</p>
+          </div>
+          <div class="gg-point gg-rise">
+            <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></div>
+            <h3>You decide what runs where</h3>
+            <p><b>Which standards apply</b> to each project, on which branches and events, and how much each one matters.</p>
+          </div>
+          <div class="gg-point gg-rise">
+            <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg></div>
+            <h3>Readable and trackable</h3>
+            <p>Short, human-readable rules, <b>versioned like code</b>. See how they evolved, and how every repo's grade changed.</p>
+          </div>
+          <div class="gg-point gg-rise">
+            <div class="gg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+            <h3>Evolves safely</h3>
+            <p><b>Dry-run a change</b>, then roll it out everywhere at once. Every check runs in an isolated sandbox.</p>
+          </div>
+        </div>
+        </div>
+      </section>
+    </div>
 
-    <!-- Features -->
-    <section class="gg-features gg-reveal">
-      <div class="gg-features__header">
-        <h2>Built for engineering teams</h2>
-        <p>Give your team the tools to write better software, not more checklists.</p>
+    <!-- How it compares -->
+    <section class="gg-sec gg-sec--vs gg-reveal">
+      <div class="gg-sec__header">
+        <h2><span class="lite">AI reviewers suggest.</span> <em>GitGrit verifies.</em></h2>
+        <p>Not <b>one model's opinion</b> on one pull request, and not <b>scripts copied</b> across dozens of CI pipelines.</p>
       </div>
-      <div class="gg-features__grid">
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-          </div>
-          <h3>Standards as Code</h3>
-          <p>Write compliance rules in Python. Full access to repo files, languages, members, and metadata.</p>
+      <div class="gg-row gg-row--flip">
+        <img class="gg-pic" src="images/story/frame-6.webp" alt="A dashboard with a green check by every repo, one issue flagged in yellow, and changes passing through a gate of checks" loading="lazy" width="1254" height="1254">
+      <div class="gg-vs">
+        <div class="gg-vs__item gg-rise">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+            AI review agents
+          </h3>
+          <p>Comment on <b>one pull request at a time</b>, and may answer differently each run.</p>
         </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
-          <h3>Standard Marketplace</h3>
-          <p>Install pre-built packs like Security Essentials or Repository Hygiene. Customize after install.</p>
+                <div class="gg-vs__item gg-rise">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            CI workflows
+          </h3>
+          <p><b>YAML copied repo by repo</b>, drifting apart, with no view across them.</p>
         </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          </div>
-          <h3>Analytics Dashboard</h3>
-          <p>Track compliance trends, identify failing standards, and monitor scores across all your projects.</p>
+                <div class="gg-vs__item gg-vs__item--us gg-rise">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            GitGrit
+          </h3>
+          <p><b>One set of readable rules</b>, checked everywhere, with one view of where you stand.</p>
         </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-          </div>
-          <h3>GitHub &amp; GitLab</h3>
-          <p>Connect any instance. Webhooks trigger evaluations automatically on every push and pull request.</p>
-        </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </div>
-          <h3>Sandboxed Execution</h3>
-          <p>Standards run in isolated gVisor containers. Your code and credentials are never exposed.</p>
-        </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h3>Compliance Badges</h3>
-          <p>Embed a live score badge in your README. Show compliance status to every contributor.</p>
-        </div>
+      </div>
       </div>
     </section>
 
-    <div class="gg-divider"><hr></div>
-
-    <!-- How it works -->
-    <section class="gg-how gg-reveal">
-      <div class="gg-how__header">
-        <h2>Up and running in minutes</h2>
-        <p>Connect, define, enforce.</p>
+    <!-- Get started -->
+    <div class="gg-band">
+    <section class="gg-sec gg-reveal">
+      <div class="gg-sec__header">
+        <h2><span class="lite">GitGrit, the</span> engineering standards <em>platform.</em></h2>
+        <span class="gg-badge">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gg-primary);"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M10 2h4"/></svg>
+          Get started in <b>minutes</b>
+        </span>
       </div>
       <div class="gg-steps">
-        <div class="gg-step">
-          <span class="gg-step__num">1</span>
-          <h4>Connect</h4>
-          <p>Link your GitHub or GitLab instance with an access token.</p>
+        <div class="gg-step gg-rise">
+          <span class="gg-icon">1</span>
+          <h4>Connect your repositories</h4>
+          <p>With <b>the click of a button</b>, from GitHub or GitLab. You can <b>start with just one repo</b>.</p>
         </div>
-        <div class="gg-step">
-          <span class="gg-step__num">2</span>
-          <h4>Add repos</h4>
-          <p>Select repositories to monitor. Webhooks are registered automatically.</p>
+        <div class="gg-step gg-rise">
+          <span class="gg-icon">2</span>
+          <h4>Pick your standards</h4>
+          <p><b>Ready-made packs</b> in one click, or your own. Mark each one <b>Required, Major or Minor</b>.</p>
         </div>
-        <div class="gg-step">
-          <span class="gg-step__num">3</span>
-          <h4>Define standards</h4>
-          <p>Write your own or install from the marketplace. Test with mock data.</p>
-        </div>
-        <div class="gg-step">
-          <span class="gg-step__num">4</span>
-          <h4>Enforce</h4>
-          <p>Every push triggers evaluation. Scores, badges, and dashboards update live.</p>
+        <div class="gg-step gg-rise">
+          <span class="gg-icon">3</span>
+          <h4>Stay in control</h4>
+          <p>A clear grade for every repo, <b>from A+ to F</b>, and <b>the exact reason</b> when something fails.</p>
         </div>
       </div>
     </section>
-
-    <div class="gg-divider"><hr></div>
-
-    <!-- Open Source -->
-    <section class="gg-oss gg-reveal">
-      <div class="gg-oss__header">
-        <h2>Open source. Self-host anywhere.</h2>
-        <p>GitGrit is fully open source under the MIT License. Run it on your own infrastructure, including airgapped environments.</p>
-      </div>
-      <div class="gg-oss__grid">
-        <div class="gg-oss__card">
-          <h3>Full product, no gates</h3>
-          <p>Self-hosted GitGrit has every feature. The cloud version wins on convenience, not by withholding functionality.</p>
-        </div>
-        <div class="gg-oss__card">
-          <h3>Airgapped ready</h3>
-          <p>Deploy behind firewalls with no external dependencies. Built for defense, government, and security-conscious organizations.</p>
-        </div>
-      </div>
-    </section>
-
-    <div class="gg-divider"><hr></div>
-
-    <!-- Roadmap -->
-    <section class="gg-roadmap gg-reveal">
-      <div class="gg-roadmap__header">
-        <h2>More than a compliance tool</h2>
-        <p>GitGrit is becoming the single place to understand and improve how your teams build software.</p>
-      </div>
-      <div class="gg-pillars">
-        <div class="gg-pillar gg-pillar--active">
-          <span class="gg-pillar__status">Live</span>
-          <h3>Repository Standards</h3>
-          <p>Standards-as-code enforcement with sandboxed execution, marketplace, analytics, and compliance badges.</p>
-        </div>
-        <div class="gg-pillar gg-pillar--next">
-          <span class="gg-pillar__status">Next</span>
-          <h3>Employee Surveys</h3>
-          <p>Measure Westrum culture, burnout, and psychological safety — tied directly to delivery outcomes.</p>
-        </div>
-        <div class="gg-pillar gg-pillar--planned">
-          <span class="gg-pillar__status">Planned</span>
-          <h3>Engineering Metrics</h3>
-          <p>DORA metrics from the tools you already use. Standards + team health + delivery performance in one place.</p>
-        </div>
-      </div>
-    </section>
-
-    <div class="gg-divider"><hr></div>
+    </div>
 
     <!-- CTA -->
     <section class="gg-cta gg-reveal">
-      <div class="gg-cta__box">
-        <h2>Start improving today</h2>
-        <p>Free for individuals and small teams. No credit card required.</p>
-        <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
+      <div class="gg-cta__box gg-row">
+        <img class="gg-pic" src="images/story/frame-7.webp" alt="Clark leans back with a coffee as a rocket launches outside the window" loading="lazy" width="1254" height="1254">
+        <div>
+        <h2><span class="lite">More code.</span><br><span class="lite">Faster speed.</span><br><em>Same standards.</em></h2>
+        <p>We'd love to hear <b>what you're facing</b>, and see together if we can help.</p>
+        <div class="gg-cta__actions">
+          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Talk to us</a>
+          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
+        </div>
+        </div>
       </div>
     </section>
 
   </div>
 
+
+
   <script>
     (function () {
-      var btn = document.getElementById('gg-hero-play');
-      var vid = document.getElementById('gg-hero-video');
-      if (!btn || !vid) return;
-
-      btn.addEventListener('click', function () {
-        vid.pause();
-        vid.muted = false;
-        vid.loop = false;
-        vid.currentTime = 0;
-        var p = vid.play();
-        if (p && typeof p.catch === 'function') p.catch(function () {});
-        btn.hidden = true;
-
-        vid.addEventListener(
-          'ended',
-          function () {
-            vid.muted = true;
-            vid.loop = true;
-            vid.currentTime = 0;
-            vid.play();
-            btn.hidden = false;
-          },
-          { once: true }
-        );
+      var groups = document.querySelectorAll('.gg-rows, .gg-solutions, .gg-points, .gg-vs, .gg-steps');
+      groups.forEach(function (g) {
+        g.querySelectorAll('.gg-rise').forEach(function (el, i) { el.style.setProperty('--i', i); });
       });
+      var items = document.querySelectorAll('.gg-rise');
+      if (!('IntersectionObserver' in window)) { items.forEach(function (el) { el.classList.add('is-in'); }); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+      }, { threshold: 0.15 });
+      items.forEach(function (el) { io.observe(el); });
     })();
   </script>
+
 
 {% endblock %}
 

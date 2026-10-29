@@ -1,6 +1,6 @@
 site_name: GitGrit
 site_url: !ENV [DOCS_SITE_URL, "https://gitgrit.dev"]
-site_description: Developer Experience Platform — Repository Standards, Team Health, and Delivery Performance
+site_description: The engineering standards platform. Turn engineering best practices into everyday reality.
 site_author: GitGrit
 
 theme:
@@ -61,8 +61,10 @@ nav:
 #   - Home (index.md): the logo links to it.
 #   - Legal pages: linked from the footer and product surfaces (OAuth
 #     consent, app footer).
+#   - Compare pages: linked from the footer.
 not_in_nav: |
   /index.md
+  /compare/*.md
   /legal/terms.md
   /legal/privacy.md
   /legal/cookies.md
@@ -92,4 +94,4 @@ extra:
       link: https://github.com/kfirzvi-com/gitgrit
   generator: false
 
-copyright: "&copy; 2026 GitGrit — Developer Experience Platform"
+copyright: "&copy; 2026 GitGrit | The engineering standards platform"
