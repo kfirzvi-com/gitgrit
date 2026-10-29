@@ -178,11 +178,6 @@ def add_project(
         )
     if importances is not None:
         importances = parse_importances(importances)
-    web_url = repo.get("web_url", "")
-    # The web form posts what the browser sent; only a real link may become
-    # the project's href (no javascript: or data: URLs).
-    if web_url and not web_url.lower().startswith(("https://", "http://")):
-        raise ValueError("The repository URL must start with https:// or http://.")
 
     project = Project.objects.create(
         tenant=tenant,
@@ -191,7 +186,7 @@ def add_project(
         external_id=str(repo["external_id"]),
         name=repo["name"],
         full_path=repo.get("full_path", ""),
-        web_url=web_url,
+        web_url=repo.get("web_url", ""),
         default_branch=repo.get("default_branch") or "main",
         description=repo.get("description") or "",
         lifecycle=lifecycle,

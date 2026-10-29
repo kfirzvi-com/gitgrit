@@ -12,8 +12,7 @@
     {% else %}
       <button type="button"
               class="flex items-center justify-between p-3 rounded-lg bg-base-200 hover:bg-base-300 cursor-pointer w-full text-left transition-colors"
-              data-project="{% json_attr r %}"
-              onclick="selectProject(JSON.parse(this.dataset.project))">
+              onclick='selectProject({% to_json r %})'>
         <div class="min-w-0 flex-1">
           <p class="font-medium truncate">{{ r.name }}</p>
           <p class="text-sm opacity-70 truncate">{{ r.full_path }}</p>

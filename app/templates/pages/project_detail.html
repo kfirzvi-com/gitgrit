@@ -21,7 +21,7 @@
     <form method="post" action="{% url 'delete_project' project.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-ghost btn-sm text-error"
-              onclick="return confirm('Remove {{ project.name|escapejs }}?')">
+              onclick="return confirm('Remove {{ project.name }}?')">
         Remove
       </button>
     </form>

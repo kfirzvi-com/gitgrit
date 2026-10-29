@@ -1,3 +1,4 @@
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -80,7 +81,7 @@ class StackDetailView(LoginRequiredMixin, DetailView):
         context["stack_components"] = Component.objects.filter(
             tenant=stack.tenant, stacks=stack
         ).select_related("project", "project__platform_connection")
-        context["architecture_data"] = stack_graph(stack)
+        context["architecture_data"] = json.dumps(stack_graph(stack))
         return context
 
 
