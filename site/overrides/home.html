@@ -12,6 +12,13 @@
     /* ── Reset MkDocs chrome ── */
     .md-main__inner { margin: 0; }
     .md-content { display: none; }
+    /* No docs sidebar on the landing page — on desktop only. Below 76.25em
+       that sidebar is the menu drawer, so it has to stay. (Not `hide:
+       navigation`: it sets [hidden], which the Tailwind runtime forces to
+       display:none !important, so the drawer could never open.) */
+    @media screen and (min-width: 76.25em) {
+      .md-sidebar--primary { display: none; }
+    }
 
     /* ── Background grid ── */
     .gg-page {

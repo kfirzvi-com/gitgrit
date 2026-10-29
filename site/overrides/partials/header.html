@@ -25,6 +25,9 @@
          act as one click-target. Styling in custom.css strips the link
          visuals so the text reads as plain wordmark. #}
       <a href="{{ config.extra.homepage | d(nav.homepage.url, true) | url }}" class="gg-header__wordmark" aria-label="{{ config.site_name }} home">
+        {# Mobile only: Material hides the logo button there, so the
+           centered wordmark carries its own copy (see custom.css). #}
+        <span class="gg-header__wordmark-logo">{% include "partials/logo.html" %}</span>
         <div class="md-header__ellipsis">
           <div class="md-header__topic">
             <span class="md-ellipsis">
