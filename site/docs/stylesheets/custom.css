@@ -423,6 +423,41 @@
   outline: none;
 }
 
+/* ── Mobile header ──
+   Below 76.25em Material shows the menu button (the drawer holds the nav)
+   and hides the logo button. There: [menu] ... [logo GitGrit] ... [search]
+   — the wordmark, with its own logo copy, centered on the bar; Docs and
+   What's New are left to the drawer and the footer. */
+.gg-header__wordmark-logo {
+  display: none;
+}
+@media screen and (max-width: 76.234375em) {
+  .md-header__inner {
+    position: relative;
+  }
+  .md-header__title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+  }
+  .gg-header__wordmark-logo {
+    display: inline-flex;
+    margin-right: 0.4rem;
+  }
+  .gg-header__wordmark-logo img,
+  .gg-header__wordmark-logo svg {
+    height: 1.75rem;
+    width: auto;
+  }
+  .gg-header__links {
+    display: none;
+  }
+  .md-header__button[for="__search"] {
+    margin-left: auto;
+  }
+}
+
 /* ── Ordered lists ──
  * Tailwind's preflight (loaded for the landing page) sets list-style: none on
  * every ol, which strips the step numbers from docs content. */
