@@ -34,9 +34,22 @@ repo_name: kfirzvi-com/gitgrit
 watch:
   - overrides
 
+# Declaring plugins replaces MkDocs' default list, so search is listed too.
+plugins:
+  - search
+  # Share cards (og:image / twitter:image) for every page, rendered at build
+  # time from the page's own title and description with our layouts in
+  # layouts/. The landing page picks its own layout in its front matter.
+  - social:
+      # Resolved from the working directory, not this file: run mkdocs from
+      # the repo root, as CI and site/README.md do.
+      cards_layout_dir: site/layouts
+      cards_layout: gitgrit-page
+
 hooks:
   - hooks/whats_new.py   # generates whats-new.md from GitHub releases
   - hooks/cache_bust.py  # ?v=<hash> on extra_css so a deploy never pairs new HTML with cached CSS
+  - hooks/social_cards.py  # palette-compresses share cards over 300 KB
 
 nav:
   # Home (index.md) is intentionally absent from the sidebar — it's reached
