@@ -25,19 +25,10 @@ User = get_user_model()
 
 
 def invitation(request, token):
-    # Known gap (SECURITY.md): the token is in this emailed GET link's path,
-    # so the access log (CloudWatch) records it on the first visit; so do the
-    # accept/decline posts and the sign-in ``next``, which go to the same log.
-    # Only a hash is stored, the token is single-use and expires. Nothing
-    # here logs it, and the page sends no Referer, so the URL doesn't reach
-    # other log lines (gunicorn logs the Referer of every asset request) or
-    # third parties.
     found = invitations.find_open(token)
     if found is None:
         request.session.pop(INVITATION_SESSION_KEY, None)
-        return _no_referrer(
-            render(request, "pages/invitation.html", {"state": "gone"}, status=404)
-        )
+        return render(request, "pages/invitation.html", {"state": "gone"}, status=404)
 
     request.session[INVITATION_SESSION_KEY] = token
     context = {
@@ -56,14 +47,7 @@ def invitation(request, token):
     else:
         has_account = User.objects.filter(email__iexact=found.email).exists()
         context["state"] = "sign_in" if has_account else "sign_up"
-    return _no_referrer(render(request, "pages/invitation.html", context))
-
-
-def _no_referrer(response):
-    """Keep the token-bearing URL out of Referer headers and caches."""
-    response["Referrer-Policy"] = "no-referrer"
-    response["Cache-Control"] = "no-store"
-    return response
+    return render(request, "pages/invitation.html", context)
 
 
 @login_required

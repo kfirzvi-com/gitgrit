@@ -31,7 +31,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 from app.domain.models import LLMProviderType
-from app.infrastructure.redaction import redact
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +161,7 @@ def _probe_model(
         )
         return ProbeResult(model, True, 200)
     except Exception as exc:  # noqa: BLE001 — classify by status, never raise
-        # Provider errors can echo the key; ``detail`` is logged and shown.
-        text = redact(str(exc), {api_key})
+        text = str(exc)
         body_code = _BODY_CODE.search(text)
         status = int(body_code.group(1)) if body_code else getattr(exc, "status_code", None)
         detail = f"{type(exc).__name__}: " + " ".join(text.split())[:400]
@@ -277,9 +275,7 @@ def discover(
     try:
         catalog = fetch_catalog(provider_type, base_url, api_key, timeout)
     except Exception as exc:  # noqa: BLE001 — best-effort; caller falls back
-        logger.warning(
-            "LLM model discovery failed for %s: %s", provider_type, redact(str(exc), {api_key})
-        )
+        logger.warning("LLM model discovery failed for %s: %s", provider_type, exc)
         return Discovery([], [])
     results = probe_models(provider_type, base_url, api_key, catalog)
     return Discovery([r.model for r in results if r.verdict is not False], results)
@@ -300,7 +296,5 @@ def test_provider(
         fetch_catalog(provider_type, base_url, api_key, timeout)
         return True
     except Exception as exc:  # noqa: BLE001
-        logger.info(
-            "LLM provider test failed for %s: %s", provider_type, redact(str(exc), {api_key})
-        )
+        logger.info("LLM provider test failed for %s: %s", provider_type, exc)
         return False

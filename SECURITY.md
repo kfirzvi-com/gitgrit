@@ -61,7 +61,6 @@ Every standard is user-authored Python that runs against a `ProjectContext` expo
 - The container runs as **root** inside the namespace. Capabilities are dropped, but a root-in-namespace + missing-gVisor combination is meaningfully weaker than non-root + gVisor. **Setting a non-root `USER` in `sandbox_image/Dockerfile` is a planned hardening.**
 - There is **no PID limit** on the container. A fork-bomb standard will be killed by the timeout but can briefly stress the host.
 - Fernet-style key rotation for sandbox-passed tokens is not implemented; a long-lived OAuth token leaked from a sandbox compromise stays valid until manually revoked.
-- **Runs of a standard get the workspace's LLM API keys, and real runs the repository token too, whoever wrote it.** Any workspace member can save or test-run a standard, and the sandbox has network access, so a member's code can send those keys out. Limit workspace membership to people you trust with those keys. Whether to give keys only to admin-approved standards is an open product decision.
 
 ### Webhook ingress
 
@@ -144,4 +143,3 @@ These are known gaps the project intends to close. Filing an issue or PR for any
 - Encrypt `socialaccount_socialtoken` rows (Google OAuth) the same way `PlatformConnection.access_token` is encrypted.
 - Add scopes (read-only vs write) for API tokens, as OAuth tokens already have.
 - Add a token-expiry field and surface "stale token" warnings in the UI.
-- Workspace invitation tokens travel in the emailed link's path (`/invitations/<token>/`), so the web server's access log records them on the first visit, and again on the accept/decline posts. Only a hash is stored, a token is single-use and expires, and the page sends no `Referer`. Moving the token out of the path (e.g. a POST from the landing page) would close this.

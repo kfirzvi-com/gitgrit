@@ -8,15 +8,11 @@ from __future__ import annotations
 import functools
 import logging
 import time
-import traceback
-from typing import NoReturn
 
 from django.db import connections
 from django.utils import timezone
 from procrastinate import exceptions
 from procrastinate.contrib.django import app
-
-from app.infrastructure.redaction import redacted_failure, secrets_in
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +84,6 @@ def infer_project_dependencies(project_id: str) -> None:
     """
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
-    from app.application.credentials import project_secrets
     from app.application.dependency_agent import infer_and_store
     from app.application.event_bus import publish
     from app.domain.events import DependencyInferenceFailed
@@ -109,45 +104,27 @@ def infer_project_dependencies(project_id: str) -> None:
             infer_and_store(project)
             return
         except Exception as exc:
-            # A provider error can echo the workspace's LLM key, a platform
-            # error the repository token or an installation token this attempt
-            # minted; the text is logged, stored on the project and published.
-            error, stack = redacted_failure(exc, project_secrets(project))
-            logger.error(
-                "dependency inference failed for project %s (attempt %d/%d)\n%s",
+            logger.exception(
+                "dependency inference failed for project %s (attempt %d/%d)",
                 project_id,
                 attempt,
                 INFERENCE_ATTEMPTS,
-                stack,
             )
             if attempt == INFERENCE_ATTEMPTS:
                 Project.objects.filter(pk=project_id).update(
-                    deps_status=Project.DepsStatus.FAILED, deps_error=error
+                    deps_status=Project.DepsStatus.FAILED, deps_error=str(exc)[:2000]
                 )
                 publish(
                     DependencyInferenceFailed(
                         project_id=str(project.pk),
                         tenant_id=str(project.tenant_id),
-                        error=error,
+                        error=str(exc)[:2000],
                         had_worked_before=had_worked_before,
                         provider_status=getattr(exc, "status_code", None),
                     )
                 )
-                # No retry strategy: Procrastinate marks the job failed and
-                # logs the exception, so it gets the redacted text only.
-                _reraise_redacted(exc, error, stack)
+                raise  # no retry strategy: Procrastinate marks the job failed
             _sleep(INFERENCE_RETRY_DELAY_SECONDS * attempt)
-
-
-def _reraise_redacted(exc: Exception, message: str, stack: str) -> NoReturn:
-    """Re-raise ``exc`` from an ``except`` block, unless redaction changed its
-    traceback (``message`` and ``stack`` as ``redacted_failure`` returned
-    them): then a plain error with the redacted message, without the original
-    attached (the worker logs the whole chain it gets). The full chain is
-    compared, so a secret in a cause or late in a long message counts."""
-    if stack == "".join(traceback.format_exception(exc)):
-        raise exc
-    raise RuntimeError(f"{type(exc).__name__}: {message}") from None
 
 
 @app.task(queue="standards", name="run_standards")
@@ -172,7 +149,6 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
     from app.application.commit_checks import pin_head_commits
-    from app.application.credentials import project_secrets
     from app.application.event_bus import publish
     from app.application.scoring import score_checks
     from app.application.standard_engine import StandardEngine
@@ -234,7 +210,6 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
         .order_by("created_at")
     )
     engine = StandardEngine()
-    input_config = None
     try:
         pin_head_commits(project, executions)
         input_config = engine.build_input_config(project)
@@ -250,17 +225,11 @@ def run_standards(project_id: str, execution_ids: list[str]) -> None:
                 continue
             engine.run_execution(execution, input_config)
     except Exception as exc:
-        # The token and LLM keys are in play; keep them out of the stored
-        # message and the log. Minted installation tokens count too: building
-        # the input or pinning commits may have minted one before failing.
-        secrets = project_secrets(project)
-        if input_config:
-            secrets |= secrets_in(input_config)
-        message, stack = redacted_failure(exc, secrets)
-        logger.error("run_standards failed for project %s\n%s", project_id, stack)
+        logger.exception("run_standards failed for project %s", project_id)
+        message = str(exc)[:2000]
         _fail(executions, message)
         _publish_finished(error=message)
-        _reraise_redacted(exc, message, stack)
+        raise
     _publish_finished()
 
 

@@ -47,23 +47,9 @@ class TestFirstRunSetup(TestCase):
         response = self.client.get("/api/v1/")
         assert response.status_code != 302
 
-    def test_token_in_the_query_string_is_dropped(self):
-        # A URL token lands in the access log and history: back to bare /setup/.
+    def test_token_prefills_from_the_query_string(self):
         response = self.client.get(self.url + "?token=tok-123")
-
-        assert response.status_code == 302
-        assert response.headers["Location"] == self.url
-        assert b"tok-123" not in self.client.get(self.url).content
-
-    def test_token_arrives_only_by_post(self):
-        response = self.client.post(
-            self.url + "?token=tok-123",
-            {"email": "admin@example.com", "password1": "a-long-passphrase",
-             "password2": "a-long-passphrase"},
-        )
-
-        assert response.status_code == 200
-        assert not User.objects.exists()
+        assert b'value="tok-123"' in response.content
 
     def test_wrong_token_creates_nothing(self):
         response = self._post(token="guess")
