@@ -162,7 +162,10 @@ jobs:
               "ref": "${{ github.sha }}"
             }
 
+  # Waits for `airgap-release`: the What's New page is built from GitHub
+  # releases, so the release for this tag has to exist before the docs build.
   deploy-docs-production:
+    needs: airgap-release
     if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     steps:
