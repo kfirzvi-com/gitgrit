@@ -7,7 +7,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
 {% url 'project_history' project.pk as history_url %}
 {% url 'run_on_branch' project.pk as run_url %}
 <div id="project-history" class="card bg-base-100 shadow-xl scroll-mt-20"
-     {% if running %}hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page }}" hx-trigger="every 5s" hx-swap="outerHTML" data-no-loader{% endif %}>
+     {% if running or project.is_artifact %}hx-get="{{ history_url }}?branch={{ branch|urlencode }}&page={{ page }}" hx-trigger="{% if running %}every 5s{% endif %}{% if running and project.is_artifact %}, {% endif %}{% if project.is_artifact %}commitUploaded from:body{% endif %}" hx-swap="outerHTML" data-no-loader{% endif %}>
   <div class="card-body gap-8 px-4 sm:px-8">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <form hx-get="{{ history_url }}" hx-target="#project-history" hx-swap="outerHTML" hx-trigger="change" data-no-loader class="flex items-center gap-3">
@@ -18,10 +18,14 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
           {% endfor %}
         </select>
       </form>
+      {% if rows or not project.is_artifact %}
       <button type="button" class="btn btn-primary"
               hx-post="{{ run_url }}" hx-vals='{"branch": "{{ branch|escapejs }}", "page": "{{ page }}"}'
               hx-target="#project-history" hx-swap="outerHTML" data-no-loader
               title="Run the current standards that apply to {{ branch }} on its latest commit">Run on latest commit</button>
+      {% else %}
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('upload_modal').showModal()">Upload a commit</button>
+      {% endif %}
     </div>
     {% if notice %}<p class="text-sm text-info -mt-4" data-run-notice>{{ notice }}</p>{% endif %}
     {% include "partials/no_score_alert.html" with head=branch_head run_url=run_url branch=branch %}
@@ -38,7 +42,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
         </div>
       {% else %}
         <div class="space-y-1">
-          <p class="text-sm opacity-60">No score on {{ branch }} yet: a commit gets one when every standard has a result on it (passed or failed). Run the standards on its latest commit.</p>
+          <p class="text-sm opacity-60">{% if project.is_artifact and not rows %}No score on {{ branch }} yet. Upload a commit to get one.{% else %}No score on {{ branch }} yet: a commit gets one when every standard has a result on it (passed or failed). Run the standards on its latest commit.{% endif %}</p>
           {% include "partials/score_note.html" with score=None head=branch_head %}
         </div>
       {% endif %}
@@ -88,7 +92,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
           </div>
         {% endif %}
       {% else %}
-        <p class="text-sm opacity-60 px-3">No commits to show for {{ branch }}.</p>
+        <p class="text-sm opacity-60 px-3">{% if project.is_artifact %}No commits uploaded to {{ branch }} yet.{% else %}No commits to show for {{ branch }}.{% endif %}</p>
       {% endif %}
     </section>
   </div>

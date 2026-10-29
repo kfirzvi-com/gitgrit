@@ -75,7 +75,7 @@ func newProjectCmd() *cobra.Command {
 		},
 	}
 	view.Flags().StringVarP(&project, "project", "p", "", "project id or org/repo (default: this repository)")
-	c.AddCommand(view)
+	c.AddCommand(view, newProjectUploadCmd())
 	return c
 }
 
@@ -83,17 +83,29 @@ func projectAdd() *cobra.Command {
 	var connection, lifecycle, owner string
 	var standards []string
 	var allStandards bool
+	var artifact artifactFlags
 	cmd := &cobra.Command{
 		Use:   "add [org/repo]",
-		Short: "Add a repository as a project (default: this repository)",
+		Short: "Add a repository as a project (default: this repository), or an artifact project",
 		Long: "Add a repository as a project. Without an argument, adds the git repository\n" +
 			"in the current directory (its origin remote).\n\n" +
 			"No standards are attached unless you pass --standard or --all-standards;\n" +
-			"attached standards run once right away, then on every push.",
+			"attached standards run once right away, then on every push.\n\n" +
+			"With --artifact, create an artifact project instead: one whose commits are\n" +
+			"build archives you upload (gitgrit project upload). Adding it again with the\n" +
+			"same --external-id returns the existing project; without --standard it gets\n" +
+			"every published standard that runs on uploads.",
 		Example: "  gitgrit project add acme/api --all-standards\n" +
-			"  gitgrit project add --standard \"README Exists\" --standard \"License File\"",
+			"  gitgrit project add --standard \"README Exists\" --standard \"License File\"\n" +
+			"  gitgrit project add --artifact --name Storefront --stack \"Web Team\"",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if artifact.on {
+				if len(args) > 0 {
+					return errors.New("an artifact project has no repository; drop the org/repo argument")
+				}
+				return addArtifactProject(cmd, artifact, standards, allStandards)
+			}
 			repo := ""
 			if len(args) == 1 {
 				repo = args[0]
@@ -110,7 +122,7 @@ func projectAdd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			body := api.ProjectCreateRequest{Repository: repo, Lifecycle: &lifecycle, Owner: &owner}
+			body := api.ProjectCreateRequest{Repository: &repo, Lifecycle: &lifecycle, Owner: &owner}
 			if connection != "" {
 				c, err := connectionFor(cmd, t, connection)
 				if err != nil {
@@ -152,6 +164,7 @@ func projectAdd() *cobra.Command {
 	f.StringArrayVarP(&standards, "standard", "s", nil, "standard to attach, by name or id (repeatable)")
 	f.BoolVar(&allStandards, "all-standards", false, "attach every enabled standard in the workspace")
 	cmd.MarkFlagsMutuallyExclusive("standard", "all-standards")
+	artifact.register(f)
 	return cmd
 }
 

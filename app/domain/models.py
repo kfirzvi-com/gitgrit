@@ -237,6 +237,15 @@ class WorkspaceInvitation(models.Model):
 class Platform(models.TextChoices):
     GITHUB = "github", "GitHub"
     GITLAB = "gitlab", "GitLab"
+    # Not a Git platform: projects whose files arrive as uploaded archives
+    # (e.g. a built app's dist) rather than from a repository. Each upload is
+    # an ``ArtifactCommit``; see ``app.domain.artifacts``.
+    ARTIFACT = "artifact", "Artifact"
+
+    @classmethod
+    def git_choices(cls):
+        """The platforms a user can connect a Git account on."""
+        return [(v, label) for v, label in cls.choices if v != cls.ARTIFACT]
 
 
 class AuthMethod(models.TextChoices):
@@ -251,7 +260,11 @@ class PlatformConnection(models.Model):
         on_delete=models.CASCADE,
         related_name="platform_connections",
     )
-    platform = models.CharField(max_length=10, choices=Platform.choices)
+    # Every creation path names the platform. The default only keeps rows
+    # built without one (test factories) on a Git platform, never on ARTIFACT.
+    platform = models.CharField(
+        max_length=10, choices=Platform.choices, default=Platform.GITHUB
+    )
     display_name = models.CharField(max_length=255)
     base_url = models.URLField(max_length=2048)
     # PAT connections store the encrypted token here; GitHub App connections
@@ -273,6 +286,14 @@ class PlatformConnection(models.Model):
 
     class Meta:
         db_table = "platform_connections"
+        constraints = [
+            # Artifact projects all hang off one credential-less connection.
+            models.UniqueConstraint(
+                fields=["tenant"],
+                condition=models.Q(platform="artifact"),
+                name="one_artifact_connection_per_tenant",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.display_name} ({self.platform})"
@@ -310,8 +331,12 @@ class PlatformConnection(models.Model):
             )
         return self.access_token
 
+    @property
+    def is_artifact(self) -> bool:
+        return self.platform == Platform.ARTIFACT
+
     def save(self, *args, **kwargs):
-        if not self.base_url:
+        if not self.base_url and not self.is_artifact:
             self.base_url = (
                 "https://api.github.com"
                 if self.platform == Platform.GITHUB
@@ -438,7 +463,11 @@ class Project(models.Model):
         on_delete=models.CASCADE,
         related_name="projects",
     )
-    platform = models.CharField(max_length=10, choices=Platform.choices)
+    # Mirrors the connection's platform (see PlatformConnection.platform for
+    # why there is a default).
+    platform = models.CharField(
+        max_length=10, choices=Platform.choices, default=Platform.GITHUB
+    )
     external_id = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
@@ -488,6 +517,12 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_artifact(self) -> bool:
+        """True when the project's files arrive as uploaded archives (one
+        ``ArtifactCommit`` each) instead of from a Git repository."""
+        return self.platform == Platform.ARTIFACT
 
     # --- Components -----------------------------------------------------------
     # A project is one git repository. Its *components* are the deployable
@@ -1155,6 +1190,64 @@ class MarketplacePack(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ArtifactCommit(models.Model):
+    """One commit of an artifact project: an uploaded archive of its files
+    (e.g. a built dist).
+
+    An artifact project has no repository, so each upload is its commit, in
+    the same terms: a ``sha`` (the archive's content hash, 40 hex characters
+    like a Git SHA), a ``message``, a ``branch`` and an ``author``. A
+    ``CommitCheck`` pins it by its ``sha`` like any commit, so branch health,
+    commit history and polling a check work for uploads unchanged. Commits
+    are kept until their project is deleted; the archive lives in the
+    uploads storage under ``archive_key`` and goes with the commit
+    (``app.signals``).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        "Project", on_delete=models.CASCADE, related_name="artifact_commits"
+    )
+    sha = models.CharField(max_length=40)
+    message = models.TextField(blank=True, default="")
+    branch = models.CharField(max_length=255)
+    archive_key = models.CharField(max_length=1024)
+    size = models.BigIntegerField()
+    file_count = models.IntegerField()
+    author = models.CharField(max_length=255, blank=True, default="")
+    author_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="artifact_commits",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "artifact_commits"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "sha"], name="unique_artifact_commit_sha"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["project", "branch", "-created_at"],
+                name="idx_artifact_commit_branch",
+            ),
+        ]
+
+    @property
+    def title(self) -> str:
+        """The message's first line, as a commit's title."""
+        return self.message.splitlines()[0] if self.message.strip() else ""
+
+    def __str__(self):
+        return f"{self.project} @ {self.sha[:7]}"
 
 
 class CommitCheck(models.Model):

@@ -12,3 +12,6 @@ site/build/
 # gitgrit CLI local builds
 /bin/
 cli/dist/
+
+# Local upload-project archives (GITGRIT_UPLOADS_ROOT)
+/var/

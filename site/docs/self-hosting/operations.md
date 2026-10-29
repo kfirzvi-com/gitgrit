@@ -257,6 +257,7 @@ Operator-fillable (you set these in `.env`):
 | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP relay for access-request and approval emails. Port defaults to `587` with STARTTLS. Without `EMAIL_HOST`, emails only go to the app log. |
 | `DEFAULT_FROM_EMAIL` | Sender address, e.g. `GitGrit <gitgrit@acme.internal>`. |
 | `GITGRIT_EMAIL_BACKEND` | `smtp` (default when `EMAIL_HOST` is set), `console` (default otherwise: emails go to the log), or `ses`: the Amazon SES API with the host's AWS credentials, for installs running on AWS. `AWS_SES_REGION` picks the region. |
+| `GITGRIT_UPLOADS_BUCKET` / `GITGRIT_UPLOADS_REGION` | Keep [artifact projects](../getting-started/artifact-projects.md)' uploaded archives in this private S3 bucket, with the host's AWS credentials, for installs running on AWS. Region defaults to `eu-north-1`. Unset (the air-gap default): a local directory, see `GITGRIT_UPLOADS_ROOT`. |
 | `SANDBOX_DNS` | Comma-separated internal DNS resolvers. gVisor cannot use Docker's embedded DNS. |
 | `GITGRIT_CUSTOM_CA_FILE_PATH` | Host path to the operator CA bundle PEM. |
 
@@ -264,4 +265,7 @@ Compose-internal (do **not** override in `.env` — set automatically by
 `docker-compose.full.yaml`):
 
 `AIRGAPPED`, `SANDBOX_NETWORK`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`,
-`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and
+`GITGRIT_UPLOADS_ROOT` (`/var/lib/gitgrit/uploads`, on the `gitgrit_uploads`
+volume both `app` and `worker` mount: uploaded archives are stored by one and
+read by the other, so back the volume up with the database).

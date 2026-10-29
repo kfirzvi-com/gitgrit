@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import tempfile
+from pathlib import Path
 
 from django.db.models import QuerySet
 
@@ -13,7 +16,8 @@ from app.domain.models import (
     StandardExecution,
 )
 from app.domain.standard_criteria import applies, bare_ref, literal_ref  # noqa: F401 (re-exported)
-from app.infrastructure.sandbox.runner import SandboxRunner
+from app.infrastructure import archives, upload_storage
+from app.infrastructure.sandbox.runner import SANDBOX_TMP, SandboxRunner
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,9 @@ def resolve_llm_roles(tenant) -> dict:
 class StandardEngine:
     def __init__(self) -> None:
         self._runner = None
+        # Artifact projects: commit SHA -> host directory holding that commit's
+        # extracted files, shared by every run of the job (see close()).
+        self._commit_dirs: dict[str, str] = {}
 
     @property
     def runner(self) -> SandboxRunner:
@@ -139,6 +146,35 @@ class StandardEngine:
             skip_event_check=skip_event_check,
         )
 
+    def _commit_dir(self, project: Project, read_at: str) -> str | None:
+        """The host directory holding the files of the artifact project's
+        commit a run reads: the commit whose SHA ``read_at`` is, else the
+        latest one on the branch it names. None when there is none.
+        Extracted once per job, under the directory the sandbox can mount."""
+        commits = project.artifact_commits.order_by("-created_at")
+        commit = commits.filter(sha=read_at).first() if read_at else None
+        if commit is None:
+            commit = commits.filter(branch=read_at or project.default_branch).first()
+        if commit is None:
+            return None
+        if commit.sha not in self._commit_dirs:
+            Path(SANDBOX_TMP).mkdir(parents=True, exist_ok=True)
+            target = Path(tempfile.mkdtemp(prefix="commit-", dir=SANDBOX_TMP))
+            target.chmod(0o755)  # the sandbox's user must be able to read it
+            try:
+                archives.extract(upload_storage.read_archive(commit.archive_key), target)
+            except Exception:
+                shutil.rmtree(target, ignore_errors=True)
+                raise
+            self._commit_dirs[commit.sha] = str(target)
+        return self._commit_dirs[commit.sha]
+
+    def close(self) -> None:
+        """Remove the commit files extracted for this job's runs."""
+        for path in self._commit_dirs.values():
+            shutil.rmtree(path, ignore_errors=True)
+        self._commit_dirs.clear()
+
     def build_input_config(self, project: Project, ref: str | None = None) -> dict:
         """Build the /input.json payload for a project run. Attaches llm_roles
         only when the workspace has configured them, so deterministic standards
@@ -149,16 +185,19 @@ class StandardEngine:
         input_config = {
             "platform": project.platform,
             "project_id": project.external_id,
-            # Route through the auth-method seam. For GitHub App connections the
-            # installation token is scoped to this project's repository; PAT
-            # connections return their stored token unchanged.
-            "access_token": project.platform_connection.get_access_token(
-                repositories=[project.full_path]
-            ),
-            "base_url": project.platform_connection.base_url,
             "full_path": project.full_path,
             "ref": bare_ref(ref),
         }
+        # An artifact project's files are mounted into the sandbox (see
+        # run_execution): no platform to call, no token to call it with.
+        if not project.is_artifact:
+            # Route through the auth-method seam. For GitHub App connections the
+            # installation token is scoped to this project's repository; PAT
+            # connections return their stored token unchanged.
+            input_config["access_token"] = project.platform_connection.get_access_token(
+                repositories=[project.full_path]
+            )
+            input_config["base_url"] = project.platform_connection.base_url
         llm_roles = resolve_llm_roles(project.tenant)
         if llm_roles:
             input_config["llm_roles"] = llm_roles
@@ -192,7 +231,15 @@ class StandardEngine:
         # in between does not run code other than the one on record.
         version = execution.standard_version
         code = version.code if version else standard.code
-        result = self.runner.run(code, {**input_config, "ref": read_at})
+        config = {**input_config, "ref": read_at}
+        if not project.is_artifact:
+            result = self.runner.run(code, config)
+        elif project_dir := self._commit_dir(project, read_at):
+            result = self.runner.run(code, config, project_dir=project_dir)
+        else:
+            branch = bare_ref(execution.ref) or project.default_branch
+            message = f"No commit of {project.name} has been uploaded to {branch} yet."
+            result = {"passed": False, "score": 0, "message": message, "details": {"error": True}}
 
         if result.get("details", {}).get("error"):
             execution.status = StandardExecution.Status.ERROR

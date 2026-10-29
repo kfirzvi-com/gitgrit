@@ -119,6 +119,8 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit repo list [-q filter]` | Repositories a connection reaches, and which are already projects |
 | **Projects** | |
 | `gitgrit project add [org/repo]` | Add a repository as a project |
+| `gitgrit project add --artifact --name …` | Create an [artifact project](artifact-projects.md) (uploaded builds) |
+| `gitgrit project upload <archive> -p <project>` | Upload a build to an artifact project as a commit; `--wait` exits by its score |
 | `gitgrit project list` | Projects in the workspace |
 | `gitgrit project view` | Which project this repository is |
 | `gitgrit project edit --lifecycle … --owner …` | Change a project's lifecycle or owner |

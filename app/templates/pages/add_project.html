@@ -10,8 +10,8 @@
   {% if step == "select_connection" %}
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
-        <h2 class="card-title">Select Platform Connection</h2>
-        <p class="text-sm opacity-70 mb-4">Choose which platform to import from.</p>
+        <h2 class="card-title">Where does the project come from?</h2>
+        <p class="text-sm opacity-70 mb-4">Import a repository from a connected Git platform, or create an artifact project and upload its builds.</p>
         <div class="space-y-3">
           {% for conn in connections %}
             <a href="{% url 'add_project_search' conn.id %}"
@@ -21,7 +21,13 @@
               </span>
               {{ conn.display_name }}
             </a>
+          {% empty %}
+            <p class="text-sm opacity-60">No Git platform connected. <a href="{% url 'tenant_settings' %}#section-connections" class="link">Add a connection</a> to import repositories.</p>
           {% endfor %}
+          <a href="{% url 'add_artifact_project' %}" class="btn btn-outline w-full justify-start gap-3" data-add-artifact-project>
+            <span class="badge badge-accent">Artifact</span>
+            Artifact project: upload builds as .zip or .tar.gz
+          </a>
         </div>
       </div>
     </div>

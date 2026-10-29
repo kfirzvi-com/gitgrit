@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}New Artifact Project — GitGrit{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="{% url 'add_project_select' %}" class="text-sm opacity-70 hover:opacity-100">&larr; Add Project</a>
+  <h1 class="text-3xl font-bold mb-2">New Artifact Project</h1>
+  <p class="text-sm opacity-70 mb-6">A project whose files are build artifacts you upload as an archive (for example a built app's dist) instead of a Git repository. Each upload is a commit, checked like a pushed one by the standards you attach.</p>
+
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-xl" data-loading="UPLOADING">
+    {% csrf_token %}
+    <div class="card-body space-y-4">
+      {% if error %}<div role="alert" class="alert alert-error text-sm" data-upload-error>{{ error }}</div>{% endif %}
+
+      <div class="form-control">
+        <label class="label" for="id_name"><span class="label-text">Name</span></label>
+        <input type="text" name="name" id="id_name" maxlength="255" required autofocus
+               value="{{ form.name }}" placeholder="e.g. Storefront web app" class="input input-bordered w-full">
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_stack"><span class="label-text">Stack</span></label>
+        <input type="text" name="stack" id="id_stack" maxlength="255" list="stack-names" autocomplete="off"
+               value="{{ form.stack }}" placeholder="Optional" class="input input-bordered w-full">
+        <datalist id="stack-names">{% for stack in stacks %}<option value="{{ stack.name }}">{% endfor %}</datalist>
+        <p class="text-xs opacity-60 mt-1">Pick an existing stack or type a new name to create one.</p>
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="id_description"><span class="label-text">Description</span></label>
+        <input type="text" name="description" id="id_description" value="{{ form.description }}"
+               placeholder="Optional" class="input input-bordered w-full">
+      </div>
+
+      <div class="divider my-0 text-xs opacity-60">First commit (optional)</div>
+
+      <div class="form-control">
+        <label class="label" for="id_archive"><span class="label-text">Archive</span></label>
+        <input type="file" name="archive" id="id_archive" accept=".zip,.tar,.tgz,.gz,application/zip,application/gzip"
+               class="file-input file-input-bordered w-full">
+      </div>
+      <div class="form-control">
+        <label class="label" for="id_message"><span class="label-text">Commit message</span></label>
+        <textarea name="message" id="id_message" rows="2" class="textarea textarea-bordered w-full"
+                  placeholder="e.g. First release">{{ form.message }}</textarea>
+      </div>
+      <p class="text-xs opacity-60 -mt-2">A .zip or .tar.gz, up to 50 MB. A single top-level folder (like <code>dist/</code>) is dropped, so <code>index.html</code> sits at the root.</p>
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'add_project_select' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create project</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

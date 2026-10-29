@@ -35,6 +35,10 @@ SANDBOX_TMP = "/tmp/gitgrit-sandbox"
 # bind and the environment dict below.
 CUSTOM_CA_MOUNT_PATH = "/etc/ssl/certs/custom-ca.pem"
 
+# Where an artifact project's files appear inside the sandbox; the sandbox's
+# artifact provider reads them from here.
+PROJECT_MOUNT_PATH = "/project"
+
 
 class SandboxRunner(StandardRunner):
     def __init__(self):
@@ -51,13 +55,18 @@ class SandboxRunner(StandardRunner):
             logger.info("Creating Docker network '%s'", network_name)
             self.client.networks.create(network_name, driver="bridge")
 
-    def run(self, standard_code: str, input_config: dict) -> dict:
+    def run(
+        self, standard_code: str, input_config: dict, project_dir: str | None = None
+    ) -> dict:
         """Run a standard script in a sandboxed container.
 
         Args:
             standard_code: Python source defining an evaluate(project) function.
             input_config: Dict with platform, project_id, access_token — written
                 to /input.json inside the container.
+            project_dir: Host directory of an artifact project's files, mounted
+                read-only at /project (under SANDBOX_TMP, so the host sees the
+                same path the web container wrote).
 
         Returns:
             Standard result dict with passed, score, message, details.
@@ -97,6 +106,8 @@ class SandboxRunner(StandardRunner):
                 str(input_path): {"bind": "/input.json", "mode": "ro"},
                 str(resolv_path): {"bind": "/etc/resolv.conf", "mode": "ro"},
             }
+            if project_dir:
+                volumes[project_dir] = {"bind": PROJECT_MOUNT_PATH, "mode": "ro"}
             # Air-gap only: mount the operator-supplied CA bundle and
             # propagate SSL_CERT_FILE so the sandbox's TLS clients can verify
             # an internal self-hosted GitLab. No-op for cloud (path is None).

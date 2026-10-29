@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import requests
 
-from app.domain.models import AuthMethod, Platform, PlatformConnection
+from app.domain.models import AuthMethod, Platform, PlatformConnection, ArtifactCommit
 
 logger = logging.getLogger(__name__)
 
@@ -439,9 +439,59 @@ class GitLabClient(PlatformClient):
         )
 
 
+class ArtifactClient(PlatformClient):
+    """The artifact connection's "platform": GitGrit itself. An artifact
+    project's commits are its uploads (see ``ArtifactCommit``), each on a
+    branch, so the project page's history reads them
+    through the same interface as a Git platform's."""
+
+    def search_projects(self, query: str = "") -> list[dict]:
+        return []
+
+    def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
+        raise ValueError("Artifact projects receive no webhooks.")
+
+    def delete_webhook(self, external_id: str, webhook_id: str) -> None:
+        pass
+
+    def test_token(self) -> bool:
+        return True
+
+    def _commits(self, external_id: str):
+        return ArtifactCommit.objects.filter(
+            project__platform_connection=self.connection,
+            project__external_id=external_id,
+        ).order_by("-created_at")
+
+    def list_branches(self, external_id: str, full_path: str) -> list[str]:
+        return sorted(set(self._commits(external_id).values_list("branch", flat=True)))
+
+    def list_commits(
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+    ) -> list[dict]:
+        start = (page - 1) * per_page
+        commits = self._commits(external_id).filter(branch=branch)[start : start + per_page]
+        return [
+            {
+                "sha": c.sha,
+                "message": c.message or f"Upload of {c.file_count} files",
+                "author": c.author,
+                "date": c.created_at.isoformat(),
+                "url": "",
+            }
+            for c in commits
+        ]
+
+    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+        commit = self._commits(external_id).filter(branch=branch).first()
+        return {"sha": commit.sha, "date": commit.created_at.isoformat()} if commit else {}
+
+
 def get_platform_client(connection: PlatformConnection) -> PlatformClient:
     if connection.platform == Platform.GITHUB:
         return GitHubClient(connection)
     elif connection.platform == Platform.GITLAB:
         return GitLabClient(connection)
+    elif connection.platform == Platform.ARTIFACT:
+        return ArtifactClient(connection)
     raise ValueError(f"Unknown platform: {connection.platform}")

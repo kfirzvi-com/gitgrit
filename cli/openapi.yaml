@@ -300,10 +300,11 @@ paths:
           description: ''
     post:
       operationId: create_project
-      description: Registers a webhook unless the connection is a GitHub App, reads
-        the repository's languages, and queues the attached standards to run once.
-        409 when it's already a project.
-      summary: Add a repository as a project
+      description: |-
+        `type: repository` (the default) adds a repository a connection reaches: registers a webhook unless the connection is a GitHub App, reads the repository's languages, and queues the attached standards to run once. 409 when it's already a project.
+
+        `type: artifact` creates a project whose commits are build archives you upload with `POST projects/<id>/commits/`. Idempotent on `external_id`: a repeat returns the existing project with 200.
+      summary: 'Add a project: a repository, or an artifact project'
       parameters:
       - in: path
         name: workspace_id
@@ -318,13 +319,18 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProjectCreateRequest'
-        required: true
       security:
       - bearerAuth: []
       - oauth2:
         - write
       responses:
         '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectCreated'
+          description: ''
+        '200':
           content:
             application/json:
               schema:
@@ -533,6 +539,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommitPage'
+          description: ''
+    post:
+      operationId: upload_project_commit
+      description: 'Stores the archive as a commit and checks it as a push: queues
+        the standards that run on pushes to the branch. Poll `commits/<commit.sha>/`
+        until `running` is 0 for the results. A rejected archive (path outside the
+        archive, links, too large) is a 400; a Git project is a 404.'
+      summary: Upload a commit of an artifact project and check it
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - uploads
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommitUploadRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitUploadResult'
           description: ''
   /api/v1/workspaces/{workspace_id}/projects/{project_id}/commits/{sha}/:
     get:
@@ -1364,6 +1409,44 @@ components:
       - reason
       - standards
       - value
+    CommitUploadRequest:
+      type: object
+      properties:
+        archive:
+          type: string
+          format: binary
+          description: The project's files as a .zip or .tar.gz.
+        message:
+          type: string
+          default: ''
+          description: The commit message; its first line is the title.
+        branch:
+          type: string
+          default: ''
+          description: Defaults to the project's default branch. Standards' Branch/Tag
+            Filter matches it.
+          maxLength: 255
+      required:
+      - archive
+    CommitUploadResult:
+      type: object
+      properties:
+        commit:
+          $ref: '#/components/schemas/UploadedCommit'
+        created:
+          type: boolean
+          description: False when the same archive was uploaded before (it is checked
+            again).
+        queued:
+          type: integer
+        message:
+          type: string
+          description: What was queued, in a sentence.
+      required:
+      - commit
+      - created
+      - message
+      - queued
     Connection:
       type: object
       properties:
@@ -1742,6 +1825,11 @@ components:
           type: string
         platform:
           type: string
+          description: github, gitlab, or artifact.
+        external_id:
+          type: string
+          description: The platform's id for the repository; for an artifact project,
+            the caller's own.
         full_path:
           type: string
         web_url:
@@ -1761,6 +1849,7 @@ components:
       required:
       - default_branch
       - description
+      - external_id
       - full_path
       - id
       - languages
@@ -1771,16 +1860,29 @@ components:
       - web_url
     ProjectCreateRequest:
       type: object
+      description: |-
+        Either kind of project: a repository from a connection (the default),
+        or an artifact project, whose commits are uploaded builds.
       properties:
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          default: repository
+          description: |-
+            `repository`: add a repository a connection reaches. `artifact`: create a project whose commits are build archives you upload (`POST projects/<id>/commits/`).
+
+            * `repository` - repository
+            * `artifact` - artifact
         repository:
           type: string
           minLength: 1
-          description: The repository's path (`org/repo`) or platform id.
+          description: '`repository` only (required): the repository''s path (`org/repo`)
+            or platform id.'
         connection_id:
           type: string
           format: uuid
-          description: Which connection reaches it. Optional when only one connection
-            can.
+          description: '`repository` only: which connection reaches it. Optional when
+            only one connection can.'
         lifecycle:
           type: string
           minLength: 1
@@ -1788,14 +1890,33 @@ components:
         owner:
           type: string
           default: ''
+        name:
+          type: string
+          minLength: 1
+          description: '`artifact` only (required).'
+          maxLength: 255
+        external_id:
+          type: string
+          minLength: 1
+          description: '`artifact` only (required): your own id for the project. Creating
+            it again with the same id returns the existing project (200).'
+          maxLength: 255
+        stack:
+          type: string
+          default: ''
+          description: '`artifact` only: the stack to put it in, found by name or
+            created.'
+          maxLength: 255
+        description:
+          type: string
+          default: ''
         standards:
           type: array
           items:
             type: string
             format: uuid
-          description: Workspace standards to attach. None are attached unless listed.
-      required:
-      - repository
+          nullable: true
+          description: Workspace standards to attach; none when omitted.
     ProjectCreated:
       type: object
       properties:
@@ -1808,6 +1929,11 @@ components:
           type: string
         platform:
           type: string
+          description: github, gitlab, or artifact.
+        external_id:
+          type: string
+          description: The platform's id for the repository; for an artifact project,
+            the caller's own.
         full_path:
           type: string
         web_url:
@@ -1833,11 +1959,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/WebhookEnum'
           description: |-
-            `app`: events come through the GitHub App; `missing`: re-register from the project page.
+            `app`: events come through the GitHub App; `missing`: re-register from the project page; `none`: an artifact project, whose commits are uploaded instead.
 
             * `app` - app
             * `active` - active
             * `missing` - missing
+            * `none` - none
         standards:
           type: array
           items:
@@ -1852,6 +1979,7 @@ components:
       - connection_id
       - default_branch
       - description
+      - external_id
       - full_path
       - id
       - languages
@@ -1876,6 +2004,11 @@ components:
           type: string
         platform:
           type: string
+          description: github, gitlab, or artifact.
+        external_id:
+          type: string
+          description: The platform's id for the repository; for an artifact project,
+            the caller's own.
         full_path:
           type: string
         web_url:
@@ -1901,11 +2034,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/WebhookEnum'
           description: |-
-            `app`: events come through the GitHub App; `missing`: re-register from the project page.
+            `app`: events come through the GitHub App; `missing`: re-register from the project page; `none`: an artifact project, whose commits are uploaded instead.
 
             * `app` - app
             * `active` - active
             * `missing` - missing
+            * `none` - none
         standards:
           type: array
           items:
@@ -1915,6 +2049,7 @@ components:
       - connection_id
       - default_branch
       - description
+      - external_id
       - full_path
       - id
       - languages
@@ -2112,6 +2247,11 @@ components:
           type: string
         platform:
           type: string
+          description: github, gitlab, or artifact.
+        external_id:
+          type: string
+          description: The platform's id for the repository; for an artifact project,
+            the caller's own.
         full_path:
           type: string
         web_url:
@@ -2133,6 +2273,7 @@ components:
       required:
       - default_branch
       - description
+      - external_id
       - full_path
       - id
       - languages
@@ -2486,6 +2627,41 @@ components:
         * `oauth` - oauth
         * `personal_token` - personal_token
         * `workspace_token` - workspace_token
+    TypeEnum:
+      enum:
+      - repository
+      - artifact
+      type: string
+      description: |-
+        * `repository` - repository
+        * `artifact` - artifact
+    UploadedCommit:
+      type: object
+      properties:
+        sha:
+          type: string
+          description: The archive's content hash; poll `commits/<sha>/` for its checks.
+        message:
+          type: string
+        branch:
+          type: string
+        author:
+          type: string
+        size:
+          type: integer
+        file_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - author
+      - branch
+      - created_at
+      - file_count
+      - message
+      - sha
+      - size
     UserRef:
       type: object
       properties:
@@ -2504,11 +2680,13 @@ components:
       - app
       - active
       - missing
+      - none
       type: string
       description: |-
         * `app` - app
         * `active` - active
         * `missing` - missing
+        * `none` - none
     Workspace:
       type: object
       properties:

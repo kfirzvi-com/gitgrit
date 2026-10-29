@@ -4,6 +4,7 @@ from providers.base import BaseProvider
 from providers.github import GitHubProvider
 from providers.gitlab import GitLabProvider
 from providers.mock import MockProvider
+from providers.artifact import ArtifactProvider
 
 
 def create_provider(
@@ -15,6 +16,9 @@ def create_provider(
     ref: str = "",
     mock_data: dict | None = None,
 ) -> BaseProvider:
+    # Artifact projects carry no token by design; check before the token-less mock path.
+    if platform == "artifact":
+        return ArtifactProvider(project_id, full_path=full_path, ref=ref)
     if access_token is None or platform == "mock":
         return MockProvider(project_id, data=mock_data)
     if platform == "github":

@@ -1,6 +1,9 @@
 # Adding Projects
 
-A project is a repository GitGrit checks. Each project belongs to a workspace and comes in through one of the workspace's git platform connections.
+A project is what GitGrit checks against your standards. Each belongs to a workspace and is one of two kinds:
+
+- **Repositories**: on GitHub or GitLab, coming in through one of the workspace's git platform connections and checked on their webhook events (this page).
+- **[Artifact projects](artifact-projects.md)**: builds you upload as archives, checked on each upload.
 
 ## Connect a platform first
 
@@ -41,7 +44,7 @@ Standards run again on every push and pull request. To run them on demand, open 
 | `pull_request` | PR opened, updated, or merged |
 | `tag` | Tag created or deleted |
 
-A standard can limit which events and branches it runs on. See [Writing Standards](standards.md).
+A standard can limit which events and branches it runs on. See [Writing Standards](standards.md). For [artifact projects](artifact-projects.md), each upload is a `push`.
 
 ## The project page
 

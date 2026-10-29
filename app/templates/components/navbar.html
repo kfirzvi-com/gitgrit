@@ -59,7 +59,7 @@
                        data-no-loader>
               </label>
             {% endif %}
-            <ul id="workspace-list" class="menu p-0 max-h-80 overflow-y-auto flex-nowrap"
+            <ul id="workspace-list" class="menu w-full p-0 max-h-80 overflow-y-auto flex-nowrap"
                 hx-get="{% url 'workspace_switcher_list' %}"
                 hx-trigger="intersect once"
                 hx-swap="innerHTML"
@@ -67,7 +67,7 @@
               <li class="disabled"><span class="text-sm opacity-60">Loading…</span></li>
             </ul>
             <div class="divider my-1"></div>
-            <ul class="menu p-0">
+            <ul class="menu w-full p-0">
               {% if user.is_superuser %}<li><a href="{% url 'create_tenant' %}">+ New Workspace</a></li>{% endif %}
               <li><a href="{% url 'tenant_settings' %}">Settings</a></li>
             </ul>

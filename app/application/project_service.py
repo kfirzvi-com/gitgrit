@@ -61,6 +61,23 @@ if content is None:
     return {"passed": False, "score": 0, "message": "CODEOWNERS not found", "details": {}}
 ```
 
+### `project.get_file_size(path: str) -> int | None`
+Returns a file's size in bytes, or `None` if it doesn't exist or the size is
+unknown. Works for binary files (images, audio, wasm) that `get_file_content`
+cannot return. Known for artifact projects; `None` on Git repositories.
+
+**Example:**
+```python
+too_big = [f for f in project.list_files() if (project.get_file_size(f) or 0) > 5_000_000]
+```
+
+### `project.read_file_lines(path: str, start: int = 1, count: int = 100) -> dict | None`
+Returns part of a file as numbered lines: `{"path", "total_lines", "lines", "next_start"}`
+(`next_start` is `None` at the end). Lines longer than 200 characters, such as a minified
+bundle's single line, are first broken after `;`, `,`, braces or parentheses, so a large
+file can be read page by page. Each call returns at most about 5,000 characters. Meant for
+LLM standards, whose model reads files through it; `get_file_content` stays the raw file.
+
 ### `project.get_languages() -> dict[str, float]`
 Returns a dict mapping language names to their percentage in the repo.
 
@@ -153,7 +170,7 @@ def evaluate(project):
 class ProjectService:
     def list_projects(self, tenant: Tenant) -> list[dict]:
         return [
-            self._serialize(p)
+            self.serialize(p)
             for p in Project.objects.filter(tenant=tenant).order_by("name")
         ]
 
@@ -180,12 +197,12 @@ class ProjectService:
                 tenant=tenant, full_path=repo_full_path
             ).first()
             if project:
-                return {**self._serialize(project), "matched_by": "full_path"}
+                return {**self.serialize(project), "matched_by": "full_path"}
 
         if web_url:
             project = Project.objects.filter(tenant=tenant, web_url=web_url).first()
             if project:
-                return {**self._serialize(project), "matched_by": "web_url"}
+                return {**self.serialize(project), "matched_by": "web_url"}
 
         all_paths = list(
             Project.objects.filter(tenant=tenant).values_list("full_path", flat=True)
@@ -199,12 +216,13 @@ class ProjectService:
         return _PROJECT_CONTEXT_API
 
     @staticmethod
-    def _serialize(p: Project) -> dict:
+    def serialize(p: Project) -> dict:
         return {
             "id": str(p.id),
             "name": p.name,
             "description": p.description,
             "platform": p.platform,
+            "external_id": p.external_id,
             "full_path": p.full_path,
             "web_url": p.web_url,
             "default_branch": p.default_branch,

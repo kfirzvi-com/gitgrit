@@ -34,3 +34,9 @@ class BaseProvider(ABC):
         ``path`` on the default branch, or None if the file does not exist or
         has no commit history. Used by standards that check file freshness."""
         ...
+
+    def get_file_size(self, path: str) -> int | None:
+        """Return a file's size in bytes, or None if it does not exist or the
+        provider cannot tell. Lets standards check files they cannot read as
+        text (images, audio, wasm). Override per provider."""
+        return None

@@ -185,10 +185,45 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Artifact projects' archives, one per uploaded commit, kept until the project
+# is deleted. Both the web (which stores them) and the worker (which reads
+# them) must see the same store: in a deploy, a private S3 bucket
+# (GITGRIT_UPLOADS_BUCKET) reached with the host's AWS role like SES, so no
+# keys are configured. Without a bucket (local dev, air-gapped installs) it
+# is a local directory.
+def uploads_storage(bucket: str, region: str, root: str) -> dict:
+    if bucket:
+        return {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": bucket,
+                "region_name": region,
+                # Objects are named by their content (the commit's SHA): the
+                # same name always holds the same bytes, so overwriting is a
+                # no-op and the name never changes on save.
+                "file_overwrite": True,
+                "default_acl": None,
+                # Never handed to browsers: GitGrit serves every file itself.
+                "querystring_auth": False,
+            },
+        }
+    return {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": root},
+    }
+
+
+UPLOADS_ROOT = os.environ.get("GITGRIT_UPLOADS_ROOT", str(BASE_DIR / "var" / "uploads"))
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
+    "uploads": uploads_storage(
+        os.environ.get("GITGRIT_UPLOADS_BUCKET", ""),
+        os.environ.get("GITGRIT_UPLOADS_REGION", "eu-north-1"),
+        UPLOADS_ROOT,
+    ),
 }
 
 CSRF_TRUSTED_ORIGINS = [SITE_URL]
@@ -401,7 +436,7 @@ GITHUB_APP_ENABLED = github_app_enabled(
 # SSL_CERT_FILE — keeping mount target and env value in a single source of truth.
 _custom_ca_path = os.environ.get("GITGRIT_CUSTOM_CA_FILE_PATH") or None
 SANDBOX = {
-    "IMAGE": "gitgrit-sandbox:latest",
+    "IMAGE": os.environ.get("SANDBOX_IMAGE", "gitgrit-sandbox:latest"),
     "RUNTIME": "runsc",
     "MEMORY_LIMIT": "128m",
     "CPU_LIMIT": 0.5,

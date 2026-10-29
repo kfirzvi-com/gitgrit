@@ -3,10 +3,11 @@ from django.conf import settings
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from oauth2_provider.contrib.rest_framework import OAuth2Authentication
 from rest_framework import exceptions, status
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app.application import artifact_service
 from app.application.project_health_service import ProjectHealthService
 from app.application.errors import NotFoundError
 from app.application.project_management import AlreadyAdded, PlatformError
@@ -54,6 +55,14 @@ class PublicAPIView(APIView):
         workspace token."""
         user = self.request.user
         return user if user.is_authenticated else None
+
+    @property
+    def actor_name(self) -> str:
+        """Who to credit in history: the user, else the workspace token's name."""
+        if self.actor is not None:
+            return self.actor.username
+        token = self.workspace_token
+        return token.name if token else ""
 
     @property
     def workspace_token(self) -> APIToken | None:
@@ -360,6 +369,9 @@ class ProjectHealthView(WorkspaceAPIView):
 
 
 class ProjectCommitsView(WorkspaceAPIView):
+    # GET takes no body; POST uploads a commit of an artifact project.
+    parser_classes = [MultiPartParser]
+
     @extend_schema(
         operation_id="list_project_commits",
         tags=["health"],
@@ -380,6 +392,42 @@ class ProjectCommitsView(WorkspaceAPIView):
             _health.commits(
                 self.tenant, str(project_id), request.query_params.get("branch"), page
             )
+        )
+
+    @extend_schema(
+        operation_id="upload_project_commit",
+        tags=["uploads"],
+        summary="Upload a commit of an artifact project and check it",
+        description=(
+            "Stores the archive as a commit and checks it as a push: queues the "
+            "standards that run on pushes to the branch. Poll "
+            "`commits/<commit.sha>/` until `running` is 0 for the results. A "
+            "rejected archive (path outside the archive, links, too large) is a 400; "
+            "a Git project is a 404."
+        ),
+        request={"multipart/form-data": s.CommitUploadSerializer},
+        responses={202: s.CommitUploadResultSerializer},
+    )
+    def post(self, request, project_id, **_):
+        project = artifact_service.get_artifact_project(self.tenant, project_id)
+        body = s.CommitUploadSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        archive = body.validated_data["archive"]
+        limit = artifact_service.DEFAULT_LIMITS.max_archive_bytes
+        if archive.size > limit:
+            raise exceptions.ValidationError(
+                {"archive": f"Archive is larger than {limit // (1024 * 1024)} MB."}
+            )
+        result = artifact_service.upload_commit(
+            project,
+            archive.read(),
+            message=body.validated_data["message"],
+            branch=body.validated_data["branch"],
+            user=self.actor,
+            author=self.actor_name,
+        )
+        return Response(
+            artifact_service.upload_result_dict(result), status=status.HTTP_202_ACCEPTED
         )
 
 

@@ -270,6 +270,8 @@ def enqueue_manual_run(
     """Queue the *runnable* subset of ``standards`` on ``project`` — enabled,
     non-draft, criteria-matching — the way Run All and the coverage-change
     subscribers do. None when nothing is eligible."""
+    if project.is_artifact and not project.artifact_commits.exists():
+        return None  # nothing uploaded yet: no files to check
     runnable = StandardEngine().runnable_standards(project, list(standards))
     if not runnable:
         return None

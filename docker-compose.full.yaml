@@ -29,12 +29,16 @@ x-gitgrit-service: &gitgrit-service
     - /tmp/gitgrit-sandbox:/tmp/gitgrit-sandbox
     # Operator CA bundle for self-hosted GitLab over the operator's TLS chain.
     - ${GITGRIT_CUSTOM_CA_FILE_PATH}:/etc/ssl/certs/custom-ca.pem:ro
+    # Artifact projects' archives: web stores them, the worker
+    # reads them, so both mount the same volume.
+    - gitgrit_uploads:/var/lib/gitgrit/uploads
   environment:
     AIRGAPPED: "True"
     DEBUG: "False"
     SECRET_KEY: ${SECRET_KEY}
     GITGRIT_ENCRYPTION_KEY: ${GITGRIT_ENCRYPTION_KEY}
     SITE_URL: ${SITE_URL}
+    GITGRIT_UPLOADS_ROOT: /var/lib/gitgrit/uploads
     # DB — settings.py reads these individually, not as a URL.
     DB_HOST: db
     DB_PORT: "5432"
@@ -120,3 +124,4 @@ networks:
 
 volumes:
   gitgrit_pgdata:
+  gitgrit_uploads:

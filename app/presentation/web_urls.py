@@ -48,6 +48,14 @@ from app.presentation.views.project_views import (
     retry_webhook,
     run_project_standards,
 )
+from app.presentation.views.artifact_views import (
+    add_artifact_project,
+    commit_download,
+    commit_file_raw,
+    commit_files,
+    project_overview_health,
+    upload_project_commit,
+)
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
@@ -267,6 +275,7 @@ urlpatterns = [
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/add/", add_project_select, name="add_project_select"),
+    path("projects/add/artifact/", add_artifact_project, name="add_artifact_project"),
     path(
         "projects/add/<uuid:connection_id>/",
         add_project_search,
@@ -274,6 +283,19 @@ urlpatterns = [
     ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
     path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
+    path(
+        "projects/<uuid:pk>/commits/upload/",
+        upload_project_commit,
+        name="upload_project_commit",
+    ),
+    path(
+        "projects/<uuid:pk>/overview-health/",
+        project_overview_health,
+        name="project_overview_health",
+    ),
+    path("projects/<uuid:pk>/commits/files/", commit_files, name="commit_files"),
+    path("projects/<uuid:pk>/commits/files/raw/", commit_file_raw, name="commit_file_raw"),
+    path("projects/<uuid:pk>/commits/files/download/", commit_download, name="commit_download"),
     path("projects/<uuid:pk>/delete/", delete_project, name="delete_project"),
     path(
         "projects/<uuid:pk>/run-standards/",
