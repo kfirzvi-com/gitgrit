@@ -34,6 +34,9 @@ repo_name: kfirzvi-com/gitgrit
 watch:
   - overrides
 
+hooks:
+  - hooks/whats_new.py   # generates whats-new.md from GitHub releases
+
 nav:
   # Home (index.md) is intentionally absent from the sidebar — it's reached
   # via the logo. Including it would surface a redundant "Home" link in the
@@ -56,6 +59,7 @@ nav:
     - Overview: self-hosting/index.md
     - Installation: self-hosting/installation.md
     - Operations: self-hosting/operations.md
+  - What's New: whats-new.md
 
 # Pages reachable outside the sidebar nav:
 #   - Home (index.md): the logo links to it.
