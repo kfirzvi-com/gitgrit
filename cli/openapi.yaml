@@ -1080,7 +1080,7 @@ paths:
   /api/v1/workspaces/{workspace_id}/standards/test/:
     post:
       operationId: test_standard
-      description: Runs in the gVisor sandbox; nothing is saved.
+      description: Runs in the sandbox; nothing is saved.
       summary: Dry-run standard code against mock project data
       parameters:
       - in: path

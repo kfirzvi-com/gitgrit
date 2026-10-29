@@ -306,7 +306,7 @@ class StandardTestView(WorkspaceAPIView):
         operation_id="test_standard",
         tags=["standards"],
         summary="Dry-run standard code against mock project data",
-        description="Runs in the gVisor sandbox; nothing is saved.",
+        description="Runs in the sandbox; nothing is saved.",
         request=s.StandardTestSerializer,
         responses=s.StandardTestResultSerializer,
     )
