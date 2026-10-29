@@ -37,10 +37,9 @@
     }
 
     .gg-hero__tag {
-      font-family: var(--gg-font-mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      font-family: var(--gg-font-sans);
+      font-size: 0.95rem;
+      font-weight: 700;
       color: var(--gg-primary);
       margin-bottom: 1rem;
       display: flex;
@@ -272,267 +271,280 @@
       border-top: 1px solid var(--gg-border);
     }
 
-    /* ── Features ── */
-    .gg-features {
-      max-width: 1400px;
+    /* ── Section shell ── */
+    .gg-sec {
+      max-width: 1200px;
       margin: 0 auto;
       padding: 4rem 1.5rem;
     }
-    .gg-features__header {
+    .gg-sec__header {
       text-align: center;
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
     }
-    .gg-features__header h2 {
+    .gg-sec__header h2 {
       font-family: var(--gg-font-sans);
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.5rem;
     }
-    .gg-features__header p {
+    .gg-sec__header p {
       font-family: var(--gg-font-sans);
       color: var(--gg-text-dim);
       font-size: 1rem;
+      line-height: 1.6;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .gg-sec__tag {
+      font-family: var(--gg-font-sans);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gg-primary) !important;
+      margin-bottom: 0.75rem !important;
+    }
+
+    /* ── The gap ── */
+    .gg-gap {
+      display: grid;
+      grid-template-columns: 1.4fr auto 1fr auto 1.1fr;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    @media (max-width: 900px) {
+      .gg-gap { grid-template-columns: 1fr; }
+      .gg-gap__arrow { transform: rotate(90deg); justify-self: center; }
+    }
+    .gg-gap__label {
+      font-family: var(--gg-font-sans);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin-bottom: 0.75rem;
+    }
+    .gg-gap__label--red { color: var(--gg-error); }
+    .gg-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .gg-chip {
+      font-family: var(--gg-font-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text);
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 999px;
+      background: var(--gg-surface);
+    }
+    .gg-chips--hurts .gg-chip {
+      border-color: oklch(65% 0.200 27 / 0.45);
+      background: oklch(65% 0.200 27 / 0.08);
+    }
+    .gg-gap__arrow {
+      font-size: 1.4rem;
+      color: var(--gg-text-dimmer);
+    }
+    .gg-gap__arrow--go { color: var(--gg-primary); }
+    .gg-gap__one {
+      border: 1px solid var(--gg-primary);
+      background: var(--gg-primary-glow);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+    .gg-gap__one small {
+      display: block;
+      font-family: var(--gg-font-sans);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--gg-primary);
+      margin-bottom: 0.4rem;
+    }
+    .gg-gap__one b {
+      display: block;
+      font-family: var(--gg-font-sans);
+      font-size: 1.1rem;
+      color: var(--gg-text);
+      margin-bottom: 0.35rem;
+    }
+    .gg-gap__one p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.9rem;
+      color: var(--gg-text-dim);
       margin: 0;
     }
 
-    .gg-features__grid {
+    /* ── Sound familiar ── */
+    .gg-pains { display: flex; flex-direction: column; gap: 1rem; }
+    .gg-pain {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: var(--gg-border);
-      border: 1px solid var(--gg-border);
+      grid-template-columns: 1fr auto 1.2fr;
+      gap: 1.5rem;
+      align-items: center;
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
       border-radius: 10px;
-      overflow: hidden;
+      padding: 1.5rem 1.75rem;
     }
     @media (max-width: 800px) {
-      .gg-features__grid { grid-template-columns: 1fr; }
+      .gg-pain { grid-template-columns: 1fr; }
+      .gg-pain__arrow { display: none; }
     }
-
-    .gg-feat {
-      background: var(--gg-surface);
-      padding: 2rem;
-      transition: background 0.25s;
-    }
-    .gg-feat:hover {
-      background: var(--gg-surface-2);
-    }
-    .gg-feat__icon {
-      width: 36px; height: 36px;
-      border-radius: 8px;
-      background: var(--gg-primary-glow);
-      border: 1px solid var(--gg-primary-glow);
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 1rem;
-      color: var(--gg-primary);
-      font-size: 1.1rem;
-    }
-    .gg-feat h3 {
+    .gg-pain__quote {
       font-family: var(--gg-font-sans);
       font-size: 1rem;
-      font-weight: 700;
+      font-style: italic;
+      line-height: 1.55;
       color: var(--gg-text);
-      margin: 0 0 0.5rem;
+      border-left: 2px solid var(--gg-bg-300);
+      padding-left: 1rem;
     }
-    .gg-feat p {
+    .gg-pain__src {
+      display: block;
+      margin-top: 0.6rem;
+      font-size: 0.8rem;
+      font-style: normal;
+      color: var(--gg-text-dim);
+    }
+    .gg-pain__src i { display: block; color: var(--gg-text-dimmer); }
+    .gg-pain__arrow { font-size: 1.3rem; color: var(--gg-primary); }
+    .gg-pain h3 {
       font-family: var(--gg-font-sans);
-      font-size: 0.88rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--gg-primary);
+      margin: 0 0 0.4rem;
+    }
+    .gg-pain p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.9rem;
       line-height: 1.55;
       color: var(--gg-text-dim);
       margin: 0;
     }
 
-    /* ── How it works ── */
-    .gg-how {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 1.5rem;
-    }
-    .gg-how__header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-    .gg-how__header h2 {
-      font-family: var(--gg-font-sans);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-how__header p {
-      font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
-      margin: 0;
-    }
-
-    .gg-steps {
+    /* ── Standards as code ── */
+    .gg-points {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 1.5rem;
+      margin-bottom: 2rem;
     }
-    @media (max-width: 800px) {
-      .gg-steps { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 480px) {
-      .gg-steps { grid-template-columns: 1fr; }
-    }
-
-    .gg-step {
-      position: relative;
-      padding-left: 2.5rem;
-    }
-    .gg-step__num {
-      position: absolute;
-      left: 0; top: 0;
-      font-family: var(--gg-font-mono);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-border);
-      line-height: 1;
-    }
-    .gg-step h4 {
+    @media (max-width: 900px) { .gg-points { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .gg-points { grid-template-columns: 1fr; } }
+    .gg-point svg { color: var(--gg-primary); width: 30px; height: 30px; margin-bottom: 0.6rem; }
+    .gg-point h3 {
       font-family: var(--gg-font-sans);
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-weight: 700;
       color: var(--gg-text);
       margin: 0 0 0.35rem;
     }
-    .gg-step p {
-      font-family: var(--gg-font-sans);
-      font-size: 0.85rem;
-      color: var(--gg-text-dim);
-      line-height: 1.5;
-      margin: 0;
-    }
-
-    /* ── Open Source ── */
-    .gg-oss {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 1.5rem;
-    }
-    .gg-oss__grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-    }
-    @media (max-width: 800px) {
-      .gg-oss__grid { grid-template-columns: 1fr; }
-    }
-    .gg-oss__header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-    .gg-oss__header h2 {
-      font-family: var(--gg-font-sans);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-oss__header p {
-      font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
-      font-size: 1rem;
-      margin: 0;
-    }
-    .gg-oss__card {
-      background: var(--gg-surface);
-      border: 1px solid var(--gg-border);
-      border-radius: 10px;
-      padding: 2rem;
-    }
-    .gg-oss__card h3 {
-      font-family: var(--gg-font-sans);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-oss__card p {
+    .gg-point p {
       font-family: var(--gg-font-sans);
       font-size: 0.88rem;
+      line-height: 1.55;
+      color: var(--gg-text-dim);
+      margin: 0;
+    }
+    .gg-vs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 800px) { .gg-vs { grid-template-columns: 1fr; } }
+    .gg-vs__item {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+    }
+    .gg-vs__item b {
+      font-family: var(--gg-font-sans);
+      font-size: 0.95rem;
+      color: var(--gg-text-dim);
+    }
+    .gg-vs__item p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--gg-text-dim);
+      margin: 0.35rem 0 0;
+    }
+    .gg-vs__item--us {
+      border-color: var(--gg-primary);
+      background: var(--gg-primary-glow);
+    }
+    .gg-vs__item--us b { color: var(--gg-primary); }
+    .gg-vs__item--us p { color: var(--gg-text); }
+
+    /* ── Get started ── */
+    .gg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+      padding: 0.3rem 0.85rem;
+      border: 1px solid var(--gg-primary);
+      border-radius: 999px;
+      font-family: var(--gg-font-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text);
+    }
+    .gg-badge b { color: var(--gg-primary); }
+    .gg-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+    }
+    @media (max-width: 800px) { .gg-steps { grid-template-columns: 1fr; } }
+    .gg-step {
+      position: relative;
+      padding-left: 2.75rem;
+    }
+    .gg-step__num {
+      position: absolute;
+      left: 0; top: 0;
+      width: 1.9rem; height: 1.9rem;
+      border-radius: 50%;
+      border: 1.5px solid var(--gg-primary);
+      color: var(--gg-primary);
+      font-family: var(--gg-font-sans);
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gg-step h4 {
+      font-family: var(--gg-font-sans);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gg-text);
+      margin: 0.2rem 0 0.35rem;
+    }
+    .gg-step h4.gg-step__hl { color: var(--gg-primary); }
+    .gg-step p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.9rem;
       color: var(--gg-text-dim);
       line-height: 1.55;
       margin: 0;
     }
-
-    /* ── Roadmap ── */
-    .gg-roadmap {
-      max-width: 1400px;
+    .gg-step p b { color: var(--gg-primary); }
+    .gg-shot {
+      max-width: 900px;
       margin: 0 auto;
-      padding: 4rem 1.5rem;
     }
-    .gg-roadmap__header {
+    .gg-shot__cap {
       text-align: center;
-      margin-bottom: 3rem;
-    }
-    .gg-roadmap__header h2 {
-      font-family: var(--gg-font-sans);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-roadmap__header p {
-      font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
-      font-size: 1rem;
-      margin: 0;
-    }
-    .gg-pillars {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.5rem;
-    }
-    @media (max-width: 800px) {
-      .gg-pillars { grid-template-columns: 1fr; }
-    }
-    .gg-pillar {
-      background: var(--gg-surface);
-      border: 1px solid var(--gg-border);
-      border-radius: 10px;
-      padding: 2rem;
-    }
-    .gg-pillar--active {
-      border-color: var(--gg-success);
-    }
-    .gg-pillar__status {
-      font-family: var(--gg-font-mono);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.75rem;
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
-    .gg-pillar--active .gg-pillar__status {
-      color: var(--gg-success);
-      background: rgba(34,197,94,0.12);
-    }
-    .gg-pillar--next .gg-pillar__status {
-      color: var(--gg-warning);
-      background: rgba(245,158,11,0.12);
-    }
-    .gg-pillar--planned .gg-pillar__status {
-      color: var(--gg-text-dim);
-      background: var(--gg-surface-2);
-    }
-    .gg-pillar h3 {
-      font-family: var(--gg-font-sans);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--gg-text);
-      margin: 0 0 0.5rem;
-    }
-    .gg-pillar p {
       font-family: var(--gg-font-sans);
       font-size: 0.85rem;
       color: var(--gg-text-dim);
-      line-height: 1.55;
-      margin: 0;
+      margin-top: 0.85rem;
     }
+
+    .gg-cta__who {
+      margin-top: 1.25rem;
+      font-family: var(--gg-font-sans);
+      font-size: 0.85rem;
+      color: var(--gg-text-dim);
+    }
+    .gg-cta__actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
 
     /* ── CTA ── */
     .gg-cta {
@@ -589,14 +601,16 @@
     <!-- Hero -->
     <section class="gg-hero">
       <div>
-        <div class="gg-hero__tag">Developer Experience Platform</div>
-        <h1>Know how your teams build.<br><em>Help them do it better.</em></h1>
+        <div class="gg-hero__tag">The engineering standards platform</div>
+        <h1>Engineering best practices can become <em>everyday reality.</em></h1>
         <p class="gg-hero__sub">
-          GitGrit enables engineering leaders <span style="color: var(--gg-primary); font-weight: 700;">move faster</span> by providing visibility into repository standards, team health, and delivery performance — and enables developers actionable guidance to improve.
+          How a team builds belongs in running code, not in a few senior engineers' heads.
+          As teams grow and repositories multiply, standards live in many different places and drift apart.
+          <span style="color: var(--gg-text); font-weight: 700;">The gap is where mistakes happen, and money and time are wasted.</span>
         </p>
         <div class="gg-hero__actions">
-          <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
-          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Open App &rarr;</a>
+          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Let's talk</a>
+          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
       </div>
 
@@ -638,136 +652,165 @@
       </div>
     </section>
 
-    <div class="gg-divider"><hr></div>
-
-    <!-- Features -->
-    <section class="gg-features gg-reveal">
-      <div class="gg-features__header">
-        <h2>Built for engineering teams</h2>
-        <p>Give your team the tools to write better software, not more checklists.</p>
-      </div>
-      <div class="gg-features__grid">
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+    <!-- The gap -->
+    <section class="gg-sec gg-reveal" style="padding-top: 1rem;">
+      <div class="gg-gap">
+        <div>
+          <div class="gg-gap__label">Standards today</div>
+          <div class="gg-chips">
+            <span class="gg-chip">the wiki</span>
+            <span class="gg-chip">a senior's head</span>
+            <span class="gg-chip">review comments</span>
+            <span class="gg-chip">per-repo linters</span>
+            <span class="gg-chip">CLAUDE.md files</span>
+            <span class="gg-chip">old Slack threads</span>
           </div>
-          <h3>Standards as Code</h3>
-          <p>Write compliance rules in Python. Full access to repo files, languages, members, and metadata.</p>
         </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <div class="gg-gap__arrow">&rarr;</div>
+        <div>
+          <div class="gg-gap__label gg-gap__label--red">The gap</div>
+          <div class="gg-chips gg-chips--hurts">
+            <span class="gg-chip">3 AM on-call incidents</span>
+            <span class="gg-chip">unhappy customers</span>
+            <span class="gg-chip">slow progress</span>
           </div>
-          <h3>Standard Marketplace</h3>
-          <p>Install pre-built packs like Security Essentials or Repository Hygiene. Customize after install.</p>
         </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          </div>
-          <h3>Analytics Dashboard</h3>
-          <p>Track compliance trends, identify failing standards, and monitor scores across all your projects.</p>
-        </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-          </div>
-          <h3>GitHub &amp; GitLab</h3>
-          <p>Connect any instance. Webhooks trigger evaluations automatically on every push and pull request.</p>
-        </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </div>
-          <h3>Sandboxed Execution</h3>
-          <p>Standards run in isolated gVisor containers. Your code and credentials are never exposed.</p>
-        </div>
-        <div class="gg-feat">
-          <div class="gg-feat__icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h3>Compliance Badges</h3>
-          <p>Embed a live score badge in your README. Show compliance status to every contributor.</p>
+        <div class="gg-gap__arrow gg-gap__arrow--go">&rarr;</div>
+        <div class="gg-gap__one">
+          <small>With GitGrit</small>
+          <b>One set of standards, as running code.</b>
+          <p>Checked on every repository, on every push.</p>
         </div>
       </div>
     </section>
 
     <div class="gg-divider"><hr></div>
 
-    <!-- How it works -->
-    <section class="gg-how gg-reveal">
-      <div class="gg-how__header">
-        <h2>Up and running in minutes</h2>
-        <p>Connect, define, enforce.</p>
+    <!-- Sound familiar -->
+    <section class="gg-sec gg-reveal">
+      <div class="gg-sec__header">
+        <h2>Sound familiar?</h2>
+      </div>
+      <div class="gg-pains">
+        <div class="gg-pain">
+          <div class="gg-pain__quote">Other teams seem to have it all figured out: the right practices, the right tools, the right culture. And you wonder if you're the only one still figuring it out.</div>
+          <div class="gg-pain__arrow">&rarr;</div>
+          <div>
+            <h3>Keep up, without chasing every trend.</h3>
+            <p>GitGrit puts engineering best practices in one place, simply: pick ready-made standards and see how far each repository is from them. Close the gap one repo at a time.</p>
+          </div>
+        </div>
+        <div class="gg-pain">
+          <div class="gg-pain__quote">As teams grow, the full picture comes in pieces, from dailies and status updates, and you have to hold it all in your head.</div>
+          <div class="gg-pain__arrow">&rarr;</div>
+          <div>
+            <h3>Feel in control, never in the dark.</h3>
+            <p>One screen shows every repository's grade and exactly why. You know where things stand before anyone has to tell you, and you lead your team with confidence.</p>
+          </div>
+        </div>
+        <div class="gg-pain">
+          <div class="gg-pain__quote">&ldquo;AI ships code faster than I can trust it.&rdquo;
+            <span class="gg-pain__src">Almost half of developers don't trust the accuracy of AI-written code.<i>Stack Overflow Developer Survey 2025</i></span>
+          </div>
+          <div class="gg-pain__arrow">&rarr;</div>
+          <div>
+            <h3>Move fast with AI, on solid ground.</h3>
+            <p>Your agents read the same standards through GitGrit, and every change, human or AI, is checked against them. A stable foundation you can rely on, no matter who, or what, writes the code.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- Standards as code -->
+    <section class="gg-sec gg-reveal">
+      <div class="gg-sec__header">
+        <h2>Standards as code.</h2>
+        <p class="gg-sec__tag">AI reviewers suggest. GitGrit verifies.</p>
+        <p>Your rules live in one place, as readable code. Not one model's opinion on one pull request, and not scripts copied across dozens of CI pipelines.</p>
+      </div>
+      <div class="gg-points">
+        <div class="gg-point">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.5"/></svg>
+          <h3>Accurate, in real time</h3>
+          <p>Every check is code that gives the same answer every time, on every push.</p>
+        </div>
+        <div class="gg-point">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+          <h3>You decide what runs where</h3>
+          <p>Which standards apply to each project, on which branches and events, and how much each one matters.</p>
+        </div>
+        <div class="gg-point">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+          <h3>Readable and trackable</h3>
+          <p>Short, human-readable rules, versioned like code. See how they evolved, and how every repo's grade changed.</p>
+        </div>
+        <div class="gg-point">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+          <h3>Evolves safely</h3>
+          <p>Dry-run a change, then roll it out everywhere at once. Every check runs in an isolated sandbox.</p>
+        </div>
+      </div>
+      <div class="gg-vs">
+        <div class="gg-vs__item">
+          <b>AI review agents</b>
+          <p>Comment on one pull request at a time, and may answer differently each run.</p>
+        </div>
+        <div class="gg-vs__item">
+          <b>CI workflows</b>
+          <p>YAML copied repo by repo, drifting apart, with no view across them.</p>
+        </div>
+        <div class="gg-vs__item gg-vs__item--us">
+          <b>GitGrit</b>
+          <p>One set of readable rules, checked everywhere, with one view of where you stand.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="gg-divider"><hr></div>
+
+    <!-- Get started -->
+    <section class="gg-sec gg-reveal">
+      <div class="gg-sec__header">
+        <h2>GitGrit, the engineering standards platform.</h2>
+        <span class="gg-badge">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gg-primary);"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M10 2h4"/></svg>
+          Get started in <b>minutes</b>
+        </span>
       </div>
       <div class="gg-steps">
         <div class="gg-step">
           <span class="gg-step__num">1</span>
-          <h4>Connect</h4>
-          <p>Link your GitHub or GitLab instance with an access token.</p>
+          <h4>Connect your repositories</h4>
+          <p>With <b>the click of a button</b>, from GitHub or GitLab. You can <b>start with just one repo</b>.</p>
         </div>
         <div class="gg-step">
           <span class="gg-step__num">2</span>
-          <h4>Add repos</h4>
-          <p>Select repositories to monitor. Webhooks are registered automatically.</p>
+          <h4>Pick your standards</h4>
+          <p>Ready-made packs in one click, or your own. Mark each one Required, Major or Minor.</p>
         </div>
         <div class="gg-step">
           <span class="gg-step__num">3</span>
-          <h4>Define standards</h4>
-          <p>Write your own or install from the marketplace. Test with mock data.</p>
-        </div>
-        <div class="gg-step">
-          <span class="gg-step__num">4</span>
-          <h4>Enforce</h4>
-          <p>Every push triggers evaluation. Scores, badges, and dashboards update live.</p>
+          <h4 class="gg-step__hl">Stay in control</h4>
+          <p>A clear grade for every repo, from A+ to F, and the exact reason when something fails.</p>
         </div>
       </div>
-    </section>
-
-    <div class="gg-divider"><hr></div>
-
-    <!-- Open Source -->
-    <section class="gg-oss gg-reveal">
-      <div class="gg-oss__header">
-        <h2>Open source. Self-host anywhere.</h2>
-        <p>GitGrit is fully open source under the MIT License. Run it on your own infrastructure, including airgapped environments.</p>
-      </div>
-      <div class="gg-oss__grid">
-        <div class="gg-oss__card">
-          <h3>Full product, no gates</h3>
-          <p>Self-hosted GitGrit has every feature. The cloud version wins on convenience, not by withholding functionality.</p>
+      <div class="gg-shot">
+        <div class="gg-browser">
+          <div class="gg-browser__toolbar">
+            <div class="gg-browser__dots">
+              <span class="gg-browser__dot gg-browser__dot--r"></span>
+              <span class="gg-browser__dot gg-browser__dot--y"></span>
+              <span class="gg-browser__dot gg-browser__dot--g"></span>
+            </div>
+            <div class="gg-browser__address">app.gitgrit.dev</div>
+          </div>
+          <div class="gg-browser__content">
+            <img src="images/projects-grid.png" alt="GitGrit projects page: every repository with its grade, from A+ to F" loading="lazy">
+          </div>
         </div>
-        <div class="gg-oss__card">
-          <h3>Airgapped ready</h3>
-          <p>Deploy behind firewalls with no external dependencies. Built for defense, government, and security-conscious organizations.</p>
-        </div>
-      </div>
-    </section>
-
-    <div class="gg-divider"><hr></div>
-
-    <!-- Roadmap -->
-    <section class="gg-roadmap gg-reveal">
-      <div class="gg-roadmap__header">
-        <h2>More than a compliance tool</h2>
-        <p>GitGrit is becoming the single place to understand and improve how your teams build software.</p>
-      </div>
-      <div class="gg-pillars">
-        <div class="gg-pillar gg-pillar--active">
-          <span class="gg-pillar__status">Live</span>
-          <h3>Repository Standards</h3>
-          <p>Standards-as-code enforcement with sandboxed execution, marketplace, analytics, and compliance badges.</p>
-        </div>
-        <div class="gg-pillar gg-pillar--next">
-          <span class="gg-pillar__status">Next</span>
-          <h3>Employee Surveys</h3>
-          <p>Measure Westrum culture, burnout, and psychological safety — tied directly to delivery outcomes.</p>
-        </div>
-        <div class="gg-pillar gg-pillar--planned">
-          <span class="gg-pillar__status">Planned</span>
-          <h3>Engineering Metrics</h3>
-          <p>DORA metrics from the tools you already use. Standards + team health + delivery performance in one place.</p>
-        </div>
+        <div class="gg-shot__cap">Every repository, graded against your standards, on one screen.</div>
       </div>
     </section>
 
@@ -776,9 +819,13 @@
     <!-- CTA -->
     <section class="gg-cta gg-reveal">
       <div class="gg-cta__box">
-        <h2>Start improving today</h2>
-        <p>Free for individuals and small teams. No credit card required.</p>
-        <a href="getting-started/quickstart/" class="gg-btn gg-btn--primary">Get Started</a>
+        <h2>Let's have a talk.</h2>
+        <p>We'd love to hear what you're facing, and see together if we can help.</p>
+        <div class="gg-cta__actions">
+          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Talk to Kfir</a>
+          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
+        </div>
+        <div class="gg-cta__who">Kfir Zvi · Founder · kfir@praktical.dev</div>
       </div>
     </section>
 

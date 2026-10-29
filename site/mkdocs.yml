@@ -1,6 +1,6 @@
 site_name: GitGrit
 site_url: !ENV [DOCS_SITE_URL, "https://gitgrit.dev"]
-site_description: Developer Experience Platform — Repository Standards, Team Health, and Delivery Performance
+site_description: The engineering standards platform — turn engineering best practices into everyday reality.
 site_author: GitGrit
 
 theme:
@@ -92,4 +92,4 @@ extra:
       link: https://github.com/kfirzvi-com/gitgrit
   generator: false
 
-copyright: "&copy; 2026 GitGrit — Developer Experience Platform"
+copyright: "&copy; 2026 GitGrit — The engineering standards platform"
