@@ -1,6 +1,6 @@
 ---
 template: home.html
-title: GitGrit — Developer Experience Platform
+title: GitGrit — The Engineering Standards Platform
 hide:
   - navigation
   - toc
