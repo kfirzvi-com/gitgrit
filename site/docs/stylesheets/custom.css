@@ -219,7 +219,7 @@
 
 .gg-footer {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1fr 1fr 1.2fr 1fr;
   gap: 2.5rem;
   padding: 3rem 0 2rem;
 }
