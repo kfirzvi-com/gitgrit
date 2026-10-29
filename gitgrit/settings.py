@@ -233,6 +233,13 @@ CSRF_TRUSTED_ORIGINS = [SITE_URL]
 # original request was HTTPS (needed for OAuth redirect URIs, CSRF, etc.).
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Cookie security (SOC 2 CC6.1, CC6.7): browsers send the session and CSRF
+# cookies only over https, so a plain-http request (an old browser, an
+# http:// link) can't leak them. Local runserver keeps working on
+# http://localhost and 127.0.0.1, which browsers treat as secure.
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
 # Auth
 AUTH_USER_MODEL = "app.User"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
