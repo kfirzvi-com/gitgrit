@@ -130,15 +130,10 @@ function selectProject(data) {
   document.getElementById('field-web-url').value = data.web_url;
   document.getElementById('field-default-branch').value = data.default_branch;
   document.getElementById('field-description').value = data.description;
-  // Built from DOM nodes, never parsed as HTML: repository names are not ours.
-  var strong = document.createElement('strong');
-  strong.textContent = data.name;
-  var span = document.createElement('span');
-  span.append(strong, ' — ' + data.full_path);
-  var notice = document.createElement('div');
-  notice.className = 'alert';
-  notice.append(span);
-  document.getElementById('selected-project-info').replaceChildren(notice);
+  document.getElementById('selected-project-info').innerHTML =
+    '<div class="alert">' +
+    '<span><strong>' + data.name + '</strong> — ' + data.full_path + '</span>' +
+    '</div>';
   document.getElementById('add-project-form').classList.remove('hidden');
   document.getElementById('add-project-form').scrollIntoView({ behavior: 'smooth' });
 }

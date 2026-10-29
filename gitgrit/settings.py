@@ -16,7 +16,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.csp import CSP
 
 from gitgrit.feature_flags import github_app_enabled, missing_github_app_settings
 
@@ -24,15 +23,10 @@ from gitgrit.feature_flags import github_app_enabled, missing_github_app_setting
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def _env_flag(name: str, default: bool) -> bool:
-    """True only for the exact string "True"; unset or empty means ``default``."""
-    return (os.environ.get(name) or str(default)) == "True"
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-DEBUG = _env_flag("DEBUG", False)
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
@@ -53,25 +47,7 @@ GIT_SHA = os.environ.get("GIT_SHA", "")
 GIT_TAG = os.environ.get("GIT_TAG", "")
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
-GITHUB_REPO_URL = "https://github.com/kfirzvi-com/gitgrit"
-# Where vulnerability reports go (security.txt, alongside GitHub's private
-# reporting); matches SECURITY.md. Self-hosters may point these at their own
-# team. `or` so an empty value (docker-compose passes one) means the default.
-SECURITY_CONTACT_EMAIL = os.environ.get("SECURITY_CONTACT_EMAIL") or "kfir@kfirzvi.com"
-SECURITY_POLICY_URL = (
-    os.environ.get("SECURITY_POLICY_URL") or f"{GITHUB_REPO_URL}/blob/main/SECURITY.md"
-)
-SECURITY_ADVISORY_URL = (
-    os.environ.get("SECURITY_ADVISORY_URL")
-    or f"{GITHUB_REPO_URL}/security/advisories/new"
-)
-# Only an explicitly set advisory URL is listed on AIRGAPPED installs, where the
-# GitHub default is unreachable.
-SECURITY_ADVISORY_URL_IS_CUSTOM = bool(os.environ.get("SECURITY_ADVISORY_URL"))
-# RFC 9116 wants an expiry under a year. A fixed date, so a stale file fails the
-# tests (30 days out) instead of silently advertising contacts nobody reviewed.
-SECURITY_TXT_EXPIRES = "2027-04-26T00:00:00Z"
-AIRGAPPED = _env_flag("AIRGAPPED", False)
+AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [
     host for host in [urlparse(SITE_URL).hostname] if host
@@ -104,8 +80,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "gitgrit.middleware.HealthCheckMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "django.middleware.csp.ContentSecurityPolicyMiddleware",
-    "gitgrit.middleware.PermissionsPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -129,7 +103,6 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
-                "django.template.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "app.context_processors.tenant_context",
@@ -225,81 +198,6 @@ CSRF_TRUSTED_ORIGINS = [SITE_URL]
 # original request was HTTPS (needed for OAuth redirect URIs, CSRF, etc.).
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# Transport and cookie security (SOC 2 CC6.1, CC6.7). On when the site is
-# served over https outside DEBUG; a self-hosted install on plain http keeps
-# working without config (Secure cookies would otherwise never come back).
-# HTTPS_ONLY=True/False overrides the guess; empty counts as unset.
-# Behind a TLS proxy, the proxy must send X-Forwarded-Proto: https
-# (SECURE_PROXY_SSL_HEADER above) or every request redirects to itself.
-HTTPS_ONLY = _env_flag("HTTPS_ONLY", not DEBUG and SITE_URL.startswith("https://"))
-SECURE_SSL_REDIRECT = HTTPS_ONLY  # kamal-proxy redirects too; this covers a misrouted request
-SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365 if HTTPS_ONLY else 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = HTTPS_ONLY
-# Browsers remember HSTS for this long: a site that later drops https stays
-# unreachable over http for them until it expires. No preload: getting off
-# the browsers' preload list takes months.
-SESSION_COOKIE_SECURE = HTTPS_ONLY
-CSRF_COOKIE_SECURE = HTTPS_ONLY
-# The next four lines equal Django's defaults; they are written out so the
-# security settings can be audited in one place.
-SESSION_COOKIE_HTTPONLY = True
-# No script reads the csrftoken cookie: HTMX sends the token from base.html
-# (hx-headers) and fetch() calls read the form field.
-CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
-SECURE_REFERRER_POLICY = "same-origin"
-# Kept alongside CSP frame-ancestors 'none' for browsers that ignore it.
-X_FRAME_OPTIONS = "DENY"
-
-# Content Security Policy (Django's ContentSecurityPolicyMiddleware), two
-# policies:
-#
-# * SECURE_CSP is enforced. Templates still carry inline <script> blocks,
-#   inline on*= handlers and hx-on / trigger filters that HTMX runs through
-#   Function(), so scripts need 'unsafe-inline' and 'unsafe-eval' for now.
-#   It does limit scripts, styles, fonts and connections to us and the CDNs
-#   the templates load, and blocks plugins, <base> hijacking and framing.
-#   form-action is left out on purpose: provider sign-in redirects to
-#   GitHub/GitLab/Google and the CLI OAuth consent ends on a loopback
-#   address, both of which it would block.
-# * SECURE_CSP_REPORT_ONLY is the target: no inline script without the
-#   per-request nonce ({{ csp_nonce }}), no eval. Browsers report what still
-#   breaks it in the console; once templates are clean it replaces the above.
-_CSP_SCRIPT_HOSTS = ["https://cdn.jsdelivr.net", "https://unpkg.com"]
-_CSP_STYLE_HOSTS = ["https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
-_CSP_COMMON = {
-    "default-src": [CSP.SELF],
-    # The Tailwind browser build writes CSS into <style> tags at runtime.
-    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_STYLE_HOSTS],
-    "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
-    # https: covers avatars from the sign-in providers (any host for
-    # self-managed GitLab); icons are data: URIs.
-    "img-src": [CSP.SELF, "data:", "https:"],
-    "connect-src": [CSP.SELF],
-    "object-src": [CSP.NONE],
-    "base-uri": [CSP.SELF],
-    "frame-ancestors": [CSP.NONE],
-}
-SECURE_CSP = {
-    **_CSP_COMMON,
-    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, CSP.UNSAFE_EVAL, *_CSP_SCRIPT_HOSTS],
-}
-SECURE_CSP_REPORT_ONLY = {
-    **_CSP_COMMON,
-    "script-src": [CSP.SELF, CSP.NONCE, *_CSP_SCRIPT_HOSTS],
-}
-
-# Browser features the app never uses; denied so injected script can't ask.
-# Values are Permissions-Policy allowlist tokens: [] denies everywhere, "self"
-# allows our origin, other origins are full URLs (the middleware quotes them).
-PERMISSIONS_POLICY = {
-    "camera": [],
-    "microphone": [],
-    "geolocation": [],
-    "payment": [],
-    "usb": [],
-}
-
 # Auth
 AUTH_USER_MODEL = "app.User"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -359,7 +257,7 @@ EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = _env_flag("EMAIL_USE_TLS", True)
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 EMAIL_TIMEOUT = 10
 EMAIL_BACKENDS = {
     "ses": "django_ses.SESBackend",
@@ -386,9 +284,9 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 # air-gap operators flip Google/GitHub off when no internet egress is available.
 # Values must be the exact strings "True" or "False" (matches the DEBUG/AIRGAPPED
 # convention above) — "true", "1", "yes" all parse as False.
-AUTH_PROVIDER_GITHUB_ENABLED = _env_flag("AUTH_PROVIDER_GITHUB_ENABLED", True)
-AUTH_PROVIDER_GITLAB_ENABLED = _env_flag("AUTH_PROVIDER_GITLAB_ENABLED", True)
-AUTH_PROVIDER_GOOGLE_ENABLED = _env_flag("AUTH_PROVIDER_GOOGLE_ENABLED", True)
+AUTH_PROVIDER_GITHUB_ENABLED = os.environ.get("AUTH_PROVIDER_GITHUB_ENABLED", "True") == "True"
+AUTH_PROVIDER_GITLAB_ENABLED = os.environ.get("AUTH_PROVIDER_GITLAB_ENABLED", "True") == "True"
+AUTH_PROVIDER_GOOGLE_ENABLED = os.environ.get("AUTH_PROVIDER_GOOGLE_ENABLED", "True") == "True"
 
 _ALL_SOCIALACCOUNT_PROVIDERS = {
     "github": {

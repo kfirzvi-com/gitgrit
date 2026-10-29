@@ -17,7 +17,7 @@ def version_context(request):
         "git_sha": settings.GIT_SHA,
         "git_tag": settings.GIT_TAG,
         "git_sha_short": settings.GIT_SHA[:7] if settings.GIT_SHA else "",
-        "github_repo_url": settings.GITHUB_REPO_URL,
+        "github_repo_url": "https://github.com/kfirzvi-com/gitgrit",
     }
 
 

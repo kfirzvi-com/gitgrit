@@ -85,10 +85,7 @@ and Docker; the air-gap host is where GitGrit will live.
 - An internal GitLab CE/EE instance the host can reach over HTTPS, with
   admin access for creating an OAuth application.
 - Optional but recommended: a reverse proxy / load balancer terminating
-  TLS in front of the app. It must send `X-Forwarded-Proto: https`; with
-  an `https://` `SITE_URL` GitGrit redirects every plain-http request and
-  sets Secure cookies (see `HTTPS_ONLY` in
-  [Operations](operations.md#environment-variable-reference)).
+  TLS in front of the app.
 
 ## What's next
 

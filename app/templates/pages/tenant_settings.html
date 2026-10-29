@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load project_tags %}
 
 {% block title %}Workspace Settings — GitGrit{% endblock %}
 
@@ -99,7 +98,7 @@
                                   data-remove-conn
                                   data-conn-id="{{ conn.id }}"
                                   data-conn-name="{{ conn.display_name }}"
-                                  data-projects="{{ conn.projects.all|names_json }}">
+                                  data-projects='[{% for p in conn.projects.all %}"{{ p.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}]'>
                             Remove
                           </button>
                         </td>

@@ -46,8 +46,8 @@ class FirstRunSetupForm(forms.Form):
         token = self.cleaned_data["token"]
         if not setup_token_matches(token):
             raise ValidationError(
-                "That token doesn't match. Run `manage.py setup_token` on the "
-                "server to print it."
+                "That token doesn't match. Copy it from the app log or run "
+                "`manage.py setup_token`."
             )
         return token
 
@@ -82,13 +82,8 @@ def first_run_setup(request):
                 request, "You're the admin. Create the first workspace to get going."
             )
             return redirect("create_tenant")
-    elif "token" in request.GET:
-        # Drop the token from the page, so the form and later requests don't
-        # carry it. This GET itself is already in the access log (CloudWatch)
-        # and the browser history; the form posts the token in its body.
-        return redirect("first_run_setup")
     else:
-        form = FirstRunSetupForm()
+        form = FirstRunSetupForm(initial={"token": request.GET.get("token", "")})
 
     return render(request, "pages/first_run_setup.html", {"form": form})
 

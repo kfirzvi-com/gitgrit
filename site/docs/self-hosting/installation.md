@@ -285,8 +285,8 @@ docker compose -f docker-compose.full.yaml exec app \
     python manage.py setup_token
 ```
 
-Paste it into the form; it is never logged or put in a URL. Once the
-first account exists, `/setup/` is gone for good.
+The app also logs it once at startup. Once the first account exists,
+`/setup/` is gone for good.
 
 This first account is a **superuser**: it approves access requests,
 creates workspaces, and can open any workspace to help (the support view).

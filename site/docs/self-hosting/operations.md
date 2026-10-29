@@ -16,7 +16,6 @@ Ordered by how often we see them at install:
 | `airgap_smoketest`: returned 200 (not 401) | The probe is hitting a non-GitLab service at `GITLAB_URL` (reverse proxy, captive portal, wrong service on that hostname) | Fix `GITLAB_URL` in `.env` |
 | `airgap_setup`: `GITGRIT_CUSTOM_CA_FILE_PATH is not set` | Variable empty or commented out in `.env` | [Installation → Configure .env](installation.md#4-configure-env) |
 | OAuth callback: `redirect_uri mismatch` | GitLab application's redirect URI doesn't exactly match `${SITE_URL}/accounts/gitlab/login/callback/` | [Installation → Create the OAuth application](installation.md#3-create-the-oauth-application-in-gitlab) — edit the GitLab application, save |
-| Browser: "too many redirects", or sign-in returns to the login page | `SITE_URL` is `https://` but the TLS proxy doesn't send `X-Forwarded-Proto: https`, or browsers reach the app over plain http | Make the proxy send `X-Forwarded-Proto: https`; with no TLS in front, set `HTTPS_ONLY=False` in `.env` and `docker compose up -d` |
 | App startup: `password authentication failed for user "gitgrit"` against an unexpected IP | A second GitGrit stack on the same host is sharing the fixed-name `gitgrit_internal` bridge — `db` resolves to both containers; the app picks the wrong one | [Network topology](#network-topology) — tear down the older stack with `docker compose -f docker-compose.full.yaml down` |
 | Sandbox runs work but `docker inspect <id> .HostConfig.Runtime` shows `runc` (not `runsc`) | gVisor not registered with Docker | [gVisor](#gvisor-runsc) — `sudo runsc install && sudo systemctl restart docker` |
 | Browser: "your connection is not private" at the redirect to GitLab | OS / browser trust store doesn't have your operator CA | Import the CA into the operator's system or browser trust store |
@@ -245,10 +244,6 @@ Operator-fillable (you set these in `.env`):
 | `TAG` | Image tag, matches the bundle version. |
 | `SITE_URL` | Public hostname your internal GitLab can reach for webhooks. Must not be `localhost`. |
 | `APP_PORT` | Host port to expose the app on. Default `3000`. |
-| `SECURITY_CONTACT_EMAIL` | Optional. Email listed in `/.well-known/security.txt` for vulnerability reports. Default: the GitGrit maintainers (`kfir@kfirzvi.com`); set it to route reports to your own team. Serve GitGrit over https so the file can name itself as `Canonical` (RFC 9116). |
-| `SECURITY_ADVISORY_URL` | Optional. Private vulnerability-report page listed in `security.txt`. Default: GitGrit's GitHub advisory page, which is left out on `AIRGAPPED` installs unless you set this. |
-| `SECURITY_POLICY_URL` | Optional. Where `/security/` redirects. Default: GitGrit's `SECURITY.md` on GitHub; point it at your own policy. |
-| `HTTPS_ONLY` | Optional. `True` / `False` (exact strings). `True` turns on HSTS, the http→https redirect and Secure cookies. Empty (default) follows `SITE_URL`: on for `https://`, off for `http://`. Browsers remember HSTS for one year, so an install that later drops https stays unreachable over http for them until then. |
 | `SECRET_KEY` | Django signing key. **Never rotate** after deploy — invalidates sessions and stored OAuth tokens. |
 | `GITGRIT_ENCRYPTION_KEY` | Fernet key for OAuth-token-at-rest encryption. **Never rotate** for the same reason. |
 | `POSTGRES_USER` / `POSTGRES_DB` / `POSTGRES_PASSWORD` | Database credentials. |
@@ -259,7 +254,7 @@ Operator-fillable (you set these in `.env`):
 | `GITLAB_CLIENT_ID` / `GITLAB_CLIENT_SECRET` | OAuth app credentials from GitLab. Callback: `${SITE_URL}/accounts/gitlab/login/callback/`. |
 | `GITGRIT_SIGNUP_MODE` | `approval` (default), `onboarding` or `open`. See [Managing access](#who-can-get-in). |
 | `GITGRIT_SETUP_TOKEN` | Token for the first-run `/setup/` page. Empty (default) derives one from `SECRET_KEY`; `manage.py setup_token` prints it. |
-| `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP relay for access-request and approval emails. Port defaults to `587` with STARTTLS. Without `EMAIL_HOST`, emails only go to the app log, links and tokens included, so set it in production (`manage.py check` warns `gitgrit.W002`, and the server and the worker log the same warning when they start). |
+| `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP relay for access-request and approval emails. Port defaults to `587` with STARTTLS. Without `EMAIL_HOST`, emails only go to the app log. |
 | `DEFAULT_FROM_EMAIL` | Sender address, e.g. `GitGrit <gitgrit@acme.internal>`. |
 | `GITGRIT_EMAIL_BACKEND` | `smtp` (default when `EMAIL_HOST` is set), `console` (default otherwise: emails go to the log), or `ses`: the Amazon SES API with the host's AWS credentials, for installs running on AWS. `AWS_SES_REGION` picks the region. |
 | `SANDBOX_DNS` | Comma-separated internal DNS resolvers. gVisor cannot use Docker's embedded DNS. |

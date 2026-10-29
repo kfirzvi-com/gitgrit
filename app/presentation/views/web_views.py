@@ -1,3 +1,4 @@
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -46,7 +47,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["stack_count"] = Stack.objects.filter(tenant=tenant).count()
 
             context["workspace_health"] = ProjectHealthCounts.for_workspace(tenant)
-            context["architecture_data"] = workspace_graph(tenant)
+            context["architecture_data"] = json.dumps(workspace_graph(tenant))
             map_status = workspace_map_status(tenant)
             context["map_updated_at"] = map_status["updated_at"]
             context["map_analyzing"] = map_status["analyzing"]
@@ -58,7 +59,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["standard_count"] = 0
             context["stack_count"] = 0
             context["workspace_health"] = None
-            context["architecture_data"] = {"stacks": [], "dependencies": []}
+            context["architecture_data"] = json.dumps(
+                {"stacks": [], "dependencies": []}
+            )
             context["attention_items"] = []
             context["attention_total"] = 0
         return context
