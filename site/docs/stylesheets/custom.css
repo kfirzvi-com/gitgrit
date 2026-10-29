@@ -303,8 +303,9 @@
   padding: 0;
 }
 
-[dir=ltr] .gg-footer__col li,
-[dir=rtl] .gg-footer__col li,
+/* Material indents with [dir=ltr] .md-typeset ul li (0,2,2), so match it plus the column class */
+[dir=ltr] .md-typeset .gg-footer__col ul li,
+[dir=rtl] .md-typeset .gg-footer__col ul li,
 .md-typeset .gg-footer__col li {
   margin: 0 0 0.5rem;
   padding: 0;
