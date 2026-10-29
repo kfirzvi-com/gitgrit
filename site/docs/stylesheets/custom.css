@@ -221,7 +221,9 @@
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr 1.2fr 1fr;
   gap: 2.5rem;
-  padding: 3rem 0 2rem;
+  /* Side gutter matches the page content's (0.8rem), so the footer never
+     touches the screen edge once the grid is narrower than its max width. */
+  padding: 3rem 0.8rem 2rem;
 }
 
 @media (max-width: 76.1875em) {
@@ -324,7 +326,7 @@
 
 .gg-footer__base {
   border-top: 1px solid var(--gg-border);
-  padding: 1.25rem 0;
+  padding: 1.25rem 0.8rem;
   font-size: 0.75rem;
   color: var(--site-text-body);
 }
