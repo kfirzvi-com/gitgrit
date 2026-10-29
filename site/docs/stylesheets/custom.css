@@ -458,6 +458,17 @@
   }
 }
 
+/* Menu drawer: "← GitGrit home" above the docs tree (overrides/partials/
+   nav.html). Mobile only — on desktop the header logo goes home. */
+.gg-nav__home-arrow {
+  margin-right: 0.5rem;
+}
+@media screen and (min-width: 76.25em) {
+  .gg-nav__home {
+    display: none;
+  }
+}
+
 /* ── Ordered lists ──
  * Tailwind's preflight (loaded for the landing page) sets list-style: none on
  * every ol, which strips the step numbers from docs content. */
