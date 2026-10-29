@@ -23,6 +23,7 @@
   --md-default-fg-color--lightest: var(--gg-border);
 
   --md-primary-fg-color: var(--gg-bg-base);
+  --md-primary-fg-color--dark: var(--gg-bg-200);  /* drawer repo badge; unset it falls back to Material's indigo */
   --md-primary-bg-color: var(--gg-text);
   --md-accent-fg-color: var(--gg-primary);
 
@@ -462,6 +463,36 @@
      shows it already. */
   .md-header__source {
     display: none;
+  }
+}
+/* Menu drawer header: the same one-line [logo] GitGrit wordmark as the bar,
+   not Material's large logo stacked over the name; then the repo badge,
+   which Material only shows in the drawer below 60em but the header no
+   longer carries on mobile either. */
+@media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: auto;
+    padding: 0.6rem 0.8rem;
+    font-size: 1.1rem;
+    line-height: 1.75rem;
+    border-bottom: 1px solid var(--gg-border);
+  }
+  .md-nav--primary .md-nav__title[for="__drawer"] .md-logo {
+    position: static;
+    margin: 0;
+    padding: 0;
+  }
+  .md-nav--primary .md-nav__title[for="__drawer"] .md-logo img,
+  .md-nav--primary .md-nav__title[for="__drawer"] .md-logo svg {
+    height: 1.75rem;
+    width: auto;
+  }
+  .md-nav__source {
+    display: block;
+    border-bottom: 1px solid var(--gg-border);
   }
 }
 /* Tablets: Material swaps the search button for the full search field. */
