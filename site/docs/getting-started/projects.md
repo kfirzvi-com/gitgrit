@@ -44,7 +44,7 @@ Standards run again on every push and pull request. To run them on demand, open 
 | `pull_request` | PR opened, updated, or merged |
 | `tag` | Tag created or deleted |
 
-A standard can limit which events and branches it runs on. See [Writing Standards](standards.md). Artifact projects have one event of their own, `upload`: see [Artifact Projects](artifact-projects.md).
+A standard can limit which events and branches it runs on. See [Writing Standards](standards.md). For [artifact projects](artifact-projects.md), each upload is a `push`.
 
 ## The project page
 

@@ -11,7 +11,7 @@ from app.domain.scoring import CommitScoreOutcome
 from app.domain.score_representation import ScoreTone
 from app.presentation import importance_text
 
-EVENT_CHOICES = ["push", "pull_request", "tag", "upload"]
+EVENT_CHOICES = ["push", "pull_request", "tag"]
 
 
 # --- Requests -------------------------------------------------------------
@@ -447,8 +447,7 @@ class ProjectCreateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, default="")
     standards = serializers.ListField(
         child=serializers.UUIDField(), required=False, allow_null=True, default=None,
-        help_text="Workspace standards to attach. Omitted: none for a repository; for an artifact "
-        "project, every published standard whose events include `upload`.",
+        help_text="Workspace standards to attach; none when omitted.",
     )
 
     def validate(self, data):

@@ -18,7 +18,7 @@ uploads).
 | A commit is | a commit on GitHub or GitLab | an uploaded archive |
 | Its SHA | Git's SHA | the archive's content hash (40 hex characters) |
 | Message, branch, author | from Git | given with the upload; the author is whoever uploaded |
-| The event standards run on | `push`, `pull_request`, `tag` | `upload` |
+| The event standards run on | `push`, `pull_request`, `tag` | `push`: an upload is a push |
 | Standards read the files | through the Git platform's API | from the archive, unpacked read-only |
 
 The same bytes uploaded again are the same commit: nothing new is stored, and the
@@ -49,8 +49,8 @@ standards run on it again.
     ```
 
     `201` when created, `200` with the existing project when `external_id` is
-    already taken. Without `standards`, the project gets every published
-    standard whose events include `upload`.
+    already taken. Pass `standards` (their ids) to attach some; without it, none
+    are attached, as for a repository.
 
 ## Upload a commit
 
@@ -106,8 +106,8 @@ HTML and scripts are only ever shown as text.
 
 ## Writing standards for builds
 
-Turn on the **`upload`** event in the standard's criteria; the Branch/Tag filter
-matches the upload's branch. A standard sees the unpacked archive through the
+An upload is a push, so a standard runs on it when its events include
+**`push`**; the Branch/Tag filter matches the upload's branch. A standard sees the unpacked archive through the
 usual [ProjectContext API](../api/project-context.md). `get_file_size` covers
 files you cannot read as text, and an LLM standard's model reads large or
 minified files page by page with `read_file_lines`. Repository facts (members,

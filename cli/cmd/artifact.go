@@ -88,8 +88,8 @@ func newProjectUploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload <archive>",
 		Short: "Upload a build to an artifact project as a commit, and check it",
-		Long: `Upload a .zip or .tar.gz of a build as a commit of an artifact project. The
-standards that run on uploads check it, as they would a pushed commit. With
+		Long: `Upload a .zip or .tar.gz of a build as a commit of an artifact project. It is
+checked like a pushed commit, by the standards that run on pushes. With
 --wait, wait for the check and exit by the commit's score, as check does
 (see its exit codes; --fail-under also fails a score under the number):
 
@@ -123,7 +123,7 @@ standards that run on uploads check it, as they would a pushed commit. With
 				printUpload(cmd.ErrOrStderr(), up)
 			}
 			if up.Queued == 0 {
-				return nil // no standard runs on uploads to this branch
+				return nil // no standard runs on pushes to this branch
 			}
 			ctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()

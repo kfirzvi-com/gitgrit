@@ -32,9 +32,9 @@ class UploadPageTestCase(TestCase):
         session = self.client.session
         session["active_tenant_id"] = str(self.tenant.id)
         session.save()
-        self.standard = baker.make("app.Standard", tenant=self.tenant, criteria={"events": ["upload"]})
+        self.standard = baker.make("app.Standard", tenant=self.tenant, criteria={"events": ["push"]})
         self.project = artifact_service.create_artifact_project(
-            self.tenant, name="Storefront", external_id="ext-42"
+            self.tenant, name="Storefront", external_id="ext-42", standard_ids=[str(self.standard.pk)]
         ).project
         patch = defer_patch()
         self.configure = patch.start()

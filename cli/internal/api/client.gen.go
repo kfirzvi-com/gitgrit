@@ -46,7 +46,6 @@ const (
 	PullRequest EventsEnum = "pull_request"
 	Push        EventsEnum = "push"
 	Tag         EventsEnum = "tag"
-	Upload      EventsEnum = "upload"
 )
 
 // Valid indicates whether the value is a known member of the EventsEnum enum.
@@ -57,8 +56,6 @@ func (e EventsEnum) Valid() bool {
 	case Push:
 		return true
 	case Tag:
-		return true
-	case Upload:
 		return true
 	default:
 		return false
@@ -450,7 +447,6 @@ type ConnectionCreateRequest struct {
 // EventsEnum * `push` - push
 // * `pull_request` - pull_request
 // * `tag` - tag
-// * `upload` - upload
 type EventsEnum string
 
 // Execution defines model for Execution.
@@ -640,7 +636,7 @@ type ProjectCreateRequest struct {
 	// Stack `artifact` only: the stack to put it in, found by name or created.
 	Stack *string `json:"stack,omitempty"`
 
-	// Standards Workspace standards to attach. Omitted: none for a repository; for an artifact project, every published standard whose events include `upload`.
+	// Standards Workspace standards to attach; none when omitted.
 	Standards *[]openapi_types.UUID `json:"standards,omitempty"`
 
 	// Type `repository`: add a repository a connection reaches. `artifact`: create a project whose commits are build archives you upload (`POST projects/<id>/commits/`).

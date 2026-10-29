@@ -399,8 +399,8 @@ class ProjectCommitsView(WorkspaceAPIView):
         tags=["uploads"],
         summary="Upload a commit of an artifact project and check it",
         description=(
-            "Stores the archive as a commit and queues the standards whose events "
-            "include `upload` and whose Branch/Tag Filter matches the branch. Poll "
+            "Stores the archive as a commit and checks it as a push: queues the "
+            "standards that run on pushes to the branch. Poll "
             "`commits/<commit.sha>/` until `running` is 0 for the results. A "
             "rejected archive (path outside the archive, links, too large) is a 400; "
             "a Git project is a 404."

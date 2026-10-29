@@ -45,7 +45,7 @@ The `project` object provides methods to query the repository. See the full [Pro
 
 Standards can be filtered to run only on specific events, branches, or languages:
 
-- **Events** — `push`, `pull_request`, `tag`, and `upload` for [artifact projects](artifact-projects.md)
+- **Events** — `push`, `pull_request`, `tag` (an upload to an [artifact project](artifact-projects.md) is a `push`)
 - **Branch filter** — regex matched against the branch or tag the event is for: the pushed branch, or a pull request's target branch (e.g., `^main$`; the `refs/heads/` / `refs/tags/` prefix is stripped first)
 - **Languages** — only run if the project uses specific languages
 

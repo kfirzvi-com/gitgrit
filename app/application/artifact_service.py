@@ -6,9 +6,9 @@ commit, in Git's terms: a SHA (the archive's content hash), a message, a
 branch and an author. A person uploads commits from the project page, or
 another system does it through the API with a workspace token: it creates
 the artifact project (idempotent on its own id for it, in a stack found by
-name) and uploads each new build as a commit. Each commit is checked like a
-pushed one: an ``upload`` event on its branch, pinned to its SHA, so the
-existing commit endpoints report its results.
+name) and uploads each new build as a commit. Each commit is checked as a push:
+a ``push`` event on its branch, pinned to its SHA, so the standards that run
+on pushes check it and the existing commit endpoints report its results.
 """
 from __future__ import annotations
 
@@ -41,7 +41,8 @@ from app.domain.artifacts import (
 )
 from app.infrastructure import archives, upload_storage
 
-UPLOAD_EVENT = "upload"
+# An upload is a push: the same standards run on it.
+PUSH_EVENT = "push"
 ARTIFACT_CONNECTION_NAME = "Artifacts"
 
 
@@ -66,17 +67,6 @@ def _stack_named(tenant, name: str) -> Stack:
     return stack or stack_service.create_stack(tenant=tenant, name=name)
 
 
-def _default_standards(tenant):
-    """What a new artifact project is checked against when the caller names
-    no standards: every live, enabled, published standard that runs on
-    uploads."""
-    return [
-        s
-        for s in Standard.objects.filter(tenant=tenant, enabled=True, draft=False)
-        if UPLOAD_EVENT in (s.criteria or {}).get("events", [])
-    ]
-
-
 @dataclass
 class CreatedProject:
     project: Project
@@ -95,9 +85,9 @@ def create_artifact_project(
     """Find or create the artifact project the caller knows as ``external_id``.
 
     A new project gets its root component in ``stack`` (found by name, or
-    created) and the standards named by ``standard_ids``, or by default every
-    published standard that runs on uploads. An existing project is returned
-    as it is, so the call is safe to repeat.
+    created) and the standards named by ``standard_ids`` (none by default, as
+    for a repository). An existing project is returned as it is, so the call
+    is safe to repeat.
     """
     name, external_id = name.strip(), external_id.strip()
     if not name or not external_id:
@@ -109,12 +99,9 @@ def create_artifact_project(
     if existing:
         return CreatedProject(existing, created=False)
 
-    if standard_ids is None:
-        standards = _default_standards(tenant)
-    else:
-        standards = list(Standard.objects.filter(tenant=tenant, pk__in=standard_ids))
-        if len(standards) != len(set(map(str, standard_ids))):
-            raise NotFoundError("Standard not found.")
+    standards = list(Standard.objects.filter(tenant=tenant, pk__in=standard_ids or []))
+    if len(standards) != len(set(map(str, standard_ids or []))):
+        raise NotFoundError("Standard not found.")
 
     try:
         with transaction.atomic():
@@ -185,8 +172,8 @@ def upload_commit(
     limits=DEFAULT_LIMITS,
 ) -> UploadedCommit:
     """Store ``data`` as a commit of ``project`` on ``branch`` (the project's
-    default branch when empty) and queue the standards that run on uploads
-    to that branch.
+    default branch when empty) and queue the standards that run on pushes
+    to that branch, as for a pushed commit.
 
     The archive is checked against the upload rules before anything is
     stored (``UploadRejected`` otherwise). The same bytes uploaded again are
@@ -221,12 +208,12 @@ def upload_commit(
             project.save(update_fields=["languages", "updated_at"])
 
         standards = StandardEngine().get_standards_for_project(
-            project, UPLOAD_EVENT, ref=branch
+            project, PUSH_EVENT, ref=branch
         )
         run = enqueue_run(
             project,
             standards,
-            event_type=UPLOAD_EVENT,
+            event_type=PUSH_EVENT,
             triggered_by=author,
             user=user,
             ref=branch,
@@ -260,7 +247,7 @@ def upload_result_dict(result: UploadedCommit) -> dict:
         "commit": commit_dict(result.commit),
         "created": result.created,
         "queued": run["queued"],
-        "message": run.get("message") or "No standard runs on uploads to this branch.",
+        "message": run.get("message") or "No standard runs on pushes to this branch.",
     }
 
 

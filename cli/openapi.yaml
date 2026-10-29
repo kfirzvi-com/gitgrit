@@ -542,10 +542,10 @@ paths:
           description: ''
     post:
       operationId: upload_project_commit
-      description: Stores the archive as a commit and queues the standards whose events
-        include `upload` and whose Branch/Tag Filter matches the branch. Poll `commits/<commit.sha>/`
+      description: 'Stores the archive as a commit and checks it as a push: queues
+        the standards that run on pushes to the branch. Poll `commits/<commit.sha>/`
         until `running` is 0 for the results. A rejected archive (path outside the
-        archive, links, too large) is a 400; a Git project is a 404.
+        archive, links, too large) is a 400; a Git project is a 404.'
       summary: Upload a commit of an artifact project and check it
       parameters:
       - in: path
@@ -1500,13 +1500,11 @@ components:
       - push
       - pull_request
       - tag
-      - upload
       type: string
       description: |-
         * `push` - push
         * `pull_request` - pull_request
         * `tag` - tag
-        * `upload` - upload
     Execution:
       type: object
       properties:
@@ -1918,9 +1916,7 @@ components:
             type: string
             format: uuid
           nullable: true
-          description: 'Workspace standards to attach. Omitted: none for a repository;
-            for an artifact project, every published standard whose events include
-            `upload`.'
+          description: Workspace standards to attach; none when omitted.
     ProjectCreated:
       type: object
       properties:

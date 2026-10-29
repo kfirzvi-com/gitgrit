@@ -20,7 +20,7 @@ from app.domain.models import (
 from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
 
-EVENT_CHOICES = ["push", "pull_request", "tag", "upload"]
+EVENT_CHOICES = ["push", "pull_request", "tag"]
 LANGUAGE_CHOICES = [
     "python", "javascript", "typescript", "go", "java", "ruby",
     "rust", "c", "c++", "c#", "php", "swift", "kotlin", "scala",

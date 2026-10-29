@@ -18,14 +18,15 @@ class ArtifactAPITestCase(PublicAPITestCase):
         self.auth = {"Authorization": f"Bearer {raw}"}
         self.standard = baker.make(
             "app.Standard", tenant=self.tenant, name="No source maps",
-            criteria={"events": ["upload"]},
+            criteria={"events": ["push"]},
         )
         patch = defer_patch()
         self.configure = patch.start()
         self.addCleanup(patch.stop)
 
     def create(self, **body):
-        body = {"name": "Storefront", "external_id": "ext-42", "stack": "Acme Web", **body}
+        body = {"name": "Storefront", "external_id": "ext-42", "stack": "Acme Web",
+                "standards": [str(self.standard.id)], **body}
         return self.send("post", f"{self.ws}/projects/", {"type": "artifact", **body})
 
     def upload(self, project_id, data=BUILD, **fields):
@@ -56,12 +57,12 @@ class TestCreateArtifactProject(ArtifactAPITestCase):
         assert r.status_code == 400
         assert "repository" in r.json()
 
-    def test_by_default_it_gets_the_standards_that_run_on_uploads(self):
-        body = self.create().json()
-        assert [s["name"] for s in body["standards"]] == ["No source maps"]
+    def test_by_default_it_gets_no_standards_like_a_repository(self):
+        body = self.send("post", f"{self.ws}/projects/", {"type": "artifact", "name": "S", "external_id": "s"}).json()
+        assert body["standards"] == []
         assert body["webhook"] == "none"
 
-    def test_named_standards_replace_the_default(self):
+    def test_named_standards_are_attached(self):
         other = baker.make("app.Standard", tenant=self.tenant, name="Other")
         body = self.create(standards=[str(other.id)]).json()
         assert [s["name"] for s in body["standards"]] == ["Other"]

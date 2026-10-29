@@ -40,7 +40,7 @@
 <dialog id="upload_modal" class="modal">
   <div class="modal-box max-w-xl">
     <h3 class="font-bold text-lg mb-1">Upload a commit to {{ project.name }}</h3>
-    <p class="text-sm opacity-70 mb-4">The standards whose events include <code>upload</code> run on it, the same as for uploads from the API.</p>
+    <p class="text-sm opacity-70 mb-4">It is checked like a pushed commit: the standards that run on pushes run on it.</p>
     {% include "partials/upload_commit_form.html" %}
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>

@@ -32,8 +32,8 @@ BUILD_V2 = make_zip({"dist/index.html": b"<html>v2</html>", "dist/app.js": b"sta
 PASSED = {"passed": True, "score": 100, "message": "OK", "details": {}}
 
 
-def _upload_standard(tenant, **kw):
-    criteria = kw.pop("criteria", {"events": ["upload"]})
+def _push_standard(tenant, **kw):
+    criteria = kw.pop("criteria", {"events": ["push"]})
     return baker.make("app.Standard", tenant=tenant, criteria=criteria, **kw)
 
 
@@ -69,17 +69,15 @@ class CreateUploadProjectTests(TestCase):
         self.assertEqual(self.tenant.stacks.filter(name="Web Team").count(), 1)
         self.assertEqual(self.tenant.stacks.get().components.count(), 2)
 
-    def test_by_default_it_gets_the_published_standards_that_run_on_uploads(self):
-        on_upload = _upload_standard(self.tenant)
-        _upload_standard(self.tenant, criteria={"events": ["push"]})
-        _upload_standard(self.tenant, draft=True, enabled=False)
+    def test_by_default_it_gets_no_standards_like_a_repository(self):
+        _push_standard(self.tenant)
 
         project = artifact_service.create_artifact_project(self.tenant, name="A", external_id="g1").project
 
-        self.assertEqual(list(project.standards.all()), [on_upload])
+        self.assertEqual(list(project.standards.all()), [])
 
-    def test_named_standards_replace_the_default(self):
-        _upload_standard(self.tenant)
+    def test_named_standards_are_attached(self):
+        _push_standard(self.tenant)
         chosen = baker.make("app.Standard", tenant=self.tenant)
 
         project = artifact_service.create_artifact_project(
@@ -106,9 +104,9 @@ class CreateUploadProjectTests(TestCase):
 class UploadCommitTests(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
-        self.standard = _upload_standard(self.tenant, code="CODE")
+        self.standard = _push_standard(self.tenant, code="CODE")
         self.project = artifact_service.create_artifact_project(
-            self.tenant, name="Storefront", external_id="ext-42"
+            self.tenant, name="Storefront", external_id="ext-42", standard_ids=[str(self.standard.pk)]
         ).project
 
     def _upload(self, data=BUILD_V1, **kw):
@@ -127,7 +125,7 @@ class UploadCommitTests(TestCase):
         check = CommitCheck.objects.get(project=self.project)
         self.assertEqual(check.commit_sha, commit.sha)
         self.assertEqual(check.branch, "main")
-        self.assertEqual(check.event_type, "upload")
+        self.assertEqual(check.event_type, "push")
         self.assertEqual(result.run["queued"], 1)
         configure.return_value.defer.assert_called_once()
 
@@ -150,9 +148,9 @@ class UploadCommitTests(TestCase):
         self.assertEqual(result.commit.branch, "review")
         self.assertEqual(CommitCheck.objects.get().branch, "review")
 
-    def test_only_standards_that_run_on_uploads_are_queued(self):
-        push_only = baker.make("app.Standard", tenant=self.tenant, criteria={"events": ["push"]})
-        self.project.standards.add(push_only)
+    def test_only_standards_that_run_on_pushes_are_queued(self):
+        pr_only = baker.make("app.Standard", tenant=self.tenant, criteria={"events": ["pull_request"]})
+        self.project.standards.add(pr_only)
 
         result, _ = self._upload()
 
@@ -182,9 +180,9 @@ class RunOnCommitTests(TestCase):
 
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
-        self.standard = _upload_standard(self.tenant, code="CODE")
+        self.standard = _push_standard(self.tenant, code="CODE")
         self.project = artifact_service.create_artifact_project(
-            self.tenant, name="Storefront", external_id="ext-42"
+            self.tenant, name="Storefront", external_id="ext-42", standard_ids=[str(self.standard.pk)]
         ).project
         self.seen = []
 
@@ -245,9 +243,9 @@ class CommitHistoryTests(TestCase):
 
     def setUp(self):
         tenant = baker.make("app.Tenant")
-        _upload_standard(tenant)
+        standard = _push_standard(tenant)
         self.project = artifact_service.create_artifact_project(
-            tenant, name="Storefront", external_id="ext-42"
+            tenant, name="Storefront", external_id="ext-42", standard_ids=[str(standard.pk)]
         ).project
         with defer_patch():
             self.v1 = artifact_service.upload_commit(self.project, BUILD_V1, message="1.0", author="platform").commit
