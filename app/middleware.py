@@ -13,8 +13,7 @@ from app.workspace_access import (
 
 logger = logging.getLogger("app.access")
 
-# Skipped by TenantMiddleware entirely, signed in or not.
-TENANT_EXEMPT_PREFIXES = ("/admin/", "/accounts/", "/api/webhooks/", "/static/")
+EXEMPT_PREFIXES = ("/admin/", "/accounts/", "/api/webhooks/", "/static/")
 
 # Pages a signed-in user can use without being in any workspace. Everything
 # else needs one, and sends a user who has none to the no-workspace page.
@@ -31,10 +30,6 @@ NO_WORKSPACE_PREFIXES = (
     "/tenants/new/",
     "/tenants/switch/",
     "/tenants/switcher/",
-    # The footer links here; without it a user with no workspace would loop
-    # back to the no-workspace page.
-    "/security/",
-    "/.well-known/security.txt",
 )
 
 
@@ -57,7 +52,7 @@ class TenantMiddleware:
         request.tenant_is_support_view = False
 
         if not request.user.is_authenticated or request.path.startswith(
-            TENANT_EXEMPT_PREFIXES
+            EXEMPT_PREFIXES
         ):
             return self.get_response(request)
 
@@ -119,10 +114,7 @@ class FirstRunSetupMiddleware:
     one. Until then it logs where to find the setup token, once per process.
     """
 
-    SETUP_EXEMPT_PREFIXES = ("/setup/", "/static/", "/api/")
-    # How to report a vulnerability stays reachable on a fresh install. Exact
-    # paths, so the rest of /.well-known/ is still held back until setup.
-    SETUP_EXEMPT_PATHS = ("/.well-known/security.txt", "/security/")
+    EXEMPT_PREFIXES = ("/setup/", "/static/", "/api/")
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -130,11 +122,7 @@ class FirstRunSetupMiddleware:
         self.hint_logged = False
 
     def __call__(self, request):
-        if (
-            not self.set_up
-            and not request.path.startswith(self.SETUP_EXEMPT_PREFIXES)
-            and request.path not in self.SETUP_EXEMPT_PATHS
-        ):
+        if not self.set_up and not request.path.startswith(self.EXEMPT_PREFIXES):
             from app.application.access import setup_required
 
             if setup_required():
