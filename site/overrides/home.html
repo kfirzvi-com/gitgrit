@@ -24,16 +24,13 @@
 
     /* ── Hero ── */
     .gg-hero {
-      max-width: 1400px;
       margin: 0 auto;
-      padding: 5rem 1.5rem 4rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: center;
+      max-width: 920px;
+      padding: 6rem 1.5rem 3.5rem;
+      text-align: center;
     }
     @media (max-width: 800px) {
-      .gg-hero { grid-template-columns: 1fr; padding: 3rem 1.5rem 2rem; }
+      .gg-hero { padding: 3rem 1.5rem 2rem; }
     }
 
     .gg-hero__tag {
@@ -44,6 +41,7 @@
       margin-bottom: 1rem;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
     }
     .gg-hero__tag::before {
@@ -54,7 +52,7 @@
 
     .gg-hero h1 {
       font-family: var(--gg-font-sans);
-      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
       font-weight: 700;
       line-height: 1.1;
       color: var(--gg-text);
@@ -68,14 +66,14 @@
 
     .gg-hero__sub {
       font-family: var(--gg-font-sans);
-      font-size: 1.1rem;
-      line-height: 1.6;
-      color: var(--gg-text-dim);
-      margin-bottom: 2rem;
-      max-width: 480px;
+      font-size: 1.2rem;
+      line-height: 1.65;
+      color: var(--site-text-body);
+      margin: 0 auto 2rem;
+      max-width: 680px;
     }
 
-    .gg-hero__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .gg-hero__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
 
     .gg-btn {
       font-family: var(--gg-font-mono);
@@ -100,12 +98,12 @@
     }
     .gg-btn--ghost {
       background: transparent;
-      color: var(--gg-text-dim);
-      border-color: var(--gg-border);
+      color: var(--gg-text);
+      border-color: var(--site-text-muted);
     }
     .gg-btn--ghost:hover {
       color: var(--gg-text);
-      border-color: var(--gg-text-dim);
+      border-color: var(--site-text-body);
     }
 
     /* ── Browser mockup ── */
@@ -147,7 +145,7 @@
       padding: 3px 10px;
       font-family: var(--gg-font-mono);
       font-size: 0.7rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       text-align: center;
       white-space: nowrap;
       overflow: hidden;
@@ -156,42 +154,9 @@
     .gg-browser__content {
       position: relative;
     }
-    .gg-browser__content img,
-    .gg-browser__content video {
+    .gg-browser__content img {
       display: block;
       width: 100%;
-    }
-    .gg-video-cta {
-      position: absolute;
-      bottom: 14px;
-      right: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 14px;
-      background: rgba(20, 184, 166, 0.92);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 999px;
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 8px 24px rgba(20, 184, 166, 0.35);
-      transition: transform 0.15s ease, background 0.15s ease, opacity 0.2s ease;
-    }
-    .gg-video-cta:hover {
-      background: rgba(20, 184, 166, 1);
-      transform: translateY(-1px);
-    }
-    .gg-video-cta[hidden] {
-      display: none;
-    }
-    .gg-video-cta svg {
-      flex-shrink: 0;
     }
 
     /* ── Code panel ── */
@@ -222,7 +187,7 @@
     .gg-code-panel__title {
       margin-left: auto;
       font-size: 0.7rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
     }
     .gg-code-panel__body { padding: 1rem 1.25rem; color: var(--gg-text); }
     .gg-code-panel__body .kw { color: #c678dd; }
@@ -290,7 +255,7 @@
     }
     .gg-sec__header p {
       font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       font-size: 1rem;
       line-height: 1.6;
       max-width: 640px;
@@ -304,70 +269,91 @@
       margin-bottom: 0.75rem !important;
     }
 
-    /* ── The gap ── */
+    /* ── The gap (same illustration as the two-pager) ── */
     .gg-gap {
       display: grid;
-      grid-template-columns: 1.4fr auto 1fr auto 1.1fr;
-      gap: 1.5rem;
+      grid-template-columns: 395px 52px 250px 60px 1fr;
       align-items: center;
-    }
-    @media (max-width: 900px) {
-      .gg-gap { grid-template-columns: 1fr; }
-      .gg-gap__arrow { transform: rotate(90deg); justify-self: center; }
     }
     .gg-gap__label {
       font-family: var(--gg-font-sans);
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--gg-text);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--site-text-muted);
       margin-bottom: 0.75rem;
     }
-    .gg-gap__label--red { color: var(--gg-error); }
-    .gg-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .gg-chip {
+    .gg-gap__label--red { color: #f87171; }
+    .gg-scatter { position: relative; height: 190px; }
+    .gg-scatter span {
+      position: absolute;
       font-family: var(--gg-font-sans);
-      font-size: 0.85rem;
-      color: var(--gg-text);
-      padding: 0.35rem 0.75rem;
-      border: 1px solid var(--gg-bg-300);
+      font-size: 16px;
+      font-weight: 500;
+      color: #f1f5f9;
+      border: 1px dashed #6b7690;
       border-radius: 999px;
-      background: var(--gg-surface);
+      padding: 7px 14px;
+      white-space: nowrap;
+      background: #171b25;
     }
-    .gg-chips--hurts .gg-chip {
-      border-color: oklch(65% 0.200 27 / 0.45);
-      background: oklch(65% 0.200 27 / 0.08);
+    .gg-scatter span:nth-child(odd) { transform: rotate(-3deg); }
+    .gg-scatter span:nth-child(even) { transform: rotate(2.5deg); }
+    .gg-scatter--hurts span {
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.7);
+      background: #1d1517;
     }
-    .gg-gap__arrow {
-      font-size: 1.4rem;
-      color: var(--gg-text-dimmer);
+    .gg-sep {
+      align-self: stretch;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .gg-gap__arrow--go { color: var(--gg-primary); }
+    .gg-sep::before,
+    .gg-sep::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      border-left: 1px dashed #6b7690;
+    }
+    .gg-sep::before { top: 6px; bottom: calc(50% + 18px); }
+    .gg-sep::after { bottom: 6px; top: calc(50% + 18px); }
+    .gg-sep span { position: relative; color: var(--site-text-muted); font-size: 1.3rem; }
+    .gg-sep--go span { color: var(--gg-primary); font-size: 1.5rem; }
     .gg-gap__one {
-      border: 1px solid var(--gg-primary);
-      background: var(--gg-primary-glow);
-      border-radius: 10px;
-      padding: 1.5rem;
+      border: 1px solid rgba(6, 182, 212, 0.6);
+      border-radius: 14px;
+      padding: 1.25rem 1.4rem;
+      background: linear-gradient(150deg, rgba(6, 182, 212, 0.16), rgba(18, 21, 29, 0.9));
     }
     .gg-gap__one small {
       display: block;
       font-family: var(--gg-font-sans);
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--gg-primary);
-      margin-bottom: 0.4rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--gg-secondary);
+      margin-bottom: 0.35rem;
     }
     .gg-gap__one b {
       display: block;
       font-family: var(--gg-font-sans);
-      font-size: 1.1rem;
+      font-size: 1.3rem;
+      line-height: 1.35;
       color: var(--gg-text);
-      margin-bottom: 0.35rem;
     }
     .gg-gap__one p {
       font-family: var(--gg-font-sans);
-      font-size: 0.9rem;
-      color: var(--gg-text-dim);
-      margin: 0;
+      font-size: 0.97rem;
+      color: #dbe1ea;
+      margin: 0.35rem 0 0;
+    }
+    @media (max-width: 1100px) {
+      .gg-gap { grid-template-columns: 1fr; gap: 1rem; }
+      .gg-scatter { height: auto; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+      .gg-scatter span { position: static; }
+      .gg-sep { height: 56px; }
+      .gg-sep span { transform: rotate(90deg); }
     }
 
     /* ── Sound familiar ── */
@@ -400,9 +386,9 @@
       margin-top: 0.6rem;
       font-size: 0.8rem;
       font-style: normal;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
     }
-    .gg-pain__src i { display: block; color: var(--gg-text-dimmer); }
+    .gg-pain__src i { display: block; color: var(--site-text-muted); }
     .gg-pain__arrow { font-size: 1.3rem; color: var(--gg-primary); }
     .gg-pain h3 {
       font-family: var(--gg-font-sans);
@@ -413,9 +399,9 @@
     }
     .gg-pain p {
       font-family: var(--gg-font-sans);
-      font-size: 0.9rem;
+      font-size: 0.97rem;
       line-height: 1.55;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       margin: 0;
     }
 
@@ -438,9 +424,9 @@
     }
     .gg-point p {
       font-family: var(--gg-font-sans);
-      font-size: 0.88rem;
+      font-size: 0.95rem;
       line-height: 1.55;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       margin: 0;
     }
     .gg-vs {
@@ -458,13 +444,13 @@
     .gg-vs__item b {
       font-family: var(--gg-font-sans);
       font-size: 0.95rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
     }
     .gg-vs__item p {
       font-family: var(--gg-font-sans);
-      font-size: 0.88rem;
+      font-size: 0.95rem;
       line-height: 1.5;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       margin: 0.35rem 0 0;
     }
     .gg-vs__item--us {
@@ -520,8 +506,8 @@
     .gg-step h4.gg-step__hl { color: var(--gg-primary); }
     .gg-step p {
       font-family: var(--gg-font-sans);
-      font-size: 0.9rem;
-      color: var(--gg-text-dim);
+      font-size: 0.97rem;
+      color: var(--site-text-body);
       line-height: 1.55;
       margin: 0;
     }
@@ -534,7 +520,7 @@
       text-align: center;
       font-family: var(--gg-font-sans);
       font-size: 0.85rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       margin-top: 0.85rem;
     }
 
@@ -542,7 +528,7 @@
       margin-top: 1.25rem;
       font-family: var(--gg-font-sans);
       font-size: 0.85rem;
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
     }
     .gg-cta__actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
 
@@ -578,7 +564,7 @@
     }
     .gg-cta p {
       font-family: var(--gg-font-sans);
-      color: var(--gg-text-dim);
+      color: var(--site-text-body);
       margin: 0 0 1.5rem;
       font-size: 1rem;
     }
@@ -614,42 +600,6 @@
         </div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:1rem;">
-        <div class="gg-browser">
-          <div class="gg-browser__toolbar">
-            <div class="gg-browser__dots">
-              <span class="gg-browser__dot gg-browser__dot--r"></span>
-              <span class="gg-browser__dot gg-browser__dot--y"></span>
-              <span class="gg-browser__dot gg-browser__dot--g"></span>
-            </div>
-            <div class="gg-browser__address">app.gitgrit.dev</div>
-          </div>
-          <div class="gg-browser__content">
-            <video
-              id="gg-hero-video"
-              src="../videos/onboarding.mp4"
-              poster="../videos/onboarding-poster.jpg"
-              autoplay
-              muted
-              loop
-              playsinline
-              preload="metadata"
-              aria-label="GitGrit onboarding walkthrough"
-            ></video>
-            <button
-              type="button"
-              id="gg-hero-play"
-              class="gg-video-cta"
-              aria-label="Play onboarding video with sound"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M8 5v14l11-7L8 5z"/>
-              </svg>
-              <span>Play with sound</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- The gap -->
@@ -657,25 +607,25 @@
       <div class="gg-gap">
         <div>
           <div class="gg-gap__label">Standards today</div>
-          <div class="gg-chips">
-            <span class="gg-chip">the wiki</span>
-            <span class="gg-chip">a senior's head</span>
-            <span class="gg-chip">review comments</span>
-            <span class="gg-chip">per-repo linters</span>
-            <span class="gg-chip">CLAUDE.md files</span>
-            <span class="gg-chip">old Slack threads</span>
+          <div class="gg-scatter">
+            <span style="left:0;top:9px">the wiki</span>
+            <span style="left:138px;top:0">a senior's head</span>
+            <span style="left:0;top:72px">review comments</span>
+            <span style="left:207px;top:80px">per-repo linters</span>
+            <span style="left:9px;top:144px">CLAUDE.md files</span>
+            <span style="left:201px;top:151px">old Slack threads</span>
           </div>
         </div>
-        <div class="gg-gap__arrow">&rarr;</div>
+        <div class="gg-sep"><span>&rarr;</span></div>
         <div>
           <div class="gg-gap__label gg-gap__label--red">The gap</div>
-          <div class="gg-chips gg-chips--hurts">
-            <span class="gg-chip">3 AM on-call incidents</span>
-            <span class="gg-chip">unhappy customers</span>
-            <span class="gg-chip">slow progress</span>
+          <div class="gg-scatter gg-scatter--hurts">
+            <span style="left:0;top:9px">3 AM on-call incidents</span>
+            <span style="left:21px;top:75px">unhappy customers</span>
+            <span style="left:9px;top:144px">slow progress</span>
           </div>
         </div>
-        <div class="gg-gap__arrow gg-gap__arrow--go">&rarr;</div>
+        <div class="gg-sep gg-sep--go"><span>&rarr;</span></div>
         <div class="gg-gap__one">
           <small>With GitGrit</small>
           <b>One set of standards, as running code.</b>
@@ -831,35 +781,6 @@
 
   </div>
 
-  <script>
-    (function () {
-      var btn = document.getElementById('gg-hero-play');
-      var vid = document.getElementById('gg-hero-video');
-      if (!btn || !vid) return;
-
-      btn.addEventListener('click', function () {
-        vid.pause();
-        vid.muted = false;
-        vid.loop = false;
-        vid.currentTime = 0;
-        var p = vid.play();
-        if (p && typeof p.catch === 'function') p.catch(function () {});
-        btn.hidden = true;
-
-        vid.addEventListener(
-          'ended',
-          function () {
-            vid.muted = true;
-            vid.loop = true;
-            vid.currentTime = 0;
-            vid.play();
-            btn.hidden = false;
-          },
-          { once: true }
-        );
-      });
-    })();
-  </script>
 
 {% endblock %}
 
