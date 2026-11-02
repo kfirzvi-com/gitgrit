@@ -98,6 +98,12 @@ def outcome_counts(results) -> dict:
     return counts
 
 
+def llm_tokens(results) -> int:
+    """LLM tokens the results spent between them (each run's
+    ``details.llm_usage``); 0 when none of them called a model."""
+    return sum(((r.details or {}).get("llm_usage") or {}).get("total_tokens", 0) for r in results)
+
+
 def project_score(results) -> int | None:
     """The average score of a set of current results, rounded; None when
     there are none."""

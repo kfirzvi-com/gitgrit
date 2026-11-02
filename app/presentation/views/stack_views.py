@@ -12,7 +12,7 @@ from app.application import stack_service
 from app.domain.models import Component, Stack
 from app.application import scoring
 from app.application.project_health_counts import ProjectHealthCounts
-from app.presentation.architecture import stack_graph
+from app.presentation.architecture import stack_graph, stack_map_build
 
 
 class StackListView(LoginRequiredMixin, ListView):
@@ -82,6 +82,7 @@ class StackDetailView(LoginRequiredMixin, DetailView):
             tenant=stack.tenant, stacks=stack
         ).select_related("project", "project__platform_connection")
         context["architecture_data"] = json.dumps(stack_graph(stack))
+        context["map_build"] = stack_map_build(stack)
         return context
 
 

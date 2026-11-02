@@ -20,7 +20,7 @@ from app.application.commit_checks import (
 from app.application import scoring
 from app.domain.scoring import CommitScoreOutcome
 from app.presentation.commit_results import CommitResultGrouping
-from app.application.standard_results import outcome_counts
+from app.application.standard_results import llm_tokens, outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
 from app.presentation import importance_text
@@ -206,6 +206,7 @@ def _history(request, project, branch, page=1, notice="", open_sha=""):
             "status_has_score": _has_verdict(score),
             "branch_score": score,
             "status_breakdown": outcome_counts(status),
+            "status_tokens": llm_tokens(status),
             "branch_head": head,
             "open_sha": open_sha,
             "running": any(row.running for row in rows) or waiting_for_commit(project, branch),

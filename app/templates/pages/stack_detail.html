@@ -68,6 +68,14 @@
         <div id="stack-flow"></div>
       </div>
     </div>
+    <p class="text-sm opacity-70 px-1" data-map-build>
+      Map build:
+      {% if map_build.projects %}
+        <span title="{{ map_build.updated_at }}">{{ map_build.updated_at|date:"d/m/y" }}</span>
+        · {% if map_build.calls %}{{ map_build.total_tokens }} tokens ({{ map_build.calls }} calls){% else %}no LLM{% endif %}
+        · {{ map_build.projects }} repositor{{ map_build.projects|pluralize:"y,ies" }}
+      {% else %}—{% endif %}
+    </p>
   {% endif %}
 
   <div class="card bg-base-100 shadow-xl">

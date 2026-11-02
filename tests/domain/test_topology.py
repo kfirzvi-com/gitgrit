@@ -92,12 +92,19 @@ class EvidenceGateTests(SimpleTestCase):
     def test_grounded_evidence_passes(self):
         check_evidence(Evidence(tree_size=12, files_read=("package.json",)))
 
+    def test_evidence_without_model_calls_has_empty_usage(self):
+        self.assertEqual(Evidence().llm_usage, {})
+
 
 class TopologyCodecTests(SimpleTestCase):
     def test_dict_round_trip(self):
         topo = RepositoryTopology(
             components=(ComponentDecl("", "web", technologies=("Go",)),),
-            evidence=Evidence(tree_size=3, files_read=("go.mod",)),
+            evidence=Evidence(
+                tree_size=3,
+                files_read=("go.mod",),
+                llm_usage={"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10, "calls": 1},
+            ),
         )
         self.assertEqual(RepositoryTopology.from_dict(topo.to_dict()), topo)
 

@@ -255,3 +255,21 @@ class OutcomeCountsTests(TestCase):
         from app.application.standard_results import outcome_counts
 
         assert outcome_counts([]) == {"required_failed": 0, "passed": 0, "failed": 0, "errored": 0, "failures": 0, "total": 0}
+
+
+class LlmTokensTests(TestCase):
+    def test_sums_the_tokens_of_the_runs_that_called_a_model(self):
+        from app.application.standard_results import llm_tokens
+
+        runs = [
+            baker.prepare("app.StandardExecution", details={"llm_usage": {"total_tokens": 650, "calls": 2}}),
+            baker.prepare("app.StandardExecution", details={"llm_usage": {"total_tokens": 0, "calls": 0}}),
+            baker.prepare("app.StandardExecution", details={}),
+            baker.prepare("app.StandardExecution", details={"llm_usage": {"total_tokens": 350, "calls": 1}}),
+        ]
+        assert llm_tokens(runs) == 1000
+
+    def test_nothing_spends_nothing(self):
+        from app.application.standard_results import llm_tokens
+
+        assert llm_tokens([]) == 0
