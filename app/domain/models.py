@@ -496,6 +496,10 @@ class Project(models.Model):
     # 50). Empty until an analysis completes; lets anyone see what a map is
     # grounded in.
     deps_evidence = models.JSONField(default=list, blank=True)
+    # LLM tokens the last successful map build spent, in the same shape as a
+    # run's ``details.llm_usage``. Empty when the map came from a file or was
+    # never built.
+    deps_llm_usage = models.JSONField(default=dict, blank=True)
     standards = models.ManyToManyField(
         "Standard",
         through="ProjectStandard",

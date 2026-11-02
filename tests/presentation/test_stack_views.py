@@ -232,6 +232,30 @@ class TestStackDetailPage(TestCase):
         assert "Manage components" in body
         assert "In stack" in body
 
+    def test_page_says_what_the_last_map_build_cost(self):
+        from django.utils import timezone
+
+        _, tenant = _login_member(self.client)
+        stack = baker.make("app.Stack", tenant=tenant)
+        usage = {"prompt_tokens": 1000, "completion_tokens": 200, "total_tokens": 1200, "calls": 3}
+        for name in ("api", "web"):
+            project = _project(tenant, name=name, deps_analyzed_at=timezone.now(), deps_llm_usage=usage)
+            _root(project).stacks.add(stack)
+        _root(_project(tenant, name="unbuilt")).stacks.add(stack)
+
+        body = self.client.get(reverse("stack_detail", args=[stack.pk])).content.decode()
+        assert "2400 tokens (6 calls)" in body
+        assert "2 repositories" in body
+
+    def test_page_shows_a_dash_before_the_map_is_built(self):
+        _, tenant = _login_member(self.client)
+        stack = baker.make("app.Stack", tenant=tenant)
+        _root(_project(tenant, name="unbuilt")).stacks.add(stack)
+
+        body = self.client.get(reverse("stack_detail", args=[stack.pk])).content.decode()
+        assert "Map build:" in body
+        assert "tokens (" not in body
+
     def test_remove_component_endpoint(self):
         _, tenant = _login_member(self.client)
         stack = baker.make("app.Stack", tenant=tenant)

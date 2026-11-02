@@ -168,11 +168,18 @@ class RefreshProjectTopology:
             InfrastructureComponent.objects.bulk_create(infra, ignore_conflicts=True)
 
             project.deps_evidence = list(topology.evidence.files_read[:MAX_EVIDENCE_FILES])
+            project.deps_llm_usage = dict(topology.evidence.llm_usage)
             project.deps_status = Project.DepsStatus.OK
             project.deps_analyzed_at = timezone.now()
             project.deps_error = ""
             project.save(
-                update_fields=["deps_evidence", "deps_status", "deps_analyzed_at", "deps_error"]
+                update_fields=[
+                    "deps_evidence",
+                    "deps_llm_usage",
+                    "deps_status",
+                    "deps_analyzed_at",
+                    "deps_error",
+                ]
             )
 
             if affected and self._enqueue_refresh is not None:

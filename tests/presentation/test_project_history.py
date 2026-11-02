@@ -58,8 +58,16 @@ class ProjectHistoryViewTests(TestCase):
         self.assertNotIn("%</span>", content)
         self.assertNotIn("About this score", content)
         self.assertNotIn("Latest results", content)
-        self.assertIn("Project score", content)
+        self.assertIn("Standards used no LLM tokens in the latest run", content)
         self.assertIn("From commit aaaaaaa", content)
+
+    def test_the_score_caption_sums_the_tokens_of_the_latest_run(self):
+        ex = self._check("a" * 40)
+        ex.details = {"llm_usage": {"prompt_tokens": 600, "completion_tokens": 50, "total_tokens": 650, "calls": 2}}
+        ex.save()
+        score_commit(self.project, "a" * 40)
+
+        self.assertIn("Standards used 650 tokens in the latest run", self._get().content.decode())
 
     def test_commits_group_their_results_and_the_rest_say_not_checked(self):
         self._check("a" * 40)
@@ -80,6 +88,18 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn(">v3</span>", content)
         row = content.split(f'href="{reverse("standard_execution_detail", args=[ex.id])}"', 1)[1].split("</a>", 1)[0]
         self.assertNotIn("<a ", row)
+
+    def test_a_result_that_used_the_model_says_how_many_tokens(self):
+        ex = self._check("a" * 40)
+        ex.details = {"llm_usage": {"prompt_tokens": 600, "completion_tokens": 50, "total_tokens": 650, "calls": 2}}
+        ex.save()
+        self.assertIn("650 tokens", self._get().content.decode())
+
+    def test_a_result_that_never_called_the_model_shows_no_tokens(self):
+        ex = self._check("a" * 40)
+        ex.details = {"llm_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "calls": 0}}
+        ex.save()
+        self.assertNotIn("tokens", self._get().content.decode())
 
     def test_the_newest_checked_commit_starts_open(self):
         self._check("b" * 40)

@@ -37,7 +37,7 @@ surfaces, sections by small-caps labels.{% endcomment %}{% load score_tags %}
         </div>
         <div class="space-y-1.5">
           {% include "partials/health_breakdown.html" with counts=status_breakdown align="start" %}
-          <p class="text-xs opacity-50">{% if is_default %}Project score{% else %}Score on {{ branch }} · Only the default branch counts toward the project score{% endif %}</p>
+          <p class="text-xs opacity-50" data-status-tokens>{% if is_default %}Standards used {% if status_tokens %}{{ status_tokens }} tokens{% else %}no LLM tokens{% endif %} in the latest run{% else %}Score on {{ branch }} · Only the default branch counts toward the project score{% endif %}</p>
           {% include "partials/score_note.html" with score=branch_score head=branch_head show_reason=True %}
         </div>
       {% else %}

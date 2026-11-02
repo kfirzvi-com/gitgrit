@@ -303,5 +303,9 @@ class LLMTopologyInference:
             internal=tuple(internal),
             externals=tuple(externals),
             infrastructure=tuple(infra),
-            evidence=Evidence(tree_size=toolbox.tree_size, files_read=tuple(toolbox.files_read)),
+            evidence=Evidence(
+                tree_size=toolbox.tree_size,
+                files_read=tuple(toolbox.files_read),
+                llm_usage=dict(agent.usage),
+            ),
         )

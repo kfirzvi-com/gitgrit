@@ -48,14 +48,21 @@ class _MemorySnapshot:
         return self._files.get(path)
 
 
-def _topology(components, internal=(), externals=(), infrastructure=(), files_read=("README.md",)):
+def _topology(
+    components, internal=(), externals=(), infrastructure=(), files_read=("README.md",), llm_usage=None
+):
     return RepositoryTopology(
         components=tuple(components),
         internal=tuple(internal),
         externals=tuple(externals),
         infrastructure=tuple(infrastructure),
-        evidence=Evidence(tree_size=len(MONO_TREE), files_read=tuple(files_read)),
+        evidence=Evidence(
+            tree_size=len(MONO_TREE), files_read=tuple(files_read), llm_usage=dict(llm_usage or {})
+        ),
     )
+
+
+USAGE = {"prompt_tokens": 1200, "completion_tokens": 300, "total_tokens": 1500, "calls": 4}
 
 
 ROOT = ComponentDecl("", "mono")
@@ -112,6 +119,24 @@ class RefreshProjectTopologyTests(TestCase):
         self.mono.refresh_from_db()
         self.assertEqual(self.mono.deps_status, Project.DepsStatus.OK)
         self.assertEqual(self.mono.deps_evidence, ["README.md"])
+
+    def test_successful_build_stores_the_tokens_it_spent_on_the_project(self):
+        self._run(_topology([ROOT], llm_usage=USAGE))
+        self.mono.refresh_from_db()
+        self.assertEqual(self.mono.deps_llm_usage, USAGE)
+
+    def test_build_without_model_calls_leaves_the_usage_empty(self):
+        self._run(_topology([ROOT]))
+        self.mono.refresh_from_db()
+        self.assertEqual(self.mono.deps_llm_usage, {})
+
+    def test_failed_build_keeps_the_previous_build_tokens(self):
+        self.mono.deps_llm_usage = USAGE
+        self.mono.save(update_fields=["deps_llm_usage"])
+        with self.assertRaises(UngroundedTopology):
+            self._run(_topology([ROOT], files_read=()))
+        self.mono.refresh_from_db()
+        self.assertEqual(self.mono.deps_llm_usage, USAGE)
 
     # --- discovery ------------------------------------------------------------
 

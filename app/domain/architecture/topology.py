@@ -71,10 +71,14 @@ class InfrastructureResource:
 @dataclass(frozen=True)
 class Evidence:
     """What the inference actually looked at. ``tree_size`` is None when the
-    repository was never listed; ``files_read`` is in read order."""
+    repository was never listed; ``files_read`` is in read order.
+    ``llm_usage`` is the tokens the build spent, in the same shape a standard
+    run reports (``prompt_tokens``, ``completion_tokens``, ``total_tokens``,
+    ``calls``); empty when no model was called."""
 
     tree_size: int | None = None
     files_read: tuple[str, ...] = ()
+    llm_usage: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -109,6 +113,7 @@ class RepositoryTopology:
             evidence=Evidence(
                 tree_size=data.get("evidence", {}).get("tree_size"),
                 files_read=tuple(data.get("evidence", {}).get("files_read", ())),
+                llm_usage=dict(data.get("evidence", {}).get("llm_usage", {})),
             ),
         )
 

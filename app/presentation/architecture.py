@@ -131,6 +131,21 @@ def workspace_map_status(tenant):
     }
 
 
+def stack_map_build(stack):
+    """What the last map build of the stack's repositories cost: the newest
+    build date and the LLM tokens and calls summed over the stack's projects
+    (each project's last successful build). ``projects`` is how many of them
+    have been built; zero means the map is not built yet."""
+    projects = Project.objects.filter(components__stacks=stack).exclude(deps_analyzed_at=None).distinct()
+    usages = [p.deps_llm_usage for p in projects]
+    return {
+        "updated_at": max((p.deps_analyzed_at for p in projects), default=None),
+        "projects": len(usages),
+        "total_tokens": sum(u.get("total_tokens", 0) for u in usages),
+        "calls": sum(u.get("calls", 0) for u in usages),
+    }
+
+
 def workspace_graph(tenant):
     stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
     project_scores = scoring.project_scores(Project.objects.filter(tenant=tenant))
