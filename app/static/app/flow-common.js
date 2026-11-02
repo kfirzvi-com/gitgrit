@@ -60,7 +60,7 @@ window.GitGritFlow = (function () {
   // grade or colour for many projects.
   var HEALTH_COUNT_ORDER = [
     ["failed", "failed", "failed"],
-    ["needs_attention", "needs_attention", "need attention"],
+    ["needs_attention", "needs_attention", "not healthy"],
     ["healthy", "healthy", "healthy"],
   ];
   function healthCounts(counts) {

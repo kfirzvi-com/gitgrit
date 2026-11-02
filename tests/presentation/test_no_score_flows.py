@@ -85,8 +85,7 @@ class Fixture(TestCase):
         return scoring.score_check(check)
 
     def _dashboard(self):
-        # The dashboard shows its map, counts and Needs attention once the
-        # workspace has a stack.
+        # The dashboard shows the workspace counts and each stack's.
         baker.make("app.Stack", tenant=self.tenant, name="Core").components.add(self._component())
         return self.client.get(reverse("dashboard")).content.decode()
 
@@ -145,12 +144,13 @@ class PagesTests(Fixture):
     def test_the_dashboard_counts_it_as_needing_attention_and_its_hover_row_says_why(self):
         body = self._dashboard()
 
-        assert '<b>1</b> needs attention' in body
+        assert '<b>1</b> not healthy' in body
         assert "no data" not in body
         assert 'title="No score on commit 2222222: Lint errored."' in body and 'data-no-grade="no_score"' in body
 
     def test_needs_attention_explains_what_it_lists(self):
-        body = self._dashboard()
+        # The Needs attention list is in the notifications pane.
+        body = self.client.get(reverse("notification_panel")).content.decode()
 
         assert "data-attention-help" in body
         assert "Only failed projects (a Required standard failed) and standard runs that errored" in body

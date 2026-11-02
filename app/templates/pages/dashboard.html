@@ -1,37 +1,10 @@
 {% extends "base.html" %}
-{% load score_tags %}
-{% load static %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
 
 {% block extra_head %}
-  <link href="{% static 'app/vendor/xyflow-react.css' %}" rel="stylesheet" type="text/css" />
-  <link href="{% static 'app/architecture.css' %}" rel="stylesheet" type="text/css" />
   <style>
-    /* Centered, half-width-by-default dashboard column (Basecamp-style),
-       widened to full via the expand toggle. */
-    .gg-dashboard-narrow { margin-inline: auto; }
-    #dashboard-panel { transition: max-width 0.25s ease; }
-    .gg-dashboard-body { position: relative; }
-    /* Needs-attention panel: stacks below on small screens; sits in the right
-       gutter beside the collapsed diagram on large screens; hidden when the
-       diagram is expanded (no room). */
-    .gg-attention { margin-top: 1.5rem; }
-    @media (min-width: 1024px) {
-      .gg-dashboard-narrow { max-width: 50%; }
-      #dashboard-panel.is-expanded { max-width: 100%; }
-      .gg-attention {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 22%;
-        max-width: 360px;
-        margin-top: 0;
-        max-height: clamp(520px, calc(100vh - 320px), 900px);
-        overflow: auto;
-      }
-      #dashboard-panel.is-expanded ~ .gg-attention { display: none; }
-    }
+    .gg-dashboard-narrow { margin-inline: auto; max-width: 960px; }
     .gg-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   </style>
 {% endblock %}
@@ -39,7 +12,7 @@
 {% block content %}
 <div class="gg-dashboard-narrow text-center mb-6">
   <h1 class="text-3xl font-bold">Welcome, {{ user.first_name|default:user.username|capfirst }}</h1>
-  <p class="text-sm opacity-60 mt-1 mb-4">Here's your workspace architecture — stacks and the dependencies between them.</p>
+  <p class="text-sm opacity-60 mt-1 mb-4">Your workspace at a glance.</p>
   <div class="gg-quick-actions">
     {% if is_admin and not has_connections %}
     {# Nothing can be added until a platform is connected, so that comes first. #}
@@ -67,96 +40,67 @@
 </div>
 {% endif %}
 
-{% if stack_count > 0 %}
-  <div class="gg-dashboard-body">
-  <div id="dashboard-panel" class="gg-dashboard-narrow card bg-base-100 shadow-xl">
-    <div class="card-body p-2 sm:p-3">
-      <div class="flex items-center justify-between gap-3 mb-1 px-1">
-        <div class="text-xs flex flex-wrap gap-x-3 gap-y-1">
-          <span class="opacity-60"><b>{{ stack_count }}</b> stacks</span>
-          <span class="opacity-60"><b>{{ project_count }}</b> projects</span>
-          <span class="opacity-60"><b>{{ standard_count }}</b> standards</span>
-          {% if workspace_health %}
-            <span data-workspace-health>{% include "partials/project_health_counts.html" with counts=workspace_health linked=True %}</span>
-          {% endif %}
-          <span class="opacity-60" id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
-        </div>
-        <div class="flex items-center gap-1">
-          {% if user.is_superuser %}
-          <form method="post" action="{% url 'refresh_map' %}">
-            {% csrf_token %}
-            <button id="map-refresh" type="submit" class="btn btn-ghost btn-xs btn-square" title="{% if map_analyzing %}Refreshing map…{% else %}Refresh map from the main branches{% endif %}" aria-label="Refresh map from the main branches"{% if map_analyzing %} disabled{% endif %}>
-              {% if map_analyzing %}
-                <span class="loading loading-spinner loading-xs"></span>
-              {% else %}
-                <svg class="w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5.6 15A7 7 0 0 0 18.4 13M18.4 9A7 7 0 0 0 5.6 11" /></svg>
-              {% endif %}
-            </button>
-          </form>
-          {% endif %}
-          <button id="dashboard-expand" type="button" class="btn btn-ghost btn-xs btn-square" title="Expand" aria-label="Expand diagram" aria-pressed="false">
-            <svg class="gg-expand-icon w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" /></svg>
-            <svg class="gg-collapse-icon w-4 h-4 stroke-current hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3" /></svg>
-          </button>
-        </div>
+{% if project_count or stack_count %}
+<div class="gg-dashboard-narrow flex flex-col gap-6">
+  {# Totals and the workspace's project health: failed, not healthy, healthy. #}
+  <section class="card bg-base-100" data-workspace-health>
+    <div class="card-body">
+      <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <p class="text-lg">
+          <a href="{% url 'project_list' %}" class="link link-hover"><b class="text-3xl">{{ project_count }}</b> project{{ project_count|pluralize }}</a>
+          in <a href="{% url 'stack_list' %}" class="link link-hover"><b>{{ stack_count }}</b> stack{{ stack_count|pluralize }}</a>
+          &middot; <a href="{% url 'standard_list' %}" class="link link-hover"><b>{{ standard_count }}</b> standard{{ standard_count|pluralize }}</a>
+        </p>
+        <a href="{% url 'project_list' %}" class="link link-primary text-sm">All projects &rarr;</a>
       </div>
-      <div id="architecture-flow"></div>
+      {% if project_count %}
+        <div class="flex h-3.5 gap-0.5 overflow-hidden rounded-full mt-3" role="img"
+             aria-label="{{ workspace_health.failed }} failed, {{ workspace_health.needs_attention }} not healthy, {{ workspace_health.healthy }} healthy">
+          {% if workspace_health.failed %}<div class="gg-tone-bg-failed" style="flex: {{ workspace_health.failed }}"></div>{% endif %}
+          {% if workspace_health.needs_attention %}<div class="gg-tone-bg-needs_attention" style="flex: {{ workspace_health.needs_attention }}"></div>{% endif %}
+          {% if workspace_health.healthy %}<div class="gg-tone-bg-healthy" style="flex: {{ workspace_health.healthy }}"></div>{% endif %}
+        </div>
+        <div class="flex flex-wrap gap-x-6 gap-y-1 mt-2 text-sm">
+          {% include "partials/project_health_count.html" with key="failed" tone="failed" number=workspace_health.failed label="failed" rows=workspace_health.failed_projects linked=True %}
+          {% include "partials/project_health_count.html" with key="needs_attention" tone="needs_attention" number=workspace_health.needs_attention label="not healthy" rows=workspace_health.needs_attention_projects linked=True %}
+          {% include "partials/project_health_count.html" with key="healthy" tone="healthy" number=workspace_health.healthy label="healthy" rows=workspace_health.healthy_projects linked=True %}
+        </div>
+      {% endif %}
     </div>
-  </div>
+  </section>
 
-  <aside class="gg-attention">
-    {% include "components/attention_list.html" %}
-  </aside>
-  </div>
-
-  <script>
-  // Expand / collapse the dashboard panel; persist the choice.
-  (function () {
-    var panel = document.getElementById("dashboard-panel");
-    var btn = document.getElementById("dashboard-expand");
-    var KEY = "gg-dashboard-expanded";
-    function apply(expanded) {
-      panel.classList.toggle("is-expanded", expanded);
-      btn.setAttribute("aria-pressed", expanded ? "true" : "false");
-      btn.setAttribute("title", expanded ? "Collapse" : "Expand");
-      btn.querySelector(".gg-expand-icon").classList.toggle("hidden", expanded);
-      btn.querySelector(".gg-collapse-icon").classList.toggle("hidden", !expanded);
-    }
-    var saved = false;
-    try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
-    apply(saved); // before the diagram mounts, so it fits the right width
-    btn.addEventListener("click", function () {
-      var now = !panel.classList.contains("is-expanded");
-      apply(now);
-      try { localStorage.setItem(KEY, now ? "1" : "0"); } catch (e) {}
-      // Re-fit after the width transition settles.
-      if (window.GitGritFlow) setTimeout(function () { GitGritFlow.refit(); }, 280);
-    });
-  })();
-
-  </script>
-
-  <script id="architecture-data" type="application/json">{{ architecture_data|safe }}</script>
-
-  <script src="{% static 'app/vendor/react.production.min.js' %}"></script>
-  <script src="{% static 'app/vendor/react-dom.production.min.js' %}"></script>
-  <script src="{% static 'app/vendor/react-jsx-runtime.js' %}"></script>
-  <script src="{% static 'app/vendor/xyflow-react.umd.js' %}"></script>
-  <script src="{% static 'app/vendor/dagre.min.js' %}"></script>
-  <script src="{% static 'app/flow-common.js' %}"></script>
-  <script src="{% static 'app/architecture-diagram.js' %}"></script>
+  {# Stacks, worst first; each opens its stack page and its map. #}
+  <section class="card bg-base-100" data-stack-health>
+    <div class="card-body">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="section-label">Stacks</h2>
+        {% if stack_health %}<span class="text-xs opacity-60">worst first &middot; open one to see its map</span>{% endif %}
+      </div>
+      {% for stack, counts in stack_health %}
+        <a href="{% url 'stack_detail' stack.pk %}" class="grid grid-cols-1 sm:grid-cols-[2fr_1fr_3fr] gap-x-4 gap-y-1 items-center -mx-2 px-2 py-3 rounded hover:bg-base-200{% if not forloop.last %} border-b border-base-300{% endif %}">
+          <span class="font-semibold truncate">{{ stack.name }}</span>
+          {% with total=counts.failed|add:counts.needs_attention|add:counts.healthy %}
+          <span class="text-sm opacity-60">{{ total }} project{{ total|pluralize }}</span>
+          {% endwith %}
+          <span class="text-sm">{% include "partials/project_health_counts.html" %}</span>
+        </a>
+      {% empty %}
+        <p class="text-sm opacity-70 mt-1">
+          No stacks yet. Stacks group related projects into systems, and each
+          stack's page maps them.
+          <a href="{% url 'create_stack' %}" class="link link-primary">Create a stack</a>
+        </p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
 {% else %}
   <div class="gg-dashboard-narrow flex flex-col items-center text-center py-16">
-    <p class="text-4xl mb-3">&#129521;</p>
-    <h2 class="text-xl font-semibold">No stacks yet</h2>
+    <h2 class="text-xl font-semibold">No projects yet</h2>
     <p class="text-sm opacity-60 max-w-md mt-1">
-      Stacks group related projects into systems. Once you have a few, this
-      dashboard maps them and the dependencies between them.
+      Add a project to see its health here. Stacks group related projects
+      into systems, and each stack's page maps them.
     </p>
-    <div class="flex gap-2 mt-4">
-      <a href="{% url 'create_stack' %}" class="btn btn-primary btn-sm">Create a stack</a>
-      <a href="{% url 'stack_list' %}" class="btn btn-ghost btn-sm">View stacks</a>
-    </div>
   </div>
 {% endif %}
 {% endblock %}

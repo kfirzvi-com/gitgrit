@@ -54,4 +54,4 @@ class LowShadeTests(SimpleTestCase):
 
         html = render('{% score value %}', value=40)
         assert ">D</span>" in html and "gg-tone-text-low" in html
-        assert ScoreToneStyle.for_tone("low") == ScoreToneStyle("low", "#fb923c", "Needs attention")
+        assert ScoreToneStyle.for_tone("low") == ScoreToneStyle("low", "#fb923c", "Not healthy")

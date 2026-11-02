@@ -16,7 +16,7 @@ class ScoreTone(StrEnum):
         """What the tone means, in words (legends, tooltips)."""
         return {
             ScoreTone.HEALTHY: "Healthy",
-            ScoreTone.NEEDS_ATTENTION: "Needs attention",
+            ScoreTone.NEEDS_ATTENTION: "Not healthy",
             ScoreTone.FAILED: "Failed",
             ScoreTone.UNKNOWN: "No data",
         }[self]
