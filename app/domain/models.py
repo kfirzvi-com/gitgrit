@@ -1740,6 +1740,33 @@ class Notification(models.Model):
         )
 
     @classmethod
+    def required_unverified(
+        cls, *, project, standard_names, execution_id=None, execution_ids=(), trigger=None,
+        triggered_by_user_ids=(),
+    ):
+        """A run where a Required standard errored: GitGrit could not verify
+        it, so the project has no grade for that commit. Names up to three
+        and links to the first errored run."""
+        n = len(standard_names)
+        listing = ", ".join(standard_names[:3])
+        if n > 3:
+            listing += f" and {n - 3} more"
+        url = (
+            reverse("standard_execution_detail", args=[execution_id])
+            if execution_id
+            else reverse("project_detail", args=[project.pk]) + "#compliance"
+        )
+        return cls._new(
+            project=project,
+            kind=Kind.REQUIRED_UNVERIFIED,
+            severity=Severity.CRITICAL,
+            title=f"Could not verify {'a Required standard' if n == 1 else f'{n} Required standards'}",
+            body=f"{listing} could not run, so the project has no grade.",
+            url=url,
+            context=_run_context(execution_ids, trigger, triggered_by_user_ids),
+        )
+
+    @classmethod
     def runs_timed_out(cls, *, project, execution_ids, triggered_by_user_ids=()):
         """Runs nobody finished in time were marked as errors."""
         n = len(execution_ids)
