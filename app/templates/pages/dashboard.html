@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load score_tags %}
 {% load static %}
+{% load time_tags %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
 
@@ -79,7 +80,7 @@
           {% if workspace_health %}
             <span data-workspace-health>{% include "partials/project_health_counts.html" with counts=workspace_health linked=True %}</span>
           {% endif %}
-          <span class="opacity-60" id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}</span>
+          <span class="opacity-60" id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>last update: {% if map_updated_at %}{% local_time map_updated_at "d/m/y" %}{% else %}---{% endif %}</span>
         </div>
         <div class="flex items-center gap-1">
           {% if user.is_superuser %}

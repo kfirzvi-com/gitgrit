@@ -12,10 +12,10 @@ from unittest import mock
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.formats import date_format
 from model_bakery import baker
 
 from app.domain.models import Project
+from app.templatetags.time_tags import local_time
 
 CONFIGURE = "app.tasks.infer_project_dependencies.configure"
 
@@ -51,7 +51,7 @@ class DashboardMapRefreshTests(TestCase):
         self.assertEqual(response.context["map_updated_at"], self.new.deps_analyzed_at)
         self.assertFalse(response.context["map_analyzing"])
         self.assertContains(
-            response, "last update: " + date_format(timezone.localtime(self.new.deps_analyzed_at), "d/m/y")
+            response, "last update: " + local_time(self.new.deps_analyzed_at, "d/m/y")
         )
 
     def test_dashboard_disables_the_button_while_a_project_is_queued(self):
