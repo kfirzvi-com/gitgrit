@@ -2,7 +2,7 @@
 letter, whether a Required standard failed it, the results bar and legend the Results tab shows
 too (partials/outcome_bar.html), and a footer with the last run and a way into the Results tab.
 The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
-{% load score_tags project_tags %}
+{% load score_tags project_tags time_tags %}
 {% if project_has_score %}
   {% score_tone compliance_score project_score.failed as tone %}
   {# As tall as its content, not stretched to the About card beside it (long for a monorepo). #}
@@ -24,7 +24,7 @@ The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{
     <div class="mt-auto flex flex-wrap items-center justify-between gap-2 px-6 sm:px-8 py-3.5 border-t border-base-content/10 text-[13px]" data-last-run>
       {% with last=recent_executions.0 %}
         {% if last %}
-          <span class="opacity-60 min-w-0 truncate">Last run: <time datetime="{{ last.created_at|date:'c' }}">{{ last.created_at|date:"j M Y, H:i" }}</time> &middot; {{ last|trigger_label }} run</span>
+          <span class="opacity-60 min-w-0 truncate">Last run: {% local_time last.created_at "j M Y, H:i" %} &middot; {{ last|trigger_label }} run</span>
         {% else %}
           <span></span>
         {% endif %}
