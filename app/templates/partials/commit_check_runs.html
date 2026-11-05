@@ -3,7 +3,7 @@ timeline of circles, each with its score inside, newest on the left (when and ho
 hover, and below once picked), with arrows to step between them; then the selected run's results, worst first
 (row.result_groups), the standards it expected that never ran, and a button to run them again.
 The commit reads its newest run. Picking a run swaps this in place (project_commit_check).
-Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomment %}{% load score_tags project_tags %}
+Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomment %}{% load score_tags project_tags time_tags %}
 {% url 'run_on_branch' project.pk as run_url %}
 {% with selected=row.selected %}
 <div class="px-1 sm:px-3 pb-3 sm:pl-8 space-y-0.5" data-commit-runs="{{ row.sha }}">
@@ -33,7 +33,7 @@ Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomme
           <span id="run-tip-{{ run.check.pk }}" role="tooltip" data-run-tip
                 class="pointer-events-none invisible absolute left-0 top-full z-50 mt-2 w-64 rounded-lg border border-base-content/10 bg-base-100 p-2.5 text-left text-xs font-normal text-base-content shadow-xl group-hover/run:visible group-focus-within/run:visible">
             <span class="block font-semibold">Run {{ forloop.revcounter }} of {{ row.checks|length }} on commit {{ row.short_sha }}</span>
-            <span class="block opacity-70">One run of the standards on this commit: {{ run.check|trigger_label|lower }}, {{ run.check.created_at|date:"j M Y, H:i" }}.</span>
+            <span class="block opacity-70">One run of the standards on this commit: {{ run.check|trigger_label|lower }}, {% local_time run.check.created_at "j M Y, H:i" %}.</span>
             <span class="block mt-1">{% if run.outcome == "checking" %}Checking: {{ run.standing.finished_count }} of {{ run.standing.expected_count }} standards done.{% elif run.outcome == "no_score" %}No score: {{ run.standing.reason|default:"not every standard has a result" }}.{% elif run.outcome == "failed" %}F: {{ run.standing.reason|capfirst }}.{% else %}{% score_scale_name %} {{ text }}.{% endif %}</span>
             <span class="block mt-1 opacity-70">{% if forloop.first %}The newest run: the commit's score is this run's.{% else %}An earlier run: the commit's score is its newest run's.{% endif %}</span>
           </span>
@@ -47,7 +47,7 @@ Expects `project`, `row` (commit_checks.CommitRow), `branch`, `page`.{% endcomme
     {% endwith %}
   </div>
   <p class="px-3 pb-1 text-xs opacity-60" data-check-selected>
-    Run {{ row.selected_index|add:1 }} of {{ row.checks|length }} · {{ selected.check|trigger_label }} · {{ selected.check.created_at|date:"j M Y, H:i" }}
+    Run {{ row.selected_index|add:1 }} of {{ row.checks|length }} · {{ selected.check|trigger_label }} · {% local_time selected.check.created_at "j M Y, H:i" %}
     {% if row.next_check %}· an earlier run: the commit reads its newest{% else %}· the commit's outcome{% endif %}
     {% if selected.standing.reason %}· {{ selected.standing.reason|capfirst }}{% endif %}
   </p>

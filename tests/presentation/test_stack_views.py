@@ -16,6 +16,7 @@ from model_bakery import baker
 
 from app.domain.models import CommitScore, Component, Project
 from app.tasks import infer_project_dependencies
+from app.templatetags.time_tags import local_time
 
 
 def _login_member(client):
@@ -290,7 +291,7 @@ class TestStackDetailSummary(TestCase):
         self.assertEqual((health.failed, health.needs_attention, health.healthy), (1, 0, 1))
         body = response.content.decode()
         self.assertIn("data-stack-health", body)
-        self.assertIn(f"last update: {timezone.localtime(self.failed.deps_analyzed_at):%d/%m/%y}", body)
+        self.assertIn("last update: " + local_time(self.failed.deps_analyzed_at, "d/m/y"), body)
 
     def test_components_are_listed_worst_first_with_their_health(self):
         response = self._get()

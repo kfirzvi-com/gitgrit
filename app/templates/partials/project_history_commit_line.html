@@ -1,7 +1,7 @@
 {% comment %}One commit's summary in the Results tab: short SHA (linked to the platform when
 known; for an artifact project it opens the commit's files) and the first line of its message, then author, date and how its standards did (or "Not
 checked"). One line on wide screens; on phones the details wrap under the title. Expects `row`
-(a CommitRow).{% endcomment %}
+(a CommitRow).{% endcomment %}{% load time_tags %}
 <span class="flex flex-1 min-w-0 flex-col md:flex-row md:items-center gap-x-3 gap-y-1">
   <span class="flex items-center gap-3 min-w-0 md:flex-1">
     {% if row.url %}
@@ -16,7 +16,7 @@ checked"). One line on wide screens; on phones the details wrap under the title.
   </span>
   <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
     {% if row.author %}<span class="opacity-60">{{ row.author }}</span>{% endif %}
-    {% if row.date %}<time class="opacity-60 whitespace-nowrap" datetime="{{ row.date|date:'c' }}" title="{{ row.date|date:'j M Y, H:i' }} UTC">{{ row.date|date:'j M Y' }}</time>{% endif %}
+    {% if row.date %}<span class="opacity-60 whitespace-nowrap" title="{{ row.date|date:'j M Y, H:i' }} UTC">{% local_time row.date "j M Y" %}</span>{% endif %}
     {% if row.checked %}
       <span class="flex flex-wrap items-center gap-1.5">
         {% if row.running %}<span class="badge badge-soft badge-info badge-sm">{{ row.running }} running</span>{% endif %}

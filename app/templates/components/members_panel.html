@@ -1,4 +1,4 @@
-{# The member list and invite form. Every action here swaps this panel in   #}
+{% load time_tags %}{# The member list and invite form. Every action here swaps this panel in   #}
 {# place (HTMX); the plain form posts are the no-JS fallback. Confirmations #}
 {# go through the shared dialog in components/confirm_dialog.html.          #}
 <div id="members-panel" class="space-y-4">
@@ -121,7 +121,7 @@
                       <div title="{{ inv.sent_at|date:'DATETIME_FORMAT' }}">{{ inv.sent_at|timesince }} ago</div>
                       <div class="text-xs text-base-content/60">
                         {% if inv.invited_by %}by {% if inv.invited_by_id == user.pk %}you{% else %}{{ inv.invited_by.email }}{% endif %} · {% endif %}
-                        {% if row.expired %}<span class="text-warning">expired</span>{% else %}expires {{ inv.expires_at|date:"j M" }}{% endif %}
+                        {% if row.expired %}<span class="text-warning">expired</span>{% else %}expires {% local_time inv.expires_at "j M" %}{% endif %}
                       </div>
                     </td>
                     <td class="text-right whitespace-nowrap">
