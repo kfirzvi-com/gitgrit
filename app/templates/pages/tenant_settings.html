@@ -474,7 +474,9 @@
             <button type="button" class="btn btn-ghost btn-sm" id="edit-token-toggle">Show</button>
           </div>
         </div>
-        <form method="post" id="edit-token-form" class="space-y-3">
+        <form method="post" id="edit-token-form" class="space-y-3"
+              hx-post="" hx-swap="none"
+              onsubmit="document.getElementById('edit-token-modal').close()">
           {% csrf_token %}
           <label class="label"><span class="label-text text-sm">New token</span></label>
           <input type="password" name="access_token" required placeholder="New access token"
@@ -545,7 +547,12 @@
         var modal = document.getElementById('edit-token-modal');
         modal.dataset.connId = connectionId;
         document.getElementById('edit-token-conn-name').textContent = displayName;
-        document.getElementById('edit-token-form').action = '/tenants/connections/' + connectionId + '/edit/';
+        var form = document.getElementById('edit-token-form');
+        form.reset();  // no reload clears the last typed token any more
+        form.action = '/tenants/connections/' + connectionId + '/edit/';
+        // htmx reads hx-post once, when it sets the form up.
+        form.setAttribute('hx-post', form.action);
+        htmx.process(form);
         // The current token is never embedded in the page; it stays hidden
         // until the admin explicitly reveals it (see toggleCurrentToken).
         var input = document.getElementById('edit-token-current');

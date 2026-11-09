@@ -457,23 +457,23 @@ def edit_connection_token(request, connection_id):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
     access_token = request.POST.get("access_token", "").strip()
 
     if not access_token:
         messages.error(request, "Access token is required.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     connection.access_token = access_token
     connection.save(update_fields=["access_token"])
     messages.success(request, f'Token updated for "{connection.display_name}".')
-    return redirect("tenant_settings")
+    return _back(request)
 
 
 @login_required
@@ -737,12 +737,17 @@ def _score_display_context(tenant, is_admin) -> dict:
     return {"tenant": tenant, "score_displays": list(ScoreDisplay), "is_admin": is_admin}
 
 
-def _llm_role_refused(request):
-    """A role save refused over HTMX: leave the row as it is and show the
-    queued error message in the page's message area."""
+def _messages_only(request):
+    """An HTMX answer that leaves the page as it is and shows the queued
+    messages in the page's message area."""
     response = render(request, "components/flash_messages.html", {"oob": True})
     response["HX-Reswap"] = "none"
     return response
+
+
+def _back(request):
+    """Back to settings: the messages only over HTMX, a redirect without JS."""
+    return _messages_only(request) if request.htmx else redirect("tenant_settings")
 
 
 def _llm_role_answer(request, tenant, role_name, *, provider_id="", model=""):
@@ -768,7 +773,7 @@ def _llm_role_answer(request, tenant, role_name, *, provider_id="", model=""):
 def set_llm_role(request, role_name):
     tenant, deny = _require_workspace_admin(request)
     if deny:
-        return _llm_role_refused(request) if request.htmx else deny
+        return _messages_only(request) if request.htmx else deny
 
     if role_name not in LLMRole.Name.values:
         messages.error(request, "Invalid role.")
