@@ -706,28 +706,62 @@ def _score_display_context(tenant, is_admin) -> dict:
     return {"tenant": tenant, "score_displays": list(ScoreDisplay), "is_admin": is_admin}
 
 
+def _llm_role_refused(request):
+    """A role save refused over HTMX: leave the row as it is and show the
+    queued error message in the page's message area."""
+    response = render(request, "components/flash_messages.html", {"oob": True})
+    response["HX-Reswap"] = "none"
+    return response
+
+
+def _llm_role_answer(request, tenant, role_name, *, provider_id="", model=""):
+    """Answer a role save: over HTMX, the role row drawn again (with the page
+    messages swapped out of band); without JS, back to the settings page."""
+    if not request.htmx:
+        return redirect("tenant_settings")
+    context = {
+        "role": {
+            "name": role_name,
+            "label": LLMRole.Name(role_name).label,
+            "provider_id": provider_id,
+            "model": model,
+            # Budgets are an allow-list: a role's model with none never runs.
+            "has_budget": bool(model)
+            and LLMBudget.objects.filter(
+                tenant=tenant, provider_id=provider_id, model=model
+            ).exists(),
+        },
+        "llm_providers": LLMProvider.objects.filter(tenant=tenant).order_by("created_at"),
+        "swap_messages": True,
+    }
+    return render(request, "partials/llm_role_form.html", context)
+
+
 @login_required
 @require_POST
 def set_llm_role(request, role_name):
     tenant, deny = _require_workspace_admin(request)
     if deny:
-        return deny
+        return _llm_role_refused(request) if request.htmx else deny
+    provider_id = request.POST.get("provider_id", "").strip()
     try:
         role = LLMProviderService.set_role(
             tenant,
             role_name,
-            provider_id=request.POST.get("provider_id", "").strip(),
+            provider_id=provider_id,
             model=request.POST.get("model", ""),
         )
     except NotFoundError:
         raise Http404
     except LLMProviderError as exc:
         messages.error(request, str(exc))
-        return redirect("tenant_settings")
+        return _llm_role_answer(request, tenant, role_name, provider_id=provider_id)
     if role is None:
         messages.success(request, f'Cleared the "{role_name}" role.')
-    else:
-        messages.success(
-            request, f'Role "{role_name}" set to {role.provider.display_name}/{role.model}.'
-        )
-    return redirect("tenant_settings")
+        return _llm_role_answer(request, tenant, role_name)
+    messages.success(
+        request, f'Role "{role_name}" set to {role.provider.display_name}/{role.model}.'
+    )
+    return _llm_role_answer(
+        request, tenant, role_name, provider_id=provider_id, model=role.model
+    )
