@@ -267,25 +267,7 @@
               provider directly.</p>
             <div class="space-y-3">
               {% for role in llm_role_rows %}
-                <form method="post" action="{% url 'set_llm_role' role.name %}"
-                      class="flex flex-col sm:flex-row gap-3 sm:items-center">
-                  {% csrf_token %}
-                  <span class="badge badge-primary w-28 justify-start">{{ role.label }}</span>
-                  <select name="provider_id" id="llm-provider-{{ role.name }}"
-                          data-role-provider="{{ role.name }}"
-                          class="select select-bordered flex-1">
-                    <option value="">— None —</option>
-                    {% for provider in llm_providers %}
-                      <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
-                        {{ provider.display_name }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                  <select name="model" id="llm-model-{{ role.name }}"
-                          data-current-model="{{ role.model }}"
-                          class="select select-bordered flex-1"></select>
-                  <button type="submit" class="btn btn-primary">Save</button>
-                </form>
+                {% include "partials/llm_role_form.html" %}
               {% endfor %}
             </div>
           </div>
@@ -893,15 +875,21 @@
           });
         }
 
-        document.querySelectorAll('[data-role-provider]').forEach(function (ps) {
-          var roleName = ps.getAttribute('data-role-provider');
-          populate(roleName);
-          ps.addEventListener('change', function () {
-            var ms = document.getElementById('llm-model-' + roleName);
-            if (ms) ms.setAttribute('data-current-model', '');
+        // Also after HTMX swaps in a saved role row (partials/llm_role_form.html).
+        function wireRoles() {
+          document.querySelectorAll('[data-role-provider]:not([data-wired])').forEach(function (ps) {
+            var roleName = ps.getAttribute('data-role-provider');
+            ps.setAttribute('data-wired', '');
             populate(roleName);
+            ps.addEventListener('change', function () {
+              var ms = document.getElementById('llm-model-' + roleName);
+              if (ms) ms.setAttribute('data-current-model', '');
+              populate(roleName);
+            });
           });
-        });
+        }
+        wireRoles();
+        document.body.addEventListener('htmx:afterSwap', wireRoles);
       })();
     </script>
   {% endif %}
