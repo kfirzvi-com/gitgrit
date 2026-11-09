@@ -54,7 +54,7 @@
                 </thead>
                 <tbody>
                   {% for conn in connections %}
-                    <tr>
+                    <tr id="conn-row-{{ conn.id }}">
                       <td>{{ conn.display_name }}</td>
                       <td>
                         <span class="badge {% if conn.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
@@ -510,7 +510,9 @@
             </div>
           </details>
         </div>
-        <form method="post" id="remove-connection-form">
+        <form method="post" id="remove-connection-form"
+              hx-post="" hx-swap="none"
+              onsubmit="document.getElementById('remove-connection-modal').close()">
           {% csrf_token %}
           <div class="flex justify-end gap-2">
             <button type="button" class="btn" onclick="document.getElementById('remove-connection-modal').close()">Cancel</button>
@@ -525,7 +527,10 @@
       function openRemoveConnectionModal(connectionId, displayName, projectNames) {
         document.getElementById('remove-conn-name').textContent = displayName;
         document.getElementById('remove-conn-project-count').textContent = projectNames.length;
-        document.getElementById('remove-connection-form').action = '/tenants/connections/' + connectionId + '/remove/';
+        var form = document.getElementById('remove-connection-form');
+        form.action = '/tenants/connections/' + connectionId + '/remove/';
+        form.setAttribute('hx-post', form.action);
+        htmx.process(form);
         var listContainer = document.getElementById('remove-conn-projects-list');
         var ul = document.getElementById('remove-conn-projects-ul');
         ul.innerHTML = '';

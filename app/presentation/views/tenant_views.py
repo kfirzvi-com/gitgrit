@@ -514,17 +514,23 @@ def remove_connection(request, connection_id):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
     name = connection.display_name
     connection.delete()
     messages.success(request, f'Connection "{name}" removed.')
-    return redirect("tenant_settings")
+    response = _back(request)
+    if request.htmx:
+        # A bare <tr> is dropped by the HTML parser; htmx reads OOB rows from a <template>.
+        response.write(
+            f'<template><tr id="conn-row-{connection_id}" hx-swap-oob="delete"></tr></template>'
+        )
+    return response
 
 
 @login_required
