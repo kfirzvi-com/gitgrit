@@ -822,7 +822,10 @@
         </form>
         <h3 id="add-provider-title" class="font-bold text-lg">Add LLM provider</h3>
         <p class="text-sm opacity-70 mt-1 mb-4">GitGrit calls the provider with your key; models are detected after it's added.</p>
-        <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3" data-add-provider-form>
+        {# Adding asks the provider for its models, which takes a while: #}
+        {# the button shows it is busy and cannot add the provider twice. #}
+        <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3" data-add-provider-form
+              onsubmit="setAddProviderBusy(true)">
           {% csrf_token %}
           <label class="form-control w-full">
             <span class="label-text text-sm mb-1">Provider</span>
@@ -847,7 +850,11 @@
           </label>
           <div class="modal-action mt-5">
             <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-provider-modal').close()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Add provider</button>
+            <button type="submit" id="add-provider-submit" class="btn btn-primary">
+              <span data-idle>Add provider</span>
+              <span class="loading loading-spinner loading-sm hidden" data-busy></span>
+              <span class="hidden" data-busy>Adding… finding models</span>
+            </button>
           </div>
         </form>
       </div>
@@ -972,6 +979,19 @@
     </dialog>
 
     <script>
+      function setAddProviderBusy(busy) {
+        var button = document.getElementById('add-provider-submit');
+        if (!button) return;
+        button.disabled = busy;
+        button.querySelectorAll('[data-idle]').forEach(function (el) { el.classList.toggle('hidden', busy); });
+        button.querySelectorAll('[data-busy]').forEach(function (el) { el.classList.toggle('hidden', !busy); });
+      }
+      // Back can bring the page back from the browser's cache as it was left:
+      // with the button still busy.
+      window.addEventListener('pageshow', function (e) {
+        if (e.persisted) setAddProviderBusy(false);
+      });
+
       function openEditProviderModal(providerId, displayName, baseUrl) {
         document.getElementById('edit-provider-name').textContent = displayName;
         document.getElementById('edit-provider-display').value = displayName;
