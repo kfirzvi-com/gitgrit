@@ -277,7 +277,10 @@
         <div class="card bg-base-100">
           <div class="card-body">
             <h2 class="card-title">Add LLM Provider</h2>
-            <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
+            {# Adding asks the provider for its models, which takes a while: #}
+            {# the button shows it is busy and cannot add the provider twice. #}
+            <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3"
+                  onsubmit="setAddProviderBusy(true)">
               {% csrf_token %}
               <div class="flex flex-col sm:flex-row gap-3">
                 <select name="provider_type" class="select select-bordered" required>
@@ -296,7 +299,11 @@
                 <input type="password" name="api_key" required placeholder="API key"
                        class="input input-bordered flex-1">
               </div>
-              <button type="submit" class="btn btn-primary">Add Provider</button>
+              <button type="submit" id="add-provider-submit" class="btn btn-primary">
+                <span data-idle>Add Provider</span>
+                <span class="loading loading-spinner loading-sm hidden" data-busy></span>
+                <span class="hidden" data-busy>Adding… finding models</span>
+              </button>
             </form>
           </div>
         </div>
@@ -841,6 +848,19 @@
     </dialog>
 
     <script>
+      function setAddProviderBusy(busy) {
+        var button = document.getElementById('add-provider-submit');
+        if (!button) return;
+        button.disabled = busy;
+        button.querySelectorAll('[data-idle]').forEach(function (el) { el.classList.toggle('hidden', busy); });
+        button.querySelectorAll('[data-busy]').forEach(function (el) { el.classList.toggle('hidden', !busy); });
+      }
+      // Back can bring the page back from the browser's cache as it was left:
+      // with the button still busy.
+      window.addEventListener('pageshow', function (e) {
+        if (e.persisted) setAddProviderBusy(false);
+      });
+
       function openEditProviderModal(providerId, displayName, baseUrl) {
         document.getElementById('edit-provider-name').textContent = displayName;
         document.getElementById('edit-provider-display').value = displayName;
