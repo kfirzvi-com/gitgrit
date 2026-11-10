@@ -121,6 +121,17 @@ class NewKindConstructorTests(TestCase):
         self.assertEqual(n.body, "No secrets failing; could not verify License.")
         self.assertEqual(n.context["grade"], "F")
 
+    def test_required_unverified(self):
+        n = Notification.required_unverified(project=self.project, standard_names=["License"])
+        self.assertEqual((n.kind, n.severity), (Kind.REQUIRED_UNVERIFIED, Severity.CRITICAL))
+        self.assertEqual(n.title, "Could not verify a Required standard")
+        self.assertEqual(n.body, "License could not run, so the project has no grade.")
+
+    def test_required_unverified_counts_several(self):
+        n = Notification.required_unverified(project=self.project, standard_names=["A", "B"])
+        self.assertEqual(n.title, "Could not verify 2 Required standards")
+        self.assertEqual(n.body, "A, B could not run, so the project has no grade.")
+
     def test_runs_timed_out(self):
         n = Notification.runs_timed_out(project=self.project, execution_ids=["a", "b"])
         self.assertEqual((n.kind, n.severity), (Kind.RUN_TIMED_OUT, Severity.WARNING))

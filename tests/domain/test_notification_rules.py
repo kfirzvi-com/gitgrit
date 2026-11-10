@@ -24,6 +24,12 @@ class RunRulesTests(TestCase):
         self.assertFalse(rules.could_not_evaluate(_run(passed=1, errored=1)))
         self.assertFalse(rules.could_not_evaluate(_run(failed=1, errored=1)))
 
+    def test_required_unverified_needs_an_error_among_results(self):
+        self.assertTrue(rules.required_unverified(_run(passed=1, errored=1)))
+        self.assertFalse(rules.required_unverified(_run(passed=2)))
+        self.assertFalse(rules.required_unverified(_run(errored=2)))
+        self.assertFalse(rules.required_unverified(_run(passed=1, errored=1, error="boom")))
+
     def test_standards_failing_needs_failures(self):
         self.assertTrue(rules.standards_failing(_run(passed=1, failed=2)))
         self.assertFalse(rules.standards_failing(_run(passed=3)))

@@ -16,6 +16,7 @@ from app.application.notifications.notification_policies import (
     ProjectAddedNotificationPolicy,
     ProjectRemovedNotificationPolicy,
     ProjectFailedNotificationPolicy,
+    RequiredUnverifiedNotificationPolicy,
     RunsTimedOutNotificationPolicy,
     StandardChangedNotificationPolicy,
     StandardsFailingNotificationPolicy,
@@ -310,6 +311,43 @@ class ProjectFailedNotificationPolicyTests(_PolicyTestCase):
     def test_a_first_run_has_nothing_to_change_from(self):
         new = self._row(StandardExecution.Status.FAILED, 10, importance="required")
         self.policy.handle(self._event([new], failed=1))
+        self.assertFalse(Notification.objects.exists())
+
+
+class RequiredUnverifiedNotificationPolicyTests(_PolicyTestCase):
+    """"Could not verify a Required standard" is raised when a Required
+    standard errors among other results."""
+
+    policy = RequiredUnverifiedNotificationPolicy()
+
+    def test_a_required_standard_that_errored_raises_it(self):
+        user = baker.make("app.User")
+        passed = self._row(StandardExecution.Status.PASSED, 90, triggered_by_user=user)
+        errored = self._row(
+            StandardExecution.Status.ERROR, name="License", importance="required", triggered_by_user=user
+        )
+
+        self.policy.handle(self._event([passed, errored], passed=1, errored=1))
+
+        n = Notification.objects.get()
+        self.assertEqual(
+            (n.kind, n.severity, n.title),
+            ("project.required_unverified", "critical", "Could not verify a Required standard"),
+        )
+        self.assertEqual(n.body, "License could not run, so the project has no grade.")
+        self.assertEqual(n.url, reverse("standard_execution_detail", args=[errored.pk]))
+        self.assertEqual(n.triggered_by_user_ids, [str(user.pk)])
+        self.defer.assert_called_once_with(notification_id=str(n.pk))
+
+    def test_a_major_standard_that_errored_raises_nothing(self):
+        passed = self._row(StandardExecution.Status.PASSED, 90)
+        errored = self._row(StandardExecution.Status.ERROR, importance="major")
+        self.policy.handle(self._event([passed, errored], passed=1, errored=1))
+        self.assertFalse(Notification.objects.exists())
+
+    def test_a_run_where_everything_errored_is_left_to_could_not_evaluate(self):
+        errored = self._row(StandardExecution.Status.ERROR, importance="required")
+        self.policy.handle(self._event([errored], errored=1))
         self.assertFalse(Notification.objects.exists())
 
 
