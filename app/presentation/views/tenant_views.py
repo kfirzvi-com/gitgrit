@@ -457,23 +457,23 @@ def edit_connection_token(request, connection_id):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
     access_token = request.POST.get("access_token", "").strip()
 
     if not access_token:
         messages.error(request, "Access token is required.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     connection.access_token = access_token
     connection.save(update_fields=["access_token"])
     messages.success(request, f'Token updated for "{connection.display_name}".')
-    return redirect("tenant_settings")
+    return _back(request)
 
 
 @login_required
@@ -514,17 +514,23 @@ def remove_connection(request, connection_id):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     if not is_workspace_admin(request):
         messages.error(request, "You don't have permission to manage connections.")
-        return redirect("tenant_settings")
+        return _back(request)
 
     connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
     name = connection.display_name
     connection.delete()
     messages.success(request, f'Connection "{name}" removed.')
-    return redirect("tenant_settings")
+    response = _back(request)
+    if request.htmx:
+        # A bare <tr> is dropped by the HTML parser; htmx reads OOB rows from a <template>.
+        response.write(
+            f'<template><tr id="conn-row-{connection_id}" hx-swap-oob="delete"></tr></template>'
+        )
+    return response
 
 
 @login_required
@@ -737,12 +743,43 @@ def _score_display_context(tenant, is_admin) -> dict:
     return {"tenant": tenant, "score_displays": list(ScoreDisplay), "is_admin": is_admin}
 
 
+def _messages_only(request):
+    """An HTMX answer that leaves the page as it is and shows the queued
+    messages in the page's message area."""
+    response = render(request, "components/flash_messages.html", {"oob": True})
+    response["HX-Reswap"] = "none"
+    return response
+
+
+def _back(request):
+    """Back to settings: the messages only over HTMX, a redirect without JS."""
+    return _messages_only(request) if request.htmx else redirect("tenant_settings")
+
+
+def _llm_role_answer(request, tenant, role_name, *, provider_id="", model=""):
+    """Answer a role save: over HTMX, the role row drawn again (with the page
+    messages swapped out of band); without JS, back to the settings page."""
+    if not request.htmx:
+        return redirect("tenant_settings")
+    context = {
+        "role": {
+            "name": role_name,
+            "label": LLMRole.Name(role_name).label,
+            "provider_id": provider_id,
+            "model": model,
+        },
+        "llm_providers": LLMProvider.objects.filter(tenant=tenant).order_by("created_at"),
+        "swap_messages": True,
+    }
+    return render(request, "partials/llm_role_form.html", context)
+
+
 @login_required
 @require_POST
 def set_llm_role(request, role_name):
     tenant, deny = _require_workspace_admin(request)
     if deny:
-        return deny
+        return _messages_only(request) if request.htmx else deny
 
     if role_name not in LLMRole.Name.values:
         messages.error(request, "Invalid role.")
@@ -754,12 +791,12 @@ def set_llm_role(request, role_name):
     if not provider_id:
         LLMRole.objects.filter(tenant=tenant, name=role_name).delete()
         messages.success(request, f'Cleared the "{role_name}" role.')
-        return redirect("tenant_settings")
+        return _llm_role_answer(request, tenant, role_name)
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
     if not model:
         messages.error(request, "Select a model for the role.")
-        return redirect("tenant_settings")
+        return _llm_role_answer(request, tenant, role_name, provider_id=provider_id)
 
     LLMRole.objects.update_or_create(
         tenant=tenant,
@@ -769,4 +806,6 @@ def set_llm_role(request, role_name):
     messages.success(
         request, f'Role "{role_name}" set to {provider.display_name}/{model}.'
     )
-    return redirect("tenant_settings")
+    return _llm_role_answer(
+        request, tenant, role_name, provider_id=provider_id, model=model
+    )

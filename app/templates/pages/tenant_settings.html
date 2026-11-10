@@ -54,7 +54,7 @@
                 </thead>
                 <tbody>
                   {% for conn in connections %}
-                    <tr>
+                    <tr id="conn-row-{{ conn.id }}">
                       <td>{{ conn.display_name }}</td>
                       <td>
                         <span class="badge {% if conn.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %}">
@@ -267,25 +267,7 @@
               provider directly.</p>
             <div class="space-y-3">
               {% for role in llm_role_rows %}
-                <form method="post" action="{% url 'set_llm_role' role.name %}"
-                      class="flex flex-col sm:flex-row gap-3 sm:items-center">
-                  {% csrf_token %}
-                  <span class="badge badge-primary w-28 justify-start">{{ role.label }}</span>
-                  <select name="provider_id" id="llm-provider-{{ role.name }}"
-                          data-role-provider="{{ role.name }}"
-                          class="select select-bordered flex-1">
-                    <option value="">— None —</option>
-                    {% for provider in llm_providers %}
-                      <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
-                        {{ provider.display_name }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                  <select name="model" id="llm-model-{{ role.name }}"
-                          data-current-model="{{ role.model }}"
-                          class="select select-bordered flex-1"></select>
-                  <button type="submit" class="btn btn-primary">Save</button>
-                </form>
+                {% include "partials/llm_role_form.html" %}
               {% endfor %}
             </div>
           </div>
@@ -295,7 +277,10 @@
         <div class="card bg-base-100">
           <div class="card-body">
             <h2 class="card-title">Add LLM Provider</h2>
-            <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
+            {# Adding asks the provider for its models, which takes a while: #}
+            {# the button shows it is busy and cannot add the provider twice. #}
+            <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3"
+                  onsubmit="setAddProviderBusy(true)">
               {% csrf_token %}
               <div class="flex flex-col sm:flex-row gap-3">
                 <select name="provider_type" class="select select-bordered" required>
@@ -314,7 +299,11 @@
                 <input type="password" name="api_key" required placeholder="API key"
                        class="input input-bordered flex-1">
               </div>
-              <button type="submit" class="btn btn-primary">Add Provider</button>
+              <button type="submit" id="add-provider-submit" class="btn btn-primary">
+                <span data-idle>Add Provider</span>
+                <span class="loading loading-spinner loading-sm hidden" data-busy></span>
+                <span class="hidden" data-busy>Adding… finding models</span>
+              </button>
             </form>
           </div>
         </div>
@@ -492,7 +481,9 @@
             <button type="button" class="btn btn-ghost btn-sm" id="edit-token-toggle">Show</button>
           </div>
         </div>
-        <form method="post" id="edit-token-form" class="space-y-3">
+        <form method="post" id="edit-token-form" class="space-y-3"
+              hx-post="" hx-swap="none"
+              onsubmit="document.getElementById('edit-token-modal').close()">
           {% csrf_token %}
           <label class="label"><span class="label-text text-sm">New token</span></label>
           <input type="password" name="access_token" required placeholder="New access token"
@@ -526,7 +517,9 @@
             </div>
           </details>
         </div>
-        <form method="post" id="remove-connection-form">
+        <form method="post" id="remove-connection-form"
+              hx-post="" hx-swap="none"
+              onsubmit="document.getElementById('remove-connection-modal').close()">
           {% csrf_token %}
           <div class="flex justify-end gap-2">
             <button type="button" class="btn" onclick="document.getElementById('remove-connection-modal').close()">Cancel</button>
@@ -541,7 +534,10 @@
       function openRemoveConnectionModal(connectionId, displayName, projectNames) {
         document.getElementById('remove-conn-name').textContent = displayName;
         document.getElementById('remove-conn-project-count').textContent = projectNames.length;
-        document.getElementById('remove-connection-form').action = '/tenants/connections/' + connectionId + '/remove/';
+        var form = document.getElementById('remove-connection-form');
+        form.action = '/tenants/connections/' + connectionId + '/remove/';
+        form.setAttribute('hx-post', form.action);
+        htmx.process(form);
         var listContainer = document.getElementById('remove-conn-projects-list');
         var ul = document.getElementById('remove-conn-projects-ul');
         ul.innerHTML = '';
@@ -563,7 +559,12 @@
         var modal = document.getElementById('edit-token-modal');
         modal.dataset.connId = connectionId;
         document.getElementById('edit-token-conn-name').textContent = displayName;
-        document.getElementById('edit-token-form').action = '/tenants/connections/' + connectionId + '/edit/';
+        var form = document.getElementById('edit-token-form');
+        form.reset();  // no reload clears the last typed token any more
+        form.action = '/tenants/connections/' + connectionId + '/edit/';
+        // htmx reads hx-post once, when it sets the form up.
+        form.setAttribute('hx-post', form.action);
+        htmx.process(form);
         // The current token is never embedded in the page; it stays hidden
         // until the admin explicitly reveals it (see toggleCurrentToken).
         var input = document.getElementById('edit-token-current');
@@ -847,6 +848,19 @@
     </dialog>
 
     <script>
+      function setAddProviderBusy(busy) {
+        var button = document.getElementById('add-provider-submit');
+        if (!button) return;
+        button.disabled = busy;
+        button.querySelectorAll('[data-idle]').forEach(function (el) { el.classList.toggle('hidden', busy); });
+        button.querySelectorAll('[data-busy]').forEach(function (el) { el.classList.toggle('hidden', !busy); });
+      }
+      // Back can bring the page back from the browser's cache as it was left:
+      // with the button still busy.
+      window.addEventListener('pageshow', function (e) {
+        if (e.persisted) setAddProviderBusy(false);
+      });
+
       function openEditProviderModal(providerId, displayName, baseUrl) {
         document.getElementById('edit-provider-name').textContent = displayName;
         document.getElementById('edit-provider-display').value = displayName;
@@ -893,15 +907,21 @@
           });
         }
 
-        document.querySelectorAll('[data-role-provider]').forEach(function (ps) {
-          var roleName = ps.getAttribute('data-role-provider');
-          populate(roleName);
-          ps.addEventListener('change', function () {
-            var ms = document.getElementById('llm-model-' + roleName);
-            if (ms) ms.setAttribute('data-current-model', '');
+        // Also after HTMX swaps in a saved role row (partials/llm_role_form.html).
+        function wireRoles() {
+          document.querySelectorAll('[data-role-provider]:not([data-wired])').forEach(function (ps) {
+            var roleName = ps.getAttribute('data-role-provider');
+            ps.setAttribute('data-wired', '');
             populate(roleName);
+            ps.addEventListener('change', function () {
+              var ms = document.getElementById('llm-model-' + roleName);
+              if (ms) ms.setAttribute('data-current-model', '');
+              populate(roleName);
+            });
           });
-        });
+        }
+        wireRoles();
+        document.body.addEventListener('htmx:afterSwap', wireRoles);
       })();
     </script>
   {% endif %}

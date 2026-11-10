@@ -1,0 +1,23 @@
+{# One LLM role row on workspace settings. Saved in place over HTMX       #}
+{# (set_llm_role); `swap_messages` also sends the page messages out of band. #}
+<form method="post" action="{% url 'set_llm_role' role.name %}"
+      hx-post="{% url 'set_llm_role' role.name %}" hx-target="this" hx-swap="outerHTML"
+      class="flex flex-col sm:flex-row gap-3 sm:items-center">
+  {% csrf_token %}
+  <span class="badge badge-primary w-28 justify-start">{{ role.label }}</span>
+  <select name="provider_id" id="llm-provider-{{ role.name }}"
+          data-role-provider="{{ role.name }}"
+          class="select select-bordered flex-1">
+    <option value="">— None —</option>
+    {% for provider in llm_providers %}
+      <option value="{{ provider.id }}" {% if provider.id|stringformat:'s' == role.provider_id %}selected{% endif %}>
+        {{ provider.display_name }}
+      </option>
+    {% endfor %}
+  </select>
+  <select name="model" id="llm-model-{{ role.name }}"
+          data-current-model="{{ role.model }}"
+          class="select select-bordered flex-1"></select>
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
+{% if swap_messages %}{% include "components/flash_messages.html" with oob=True %}{% endif %}
