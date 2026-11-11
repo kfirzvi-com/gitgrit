@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static score_tags %}
 
 {% block title %}{{ stack.name }} — GitGrit{% endblock %}
 
@@ -9,28 +9,54 @@
 {% endblock %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-6">
-  <div>
-    <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm gap-1 mb-1 -ml-2">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-      Dashboard
-    </a>
+<a href="{% url 'stack_list' %}" class="btn btn-ghost btn-sm gap-1 mb-1 -ml-2">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+  Stacks
+</a>
+{% comment %}The header carries the overview: name, what the stack is, its totals and health.{% endcomment %}
+<header class="flex justify-between items-start gap-4 mb-6">
+  <div class="min-w-0">
     <h1 class="text-3xl font-bold">{{ stack.name }}</h1>
+    {% if stack.description %}<p class="mt-1 opacity-70">{{ stack.description }}</p>{% endif %}
+    <div class="mt-3 text-sm flex flex-wrap items-center gap-x-4 gap-y-1" data-stack-summary>
+      <span class="opacity-70"><b>{{ project_count }}</b> project{{ project_count|pluralize }}</span>
+      <span class="opacity-70"><b>{{ standard_count }}</b> standard{{ standard_count|pluralize }}</span>
+      {% if project_count %}
+        <span data-stack-health>{% include "partials/project_health_counts.html" with counts=stack_health linked=True %}</span>
+      {% endif %}
+      <span class="inline-flex items-center gap-1 opacity-70" id="map-updated"{% if map_updated_at %} title="{{ map_updated_at }}"{% endif %}>
+        last update: {% if map_updated_at %}{{ map_updated_at|date:"d/m/y" }}{% else %}---{% endif %}
+        {% if user.is_superuser and project_count %}
+        <form method="post" action="{% url 'refresh_stack' stack.pk %}" class="inline">
+          {% csrf_token %}
+          <button id="map-refresh" type="submit" class="btn btn-ghost btn-sm btn-square" title="{% if map_analyzing %}Refreshing map…{% else %}Refresh map from the main branches{% endif %}" aria-label="Refresh map from the main branches"{% if map_analyzing %} disabled{% endif %}>
+            {% if map_analyzing %}
+              <span class="loading loading-spinner loading-xs"></span>
+            {% else %}
+              <svg class="w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5.6 15A7 7 0 0 0 18.4 13M18.4 9A7 7 0 0 0 5.6 11" /></svg>
+            {% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </span>
+    </div>
   </div>
-  <div class="flex gap-2">
-    <button type="button" class="btn btn-outline btn-sm"
-            onclick="document.getElementById('edit_stack_modal').showModal()">
-      Edit
+  <div class="dropdown dropdown-end shrink-0" data-stack-actions>
+    <button type="button" tabindex="0" class="btn btn-ghost btn-sm btn-square" aria-label="Stack actions" title="Stack actions">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M4 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm7.5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM19 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
     </button>
-    <form method="post" action="{% url 'delete_stack' stack.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-ghost btn-sm text-error"
-              onclick="return confirm('Delete stack &quot;{{ stack.name }}&quot;?')">
-        Delete
-      </button>
-    </form>
+    <ul tabindex="0" class="dropdown-content menu z-50 w-40 rounded-box border border-base-content/10 bg-base-100 p-1 shadow-lg">
+      <li><button type="button" onclick="document.getElementById('edit_stack_modal').showModal()">Edit</button></li>
+      <li>
+        <form method="post" action="{% url 'delete_stack' stack.pk %}" class="p-0">
+          {% csrf_token %}
+          <button type="submit" class="w-full text-left px-3 py-1.5 text-error"
+                  onclick="return confirm('Delete stack &quot;{{ stack.name }}&quot;?')">Delete</button>
+        </form>
+      </li>
+    </ul>
   </div>
-</div>
+</header>
 
 <dialog id="edit_stack_modal" class="modal">
   <div class="modal-box">
@@ -57,85 +83,72 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-{% if stack.description %}
-  <p class="mb-6 opacity-70">{{ stack.description }}</p>
-{% endif %}
-
+{% comment %}Details after the overview: the components, worst first, for lookup; then the
+map, for tracing how they connect.{% endcomment %}
 <div class="space-y-6">
-  {% if stack_components %}
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body p-2 sm:p-3">
-        <div id="stack-flow"></div>
-      </div>
-    </div>
-  {% endif %}
-
-  <div class="card bg-base-100 shadow-xl">
+  <section class="card bg-base-100 shadow-xl" data-stack-components>
     <div class="card-body">
       <div class="flex justify-between items-center">
-        <h2 class="card-title">
-          Components
-          {% if stack_components %}
-            <span class="text-sm font-normal opacity-70">{{ stack_components|length }} in stack</span>
-          {% endif %}
+        <h2 class="section-label">
+          Components{% if stack_components %} <span class="font-normal opacity-60">({{ stack_components|length }})</span>{% endif %}
         </h2>
-        <button type="button" class="btn btn-outline btn-sm"
+        <button type="button" class="btn btn-ghost btn-xs"
                 hx-get="{% url 'stack_components' stack.pk %}"
                 hx-target="#components-modal-body"
                 hx-swap="innerHTML"
                 onclick="document.getElementById('components-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading components...&lt;/p&gt;'; document.getElementById('components_modal').showModal()">
-          Manage components
+          Manage
         </button>
       </div>
 
       {% if stack_components %}
-        <div class="overflow-x-auto mt-4">
+        <div class="overflow-x-auto">
           <table class="table">
             <thead>
               <tr>
                 <th>Component</th>
-                <th>Repository</th>
-                <th>Platform</th>
-                <th>Lifecycle</th>
-                <th></th>
+                <th>Health</th>
+                <th class="text-right">Last checked</th>
               </tr>
             </thead>
             <tbody>
               {% for component in stack_components %}
-                <tr>
-                  <td>
+                <tr data-component-row data-tone="{{ component.tone }}">
+                  <td class="align-top">
                     <span class="font-medium">{{ component.name }}</span>
-                    {% if component.path %}
-                      <p class="text-xs opacity-50 font-mono">{{ component.path }}</p>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <a href="{% url 'project_detail' component.project.pk %}" class="link">{{ component.project.name }}</a>
-                  </td>
-                  <td>
-                    <span class="badge {% if component.project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-                      {{ component.project.get_platform_display }}
+                    <span class="block text-xs opacity-70">
+                      {% if component.project.name != component.name %}<a href="{% url 'project_detail' component.project.pk %}" class="link link-hover">{{ component.project.name }}</a>{% if component.path %} &middot; {% endif %}{% endif %}{% if component.path %}<span class="font-mono">{{ component.path }}</span>{% endif %}
                     </span>
                   </td>
-                  <td>
-                    <span class="badge badge-outline badge-sm">{{ component.project.get_lifecycle_display }}</span>
+                  <td class="align-top">
+                    <a href="{% url 'project_detail' component.project.pk %}" class="inline-flex items-start gap-2 hover:underline" title="{{ component.tone.label }}">
+                      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ component.tone }}" aria-hidden="true"></span>
+                      <span>
+                        {% if component.score and component.score.outcome != "no_score" %}{% score component.score.value failed=component.score.failed size="sm" %} {% endif %}
+                        <span class="{% if component.health_note %}text-sm{% else %}sr-only{% endif %}">{% if component.health_note %}{{ component.health_note }}{% else %}{{ component.tone.label }}{% endif %}</span>
+                      </span>
+                    </a>
                   </td>
-                  <td class="text-right">
-                    <form method="post" action="{% url 'remove_component_from_stack' stack.pk component.pk %}">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-ghost btn-xs text-error">Remove</button>
-                    </form>
-                  </td>
+                  <td class="align-top text-right text-sm opacity-70 whitespace-nowrap">{% if component.score %}<span title="{{ component.score.created_at }}">{{ component.score.created_at|timesince }} ago</span>{% else %}&mdash;{% endif %}</td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <p class="text-sm opacity-70 mt-4">No components in this stack yet. Use "Manage components" to add the services, apps and libraries this stack is made of.</p>
+        <p class="text-sm opacity-70">No components in this stack yet. Use "Manage" to add the services, apps and libraries this stack is made of.</p>
       {% endif %}
     </div>
-  </div>
+  </section>
+
+  {% if stack_components %}
+    <section class="card bg-base-100 shadow-xl" data-stack-map>
+      <div class="card-body p-2 sm:p-3">
+        <h2 class="section-label px-1">Map</h2>
+        <div id="stack-flow"></div>
+      </div>
+    </section>
+  {% endif %}
 </div>
 
 <dialog id="components_modal" class="modal">

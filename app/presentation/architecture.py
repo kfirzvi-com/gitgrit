@@ -122,7 +122,12 @@ def _analyzing(project):
 def workspace_map_status(tenant):
     """When the map was last rebuilt — the newest successful refresh among the
     workspace's projects — and whether a refresh is queued or running now."""
-    projects = Project.objects.filter(tenant=tenant)
+    return map_status(Project.objects.filter(tenant=tenant))
+
+
+def map_status(projects):
+    """When the map of these projects was last rebuilt (their newest
+    successful refresh) and whether a refresh is queued or running now."""
     return {
         "updated_at": projects.aggregate(latest=Max("deps_analyzed_at"))["latest"],
         "analyzing": projects.filter(
