@@ -13,7 +13,7 @@ from model_bakery import baker
 
 from app.domain.models import StandardExecution
 from tests.support import score_commit
-from app.application.standard_results import attention_items
+from app.application.standard_results import current_results
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {
@@ -93,10 +93,11 @@ class TestRunningRowsDoNotMoveScores(TestCase):
         assert "GitGrit compliance: A+" not in svg
         assert "GitGrit compliance: 0" not in svg
 
-    def test_attention_list_ignores_the_running_row(self):
+    def test_current_results_ignore_the_running_row(self):
         # A RUNNING row scores 0; without the exclusion it would show as
         # critical and hide the real (passing) latest result for the pair.
-        assert attention_items(self.tenant) == []
+        [result] = current_results([self.project])
+        assert result.status == StandardExecution.Status.PASSED
 
     def test_execution_detail_page_shows_the_run_as_running_and_refreshes(self):
         resp = self.client.get(

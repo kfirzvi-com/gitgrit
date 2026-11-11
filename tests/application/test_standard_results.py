@@ -1,39 +1,32 @@
-"""attention_items(): the one "Needs attention" read behind the dashboard card
-and the notifications pane."""
+"""current_results(): each attached standard's latest finished result on its
+home branch, the one read behind every project's health."""
 from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
 from model_bakery import baker
 
-from app.application.standard_results import (
-    AttentionItem,
-    attention_items,
-    current_results,
-    project_score,
-)
-from app.domain.score_representation import ScoreTone
+from app.application.standard_results import current_results, project_score
 from app.domain.models import StandardExecution
 
 Status = StandardExecution.Status
 
 
-class AttentionItemsTests(TestCase):
+class CurrentResultsTests(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
         self.project = baker.make("app.Project", tenant=self.tenant, name="Acme")
 
-    def _standard(self, name, attach=True, project=None):
-        project = project or self.project
-        standard = baker.make("app.Standard", tenant=project.tenant, name=name)
+    def _standard(self, name, attach=True):
+        standard = baker.make("app.Standard", tenant=self.tenant, name=name)
         if attach:
-            project.standards.add(standard)
+            self.project.standards.add(standard)
         return standard
 
-    def _result(self, standard, score, status=Status.FAILED, project=None, ago=None, importance="required"):
+    def _result(self, standard, score, status=Status.FAILED, ago=None):
         execution = baker.make(
-            "app.StandardExecution", project=project or self.project, standard=standard,
-            standard_name=standard.name, score=score, status=status, importance=importance,
+            "app.StandardExecution", project=self.project, standard=standard,
+            standard_name=standard.name, score=score, status=status, importance="required",
         )
         if ago is not None:
             StandardExecution.objects.filter(pk=execution.pk).update(
@@ -41,90 +34,27 @@ class AttentionItemsTests(TestCase):
             )
         return execution
 
-    def test_returns_typed_items_with_ids_not_urls(self):
-        standard = self._standard("README present")
-        execution = self._result(standard, 20)
-
-        [item] = attention_items(self.tenant)
-
-        self.assertIsInstance(item, AttentionItem)
-        self.assertEqual(item.level, ScoreTone.FAILED)
-        self.assertEqual(item.project_id, self.project.pk)
-        self.assertEqual(item.project_name, "Acme")
-        self.assertEqual(item.standard_id, standard.pk)
-        self.assertEqual(item.standard_name, "README present")
-        self.assertEqual(item.execution_id, execution.pk)
-        self.assertEqual(item.score, 20)
-        self.assertEqual(item.status, "Failed")
-        self.assertFalse(item.errored)
-
-    def test_only_required_failures_and_errored_runs_need_attention_whatever_their_score(self):
-        self._result(self._standard("Required failed high"), 95)
-        self._result(self._standard("Major failed"), 10, importance="major")
-        self._result(self._standard("Minor failed"), 0, importance="minor")
-        self._result(self._standard("Minor errored"), 0, status=Status.ERROR, importance="minor")
-        self._result(self._standard("Required errored"), 0, status=Status.ERROR)
-        self._result(self._standard("Required passed low"), 10, status=Status.PASSED)
-
-        names = {i.standard_name for i in attention_items(self.tenant)}
-
-        self.assertEqual(names, {"Required failed high", "Minor errored", "Required errored"})
-
-    def test_a_required_failure_is_failed_and_comes_before_errored_runs(self):
-        self._result(self._standard("Errored"), 0, status=Status.ERROR, importance="major")
-        self._result(self._standard("Required"), 50, ago=timedelta(days=1))
-
-        items = attention_items(self.tenant)
-
-        self.assertEqual(
-            [(i.standard_name, i.level, i.errored) for i in items],
-            [("Required", ScoreTone.FAILED, False), ("Errored", ScoreTone.NEEDS_ATTENTION, True)],
-        )
-
-    def test_a_required_standard_that_errored_needs_attention_but_does_not_fail_the_project(self):
-        self._result(self._standard("Required"), 0, status=Status.ERROR)
-
-        [item] = attention_items(self.tenant)
-
-        self.assertEqual((item.level, item.errored, item.status), (ScoreTone.NEEDS_ATTENTION, True, "Error"))
-
     def test_only_the_latest_result_per_standard_counts(self):
         standard = self._standard("Pinned CI")
         self._result(standard, 10, ago=timedelta(hours=1))
-        self._result(standard, 100, status=Status.PASSED)
+        latest = self._result(standard, 100, status=Status.PASSED)
 
-        self.assertEqual(attention_items(self.tenant), [])
+        self.assertEqual([r.pk for r in current_results([self.project])], [latest.pk])
 
     def test_in_flight_runs_do_not_hide_the_latest_finished_result(self):
         standard = self._standard("Pinned CI")
-        self._result(standard, 10, ago=timedelta(hours=1))
+        finished = self._result(standard, 10, ago=timedelta(hours=1))
         self._result(standard, 0, status=Status.RUNNING)
 
-        [item] = attention_items(self.tenant)
-
-        self.assertEqual(item.score, 10)
+        self.assertEqual([r.pk for r in current_results([self.project])], [finished.pk])
 
     def test_detached_standards_are_ignored(self):
         self._result(self._standard("Attached"), 20)
         self._result(self._standard("Detached", attach=False), 5)
 
-        names = [i.standard_name for i in attention_items(self.tenant)]
+        names = [r.standard_name for r in current_results([self.project])]
 
         self.assertEqual(names, ["Attached"])
-
-    def test_newest_first_within_a_level(self):
-        self._result(self._standard("Old"), 10, ago=timedelta(days=2))
-        self._result(self._standard("New"), 60)
-
-        names = [i.standard_name for i in attention_items(self.tenant)]
-
-        self.assertEqual(names, ["New", "Old"])
-
-    def test_other_workspaces_are_not_included(self):
-        other = baker.make("app.Project", tenant=baker.make("app.Tenant"))
-        self._result(self._standard("Elsewhere", project=other), 10, project=other)
-
-        self.assertEqual(attention_items(self.tenant), [])
 
 
 class HomeBranchTests(TestCase):
@@ -142,7 +72,6 @@ class HomeBranchTests(TestCase):
         return standard
 
     def _run(self, standard, score, ref="", status=Status.FAILED, ago=None, event_type="push"):
-        # Required, so a failure needs attention.
         execution = baker.make(
             "app.StandardExecution", project=self.project, standard=standard,
             standard_name=standard.name, score=score, status=status, ref=ref,
@@ -157,15 +86,16 @@ class HomeBranchTests(TestCase):
         self._run(standard, 100, ref="refs/heads/main", status=Status.PASSED, ago=timedelta(hours=1))
         self._run(standard, 0, ref="refs/heads/feature/wip")
 
-        self.assertEqual(attention_items(self.tenant), [])
+        [result] = current_results([self.project])
+        self.assertEqual(result.status, Status.PASSED)
 
     def test_a_fix_on_a_feature_branch_does_not_hide_the_default_branch_failure(self):
         standard = self._standard()
         self._run(standard, 10, ref="", ago=timedelta(hours=1))
         self._run(standard, 100, ref="refs/heads/feature/fix", status=Status.PASSED)
 
-        [item] = attention_items(self.tenant)
-        self.assertEqual(item.score, 10)
+        [result] = current_results([self.project])
+        self.assertEqual(result.score, 10)
 
     def test_pull_request_runs_do_not_count(self):
         standard = self._standard()

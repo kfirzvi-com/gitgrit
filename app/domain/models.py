@@ -1401,12 +1401,6 @@ class StandardExecution(models.Model):
         (``scoring.StandardRunResult.fails_the_commit``)."""
         return self._run_result().fails_the_commit
 
-    @property
-    def needs_attention(self) -> bool:
-        """A Required standard that failed, or a run that errored
-        (``scoring.StandardRunResult.needs_attention``)."""
-        return self._run_result().needs_attention
-
 
 class CommitScore(models.Model):
     """A commit's outcome, saved each time one of its checks has no run
