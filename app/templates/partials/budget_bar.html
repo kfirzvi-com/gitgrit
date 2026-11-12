@@ -1,0 +1,6 @@
+{% comment %}A compact budget meter for one limit (`label` in/out): a fixed-width bar and its
+percentage, coloured by the budget's level for that limit.{% endcomment %}{% load ai_tags %}<span class="inline-flex items-center gap-1 shrink-0" title="{{ label }}: {{ share|percent }}% used">
+  <span class="w-6 text-right" style="color: var(--gg-text-dim)">{{ label }}</span>
+  <span class="block h-1.5 w-12 rounded-full overflow-hidden" style="background: rgba(255,255,255,0.08)"><span class="block h-full rounded-full" style="width: {{ share|percent }}%; background: {% if level == 'reached' %}var(--gg-tone-failed){% elif level == 'near' %}var(--gg-tone-needs_attention){% else %}var(--gg-primary){% endif %}"></span></span>
+  <span class="w-8 tabular-nums" style="color: var(--gg-text-dim)">{{ share|percent }}%</span>
+</span>

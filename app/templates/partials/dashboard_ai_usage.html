@@ -1,0 +1,132 @@
+{% comment %}The dashboard's AI section: tokens per provider and model (input and output apart, priced
+apart) with each model's budgets, per kind of work, and per LLM standard with the outliers called
+out. The period switch swaps this partial in place (web_views.dashboard_ai_usage).{% endcomment %}{% load ai_tags %}
+{% with r=ai.report %}
+<section id="ai-usage" aria-labelledby="ai-title" class="flex flex-col gap-4" data-ai-usage data-period="{{ r.period }}"
+         style="--ai-in: var(--gg-primary); --ai-out: #818cf8;">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-col gap-1">
+      <h2 id="ai-title" class="gg-eyebrow">AI usage</h2>
+      {% with b=ai.budgets %}
+      <span class="text-sm" style="color: var(--gg-text-dim)" data-ai-budget-summary>
+        {% if b.total %}
+          <b class="text-base-content">{{ b.total }}</b> budget{{ b.total|pluralize }}:
+          <b class="text-base-content">{{ b.ok }}</b> fine &middot;
+          <b class="{% if b.near %}gg-tone-text-needs_attention{% else %}text-base-content{% endif %}">{{ b.near }}</b> nearly used &middot;
+          <b class="{% if b.used_up %}gg-tone-text-failed{% else %}text-base-content{% endif %}">{{ b.used_up }}</b> used up{% if b.stopping %} ({{ b.stopping }} stopping runs){% endif %}
+        {% else %}
+          No budgets set. Token counts are per model, since models are priced apart.
+        {% endif %}
+      </span>
+      {% endwith %}
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="join" role="group" aria-label="Period">
+        {% for p in ai_periods %}
+          <button type="button" class="join-item btn btn-xs {% if p == r.period %}btn-active btn-primary{% else %}btn-ghost{% endif %}"
+                  hx-get="{% url 'dashboard_ai_usage' %}?period={{ p.value }}" hx-target="#ai-usage" hx-swap="outerHTML"
+                  aria-pressed="{% if p == r.period %}true{% else %}false{% endif %}" data-no-loader>{% if p.value == "day" %}Today{% elif p.value == "week" %}This week{% else %}This month{% endif %}</button>
+        {% endfor %}
+      </div>
+      {% if is_admin %}<a href="{% url 'tenant_settings' %}#section-llm" class="link link-primary link-hover text-sm whitespace-nowrap">Set budgets &rarr;</a>{% endif %}
+    </div>
+  </div>
+
+  {% if r.is_empty %}
+    <p class="gg-panel p-5 text-sm" style="color: var(--gg-text-dim)">
+      No AI models set up yet. LLM standards and the dependency map run on your own provider and model.
+      {% if is_admin %}<a href="{% url 'tenant_settings' %}#section-llm" class="link link-primary">Add a provider</a>{% endif %}
+    </p>
+  {% else %}
+    {% comment %}By provider and model: input and output side by side, each model's budgets as meters.{% endcomment %}
+    <div class="gg-panel p-6 flex flex-col gap-5" data-ai-models>
+      <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <h3 class="text-lg font-semibold">By provider &amp; model</h3>
+        <div class="flex gap-4 text-xs" style="color: var(--gg-text-dim)">
+          <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm" style="background: var(--ai-in)"></span>Input</span>
+          <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm" style="background: var(--ai-out)"></span>Output</span>
+        </div>
+      </div>
+      {% for provider, models in ai.providers %}
+        <div class="flex flex-col gap-2" data-ai-provider="{{ provider.name }}">
+          <div class="flex items-baseline justify-between gap-3 border-b border-base-300 pb-1.5">
+            <span class="font-semibold">{{ provider.name }}</span>
+          </div>
+          {% for model, budgets in models %}
+            <div class="grid gap-x-6 gap-y-2 items-center grid-cols-1 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,1fr)_4rem_23rem] py-1" data-ai-model="{{ model.model }}">
+              <span class="font-mono text-sm truncate" title="{{ model.model }}">{{ model.model }}</span>
+              <div class="flex items-center gap-2" title="{{ model.tokens.input }} input tokens">
+                <span class="h-2 rounded-full" style="background: var(--ai-in); width: {% widthratio model.tokens.input ai.max_model 100 %}%; min-width: 2px"></span>
+                <span class="text-sm tabular-nums shrink-0">{{ model.tokens.input|tokens }}</span>
+              </div>
+              <div class="flex items-center gap-2" title="{{ model.tokens.output }} output tokens">
+                <span class="h-2 rounded-full" style="background: var(--ai-out); width: {% widthratio model.tokens.output ai.max_model 100 %}%; min-width: 2px"></span>
+                <span class="text-sm tabular-nums shrink-0">{{ model.tokens.output|tokens }}</span>
+              </div>
+              <span class="text-xs tabular-nums text-right" style="color: var(--gg-text-dim)">{{ model.tokens.calls }} call{{ model.tokens.calls|pluralize }}</span>
+              <div class="flex flex-col gap-1.5">
+                {% for b in budgets %}
+                  <div class="flex items-center gap-2 text-xs" data-budget-level="{{ b.level }}" title="{{ b.period.label }} budget, {{ b.window }}; resets {{ b.resets|date:'M j, H:i' }}{% if b.budget.stop_at_limit %}; stops runs at its limit{% endif %}">
+                    <span class="w-16 shrink-0" style="color: var(--gg-text-dim)">{{ b.period.label }}</span>
+                    {% if b.budget.input_limit %}{% include "partials/budget_bar.html" with share=b.input_share level=b.input_level label="in" %}{% endif %}
+                    {% if b.budget.output_limit %}{% include "partials/budget_bar.html" with share=b.output_share level=b.output_level label="out" %}{% endif %}
+                    <span class="shrink-0 whitespace-nowrap" style="color: var(--gg-text-dim)" data-budget-resets>&#8635; {{ b.resets_short }}</span>
+                    {% if b.stops_runs %}<span class="badge badge-xs badge-error">stopped</span>{% endif %}
+                  </div>
+                {% empty %}
+                  <span class="text-xs gg-tone-text-failed" data-unbudgeted title="Only models with a budget can run">No budget &middot; blocked</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="grid gap-5 grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start">
+      {% comment %}By kind of work.{% endcomment %}
+      <div class="gg-panel p-6 flex flex-col gap-4" data-ai-categories>
+        <h3 class="text-lg font-semibold">By category</h3>
+        {% for category, t in r.categories %}
+          <div class="flex flex-col gap-1.5" data-ai-category="{{ category }}">
+            <div class="flex items-baseline justify-between gap-3 text-sm">
+              <span class="font-medium">{{ category.label }}</span>
+              <span class="tabular-nums" style="color: var(--gg-text-dim)">{{ t.input|tokens }} in &middot; {{ t.output|tokens }} out</span>
+            </div>
+            <div class="flex h-2.5 rounded-full overflow-hidden" style="width: {% widthratio t.total ai.max_category 100 %}%; min-width: 2px; background: rgba(255,255,255,0.08)">
+              {% if t.total %}
+                <span style="background: var(--ai-in); width: {% widthratio t.input t.total 100 %}%"></span>
+                <span style="background: var(--ai-out); width: {% widthratio t.output t.total 100 %}%"></span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      {% comment %}Between LLM standards: who spends what, and who spends far more than the rest.{% endcomment %}
+      <div class="gg-panel p-6 flex flex-col gap-3" data-ai-standards>
+        <div class="flex flex-wrap items-baseline justify-between gap-3">
+          <h3 class="text-lg font-semibold">LLM standards</h3>
+          {% if r.standards.heavy %}<span class="text-xs gg-tone-text-needs_attention">{{ r.standards.heavy|length }} spend{{ r.standards.heavy|length|pluralize:"s," }} 2&times; the median or more</span>{% endif %}
+        </div>
+        {% for row in ai.standards %}
+          <div class="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] gap-3 items-center" data-ai-standard{% if row.heavy %} data-heavy{% endif %}>
+            <span class="text-sm truncate{% if row.heavy %} font-semibold{% endif %}" title="{{ row.usage.name }}">{{ row.usage.name }}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="flex-1 min-w-0"><span class="block h-2 rounded-full" style="width: {{ row.share|percent }}%; min-width: 2px; background: {% if row.heavy %}var(--gg-tone-needs_attention){% else %}rgba(255,255,255,0.35){% endif %}"></span></span>
+              <span class="text-xs tabular-nums shrink-0 w-9 text-right" style="color: var(--gg-text-dim)">{{ row.share|percent }}%</span>
+            </div>
+            <span class="text-xs tabular-nums text-right whitespace-nowrap" title="{{ row.usage.tokens.input }} in, {{ row.usage.tokens.output }} out over {{ row.usage.runs }} runs">
+              {% if row.heavy %}<span class="badge badge-xs badge-warning mr-1">{{ row.times }}&times; median</span>{% endif %}
+              {{ row.usage.tokens.total|tokens }}{% if row.usage.runs %} &middot; {{ row.usage.per_run|tokens }}/run{% endif %}
+            </span>
+          </div>
+        {% empty %}
+          <p class="text-sm" style="color: var(--gg-text-dim)">No LLM standard ran {{ r.period.noun }}.</p>
+        {% endfor %}
+        {% if ai.more_standards %}<span class="text-xs" style="color: var(--gg-text-dim)">and {{ ai.more_standards }} more</span>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endwith %}
