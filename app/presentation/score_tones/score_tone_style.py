@@ -16,12 +16,13 @@ class ScoreToneStyle:
     color: str
     label: str
 
-    # From Michal's palette: healthy (A+, A) mint, needs attention (B, C)
-    # yellow, failed (F) red, no data gray. Red means failed, nothing else.
+    # From Michal's cockpit palette: healthy (A+, A) teal, needs attention
+    # (B, C) yellow, failed (F) purple, no data gray. A hue of its own per
+    # state (never red/yellow/green), and purple means failed, nothing else.
     COLOR_BY_TONE = {
-        ScoreTone.HEALTHY: "#00d390",
-        ScoreTone.NEEDS_ATTENTION: "#facc15",
-        ScoreTone.FAILED: "#ef4444",
+        ScoreTone.HEALTHY: "#5eead4",
+        ScoreTone.NEEDS_ATTENTION: "#eab308",
+        ScoreTone.FAILED: "#c084fc",
         ScoreTone.UNKNOWN: "#64748b",
     }
     # Shades that paint a tone apart, with the tone they still mean: a D is
