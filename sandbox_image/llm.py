@@ -176,9 +176,13 @@ class _RoleRunner:
     report totals regardless of how many roles a standard touches, and records
     its process into the optional logger."""
 
-    def __init__(self, role_name, model, base_url, api_key, project, usage, logger):
+    def __init__(self, role_name, model, base_url, api_key, project, usage, logger, provider_id=None, model_name=None):
         self._role_name = role_name
         self._model = model
+        # Who the host bills this role's tokens to: its provider and the
+        # model's own name (``model`` is LiteLLM's "provider_type/name").
+        self._provider_id = provider_id
+        self._model_name = model_name or model
         self._base_url = base_url or None
         self._api_key = api_key or None
         self._project = project
@@ -213,11 +217,22 @@ class _RoleRunner:
                     )
                 time.sleep(wait)
         u = getattr(resp, "usage", None)
+        prompt = (getattr(u, "prompt_tokens", 0) or 0) if u else 0
+        completion = (getattr(u, "completion_tokens", 0) or 0) if u else 0
         if u:
-            self._usage["prompt_tokens"] += getattr(u, "prompt_tokens", 0) or 0
-            self._usage["completion_tokens"] += getattr(u, "completion_tokens", 0) or 0
+            self._usage["prompt_tokens"] += prompt
+            self._usage["completion_tokens"] += completion
             self._usage["total_tokens"] += getattr(u, "total_tokens", 0) or 0
         self._usage["calls"] += 1
+        # Per model too: roles can use different models, priced apart.
+        per_model = self._usage.setdefault("by_model", {}).setdefault(
+            self._model,
+            {"provider_id": self._provider_id, "model": self._model_name,
+             "prompt_tokens": 0, "completion_tokens": 0, "calls": 0},
+        )
+        per_model["prompt_tokens"] += prompt
+        per_model["completion_tokens"] += completion
+        per_model["calls"] += 1
         return resp
 
     def evaluate(self, instructions, response_model=StandardVerdict):
@@ -334,6 +349,8 @@ class LLM:
             self._project,
             self.usage,
             self._logger,
+            provider_id=cfg.get("provider_id"),
+            model_name=cfg.get("model_name"),
         )
 
     @property

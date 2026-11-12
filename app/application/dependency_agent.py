@@ -8,7 +8,9 @@ knows which snapshot and which inference are in use. Pass ``inference`` /
 """
 from __future__ import annotations
 
+from app.application.ai_usage import BudgetWatch, UsageRecorder
 from app.application.architecture.ports import RepositorySnapshot, TopologyInference
+from app.domain.ai_usage import TokenCount, UsageCategory
 from app.application.architecture.refresh import InferenceSummary, RefreshProjectTopology
 from app.application.standard_engine import resolve_llm_roles
 from app.domain.models import Project
@@ -67,9 +69,29 @@ def infer_and_store(
     Sets the project's deps_status to OK on success; raises on failure (the
     caller/task records the failure and the previous map is kept).
     """
+    inference = inference or llm_inference_for(project.tenant)
+    # The workspace's own model (its provider is known) is billed and gated by
+    # its budgets; an inference given explicitly (fixtures, local tooling) is not.
+    billed = isinstance(inference, LLMTopologyInference) and bool(inference.provider_id)
+    if billed:
+        refused = BudgetWatch.refusal(project.tenant, inference.provider_id, inference.model_name)
+        if refused:
+            raise RuntimeError(refused)
     use_case = RefreshProjectTopology(
-        inference=inference or llm_inference_for(project.tenant),
+        inference=inference,
         snapshot_factory=(lambda p: snapshot) if snapshot is not None else snapshot_for_project,
         enqueue_refresh=_enqueue_refresh,
     )
-    return use_case.run(project)
+    try:
+        return use_case.run(project)
+    finally:
+        if billed:
+            usage = inference.usage or {}
+            UsageRecorder.record(
+                tenant=project.tenant,
+                provider_id=inference.provider_id,
+                model=inference.model_name,
+                category=UsageCategory.MAP,
+                tokens=TokenCount(usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0), usage.get("calls", 0)),
+                project=project,
+            )
