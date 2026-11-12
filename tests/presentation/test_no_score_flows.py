@@ -148,13 +148,6 @@ class PagesTests(Fixture):
         assert "no data" not in body
         assert 'title="No score on commit 2222222: Lint errored."' in body and 'data-no-grade="no_score"' in body
 
-    def test_needs_attention_explains_what_it_lists(self):
-        # The Needs attention list is in the notifications pane.
-        body = self.client.get(reverse("notification_panel")).content.decode()
-
-        assert "data-attention-help" in body
-        assert "Only failed projects (a Required standard failed) and standard runs that errored" in body
-
 
 class MapTests(Fixture):
     def setUp(self):

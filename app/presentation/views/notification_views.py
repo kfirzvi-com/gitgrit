@@ -2,9 +2,8 @@
 page, never a page of its own. Every view here serves the pane's fragment or
 acts on one inbox item; ``open_notification`` is the only one that navigates.
 
-The pane has two kinds of content. "Needs attention" is the workspace's
-current state (the same list as the dashboard) and is always shown; Active
-and History are the user's ``Inbox``, which owns the reading rules.
+The pane shows the user's ``Inbox``, Active and History; the ``Inbox`` owns
+the reading rules.
 """
 from datetime import timedelta
 
@@ -15,7 +14,6 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from app.application.standard_results import attention_items
 from app.domain.models import InboxItem
 from app.domain.notifications.inbox import Inbox
 
@@ -50,17 +48,13 @@ def _group_by_day(items):
 
 
 def _panel(request):
-    """Render the pane's contents: Needs attention, Active grouped by day, and
-    History."""
+    """Render the pane's contents: Active grouped by day, and History."""
     inbox = _inbox(request)
     active = inbox.active()
-    attention = attention_items(request.tenant) if request.tenant else []
     return render(
         request,
         "partials/notifications_panel.html",
         {
-            "attention_items": attention,
-            "attention_total": len(attention),
             "active": active,
             "active_groups": _group_by_day(active),
             "history": inbox.history(),
