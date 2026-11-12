@@ -136,6 +136,30 @@ def map_status(projects):
     }
 
 
+def stack_dependencies(tenant, stacks) -> dict:
+    """Stack-to-stack dependencies, derived from component dependencies and
+    stack membership: if component A (in stack X) depends on component B (in
+    stack Y), then X depends on Y. As {(X id, Y id): {labels}}, ids as
+    strings. ``stacks`` should prefetch ``components``."""
+    component_stacks = defaultdict(set)
+    for stack in stacks:
+        for c in stack.components.all():
+            component_stacks[c.id].add(str(stack.id))
+
+    edge_labels: dict[tuple[str, str], set] = defaultdict(set)
+    for dep in ComponentDependency.objects.filter(tenant=tenant).values(
+        "source_id", "target_id", "label"
+    ):
+        for src in component_stacks.get(dep["source_id"], ()):
+            for tgt in component_stacks.get(dep["target_id"], ()):
+                if src != tgt:
+                    if dep["label"]:
+                        edge_labels[(src, tgt)].add(dep["label"])
+                    else:
+                        edge_labels.setdefault((src, tgt), set())
+    return edge_labels
+
+
 def workspace_graph(tenant):
     stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
     project_scores = scoring.project_scores(Project.objects.filter(tenant=tenant))
@@ -173,24 +197,7 @@ def workspace_graph(tenant):
             }
         )
 
-    # Derive stack→stack edges from component dependencies + stack membership:
-    # if component A (in stack X) depends on component B (in stack Y), then X→Y.
-    component_stacks = defaultdict(set)
-    for stack in stacks:
-        for c in stack.components.all():
-            component_stacks[c.id].add(str(stack.id))
-
-    edge_labels: dict[tuple[str, str], set] = defaultdict(set)
-    for dep in ComponentDependency.objects.filter(tenant=tenant).values(
-        "source_id", "target_id", "label"
-    ):
-        for src in component_stacks.get(dep["source_id"], ()):
-            for tgt in component_stacks.get(dep["target_id"], ()):
-                if src != tgt:
-                    if dep["label"]:
-                        edge_labels[(src, tgt)].add(dep["label"])
-                    else:
-                        edge_labels.setdefault((src, tgt), set())
+    edge_labels = stack_dependencies(tenant, stacks)
 
     dependencies = [
         {

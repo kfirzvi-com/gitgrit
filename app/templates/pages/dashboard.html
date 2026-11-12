@@ -1,106 +1,291 @@
 {% extends "base.html" %}
+{% load score_tags %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
 
 {% block extra_head %}
   <style>
-    .gg-dashboard-narrow { margin-inline: auto; max-width: 960px; }
-    .gg-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .gg-cockpit { margin-inline: auto; max-width: 1240px; }
+    .gg-eyebrow { font-family: var(--gg-font-mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gg-text-dim); }
+    .gg-cluster {
+      border: 1px solid var(--gg-border); border-radius: 1.25rem;
+      background: linear-gradient(175deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.08) 100%), var(--gg-surface);
+      box-shadow: var(--gg-shadow-inset), var(--gg-shadow-card), 0 0 60px var(--gg-primary-glow);
+    }
+    .gg-panel {
+      border: 1px solid var(--gg-border); border-radius: 0.75rem;
+      background: linear-gradient(175deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.08) 100%), var(--gg-surface);
+      box-shadow: var(--gg-shadow-inset), var(--gg-shadow-card);
+    }
+    .gg-gauge-track { stroke: rgba(255,255,255,0.08); }
+    /* Car-dashboard parts: dial faces, needles, digital readouts, lamps, the trip computer. */
+    .gg-dial-face { fill: #0f1218; stroke: var(--gg-border); stroke-width: 3; }
+    .gg-needle { stroke: #e2e8f0; stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(226,232,240,0.45)); }
+    .gg-dial-digits { fill: #e2e8f0; font-family: var(--gg-font-mono); font-weight: 700; }
+    .gg-lamp { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.7rem; border-radius: 0.6rem;
+               border: 1px solid var(--gg-border); background: #0f1218; color: #3d4556; }
+    .gg-lamp[data-lit] { color: var(--gg-tone-color);
+                         border-color: color-mix(in srgb, var(--gg-tone-color) 60%, transparent);
+                         background: color-mix(in srgb, var(--gg-tone-color) 9%, #0f1218);
+                         box-shadow: 0 0 18px color-mix(in srgb, var(--gg-tone-color) 30%, transparent), inset 0 0 8px color-mix(in srgb, var(--gg-tone-color) 15%, transparent); }
+    .gg-lamp[data-lit]:hover { filter: brightness(1.2); }
+    /* Fuel tanks: a lit level in a dark tube, ticks every quarter. */
+    .gg-tank { position: relative; display: flex; align-items: flex-end; height: 120px; width: 100%; border-radius: 0.45rem;
+               background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), rgba(255,255,255,0.07) calc(25% - 1px) 25%), #0f1218;
+               border: 1px solid var(--gg-border); box-shadow: inset 0 2px 6px rgba(0,0,0,0.7); overflow: hidden; }
+    .gg-tank-mark { position: absolute; left: -3px; right: -3px; height: 0; border-top: 2px dashed var(--gg-tone-needs_attention); opacity: 0.85; }
+    .gg-tank-mark::after { content: ""; position: absolute; left: -4px; top: -5px; border: 4px solid transparent; border-left-color: var(--gg-tone-needs_attention); }
+    .gg-tank { overflow: visible; }
+    .gg-tank-fill { display: block; width: 100%; border-radius: 0.35rem 0.35rem 0.3rem 0.3rem; min-height: 2px; }
+    .gg-tank-fill.gg-tank-ok { background: linear-gradient(to top, color-mix(in srgb, var(--gg-primary) 70%, black), var(--gg-primary)); box-shadow: 0 0 10px color-mix(in srgb, var(--gg-primary) 40%, transparent); }
+    .gg-tank-fill.gg-tank-near { background: var(--gg-tone-needs_attention); box-shadow: 0 0 10px color-mix(in srgb, var(--gg-tone-needs_attention) 45%, transparent); }
+    .gg-tank-fill.gg-tank-reached { background: var(--gg-tone-failed); box-shadow: 0 0 10px color-mix(in srgb, var(--gg-tone-failed) 55%, transparent); }
+    span.gg-tank-ok { color: #a5f3fc; } span.gg-tank-near { color: var(--gg-tone-needs_attention); } span.gg-tank-reached { color: var(--gg-tone-failed); }
+    .gg-dial-digits-text { font-family: var(--gg-font-mono); font-weight: 700; }
+    [data-dashboard-tabs] .tab { font-family: var(--gg-font-mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    [data-dashboard-tabs] .tab.tab-active { background: var(--gg-primary); color: #0c0e13; border-radius: 0.5rem; font-weight: 700; }
+    /* A lamp: dark until lit, then it glows in its tone. */
+    .gg-light { border: 1px solid var(--gg-border); border-radius: 0.75rem; background: var(--gg-surface); }
+    .gg-light[data-lit] { border-color: var(--gg-tone-color); background: color-mix(in srgb, var(--gg-tone-color) 9%, transparent); box-shadow: 0 0 24px color-mix(in srgb, var(--gg-tone-color) 20%, transparent); }
+    .gg-light-failed { --gg-tone-color: var(--gg-tone-failed); }
+    .gg-light-needs_attention { --gg-tone-color: var(--gg-tone-needs_attention); }
+    .gg-light[data-lit] .gg-lamp-text { color: color-mix(in srgb, var(--gg-tone-color) 45%, white); }
+    .gg-map-grid { background-color: #0f1218; background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px); background-size: 32px 32px; }
+    .gg-map-node rect { fill: var(--gg-surface); stroke: var(--gg-border); stroke-width: 1.5; transition: stroke .15s; }
+    .gg-map-node:hover rect, .gg-map-node:focus rect { stroke: var(--gg-primary); }
   </style>
 {% endblock %}
 
 {% block content %}
-<div class="gg-dashboard-narrow text-center mb-6">
-  <h1 class="text-3xl font-bold">Welcome, {{ user.first_name|default:user.username|capfirst }}</h1>
-  <p class="text-sm opacity-60 mt-1 mb-4">Your workspace at a glance.</p>
-  <div class="gg-quick-actions">
-    {% if is_admin and not has_connections %}
-    {# Nothing can be added until a platform is connected, so that comes first. #}
-    <a href="{% url 'tenant_settings' %}#section-connections" class="btn btn-sm btn-primary gap-1">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-      Connect git platform
-    </a>
-    <a href="{% url 'add_project_select' %}" class="btn btn-sm btn-ghost">Add project</a>
-    {% else %}
-    <a href="{% url 'add_project_select' %}" class="btn btn-sm btn-primary gap-1">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-      Add project
-    </a>
-    {% endif %}
-    <a href="{% url 'create_stack' %}" class="btn btn-sm btn-ghost">Create stack</a>
-    <a href="{% url 'create_standard' %}" class="btn btn-sm btn-ghost">Create standard</a>
-    <a href="{% url 'marketplace_browse' %}" class="btn btn-sm btn-ghost">Browse marketplace</a>
-  </div>
-</div>
-
-{% if is_admin and not has_connections %}
-<div class="gg-dashboard-narrow alert alert-info mb-6">
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-  <span>No git platforms configured yet. <a href="{% url 'tenant_settings' %}#section-connections" class="link link-primary font-semibold">Add a connection</a> in workspace settings so members can start adding projects.</span>
-</div>
-{% endif %}
-
 {% if project_count or stack_count %}
-<div class="gg-dashboard-narrow flex flex-col gap-6">
-  {# Totals and the workspace's project health: failed, needs attention, healthy. #}
-  <section class="card bg-base-100" data-workspace-health>
-    <div class="card-body">
-      <div class="flex flex-wrap items-baseline justify-between gap-3">
-        <p class="text-lg">
-          <a href="{% url 'project_list' %}" class="link link-hover"><b class="text-3xl">{{ project_count }}</b> project{{ project_count|pluralize }}</a>
-          in <a href="{% url 'stack_list' %}" class="link link-hover"><b>{{ stack_count }}</b> stack{{ stack_count|pluralize }}</a>
-          &middot; <a href="{% url 'standard_list' %}" class="link link-hover"><b>{{ standard_count }}</b> standard{{ standard_count|pluralize }}</a>
-        </p>
-        <a href="{% url 'project_list' %}" class="link link-primary text-sm">All projects &rarr;</a>
-      </div>
-      {% if project_count %}
-        <div class="flex h-3.5 gap-0.5 overflow-hidden rounded-full mt-3" role="img"
-             aria-label="{{ workspace_health.failed }} failed, {{ workspace_health.needs_attention }} {{ workspace_health.needs_attention|pluralize:"needs attention,need attention" }}, {{ workspace_health.healthy }} healthy">
-          {% if workspace_health.failed %}<div class="gg-tone-bg-failed" style="flex: {{ workspace_health.failed }}"></div>{% endif %}
-          {% if workspace_health.needs_attention %}<div class="gg-tone-bg-needs_attention" style="flex: {{ workspace_health.needs_attention }}"></div>{% endif %}
-          {% if workspace_health.healthy %}<div class="gg-tone-bg-healthy" style="flex: {{ workspace_health.healthy }}"></div>{% endif %}
-        </div>
-        <div class="flex flex-wrap gap-x-6 gap-y-1 mt-2 text-sm">
-          {% include "partials/project_health_count.html" with key="failed" tone="failed" number=workspace_health.failed label="failed" rows=workspace_health.failed_projects linked=True %}
-          {% include "partials/project_health_count.html" with key="needs_attention" tone="needs_attention" number=workspace_health.needs_attention label=workspace_health.needs_attention|pluralize:"needs attention,need attention" rows=workspace_health.needs_attention_projects linked=True %}
-          {% include "partials/project_health_count.html" with key="healthy" tone="healthy" number=workspace_health.healthy label="healthy" rows=workspace_health.healthy_projects linked=True %}
-        </div>
-      {% endif %}
-    </div>
-  </section>
+{% with h=workspace_health %}
+<div class="gg-cockpit flex flex-col gap-7" data-cockpit>
 
-  {# Stacks, worst first; each opens its stack page and its map. #}
-  <section class="card bg-base-100" data-stack-health>
-    <div class="card-body">
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 class="section-label">Stacks</h2>
-        {% if stack_health %}<span class="text-xs opacity-60">worst first &middot; open one to see its map</span>{% endif %}
-      </div>
-      {% for stack, counts in stack_health %}
-        <a href="{% url 'stack_detail' stack.pk %}" class="grid grid-cols-1 sm:grid-cols-[2fr_1fr_3fr] gap-x-4 gap-y-1 items-center -mx-2 px-2 py-3 rounded hover:bg-base-200{% if not forloop.last %} border-b border-base-300{% endif %}">
-          <span class="font-semibold truncate">{{ stack.name }}</span>
-          {% with total=counts.failed|add:counts.needs_attention|add:counts.healthy %}
-          <span class="text-sm opacity-60">{{ total }} project{{ total|pluralize }}</span>
-          {% endwith %}
-          <span class="text-sm">{% include "partials/project_health_counts.html" %}</span>
-        </a>
-      {% empty %}
-        <p class="text-sm opacity-70 mt-1">
-          No stacks yet. Stacks group related projects into systems, and each
-          stack's page maps them.
-          <a href="{% url 'create_stack' %}" class="link link-primary">Create a stack</a>
-        </p>
-      {% endfor %}
+  {% comment %}The headline is the status: reassurance first, then what needs you.{% endcomment %}
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-col gap-1.5">
+      <span class="gg-eyebrow">{{ current_tenant.name }}</span>
+      <h1 class="text-3xl font-bold" data-headline>
+        You're in control.
+        <span class="text-primary">{% if h.failed and h.needs_attention %}{{ h.failed }} failed, {{ h.needs_attention }} need{{ h.needs_attention|pluralize:"s," }} attention.{% elif h.failed %}{{ h.failed }} failed.{% elif h.needs_attention %}{{ h.needs_attention }} need{{ h.needs_attention|pluralize:"s," }} attention.{% else %}Nothing needs you now.{% endif %}</span>
+      </h1>
+      <span class="text-sm" style="color: var(--gg-text-dim)" data-totals>
+        <a href="{% url 'stack_list' %}" class="hover:underline"><b class="text-base-content font-semibold">{{ stack_count }}</b> stack{{ stack_count|pluralize }}</a> &middot;
+        <a href="{% url 'project_list' %}" class="hover:underline"><b class="text-base-content font-semibold">{{ project_count }}</b> project{{ project_count|pluralize }}</a> &middot;
+        <a href="{% url 'standard_list' %}" class="hover:underline"><b class="text-base-content font-semibold">{{ standard_count }}</b> standard{{ standard_count|pluralize }}</a>
+      </span>
     </div>
+    <div class="flex items-center gap-3">
+      <div class="dropdown dropdown-end">
+        <button type="button" tabindex="0" class="btn btn-sm btn-primary gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          New
+        </button>
+        <ul tabindex="0" class="dropdown-content menu z-50 w-52 rounded-box border border-base-content/10 bg-base-100 p-1 shadow-lg">
+          {% if is_admin and not has_connections %}<li><a href="{% url 'tenant_settings' %}#section-connections">Connect git platform</a></li>{% endif %}
+          <li><a href="{% url 'add_project_select' %}">Project</a></li>
+          <li><a href="{% url 'create_stack' %}">Stack</a></li>
+          <li><a href="{% url 'create_standard' %}">Standard</a></li>
+          <li><a href="{% url 'marketplace_browse' %}">From marketplace</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  {% if is_admin and not has_connections %}
+  <div class="alert alert-info">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    <span>No git platforms configured yet. <a href="{% url 'tenant_settings' %}#section-connections" class="link link-primary font-semibold">Add a connection</a> in workspace settings so members can start adding projects.</span>
+  </div>
+  {% endif %}
+
+  {% include "partials/cockpit_cluster.html" %}
+
+  {% comment %}Below the cluster, one tab at a time: what needs you and the stack map. The tab
+  is kept in the URL's hash, so links into it (the lamps) open it.{% endcomment %}
+  <div class="flex flex-col gap-5" data-dashboard-tabs>
+    <div role="tablist" aria-label="Dashboard views" class="tabs tabs-boxed self-start bg-base-100">
+      <a role="tab" href="#tab-overview" class="tab tab-active" aria-selected="true" aria-controls="tab-overview" data-tab="tab-overview">Needs you</a>
+      <a role="tab" href="#tab-map" class="tab" aria-selected="false" aria-controls="tab-map" data-tab="tab-map">Stack map</a>
+    </div>
+
+    <div id="tab-overview" role="tabpanel" data-tab-panel>
+  <div class="grid gap-5 items-start grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    {% comment %}The projects that need you: failed first, each with its grade and why.{% endcomment %}
+    <section id="where" aria-labelledby="where-title" class="gg-panel p-6 flex flex-col gap-3.5 min-w-0" data-light-targets>
+      <h2 id="where-title" class="text-lg font-semibold">Where the lights point</h2>
+      {% if attention_rows %}
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr class="gg-eyebrow"><th>Project</th><th>Grade</th><th>Why</th><th>Owner</th><th>Stack</th></tr>
+            </thead>
+            <tbody>
+              {% for row, why in attention_rows|slice:":5" %}
+                <tr data-row-tone="{{ row.tone }}">
+                  <td class="font-mono text-sm whitespace-nowrap max-w-[14rem] truncate"><a href="{% url 'project_detail' row.project.pk %}" class="link link-hover" title="{{ row.project.name }}">{{ row.project.name }}</a></td>
+                  <td>{% if row.score and row.score.outcome != "no_score" %}{% score row.score.value failed=row.score.failed size="sm" %}{% else %}<span style="color: var(--gg-text-dim)">&mdash;</span>{% endif %}</td>
+                  <td class="text-sm"{% if row.tone != "failed" %} style="color: var(--gg-text-dim)"{% endif %}>{{ why|default:"Grade below A" }}</td>
+                  <td class="text-sm whitespace-nowrap">{% if row.owner %}{{ row.owner }}{% else %}<span style="color: var(--gg-text-dim)">No owner</span>{% endif %}</td>
+                  <td class="text-sm whitespace-nowrap" style="color: var(--gg-text-dim)">{{ row.stacks|join:", "|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <a href="{% url 'project_list' %}" class="link link-primary link-hover text-sm">See all {{ attention_rows|length }} project{{ attention_rows|length|pluralize }} that need{{ attention_rows|length|pluralize:"s," }} you</a>
+      {% else %}
+        <p class="text-sm" style="color: var(--gg-text-dim)">Nothing. Every project is healthy.</p>
+      {% endif %}
+    </section>
+
+    {% comment %}Healthy projects, week by week: is the workspace getting better?{% endcomment %}
+    <section aria-labelledby="trend-title" class="gg-panel p-6 flex flex-col gap-3.5 min-w-0" data-trend>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex flex-col gap-1">
+          <h2 id="trend-title" class="gg-eyebrow">Healthy projects &middot; last 4 weeks</h2>
+          <span class="text-[28px] font-bold leading-tight">{{ trend.first.healthy }} &rarr; {{ trend.last.healthy }}
+            <span class="text-base font-semibold gg-tone-text-healthy">{% if trend.change > 0 %}+{% endif %}{{ trend.change }} healthy</span>
+          </span>
+          <span class="text-sm" style="color: var(--gg-text-dim)">{% if trend.this_week > 0 %}+{% endif %}{{ trend.this_week }} this week</span>
+        </div>
+        <div class="flex flex-wrap gap-3.5 text-xs" style="color: var(--gg-text-dim)">
+          <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3.5 h-[3px] rounded-sm gg-tone-bg-healthy" aria-hidden="true"></span>Healthy</span>
+          <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3.5 border-t-2 border-dashed" style="border-color: #5a6478" aria-hidden="true"></span>All projects</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 560 240" class="w-full h-auto" role="img"
+           aria-label="Healthy projects over the last 4 weeks:{% for p in trend.healthy %} {{ p.value }} on {{ p.label }}{% if not forloop.last %},{% endif %}{% endfor %}, of {{ trend.last.total }}.">
+        <g stroke="#171b25" stroke-width="1">{% for y, v in trend.ticks %}<line x1="40" y1="{{ y }}" x2="540" y2="{{ y }}"/>{% endfor %}</g>
+        <g fill="#8892a4" font-family="JetBrains Mono, monospace" font-size="11" text-anchor="end">{% for y, v in trend.ticks %}<text x="32" y="{{ y }}" dy="4">{{ v }}</text>{% endfor %}</g>
+        <polyline points="{{ trend.total_line }}" fill="none" stroke="#5a6478" stroke-width="2" stroke-dasharray="5 5"/>
+        <path d="{{ trend.area }}" fill="var(--gg-tone-healthy)" fill-opacity="0.10"/>
+        <polyline points="{{ trend.healthy_line }}" fill="none" stroke="var(--gg-tone-healthy)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+        {% for p in trend.healthy %}
+          {% if forloop.last %}<circle cx="{{ p.x }}" cy="{{ p.y }}" r="6" fill="var(--gg-tone-healthy)"/>{% else %}<circle cx="{{ p.x }}" cy="{{ p.y }}" r="4" fill="#0c0e13" stroke="var(--gg-tone-healthy)" stroke-width="2"/>{% endif %}
+          <text x="{{ p.x }}" y="{{ p.y }}" dy="-12" text-anchor="{% if forloop.first %}start{% elif forloop.last %}end{% else %}middle{% endif %}" fill="#e2e8f0" font-size="13" font-weight="{% if forloop.last %}700{% else %}600{% endif %}">{{ p.value }}</text>
+          <text x="{{ p.x }}" y="224" text-anchor="{% if forloop.first %}start{% elif forloop.last %}end{% else %}middle{% endif %}" fill="#8892a4" font-family="JetBrains Mono, monospace" font-size="11">{{ p.label }}</text>
+        {% endfor %}
+      </svg>
+    </section>
+  </div>
+    </div>
+
+    <div id="tab-map" role="tabpanel" data-tab-panel hidden>
+  {% comment %}Stack map: dependants above what they depend on; each stack's projects counted by health.{% endcomment %}
+  <section aria-labelledby="map-title" class="gg-map-grid rounded-xl border border-base-300 px-8 pt-6 pb-5 flex flex-col gap-3 min-w-0 overflow-hidden" style="box-shadow: var(--gg-shadow-inset), var(--gg-shadow-card)" data-stack-map data-stack-health>
+    <div class="flex flex-wrap items-baseline justify-between gap-3">
+      <h2 id="map-title" class="gg-eyebrow">Stack map{% if map_updated_at %} <span class="normal-case tracking-normal opacity-70" id="map-updated">&middot; updated {{ map_updated_at|date:"d/m/y" }}</span>{% endif %}</h2>
+      <a href="{% url 'stack_list' %}" class="link link-primary link-hover text-sm">All stacks &rarr;</a>
+    </div>
+    {% if stack_map.nodes %}
+      <div class="overflow-x-auto"><div style="min-width: 640px;">
+        <svg viewBox="0 0 {{ stack_map.width }} {{ stack_map.height }}" class="w-full h-auto block" role="img" aria-label="Stack map: each stack with its projects counted by health; arrows point to what a stack depends on.">
+          <defs><marker id="gg-map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="rgba(255,255,255,0.4)"/></marker></defs>
+          <g fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="1.5" stroke-linejoin="round">{% for d in stack_map.edges %}<path d="{{ d }}" marker-end="url(#gg-map-arrow)"/>{% endfor %}</g>
+          {% for node in stack_map.nodes %}
+            <a href="{% url 'stack_detail' node.stack.pk %}" class="gg-map-node">
+              <title>{{ node.stack.name }}: {{ node.counts.failed }} failed, {{ node.counts.needs_attention }} need attention, {{ node.counts.healthy }} healthy</title>
+              <rect x="{{ node.x }}" y="{{ node.y }}" width="{{ stack_map.node_w }}" height="{{ stack_map.node_h }}" rx="12"/>
+              <text x="{{ node.x|add:14 }}" y="{{ node.y|add:23 }}" fill="#e2e8f0" font-size="14" font-weight="600">{{ node.stack.name|truncatechars:15 }}</text>
+              <text x="{{ node.x|add:156 }}" y="{{ node.y|add:23 }}" text-anchor="end" fill="#8892a4" font-family="JetBrains Mono, monospace" font-size="10">{{ node.counts.total }} PROJ</text>
+              {% include "partials/stack_map_counts.html" with c=node.counts x=node.x y=node.y %}
+            </a>
+          {% endfor %}
+        </svg>
+      </div></div>
+      <div class="flex flex-wrap gap-x-4 gap-y-2 text-xs" style="color: var(--gg-text-dim)">
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full gg-tone-bg-failed" aria-hidden="true"></span>Failed</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full gg-tone-bg-needs_attention" aria-hidden="true"></span>Needs attention</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full gg-tone-bg-healthy" aria-hidden="true"></span>Healthy</span>
+        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 border-t" style="border-color: rgba(255,255,255,0.4)" aria-hidden="true"></span>Depends on</span>
+      </div>
+    {% else %}
+      <p class="text-sm" style="color: var(--gg-text-dim)">No stacks yet. Stacks group related projects into systems. <a href="{% url 'create_stack' %}" class="link link-primary">Create a stack</a></p>
+    {% endif %}
+  </section>
+    </div>
+  </div>
+</div>
+<script>
+  // Dashboard tabs: one panel at a time, chosen by the URL's hash (#tab-…).
+  (function () {
+    var root = document.querySelector("[data-dashboard-tabs]");
+    if (!root) return;
+    function show(id) {
+      if (!document.getElementById(id) || !root.contains(document.getElementById(id))) id = "tab-overview";
+      root.querySelectorAll("[data-tab-panel]").forEach(function (p) { p.hidden = p.id !== id; });
+      root.querySelectorAll("[data-tab]").forEach(function (t) {
+        var on = t.dataset.tab === id;
+        t.classList.toggle("tab-active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+    }
+    document.addEventListener("click", function (e) {
+      var link = e.target.closest('a[href^="#tab-"]');
+      if (!link) return;
+      e.preventDefault();
+      var id = link.getAttribute("href").slice(1);
+      history.replaceState(null, "", "#" + id);
+      show(id);
+      if (!link.matches("[data-tab]")) root.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    show(location.hash.slice(1));
+  })();
+</script>
+{% endwith %}
+{% else %}
+{% comment %}Empty state, the same cockpit at rest: the cluster's instruments read zero and every
+lamp is dark, and a pre-flight checklist leads to the first checked project.{% endcomment %}
+{% with h=workspace_health %}
+<div class="gg-cockpit flex flex-col gap-7" data-cockpit-empty>
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-col gap-1.5">
+      <span class="gg-eyebrow">{{ current_tenant.name }}</span>
+      <h1 class="text-3xl font-bold">You're in control. <span class="text-primary">Let's get your first project checked.</span></h1>
+    </div>
+  </div>
+
+  {% include "partials/cockpit_cluster.html" %}
+
+  <section aria-labelledby="preflight-title" class="gg-panel p-6 flex flex-col gap-2" data-preflight>
+    <h2 id="preflight-title" class="text-lg font-semibold">Pre-flight checklist</h2>
+    <ol class="flex flex-col">
+      <li class="flex items-start gap-4 py-3 border-b border-base-300" data-step="connect" data-done="{{ has_connections|yesno:'true,false' }}">
+        {% include "partials/preflight_mark.html" with done=has_connections number=1 %}
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold">Connect a git platform</p>
+          <p class="text-sm" style="color: var(--gg-text-dim)">{% if has_connections %}Connected.{% elif is_admin %}Projects come from GitHub or GitLab. Open <a href="{% url 'tenant_settings' %}#section-connections" class="link link-primary">workspace settings</a> to connect one.{% else %}A workspace admin connects GitHub or GitLab.{% endif %}</p>
+        </div>
+        {% if is_admin and not has_connections %}<a href="{% url 'tenant_settings' %}#section-connections" class="btn btn-sm btn-primary shrink-0">Connect git platform</a>{% endif %}
+      </li>
+      <li class="flex items-start gap-4 py-3 border-b border-base-300" data-step="project">
+        {% include "partials/preflight_mark.html" with done=False number=2 %}
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold">Add your first project</p>
+          <p class="text-sm" style="color: var(--gg-text-dim)">GitGrit checks every push against your standards.</p>
+        </div>
+        <a href="{% url 'add_project_select' %}" class="btn btn-sm {% if is_admin and not has_connections %}btn-ghost{% else %}btn-primary{% endif %} shrink-0">Add project</a>
+      </li>
+      <li class="flex items-start gap-4 py-3 border-b border-base-300" data-step="standards">
+        {% include "partials/preflight_mark.html" with done=standard_count number=3 %}
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold">Pick your standards</p>
+          <p class="text-sm" style="color: var(--gg-text-dim)">{% if standard_count %}{{ standard_count }} standard{{ standard_count|pluralize }} ready.{% else %}Start from the marketplace, or write your own.{% endif %}</p>
+        </div>
+        <a href="{% url 'marketplace_browse' %}" class="btn btn-sm btn-ghost shrink-0">Browse marketplace</a>
+      </li>
+      <li class="flex items-start gap-4 py-3" data-step="stack">
+        {% include "partials/preflight_mark.html" with done=False number=4 %}
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold">Group projects into a stack</p>
+          <p class="text-sm" style="color: var(--gg-text-dim)">A stack is a system: its projects, their health and a map of how they connect.</p>
+        </div>
+        <a href="{% url 'create_stack' %}" class="btn btn-sm btn-ghost shrink-0">Create stack</a>
+      </li>
+    </ol>
   </section>
 </div>
-{% else %}
-  <div class="gg-dashboard-narrow flex flex-col items-center text-center py-16">
-    <h2 class="text-xl font-semibold">No projects yet</h2>
-    <p class="text-sm opacity-60 max-w-md mt-1">
-      Add a project to see its health here. Stacks group related projects
-      into systems, and each stack's page maps them.
-    </p>
-  </div>
+{% endwith %}
 {% endif %}
 {% endblock %}

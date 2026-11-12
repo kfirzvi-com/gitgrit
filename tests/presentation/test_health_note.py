@@ -20,3 +20,8 @@ class HealthNoteTests(SimpleTestCase):
 
     def test_a_grade_says_enough_on_its_own(self):
         self.assertEqual(HealthNote.text(CommitScore(value=72)), "")
+
+    def test_a_grade_below_a_names_what_pulls_it_down(self):
+        score = CommitScore(value=72)
+        self.assertEqual(HealthNote.text(score, ("Lint", "Docs")), "Below par: Lint, Docs")
+        self.assertEqual(HealthNote.text(score, ("Lint", "Docs", "CI", "License")), "Below par: Lint, Docs and 2 more")

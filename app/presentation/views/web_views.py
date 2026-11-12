@@ -6,9 +6,16 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from app.application.cockpit import Cockpit, HealthTrend
 from app.application.dependency_agent import refresh_workspace_map
 from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.models import PlatformConnection, Standard, Project, Stack
+from app.presentation.architecture import map_status, stack_dependencies
+from app.presentation.health_dial import HealthDial
+from app.presentation.health_note import HealthNote
+from app.presentation.speedometer import Speedometer
+from app.presentation.stack_map import StackMap
+from app.presentation.trend_chart import TrendChart
 from app.workspace_access import is_workspace_admin
 
 
@@ -39,21 +46,32 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ).count()
             context["stack_count"] = Stack.objects.filter(tenant=tenant).count()
 
-            # The workspace map is off the dashboard for now (kept in code).
-            context["workspace_health"] = ProjectHealthCounts.for_workspace(tenant)
-            stacks = Stack.objects.filter(tenant=tenant).prefetch_related("components__project")
+            cockpit = Cockpit.for_workspace(tenant)
+            context["cockpit"] = cockpit
+            context["workspace_health"] = cockpit.health
+            context["dial"] = HealthDial.segments(cockpit.health)
+            context["attention_rows"] = [
+                (row, HealthNote.text(row.score, row.below_par)) for row in cockpit.rows
+            ]
+            context["trend"] = TrendChart(HealthTrend.weekly(tenant))
+            context["speedometer"] = Speedometer(cockpit.checks_this_week, cockpit.checks_peak)
+
+            stacks = list(Stack.objects.filter(tenant=tenant).prefetch_related("components__project"))
             health = ProjectHealthCounts.for_stacks(stacks)
             # Worst first: most failed, then most needing attention, then by name.
             context["stack_health"] = sorted(
                 ((stack, health[stack.pk]) for stack in stacks),
                 key=lambda row: (-row[1].failed, -row[1].needs_attention, row[0].name.lower()),
             )
+            context["stack_map"] = StackMap(context["stack_health"], stack_dependencies(tenant, stacks))
+            context["map_updated_at"] = map_status(Project.objects.filter(tenant=tenant))["updated_at"]
         else:
             context["project_count"] = 0
             context["standard_count"] = 0
             context["stack_count"] = 0
             context["workspace_health"] = None
             context["stack_health"] = []
+            context["cockpit"] = None
         return context
 
 
@@ -80,3 +98,4 @@ def refresh_map(request):
     else:
         messages.warning(request, "No projects to refresh.")
     return redirect("dashboard")
+
