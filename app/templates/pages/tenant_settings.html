@@ -262,7 +262,7 @@
             </div>
           {% else %}
             <div class="flex flex-col items-start gap-3 rounded-lg border border-dashed border-base-content/20 p-5" data-providers-empty>
-              <p class="text-sm opacity-70">No LLM providers yet. LLM policies and the dependency map run on your own provider's models.</p>
+              <p class="text-sm opacity-70">No LLM providers yet. LLM standards and the dependency map run on your own provider's models.</p>
               {% if is_admin %}
                 <button type="button" class="btn btn-primary btn-sm gap-1" data-open-add-provider
                         onclick="document.getElementById('add-provider-modal').showModal()">
@@ -306,12 +306,25 @@
                           class="select select-bordered flex-1"></select>
                   <button type="submit" class="btn btn-primary">Save</button>
                 </form>
+                {% if role.model and not role.has_budget %}
+                  <div class="flex flex-wrap items-center gap-2 text-sm sm:ml-[7.75rem] -mt-1" data-role-unbudgeted="{{ role.name }}">
+                    <span class="gg-tone-text-failed">No budget for {{ role.model }}: {{ role.label|lower }} runs are blocked.</span>
+                    <button type="button" class="link link-primary" data-open-budget data-model-key="{{ role.provider_id }}|{{ role.model }}">Add a budget</button>
+                  </div>
+                {% endif %}
               {% endfor %}
             </div>
           </div>
         </div>
 
       {% endif %}
+      {% comment %}Budgets belong with the providers and models they cap.{% endcomment %}
+      <div class="card bg-base-100" id="ai-budgets">
+        <div class="card-body">
+          <h2 class="card-title">Budgets</h2>
+          {% include "partials/ai_budgets_panel.html" %}
+        </div>
+      </div>
         </div>
       </section>
 
@@ -851,6 +864,96 @@
       </div>
       <form method="dialog" class="modal-backdrop"><button>close</button></form>
     </dialog>
+
+    {# Budget dialog: add a budget, or edit one (its row's Edit fills it in). #}
+    <dialog id="budget-modal" class="modal" aria-labelledby="budget-modal-title">
+      <div class="modal-box">
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Close">&#x2715;</button>
+        </form>
+        <h3 id="budget-modal-title" class="font-bold text-lg" data-budget-title>Add budget</h3>
+        <p class="text-sm opacity-70 mt-1 mb-5">Leave a limit blank for no limit on that side; set at least one.</p>
+        <form method="post" action="{% url 'save_ai_budget' %}" class="flex flex-col gap-5" data-budget-form
+              hx-post="{% url 'save_ai_budget' %}" hx-target="#ai-budgets-panel" hx-swap="outerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="budget_id" value="">
+          <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm">Model</span>
+              <select name="model_key" class="select select-bordered w-full" required>
+                {% for provider_id, provider_name, model, role in budget_model_options %}
+                  <option value="{{ provider_id }}|{{ model }}">{{ provider_name }} · {{ model }}{% if role %} ({{ role }}){% endif %}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm">Per</span>
+              <select name="period" class="select select-bordered w-full">
+                {% for p in budget_periods %}<option value="{{ p.value }}"{% if p.value == "month" %} selected{% endif %}>{% if p.value == "day" %}Day{% elif p.value == "week" %}Week{% else %}Month{% endif %}</option>{% endfor %}
+              </select>
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm">Input tokens</span>
+              <input name="input_limit" inputmode="numeric" placeholder="No limit" class="input input-bordered w-full">
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm">Output tokens</span>
+              <input name="output_limit" inputmode="numeric" placeholder="No limit" class="input input-bordered w-full">
+            </label>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm" for="budget-low-at">Low at</label>
+            <label class="input input-bordered flex items-center gap-2 w-44">
+              <input id="budget-low-at" name="low_at_percent" inputmode="numeric" class="grow min-w-0" placeholder="e.g. 20">
+              <span class="opacity-60">% left</span>
+            </label>
+            <span class="text-xs opacity-60">Warn owners and admins when this much is left. Blank: warn only when used up.</span>
+          </div>
+          <div class="flex items-start gap-3 border-t border-base-content/10 pt-4">
+            <input id="budget-stop" type="checkbox" name="stop_at_limit" class="toggle toggle-sm mt-0.5">
+            <label for="budget-stop" class="flex flex-col gap-0.5 cursor-pointer">
+              <span class="text-sm">Stop at limit</span>
+              <span class="text-xs opacity-60">Hold back new runs on this model once the budget is used up, until it resets.</span>
+            </label>
+          </div>
+          <div class="modal-action mt-1">
+            <button type="button" class="btn btn-ghost" data-close-budget>Cancel</button>
+            <button type="submit" class="btn btn-primary">Save budget</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    <script>
+      // Add budget opens the dialog empty; a row's Edit opens it filled in.
+      // Delegated: the budgets panel is swapped in place after every save.
+      (function () {
+        var modal = document.getElementById("budget-modal");
+        var form = modal.querySelector("[data-budget-form]");
+        document.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-open-budget]");
+          if (btn) {
+            var d = btn.dataset, editing = !!d.budgetId;
+            form.reset();
+            form.budget_id.value = d.budgetId || "";
+            if (d.modelKey) form.model_key.value = d.modelKey;
+            if (d.period) form.period.value = d.period;
+            form.input_limit.value = d.input || "";
+            form.output_limit.value = d.output || "";
+            form.low_at_percent.value = d.warn || "";
+            form.stop_at_limit.checked = d.stop === "1";
+            modal.querySelector("[data-budget-title]").textContent = editing ? "Edit budget" : "Add budget";
+            modal.showModal();
+            (editing ? form.input_limit : form.model_key).focus();
+          } else if (e.target.closest("[data-close-budget]")) {
+            modal.close();
+          }
+        });
+        document.body.addEventListener("aiBudgetSaved", function () { modal.close(); });
+      })();
+    </script>
 
     {# Edit provider modal #}
     <dialog id="edit-provider-modal" class="modal">

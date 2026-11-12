@@ -23,6 +23,7 @@ from app.application.workspace_service import (
 from app.domain.score_representation import ScoreDisplay
 from app.domain.workspace_roles import ROLE_LABELS, LastOwner, MembershipRuleError
 from app.domain.models import (
+    LLMBudget,
     APIToken,
     LLMProvider,
     LLMProviderType,
@@ -36,6 +37,7 @@ from app.domain.models import (
 from app.infrastructure.llm_models import discover, test_provider
 from app.infrastructure.platform_client import get_platform_client
 from app.presentation.htmx import toast
+from app.presentation.views.ai_budget_views import ai_budgets_context
 from app.workspace_access import (
     enter_support_view,
     has_admin_membership,
@@ -280,8 +282,14 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
                     "provider"
                 )
             }
+            budgeted = set(
+                LLMBudget.objects.filter(tenant=tenant).values_list("provider_id", "model")
+            )
             context["llm_role_rows"] = [
                 {
+                    # Budgets are an allow-list: a role's model with none never runs.
+                    "has_budget": value in existing_roles
+                    and (existing_roles[value].provider_id, existing_roles[value].model) in budgeted,
                     "name": value,
                     "label": label,
                     "provider_id": (
@@ -301,6 +309,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             }
 
             context["is_admin"] = is_workspace_admin(self.request)
+            context.update(ai_budgets_context(tenant, context["is_admin"]))
             context["tenant"] = self.request.tenant
             context["score_displays"] = list(ScoreDisplay)
             if context["is_admin"]:
