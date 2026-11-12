@@ -33,7 +33,7 @@ class ScoreToneStylesTests(SimpleTestCase):
             assert f"--gg-tone-{tone}: {color};" in html
             assert f".gg-tone-text-{tone}" in html
         assert 'id="gg-score-tones"' in html
-        assert ScoreToneStyle.as_json()["failed"] == {"color": "#ef4444", "label": "Failed"}
+        assert ScoreToneStyle.as_json()["failed"] == {"color": "#c084fc", "label": "Failed"}
 
     def test_the_api_level_choices_are_the_score_tones(self):
         from app.domain.score_representation import ScoreTone
