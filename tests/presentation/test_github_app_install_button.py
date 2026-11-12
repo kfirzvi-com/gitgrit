@@ -1,6 +1,6 @@
 """The Add Connection card on workspace settings.
 
-Connection setup uses the same flat inline-card form as Add LLM Provider: a
+Connection setup uses a flat inline-card form: a
 platform select plus token fields, with the flag-gated GitHub App install as a
 secondary action. Also covers the connections-table Method column and the
 per-row 'Manage on GitHub' link."""
