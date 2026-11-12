@@ -51,3 +51,11 @@ class DashboardConnectFirstTests(TestCase):
         self.assertContains(
             response, f'href="{reverse("add_project_select")}" class="btn btn-sm btn-primary'
         )
+
+    def test_the_empty_dashboard_is_the_same_cockpit_at_rest(self):
+        body = self.client.get(reverse("dashboard")).content.decode()
+
+        self.assertIn("data-cockpit-empty", body)
+        for part in ('data-gauge="checks"', 'data-gauge="health"', 'data-warning-lights'):
+            self.assertIn(part, body)
+        self.assertNotIn('" data-lit', body)  # no lamp is lit

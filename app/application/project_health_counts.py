@@ -38,6 +38,20 @@ class ProjectHealthCounts:
     def projects_with(self, tone) -> tuple:
         return (self.projects or {}).get(ScoreTone(tone), ())
 
+    @property
+    def total(self) -> int:
+        return self.failed + self.needs_attention + self.healthy
+
+    @property
+    def checked(self) -> int:
+        """How many of the projects have a score on record (any outcome)."""
+        return sum(1 for rows in (self.projects or {}).values() for _, score in rows if score is not None)
+
+    @property
+    def unchecked(self) -> int:
+        """How many of the projects have no score on record yet."""
+        return self.total - self.checked
+
     # The projects behind each count, for templates.
     @property
     def failed_projects(self) -> tuple:

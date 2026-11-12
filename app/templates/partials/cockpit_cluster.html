@@ -1,0 +1,70 @@
+  {% comment %}The instrument cluster, like a car's: commits checked (speedometer), project health
+  (the big centre dial, counts only, never one grade); under them the warning lamps and when the
+  numbers were last checked.{% endcomment %}
+  <section class="gg-cluster px-6 pt-8 pb-6 flex flex-col gap-6" aria-label="Instrument cluster" data-workspace-health>
+    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10">
+
+      <div class="flex flex-col items-center gap-2" data-gauge="checks">
+        <span class="gg-eyebrow text-center">Commits checked</span>
+        <svg viewBox="0 0 200 200" class="w-[170px] h-[170px]" role="img"
+             aria-label="{{ cockpit.checks_this_week }} commits checked this week, against {{ cockpit.checks_peak }} in the busiest of the last 4 weeks; last week {{ cockpit.checks_last_week }}">
+          <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
+          <g stroke="#5a6478" stroke-width="1.5">{% for x1, y1, x2, y2 in speedometer.ticks %}<line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>{% endfor %}</g>
+          <path d="{{ speedometer.arc_path }}" fill="none" class="gg-gauge-track" stroke-width="8" stroke-linecap="round"/>
+          {% if speedometer.value %}<path d="{{ speedometer.arc_path }}" fill="none" stroke="var(--gg-primary)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="{{ speedometer.share }} 100"/>{% endif %}
+          <line x1="100" y1="100" x2="{{ speedometer.needle_x }}" y2="{{ speedometer.needle_y }}" class="gg-needle"/>
+          <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
+          <text x="100" y="160" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ cockpit.checks_this_week }}</text>
+          <text x="100" y="178" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.5">THIS WEEK</text>
+        </svg>
+        <span class="text-xs" style="color: var(--gg-text-dim)">Last week {{ cockpit.checks_last_week }} &middot; 4-wk peak {{ cockpit.checks_peak }}</span>
+      </div>
+
+      <div class="flex flex-col items-center gap-1.5 w-[22rem] max-w-full" data-gauge="health">
+        <span class="gg-eyebrow">Workspace health</span>
+        <svg viewBox="0 0 300 175" class="w-full h-auto" role="img"
+             aria-label="Project health: {{ h.healthy }} healthy, {{ h.needs_attention }} {{ h.needs_attention|pluralize:"needs attention,need attention" }}, {{ h.failed }} failed, out of {{ h.total }} projects">
+          <g stroke="#5a6478" stroke-width="2">
+            <line x1="12" y1="150" x2="22" y2="150"/><line x1="52.4" y1="52.4" x2="59.5" y2="59.5"/><line x1="150" y1="12" x2="150" y2="22"/><line x1="247.6" y1="52.4" x2="240.5" y2="59.5"/><line x1="288" y1="150" x2="278" y2="150"/>
+          </g>
+          <path d="M 30 150 A 120 120 0 0 1 270 150" fill="none" class="gg-gauge-track" stroke-width="18"/>
+          {% for seg in dial %}
+            <path d="M 30 150 A 120 120 0 0 1 270 150" fill="none" stroke="var(--gg-tone-{{ seg.tone }})" stroke-width="18" pathLength="100" stroke-dasharray="{{ seg.length }} 100" stroke-dashoffset="-{{ seg.start }}"/>
+          {% endfor %}
+          <text x="150" y="122" text-anchor="middle" class="gg-dial-digits" font-size="58" letter-spacing="-1">{{ h.healthy }}/{{ h.total }}</text>
+          <text x="150" y="150" text-anchor="middle" fill="currentColor" opacity="0.6" font-size="16">{% if h.total %}projects healthy{% else %}no projects yet{% endif %}</text>
+        </svg>
+        <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
+          {% include "partials/project_health_count.html" with key="failed" tone="failed" number=h.failed label="failed" rows=h.failed_projects linked=True %}
+          {% include "partials/project_health_count.html" with key="needs_attention" tone="needs_attention" number=h.needs_attention label=h.needs_attention|pluralize:"needs attention,need attention" rows=h.needs_attention_projects linked=True %}
+          {% include "partials/project_health_count.html" with key="healthy" tone="healthy" number=h.healthy label="healthy" rows=h.healthy_projects linked=True %}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-4 border-t pt-5" style="border-color: rgba(255,255,255,0.06)">
+      {% comment %}Warning lamps: dark until a project is in their kind of trouble.{% endcomment %}
+      <div class="flex flex-wrap gap-2" data-warning-lights role="list" aria-label="Warning lights">
+        {% for light in cockpit.lights %}
+          {% if light.lit %}<a href="#tab-overview" role="listitem" class="gg-lamp gg-light-{{ light.tone }}" data-light="{{ light.key }}" data-lit title="{{ light.title }}: {{ light.count }} project{{ light.count|pluralize }}">{% else %}<span role="listitem" class="gg-lamp" data-light="{{ light.key }}" title="{{ light.title }}: none">{% endif %}
+            {% if light.key == "failed" %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 8v4M12 16h.01"/></svg>
+            {% elif light.key == "below_a" %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+            {% else %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5M12 16h.01"/></svg>{% endif %}
+            <span class="flex flex-col leading-tight">
+              <span class="text-xs font-semibold">{{ light.title }}</span>
+              <span class="text-[11px] opacity-80">{% if not light.count %}none{% elif light.key == "failed" %}{{ light.count }} graded F{% elif light.key == "below_a" %}{{ light.count }} graded B&ndash;D{% else %}{{ light.count }} errored or never ran{% endif %}</span>
+            </span>
+          {% if light.lit %}</a>{% else %}</span>{% endif %}
+        {% endfor %}
+      </div>
+
+
+      {% with last=cockpit.last_check %}
+      <span class="gg-eyebrow inline-flex items-center gap-2" data-last-check{% if last %} title="{{ last.project.name }}, commit {{ last.commit_sha|slice:':7' }} on {{ last.branch }} · {{ last.created_at }}"{% endif %}>
+        <span class="h-2 w-2 rounded-full" style="background: {% if last %}var(--gg-tone-healthy){% else %}rgba(255,255,255,0.3){% endif %}" aria-hidden="true"></span>
+        {% if last %}Last checked {{ last.created_at|timesince }} ago{% else %}Not checked yet{% endif %}
+      </span>
+      {% endwith %}
+    </div>
+  </section>
