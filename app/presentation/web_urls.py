@@ -62,6 +62,7 @@ from app.presentation.views.stack_views import (
     StackListView,
     delete_stack,
     edit_stack,
+    refresh_stack,
     remove_component_from_stack,
     stack_components,
 )
@@ -331,6 +332,7 @@ urlpatterns = [
     path("stacks/", StackListView.as_view(), name="stack_list"),
     path("stacks/new/", CreateStackView.as_view(), name="create_stack"),
     path("stacks/<uuid:pk>/", StackDetailView.as_view(), name="stack_detail"),
+    path("stacks/<uuid:pk>/refresh/", refresh_stack, name="refresh_stack"),
     path("stacks/<uuid:pk>/delete/", delete_stack, name="delete_stack"),
     path("stacks/<uuid:pk>/edit/", edit_stack, name="edit_stack"),
     path("stacks/<uuid:pk>/components/", stack_components, name="stack_components"),

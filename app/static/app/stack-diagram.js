@@ -231,9 +231,14 @@
     );
   }
 
+  // Collapsed to a "Legend" toggle so it never covers the map.
   var legend = h(
     RF.Panel,
     { key: "legend", position: "top-right", className: "gg-legend" },
+    h(
+      "details",
+      null,
+      h("summary", { className: "gg-legend__toggle" }, "Legend"),
     h(
       "div",
       { key: "health", className: "gg-legend__section" },
@@ -251,6 +256,7 @@
       edgeRow(EDGE_COLOR.public, "Public-facing"),
       edgeRow(EDGE_COLOR.consuming, "Consumes (workspace)"),
       edgeRow(EDGE_COLOR.thirdparty, "Third-party app")
+    )
     )
   );
 

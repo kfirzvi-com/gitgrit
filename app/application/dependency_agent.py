@@ -38,7 +38,19 @@ def refresh_workspace_map(tenant) -> int:
     reads the project's default branch (see ``snapshot_for_project``), so this
     rebuilds the whole map from the main branches. Projects with a refresh
     already queued are coalesced. Returns how many projects were queued."""
-    project_ids = list(Project.objects.filter(tenant=tenant).values_list("pk", flat=True))
+    return refresh_projects_map(Project.objects.filter(tenant=tenant))
+
+
+def refresh_stack_map(stack) -> int:
+    """Queue a dependency refresh for every project with a component in the
+    stack, from its default branch. Returns how many projects were queued."""
+    return refresh_projects_map(stack.projects)
+
+
+def refresh_projects_map(projects) -> int:
+    """Queue a dependency refresh for each project; already-queued ones are
+    coalesced. Returns how many projects were queued."""
+    project_ids = list(projects.values_list("pk", flat=True))
     for project_id in project_ids:
         _enqueue_refresh(str(project_id))
     return len(project_ids)

@@ -3,15 +3,19 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
 from app.application import stack_service
-from app.domain.models import Component, Stack
+from app.application.dependency_agent import refresh_stack_map
+from app.domain.models import Component, Stack, Standard
+from app.domain.score_representation import ScoreTone
 from app.application.project_health_counts import ProjectHealthCounts
-from app.presentation.architecture import stack_graph
+from app.presentation.architecture import map_status, stack_graph
+from app.presentation.health_note import HealthNote
 
 
 class StackListView(LoginRequiredMixin, ListView):
@@ -74,11 +78,59 @@ class StackDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         stack = self.object
-        context["stack_components"] = Component.objects.filter(
-            tenant=stack.tenant, stacks=stack
-        ).select_related("project", "project__platform_connection")
-        context["architecture_data"] = json.dumps(stack_graph(stack))
+        components = list(
+            Component.objects.filter(tenant=stack.tenant, stacks=stack).select_related(
+                "project", "project__platform_connection"
+            )
+        )
+        projects = list({c.project_id: c.project for c in components}.values())
+        health = ProjectHealthCounts.of(projects)
+
+        # Each component shows its repository's health and grade; worst first.
+        health_of = {
+            project.pk: (tone, score)
+            for tone in (ScoreTone.FAILED, ScoreTone.NEEDS_ATTENTION, ScoreTone.HEALTHY)
+            for project, score in health.projects_with(tone)
+        }
+        for component in components:
+            component.tone, component.score = health_of.get(component.project_id, (ScoreTone.UNKNOWN, None))
+            component.health_note = HealthNote.text(component.score)
+        components.sort(key=lambda c: (-c.tone.severity, c.name.lower()))
+
+        status = map_status(stack.projects)
+        context.update(
+            stack_components=components,
+            project_count=len(projects),
+            standard_count=Standard.objects.filter(
+                tenant=stack.tenant, enabled=True, projects__in=projects
+            ).distinct().count(),
+            stack_health=health,
+            map_updated_at=status["updated_at"],
+            map_analyzing=status["analyzing"],
+            architecture_data=json.dumps(stack_graph(stack)),
+        )
         return context
+
+
+@login_required
+@require_POST
+def refresh_stack(request, pk):
+    """Rebuild the stack's map from its projects' main branches (queued; the
+    worker does the reading). Superusers only: it costs one LLM run per
+    project."""
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    stack = get_object_or_404(Stack, pk=pk, tenant=request.tenant)
+    queued = refresh_stack_map(stack)
+    if queued:
+        messages.success(
+            request,
+            f"Refreshing the map from the main branch of {queued} "
+            f"project{'' if queued == 1 else 's'}. It updates as each one finishes.",
+        )
+    else:
+        messages.warning(request, "No projects to refresh.")
+    return redirect("stack_detail", pk=pk)
 
 
 @login_required

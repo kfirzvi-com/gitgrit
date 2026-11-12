@@ -12,6 +12,11 @@
   background: var(--gg-bg-100);
 }
 
+/* Stack page: the map under the components list, secondary to it. */
+#stack-flow {
+  height: clamp(360px, 50vh, 560px);
+}
+
 /* Stack / project node */
 .gg-stack-node {
   position: relative;
@@ -250,10 +255,18 @@
   background-color: var(--gg-bg-200);
   border: 1px solid var(--gg-border);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 6px 10px;
   font-size: 0.72rem;
   color: var(--gg-text);
   box-shadow: var(--gg-shadow-card);
+}
+.gg-legend__toggle {
+  cursor: pointer;
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+.gg-legend details[open] .gg-legend__toggle {
+  margin-bottom: 8px;
 }
 .gg-legend__title {
   font-size: 0.6rem;
