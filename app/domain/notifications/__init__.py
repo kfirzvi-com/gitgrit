@@ -38,6 +38,9 @@ class Kind:
     # Dependency map
     GRAPH_FAILED = "graph.failed"  # a dependency map that used to build broke
     AI_PROVIDER_FAILED = "ai_provider.failed"  # the AI provider refused GitGrit
+    # AI budgets
+    AI_BUDGET_NEAR = "ai_budget.near"  # a model's budget is 80% used
+    AI_BUDGET_REACHED = "ai_budget.reached"  # a model's budget is used up
     # Workspace changes
     PROJECT_ADDED = "project.added"
     PROJECT_REMOVED = "project.removed"

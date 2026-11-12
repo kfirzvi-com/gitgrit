@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.domain import importance as importance_domain
+from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCount, UsageCategory
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
@@ -432,6 +433,97 @@ class LLMRole(models.Model):
 
     def __str__(self):
         return f"{self.name} → {self.provider.display_name}/{self.model}"
+
+
+class LLMUsage(models.Model):
+    """Tokens one model spent on one piece of work: an LLM standard's run, or a
+    project's dependency map. Input and output are kept apart (priced apart).
+    The provider's name is kept too, so usage stays readable after the
+    provider is deleted."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="llm_usage")
+    provider = models.ForeignKey(
+        LLMProvider, on_delete=models.SET_NULL, null=True, blank=True, related_name="usage"
+    )
+    provider_name = models.CharField(max_length=255)
+    model = models.CharField(max_length=255)
+    category = models.CharField(max_length=20, choices=[(c.value, c.label) for c in UsageCategory])
+    input_tokens = models.PositiveBigIntegerField(default=0)
+    output_tokens = models.PositiveBigIntegerField(default=0)
+    calls = models.PositiveIntegerField(default=0)
+    project = models.ForeignKey(
+        "Project", on_delete=models.SET_NULL, null=True, blank=True, related_name="llm_usage"
+    )
+    standard = models.ForeignKey(
+        "Standard", on_delete=models.SET_NULL, null=True, blank=True, related_name="llm_usage"
+    )
+    standard_name = models.CharField(max_length=255, blank=True, default="")
+    execution = models.ForeignKey(
+        "StandardExecution", on_delete=models.SET_NULL, null=True, blank=True, related_name="llm_usage"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "llm_usage"
+        indexes = [models.Index(fields=["tenant", "created_at"], name="idx_llm_usage_tenant_time")]
+
+    def __str__(self):
+        return f"{self.provider_name}/{self.model} {self.category}: {self.input_tokens} in, {self.output_tokens} out"
+
+    @property
+    def tokens(self) -> TokenCount:
+        return TokenCount(self.input_tokens, self.output_tokens, self.calls)
+
+
+class LLMBudget(models.Model):
+    """A workspace's cap on one provider's model over a period
+    (``ai_usage.TokenBudget`` holds the rules). Remembers the highest level
+    already announced this period, so each warning goes out once."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="llm_budgets")
+    provider = models.ForeignKey(LLMProvider, on_delete=models.CASCADE, related_name="budgets")
+    model = models.CharField(max_length=255)
+    period = models.CharField(max_length=10, choices=[(p.value, p.label) for p in BudgetPeriod])
+    input_limit = models.PositiveBigIntegerField(null=True, blank=True)
+    output_limit = models.PositiveBigIntegerField(null=True, blank=True)
+    stop_at_limit = models.BooleanField(default=False)
+    # The low-fuel mark: % left at which it warns; unset: only when used up.
+    low_at_percent = models.PositiveSmallIntegerField(null=True, blank=True)
+    announced_period = models.CharField(max_length=20, blank=True, default="")
+    announced_level = models.CharField(
+        max_length=10, blank=True, default="", choices=[(b.value, b.value) for b in BudgetLevel]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "llm_budgets"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "provider", "model", "period"], name="unique_llm_budget"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.provider.display_name}/{self.model} {self.period}"
+
+    @property
+    def rules(self) -> TokenBudget:
+        return TokenBudget(
+            period=BudgetPeriod(self.period),
+            input_limit=self.input_limit,
+            output_limit=self.output_limit,
+            stop_at_limit=self.stop_at_limit,
+            low_at_percent=self.low_at_percent,
+        )
+
+    def announced(self, period_key: str) -> BudgetLevel:
+        """The highest level announced in the period ``period_key`` names."""
+        if self.announced_period != period_key or not self.announced_level:
+            return BudgetLevel.OK
+        return BudgetLevel(self.announced_level)
 
 
 class Project(models.Model):
@@ -1796,6 +1888,40 @@ class Notification(models.Model):
             or "Check the AI provider's key and account in workspace settings.",
             url=reverse("tenant_settings") + "#section-llm",
             context={},
+        )
+
+    # AI budgets
+
+    @classmethod
+    def ai_budget(cls, *, budget, level, used):
+        """A model's budget crossed a level this period: nearly used (80%) or
+        used up. Says whether runs on the model now stop, and links to the
+        budget in workspace settings."""
+        rules = budget.rules
+        name = f"{budget.provider.display_name} {budget.model}"
+        percent = round(rules.share(used) * 100)
+        if level is BudgetLevel.REACHED:
+            kind, severity = Kind.AI_BUDGET_REACHED, Severity.CRITICAL
+            title = f"AI budget used up: {name}"
+            body = (
+                f"{rules.period.label} budget used up ({percent}%). "
+                + ("New runs on this model are stopped until it resets." if rules.stop_at_limit
+                   else "Runs continue; turn on 'Stop at limit' to cap spend.")
+            )
+        else:
+            kind, severity = Kind.AI_BUDGET_NEAR, Severity.WARNING
+            left = max(0, 100 - percent)
+            title = f"AI budget low: {name}, {left}% left"
+            body = f"{rules.period.label} budget has {left}% left {rules.period.noun} (low mark {rules.low_at_percent}%)."
+        return cls._new(
+            tenant_id=budget.tenant_id,
+            subject=name,
+            kind=kind,
+            severity=severity,
+            title=title,
+            body=body,
+            url=reverse("tenant_settings") + "#section-llm",
+            context={"budget_id": str(budget.pk), "level": str(level)},
         )
 
     # Workspace changes
