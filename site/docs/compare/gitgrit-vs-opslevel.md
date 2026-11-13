@@ -1,6 +1,6 @@
 ---
-title: GitGrit vs OpsLevel: engineering standards compared
-description: OpsLevel is an internal developer portal with rubrics, scorecards and campaigns over a service catalog. GitGrit checks every repository against standards written as code. Here's how they differ.
+title: "GitGrit vs OpsLevel: engineering standards compared"
+description: "OpsLevel is an internal developer portal with rubrics, scorecards and campaigns over a service catalog. GitGrit checks every repository against standards written as code. Here's how they differ."
 ---
 
 # GitGrit vs OpsLevel

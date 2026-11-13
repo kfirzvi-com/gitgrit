@@ -1,6 +1,6 @@
 ---
-title: GitGrit vs CodeRabbit: AI code review and engineering standards
-description: CodeRabbit is an AI code reviewer for pull requests, with linters and pre-merge checks. GitGrit checks every repository against your standards as code and grades each one. Here's how they differ, and how they work together.
+title: "GitGrit vs CodeRabbit: AI code review and engineering standards"
+description: "CodeRabbit is an AI code reviewer for pull requests, with linters and pre-merge checks. GitGrit checks every repository against your standards as code and grades each one. Here's how they differ, and how they work together."
 ---
 
 # GitGrit vs CodeRabbit
