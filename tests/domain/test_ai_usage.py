@@ -7,6 +7,7 @@ from django.test import SimpleTestCase
 from app.domain.ai_usage import (
     BudgetLevel,
     BudgetPeriod,
+    BudgetableModels,
     StandardUsage,
     StandardUsageDistribution,
     TokenBudget,
@@ -150,3 +151,35 @@ class ModelAccessTests(SimpleTestCase):
         self.assertTrue(ModelAccess.of([(warn_only, TokenCount(500, 0))]).allowed)  # over, but only warns
         stopped = ModelAccess.of([(warn_only, TokenCount(0, 0)), (budget, TokenCount(100, 0))])
         self.assertEqual((stopped.denial, stopped.budget), (Denial.USED_UP, 1))
+
+
+class BudgetableModelsTests(SimpleTestCase):
+    """Which models an admin can budget, role models first."""
+
+    def test_role_models_come_first_then_budgeted_then_offered(self):
+        models = BudgetableModels.of(
+            roles=[("a", "Anthropic", "haiku", "Code"), ("a", "Anthropic", "haiku", "Reasoning")],
+            budgeted=[("o", "OpenAI", "gpt-5")],
+            offered=[("a", "Anthropic", "sonnet"), ("a", "Anthropic", "haiku"), ("o", "OpenAI", "gpt-5")],
+        )
+
+        self.assertEqual(
+            [(m.provider_name, m.model, m.roles) for m in models],
+            [("Anthropic", "haiku", ("Code", "Reasoning")), ("OpenAI", "gpt-5", ()), ("Anthropic", "sonnet", ())],
+        )
+
+    def test_a_model_without_a_budget_is_blocked(self):
+        haiku, gpt = BudgetableModels.of(roles=[("a", "Anthropic", "haiku", "Code")], budgeted=[("o", "OpenAI", "gpt-5")])
+
+        self.assertEqual((haiku.has_budget, haiku.blocked), (False, True))
+        self.assertEqual((gpt.has_budget, gpt.blocked), (True, False))
+
+    def test_a_budgeted_model_its_provider_no_longer_lists_stays_editable(self):
+        (model,) = BudgetableModels.of(budgeted=[("a", "Anthropic", "claude-2")], offered=[])
+
+        self.assertEqual((model.model, model.has_budget), ("claude-2", True))
+
+    def test_the_same_model_from_two_providers_is_two_entries(self):
+        models = BudgetableModels.of(offered=[("a", "Anthropic", "haiku"), ("b", "Bedrock", "haiku")])
+
+        self.assertEqual([m.provider_name for m in models], ["Anthropic", "Bedrock"])

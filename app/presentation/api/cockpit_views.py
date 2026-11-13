@@ -6,7 +6,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import exceptions, status
 from rest_framework.response import Response
 
-from app.application.ai_usage import AIUsageReport, BudgetableModels, BudgetError, BudgetService, BudgetWatch
+from app.application.ai_usage import AIUsageReport, BudgetableModelsQuery, BudgetError, BudgetService, BudgetWatch
 from app.application.cockpit import Cockpit, HealthTrend
 from app.application.dependency_agent import refresh_stack_map
 from app.application.project_health_counts import ProjectHealthCounts
@@ -234,7 +234,7 @@ class AIModelsView(WorkspaceAPIView):
                 "has_budget": m.has_budget,
                 "blocked": m.blocked,
             }
-            for m in BudgetableModels.for_workspace(self.tenant)
+            for m in BudgetableModelsQuery.for_workspace(self.tenant)
         ])
 
 

@@ -11,7 +11,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from app.application.ai_usage import BudgetableModels, BudgetError, BudgetService, BudgetWatch
+from app.application.ai_usage import BudgetableModelsQuery, BudgetError, BudgetService, BudgetWatch
 from app.domain.ai_usage import BudgetPeriod
 from app.domain.models import LLMBudget
 from app.presentation.budget_row import BudgetRow
@@ -25,7 +25,7 @@ def ai_budgets_context(tenant, is_admin: bool) -> dict:
     )
     options = [
         (m.provider_id, m.provider_name, m.model, ", ".join(m.roles))
-        for m in BudgetableModels.for_workspace(tenant)
+        for m in BudgetableModelsQuery.for_workspace(tenant)
     ]
     return {
         "budget_rows": [BudgetRow(b, BudgetWatch.used(b)) for b in budgets],
