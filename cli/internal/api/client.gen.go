@@ -125,6 +125,63 @@ func (e ImportanceEnum) Valid() bool {
 	}
 }
 
+// Defines values for LLMProviderTypeEnum.
+const (
+	Anthropic    LLMProviderTypeEnum = "anthropic"
+	Azure        LLMProviderTypeEnum = "azure"
+	Bedrock      LLMProviderTypeEnum = "bedrock"
+	Gemini       LLMProviderTypeEnum = "gemini"
+	LitellmProxy LLMProviderTypeEnum = "litellm_proxy"
+	Mistral      LLMProviderTypeEnum = "mistral"
+	Ollama       LLMProviderTypeEnum = "ollama"
+	Openai       LLMProviderTypeEnum = "openai"
+	VertexAi     LLMProviderTypeEnum = "vertex_ai"
+)
+
+// Valid indicates whether the value is a known member of the LLMProviderTypeEnum enum.
+func (e LLMProviderTypeEnum) Valid() bool {
+	switch e {
+	case Anthropic:
+		return true
+	case Azure:
+		return true
+	case Bedrock:
+		return true
+	case Gemini:
+		return true
+	case LitellmProxy:
+		return true
+	case Mistral:
+		return true
+	case Ollama:
+		return true
+	case Openai:
+		return true
+	case VertexAi:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LLMRoleEnum.
+const (
+	LLMRoleEnumCode      LLMRoleEnum = "code"
+	LLMRoleEnumReasoning LLMRoleEnum = "reasoning"
+)
+
+// Valid indicates whether the value is a known member of the LLMRoleEnum enum.
+func (e LLMRoleEnum) Valid() bool {
+	switch e {
+	case LLMRoleEnumCode:
+		return true
+	case LLMRoleEnumReasoning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LevelEnum.
 const (
 	LevelEnumFailed         LevelEnum = "failed"
@@ -356,6 +413,42 @@ func (e GetAiUsageParamsPeriod) Valid() bool {
 	case GetAiUsageParamsPeriodMonth:
 		return true
 	case GetAiUsageParamsPeriodWeek:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClearLlmRoleParamsRole.
+const (
+	ClearLlmRoleParamsRoleCode      ClearLlmRoleParamsRole = "code"
+	ClearLlmRoleParamsRoleReasoning ClearLlmRoleParamsRole = "reasoning"
+)
+
+// Valid indicates whether the value is a known member of the ClearLlmRoleParamsRole enum.
+func (e ClearLlmRoleParamsRole) Valid() bool {
+	switch e {
+	case ClearLlmRoleParamsRoleCode:
+		return true
+	case ClearLlmRoleParamsRoleReasoning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetLlmRoleParamsRole.
+const (
+	Code      SetLlmRoleParamsRole = "code"
+	Reasoning SetLlmRoleParamsRole = "reasoning"
+)
+
+// Valid indicates whether the value is a known member of the SetLlmRoleParamsRole enum.
+func (e SetLlmRoleParamsRole) Valid() bool {
+	switch e {
+	case Code:
+		return true
+	case Reasoning:
 		return true
 	default:
 		return false
@@ -744,6 +837,135 @@ type InstalledStandard struct {
 	Name    string             `json:"name"`
 }
 
+// LLMModelsRefresh defines model for LLMModelsRefresh.
+type LLMModelsRefresh struct {
+	// Models Models found; the list is kept when none are.
+	Models []string `json:"models"`
+
+	// Note Why none were found, when none were.
+	Note string `json:"note"`
+}
+
+// LLMProvider defines model for LLMProvider.
+type LLMProvider struct {
+	// BaseUrl Empty for the provider's own endpoint.
+	BaseUrl     string             `json:"base_url"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DisplayName string             `json:"display_name"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Models Models this key can use.
+	Models []string `json:"models"`
+
+	// ProviderType * `anthropic` - anthropic
+	// * `openai` - openai
+	// * `azure` - azure
+	// * `bedrock` - bedrock
+	// * `vertex_ai` - vertex_ai
+	// * `gemini` - gemini
+	// * `mistral` - mistral
+	// * `ollama` - ollama
+	// * `litellm_proxy` - litellm_proxy
+	ProviderType LLMProviderTypeEnum `json:"provider_type"`
+
+	// Roles Roles that use it.
+	Roles []LLMRoleEnum `json:"roles"`
+}
+
+// LLMProviderAdded defines model for LLMProviderAdded.
+type LLMProviderAdded struct {
+	// BaseUrl Empty for the provider's own endpoint.
+	BaseUrl     string             `json:"base_url"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DisplayName string             `json:"display_name"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Models Models this key can use.
+	Models []string `json:"models"`
+
+	// Note Why no models were found (the provider's own words), when none were; else empty.
+	Note string `json:"note"`
+
+	// ProviderType * `anthropic` - anthropic
+	// * `openai` - openai
+	// * `azure` - azure
+	// * `bedrock` - bedrock
+	// * `vertex_ai` - vertex_ai
+	// * `gemini` - gemini
+	// * `mistral` - mistral
+	// * `ollama` - ollama
+	// * `litellm_proxy` - litellm_proxy
+	ProviderType LLMProviderTypeEnum `json:"provider_type"`
+
+	// Roles Roles that use it.
+	Roles []LLMRoleEnum `json:"roles"`
+}
+
+// LLMProviderCreateRequest defines model for LLMProviderCreateRequest.
+type LLMProviderCreateRequest struct {
+	// ApiKey Stored encrypted; never returned.
+	ApiKey string `json:"api_key"`
+
+	// BaseUrl A proxy or self-hosted endpoint.
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// DisplayName Default: the type, e.g. "Anthropic".
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// ProviderType * `anthropic` - anthropic
+	// * `openai` - openai
+	// * `azure` - azure
+	// * `bedrock` - bedrock
+	// * `vertex_ai` - vertex_ai
+	// * `gemini` - gemini
+	// * `mistral` - mistral
+	// * `ollama` - ollama
+	// * `litellm_proxy` - litellm_proxy
+	ProviderType LLMProviderTypeEnum `json:"provider_type"`
+}
+
+// LLMProviderTest defines model for LLMProviderTest.
+type LLMProviderTest struct {
+	// Ok The provider accepted the key.
+	Ok bool `json:"ok"`
+}
+
+// LLMProviderTypeEnum * `anthropic` - anthropic
+// * `openai` - openai
+// * `azure` - azure
+// * `bedrock` - bedrock
+// * `vertex_ai` - vertex_ai
+// * `gemini` - gemini
+// * `mistral` - mistral
+// * `ollama` - ollama
+// * `litellm_proxy` - litellm_proxy
+type LLMProviderTypeEnum string
+
+// LLMRole defines model for LLMRole.
+type LLMRole struct {
+	// HasBudget Budgets are an allow-list: without one the role's model never runs.
+	HasBudget bool    `json:"has_budget"`
+	Label     string  `json:"label"`
+	Model     *string `json:"model"`
+
+	// Provider Null when the role is not set.
+	Provider *ProviderRef `json:"provider"`
+
+	// Role * `reasoning` - reasoning
+	// * `code` - code
+	Role LLMRoleEnum `json:"role"`
+}
+
+// LLMRoleEnum * `reasoning` - reasoning
+// * `code` - code
+type LLMRoleEnum string
+
+// LLMRoleSetRequest defines model for LLMRoleSetRequest.
+type LLMRoleSetRequest struct {
+	Model      string             `json:"model"`
+	ProviderId openapi_types.UUID `json:"provider_id"`
+}
+
 // LastCheck defines model for LastCheck.
 type LastCheck struct {
 	At        time.Time  `json:"at"`
@@ -890,6 +1112,17 @@ type PatchedImportanceRequest struct {
 	// * `major` - Major
 	// * `minor` - Minor
 	Importance *ImportanceEnum `json:"importance,omitempty"`
+}
+
+// PatchedLLMProviderUpdateRequest Only the fields sent change.
+type PatchedLLMProviderUpdateRequest struct {
+	// ApiKey A new key; never returned.
+	ApiKey      *string `json:"api_key,omitempty"`
+	BaseUrl     *string `json:"base_url,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Models Replace the list by hand (when discovery finds none).
+	Models *[]string `json:"models,omitempty"`
 }
 
 // PatchedProjectUpdateRequest PATCH body — only the fields sent are changed.
@@ -1499,6 +1732,12 @@ type ListRepositoriesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
 
+// ClearLlmRoleParamsRole defines parameters for ClearLlmRole.
+type ClearLlmRoleParamsRole string
+
+// SetLlmRoleParamsRole defines parameters for SetLlmRole.
+type SetLlmRoleParamsRole string
+
 // ResolveProjectParams defines parameters for ResolveProject.
 type ResolveProjectParams struct {
 	RepoFullPath *string `form:"repo_full_path,omitempty" json:"repo_full_path,omitempty"`
@@ -1524,6 +1763,15 @@ type UpdateAiBudgetJSONRequestBody = PatchedBudgetUpdateRequest
 
 // CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
 type CreateConnectionJSONRequestBody = ConnectionCreateRequest
+
+// CreateLlmProviderJSONRequestBody defines body for CreateLlmProvider for application/json ContentType.
+type CreateLlmProviderJSONRequestBody = LLMProviderCreateRequest
+
+// UpdateLlmProviderJSONRequestBody defines body for UpdateLlmProvider for application/json ContentType.
+type UpdateLlmProviderJSONRequestBody = PatchedLLMProviderUpdateRequest
+
+// SetLlmRoleJSONRequestBody defines body for SetLlmRole for application/json ContentType.
+type SetLlmRoleJSONRequestBody = LLMRoleSetRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = ProjectCreateRequest
@@ -1722,6 +1970,39 @@ type ClientInterface interface {
 
 	// ListRepositories request
 	ListRepositories(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLlmProviders request
+	ListLlmProviders(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLlmProviderWithBody request with any body
+	CreateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLlmProvider request
+	DeleteLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLlmProviderWithBody request with any body
+	UpdateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshLlmModels request
+	RefreshLlmModels(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestLlmProvider request
+	TestLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLlmRoles request
+	ListLlmRoles(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClearLlmRole request
+	ClearLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetLlmRoleWithBody request with any body
+	SetLlmRoleWithBody(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMarketplace request
 	GetMarketplace(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1988,6 +2269,150 @@ func (c *Client) CreateConnection(ctx context.Context, workspaceId openapi_types
 
 func (c *Client) ListRepositories(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListRepositoriesRequest(c.Server, workspaceId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLlmProviders(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmProvidersRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLlmProviderRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLlmProviderRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLlmProviderRequest(c.Server, workspaceId, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLlmProviderRequestWithBody(c.Server, workspaceId, providerId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLlmProviderRequest(c.Server, workspaceId, providerId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RefreshLlmModels(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshLlmModelsRequest(c.Server, workspaceId, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestLlmProviderRequest(c.Server, workspaceId, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLlmRoles(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmRolesRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClearLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearLlmRoleRequest(c.Server, workspaceId, role)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetLlmRoleWithBody(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLlmRoleRequestWithBody(c.Server, workspaceId, role, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLlmRoleRequest(c.Server, workspaceId, role, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2945,6 +3370,393 @@ func NewListRepositoriesRequest(server string, workspaceId openapi_types.UUID, c
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListLlmProvidersRequest generates requests for ListLlmProviders
+func NewListLlmProvidersRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLlmProviderRequest calls the generic CreateLlmProvider builder with application/json body
+func NewCreateLlmProviderRequest(server string, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLlmProviderRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateLlmProviderRequestWithBody generates requests for CreateLlmProvider with any type of body
+func NewCreateLlmProviderRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLlmProviderRequest generates requests for DeleteLlmProvider
+func NewDeleteLlmProviderRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLlmProviderRequest calls the generic UpdateLlmProvider builder with application/json body
+func NewUpdateLlmProviderRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLlmProviderRequestWithBody(server, workspaceId, providerId, "application/json", bodyReader)
+}
+
+// NewUpdateLlmProviderRequestWithBody generates requests for UpdateLlmProvider with any type of body
+func NewUpdateLlmProviderRequestWithBody(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRefreshLlmModelsRequest generates requests for RefreshLlmModels
+func NewRefreshLlmModelsRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/models/refresh/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTestLlmProviderRequest generates requests for TestLlmProvider
+func NewTestLlmProviderRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/test/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListLlmRolesRequest generates requests for ListLlmRoles
+func NewListLlmRolesRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/roles/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClearLlmRoleRequest generates requests for ClearLlmRole
+func NewClearLlmRoleRequest(server string, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "role", role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/roles/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetLlmRoleRequest calls the generic SetLlmRole builder with application/json body
+func NewSetLlmRoleRequest(server string, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetLlmRoleRequestWithBody(server, workspaceId, role, "application/json", bodyReader)
+}
+
+// NewSetLlmRoleRequestWithBody generates requests for SetLlmRole with any type of body
+func NewSetLlmRoleRequestWithBody(server string, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "role", role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/roles/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4591,6 +5403,39 @@ type ClientWithResponsesInterface interface {
 	// ListRepositoriesWithResponse request
 	ListRepositoriesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*ListRepositoriesResponse, error)
 
+	// ListLlmProvidersWithResponse request
+	ListLlmProvidersWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmProvidersResponse, error)
+
+	// CreateLlmProviderWithBodyWithResponse request with any body
+	CreateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error)
+
+	CreateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error)
+
+	// DeleteLlmProviderWithResponse request
+	DeleteLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLlmProviderResponse, error)
+
+	// UpdateLlmProviderWithBodyWithResponse request with any body
+	UpdateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error)
+
+	UpdateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error)
+
+	// RefreshLlmModelsWithResponse request
+	RefreshLlmModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshLlmModelsResponse, error)
+
+	// TestLlmProviderWithResponse request
+	TestLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TestLlmProviderResponse, error)
+
+	// ListLlmRolesWithResponse request
+	ListLlmRolesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmRolesResponse, error)
+
+	// ClearLlmRoleWithResponse request
+	ClearLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*ClearLlmRoleResponse, error)
+
+	// SetLlmRoleWithBodyWithResponse request with any body
+	SetLlmRoleWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error)
+
+	SetLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error)
+
 	// GetMarketplaceWithResponse request
 	GetMarketplaceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetMarketplaceResponse, error)
 
@@ -5003,6 +5848,274 @@ func (r ListRepositoriesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListRepositoriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLlmProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]LLMProvider
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLlmProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLlmProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLlmProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *LLMProviderAdded
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMProvider
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RefreshLlmModelsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMModelsRefresh
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshLlmModelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshLlmModelsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshLlmModelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type TestLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMProviderTest
+}
+
+// Status returns HTTPResponse.Status
+func (r TestLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TestLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLlmRolesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]LLMRole
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLlmRolesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLlmRolesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLlmRolesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClearLlmRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearLlmRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearLlmRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearLlmRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetLlmRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMRole
+}
+
+// Status returns HTTPResponse.Status
+func (r SetLlmRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetLlmRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetLlmRoleResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -6143,6 +7256,111 @@ func (c *ClientWithResponses) ListRepositoriesWithResponse(ctx context.Context, 
 	return ParseListRepositoriesResponse(rsp)
 }
 
+// ListLlmProvidersWithResponse request returning *ListLlmProvidersResponse
+func (c *ClientWithResponses) ListLlmProvidersWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmProvidersResponse, error) {
+	rsp, err := c.ListLlmProviders(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLlmProvidersResponse(rsp)
+}
+
+// CreateLlmProviderWithBodyWithResponse request with arbitrary body returning *CreateLlmProviderResponse
+func (c *ClientWithResponses) CreateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error) {
+	rsp, err := c.CreateLlmProviderWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLlmProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error) {
+	rsp, err := c.CreateLlmProvider(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLlmProviderResponse(rsp)
+}
+
+// DeleteLlmProviderWithResponse request returning *DeleteLlmProviderResponse
+func (c *ClientWithResponses) DeleteLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLlmProviderResponse, error) {
+	rsp, err := c.DeleteLlmProvider(ctx, workspaceId, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLlmProviderResponse(rsp)
+}
+
+// UpdateLlmProviderWithBodyWithResponse request with arbitrary body returning *UpdateLlmProviderResponse
+func (c *ClientWithResponses) UpdateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error) {
+	rsp, err := c.UpdateLlmProviderWithBody(ctx, workspaceId, providerId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLlmProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error) {
+	rsp, err := c.UpdateLlmProvider(ctx, workspaceId, providerId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLlmProviderResponse(rsp)
+}
+
+// RefreshLlmModelsWithResponse request returning *RefreshLlmModelsResponse
+func (c *ClientWithResponses) RefreshLlmModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshLlmModelsResponse, error) {
+	rsp, err := c.RefreshLlmModels(ctx, workspaceId, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshLlmModelsResponse(rsp)
+}
+
+// TestLlmProviderWithResponse request returning *TestLlmProviderResponse
+func (c *ClientWithResponses) TestLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TestLlmProviderResponse, error) {
+	rsp, err := c.TestLlmProvider(ctx, workspaceId, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestLlmProviderResponse(rsp)
+}
+
+// ListLlmRolesWithResponse request returning *ListLlmRolesResponse
+func (c *ClientWithResponses) ListLlmRolesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmRolesResponse, error) {
+	rsp, err := c.ListLlmRoles(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLlmRolesResponse(rsp)
+}
+
+// ClearLlmRoleWithResponse request returning *ClearLlmRoleResponse
+func (c *ClientWithResponses) ClearLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*ClearLlmRoleResponse, error) {
+	rsp, err := c.ClearLlmRole(ctx, workspaceId, role, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearLlmRoleResponse(rsp)
+}
+
+// SetLlmRoleWithBodyWithResponse request with arbitrary body returning *SetLlmRoleResponse
+func (c *ClientWithResponses) SetLlmRoleWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error) {
+	rsp, err := c.SetLlmRoleWithBody(ctx, workspaceId, role, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLlmRoleResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error) {
+	rsp, err := c.SetLlmRole(ctx, workspaceId, role, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLlmRoleResponse(rsp)
+}
+
 // GetMarketplaceWithResponse request returning *GetMarketplaceResponse
 func (c *ClientWithResponses) GetMarketplaceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetMarketplaceResponse, error) {
 	rsp, err := c.GetMarketplace(ctx, workspaceId, reqEditors...)
@@ -6753,6 +7971,220 @@ func ParseListRepositoriesResponse(rsp *http.Response) (*ListRepositoriesRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []Repository
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLlmProvidersResponse parses an HTTP response from a ListLlmProvidersWithResponse call
+func ParseListLlmProvidersResponse(rsp *http.Response) (*ListLlmProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLlmProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []LLMProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLlmProviderResponse parses an HTTP response from a CreateLlmProviderWithResponse call
+func ParseCreateLlmProviderResponse(rsp *http.Response) (*CreateLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LLMProviderAdded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLlmProviderResponse parses an HTTP response from a DeleteLlmProviderWithResponse call
+func ParseDeleteLlmProviderResponse(rsp *http.Response) (*DeleteLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLlmProviderResponse parses an HTTP response from a UpdateLlmProviderWithResponse call
+func ParseUpdateLlmProviderResponse(rsp *http.Response) (*UpdateLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRefreshLlmModelsResponse parses an HTTP response from a RefreshLlmModelsWithResponse call
+func ParseRefreshLlmModelsResponse(rsp *http.Response) (*RefreshLlmModelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshLlmModelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMModelsRefresh
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestLlmProviderResponse parses an HTTP response from a TestLlmProviderWithResponse call
+func ParseTestLlmProviderResponse(rsp *http.Response) (*TestLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMProviderTest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLlmRolesResponse parses an HTTP response from a ListLlmRolesWithResponse call
+func ParseListLlmRolesResponse(rsp *http.Response) (*ListLlmRolesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLlmRolesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []LLMRole
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearLlmRoleResponse parses an HTTP response from a ClearLlmRoleWithResponse call
+func ParseClearLlmRoleResponse(rsp *http.Response) (*ClearLlmRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearLlmRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseSetLlmRoleResponse parses an HTTP response from a SetLlmRoleWithResponse call
+func ParseSetLlmRoleResponse(rsp *http.Response) (*SetLlmRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetLlmRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

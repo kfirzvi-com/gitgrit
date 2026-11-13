@@ -150,6 +150,11 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit ai budget list` | Budgets, what each period has used, and when it resets |
 | `gitgrit ai budget set <model> --per … --input … --output …` | Set or change a budget (owners and admins); `--low-at 20` warns at 20% left, `--stop-at-limit` holds runs |
 | `gitgrit ai budget remove <model> --per …` | Remove a budget (owners and admins) |
+| `gitgrit llm provider list` | LLM providers and how many models each key can use |
+| `gitgrit llm provider add --type … --key-stdin` | Add a provider; finds the models its key can use (owners and admins) |
+| `gitgrit llm provider edit` / `remove` / `test` / `refresh <provider>` | Change, remove, check a key, or find its models again |
+| `gitgrit llm role list` | Which provider and model does which work, and whether it has a budget |
+| `gitgrit llm role set <role> <model>` / `clear <role>` | Point a role at a model, or clear it (owners and admins) |
 | `gitgrit api <path>` | Call any endpoint of the [public API](https://app.gitgrit.dev/api/v1/docs/) |
 
 Standards can be named (`"README Exists"`) or given by id. Add `--json` to any command for the raw API response, and `--help` for all its options.

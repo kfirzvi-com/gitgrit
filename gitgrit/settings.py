@@ -519,6 +519,8 @@ SPECTACULAR_SETTINGS = {
         "BudgetLevelEnum": "app.presentation.api.cockpit_serializers.BUDGET_LEVEL_CHOICES",
         "UsageCategoryEnum": "app.presentation.api.cockpit_serializers.CATEGORY_CHOICES",
         "WarningLightKeyEnum": "app.presentation.api.cockpit_serializers.LIGHT_KEYS",
+        "LLMProviderTypeEnum": "app.presentation.api.llm_serializers.PROVIDER_TYPES",
+        "LLMRoleEnum": "app.presentation.api.llm_serializers.ROLE_NAMES",
     },
 }
 

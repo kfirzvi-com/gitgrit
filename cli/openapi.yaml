@@ -321,6 +321,331 @@ paths:
                 items:
                   $ref: '#/components/schemas/Repository'
           description: ''
+  /api/v1/workspaces/{workspace_id}/llm/providers/:
+    get:
+      operationId: list_llm_providers
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: LLM providers and the models each key can use
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LLMProvider'
+          description: ''
+    post:
+      operationId: create_llm_provider
+      description: Finds the models the key can use. A model runs only once it has
+        an AI budget (`POST ai/budgets/`) and a role points at it.
+      summary: Add a provider (owners and admins)
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMProviderCreateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMProviderAdded'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/llm/providers/{provider_id}/:
+    patch:
+      operationId: update_llm_provider
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Change a provider's name, endpoint, key or models (owners and admins)
+      parameters:
+      - in: path
+        name: provider_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLLMProviderUpdateRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMProvider'
+          description: ''
+    delete:
+      operationId: delete_llm_provider
+      description: Roles pointing at it are cleared.
+      summary: Remove a provider (owners and admins)
+      parameters:
+      - in: path
+        name: provider_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_id}/llm/providers/{provider_id}/models/refresh/:
+    post:
+      operationId: refresh_llm_models
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Find the models the key can use again (owners and admins)
+      parameters:
+      - in: path
+        name: provider_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMModelsRefresh'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/llm/providers/{provider_id}/test/:
+    post:
+      operationId: test_llm_provider
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Check that the provider accepts the key
+      parameters:
+      - in: path
+        name: provider_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMProviderTest'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/llm/roles/:
+    get:
+      operationId: list_llm_roles
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Which provider and model GitGrit uses for each kind of work
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LLMRole'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/llm/roles/{role}/:
+    put:
+      operationId: set_llm_role
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Point a role at a provider and model (owners and admins)
+      parameters:
+      - in: path
+        name: role
+        schema:
+          type: string
+          enum:
+          - code
+          - reasoning
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMRoleSetRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMRole'
+          description: ''
+    delete:
+      operationId: clear_llm_role
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Clear a role (owners and admins)
+      parameters:
+      - in: path
+        name: role
+        schema:
+          type: string
+          enum:
+          - code
+          - reasoning
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - llm
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
   /api/v1/workspaces/{workspace_id}/marketplace/:
     get:
       operationId: get_marketplace
@@ -2170,6 +2495,186 @@ components:
       - created
       - id
       - name
+    LLMModelsRefresh:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            type: string
+          description: Models found; the list is kept when none are.
+        note:
+          type: string
+          description: Why none were found, when none were.
+      required:
+      - models
+      - note
+    LLMProvider:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider_type:
+          $ref: '#/components/schemas/LLMProviderTypeEnum'
+        display_name:
+          type: string
+        base_url:
+          type: string
+          description: Empty for the provider's own endpoint.
+        models:
+          type: array
+          items:
+            type: string
+          description: Models this key can use.
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LLMRoleEnum'
+          description: Roles that use it.
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - base_url
+      - created_at
+      - display_name
+      - id
+      - models
+      - provider_type
+      - roles
+    LLMProviderAdded:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider_type:
+          $ref: '#/components/schemas/LLMProviderTypeEnum'
+        display_name:
+          type: string
+        base_url:
+          type: string
+          description: Empty for the provider's own endpoint.
+        models:
+          type: array
+          items:
+            type: string
+          description: Models this key can use.
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LLMRoleEnum'
+          description: Roles that use it.
+        created_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+          description: Why no models were found (the provider's own words), when none
+            were; else empty.
+      required:
+      - base_url
+      - created_at
+      - display_name
+      - id
+      - models
+      - note
+      - provider_type
+      - roles
+    LLMProviderCreateRequest:
+      type: object
+      properties:
+        provider_type:
+          $ref: '#/components/schemas/LLMProviderTypeEnum'
+        api_key:
+          type: string
+          minLength: 1
+          description: Stored encrypted; never returned.
+        display_name:
+          type: string
+          description: 'Default: the type, e.g. "Anthropic".'
+        base_url:
+          type: string
+          description: A proxy or self-hosted endpoint.
+      required:
+      - api_key
+      - provider_type
+    LLMProviderTest:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          description: The provider accepted the key.
+      required:
+      - ok
+    LLMProviderTypeEnum:
+      enum:
+      - anthropic
+      - openai
+      - azure
+      - bedrock
+      - vertex_ai
+      - gemini
+      - mistral
+      - ollama
+      - litellm_proxy
+      type: string
+      description: |-
+        * `anthropic` - anthropic
+        * `openai` - openai
+        * `azure` - azure
+        * `bedrock` - bedrock
+        * `vertex_ai` - vertex_ai
+        * `gemini` - gemini
+        * `mistral` - mistral
+        * `ollama` - ollama
+        * `litellm_proxy` - litellm_proxy
+    LLMRole:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/LLMRoleEnum'
+        label:
+          type: string
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/ProviderRef'
+          nullable: true
+          description: Null when the role is not set.
+        model:
+          type: string
+          nullable: true
+        has_budget:
+          type: boolean
+          description: 'Budgets are an allow-list: without one the role''s model never
+            runs.'
+      required:
+      - has_budget
+      - label
+      - model
+      - provider
+      - role
+    LLMRoleEnum:
+      enum:
+      - reasoning
+      - code
+      type: string
+      description: |-
+        * `reasoning` - reasoning
+        * `code` - code
+    LLMRoleSetRequest:
+      type: object
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+          minLength: 1
+      required:
+      - model
+      - provider_id
     LastCheck:
       type: object
       properties:
@@ -2472,6 +2977,25 @@ components:
             * `required` - Required
             * `major` - Major
             * `minor` - Minor
+    PatchedLLMProviderUpdateRequest:
+      type: object
+      description: Only the fields sent change.
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+        base_url:
+          type: string
+        api_key:
+          type: string
+          minLength: 1
+          description: A new key; never returned.
+        models:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: Replace the list by hand (when discovery finds none).
     PatchedProjectUpdateRequest:
       type: object
       description: PATCH body — only the fields sent are changed.

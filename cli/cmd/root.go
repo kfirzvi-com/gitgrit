@@ -71,7 +71,7 @@ In CI, set GITGRIT_TOKEN to a workspace token (workspace settings → API Tokens
 
 	root.AddCommand(
 		newAuthCmd(), newWorkspaceCmd(), newConnectionCmd(), newRepoCmd(), newProjectCmd(),
-		newMarketplaceCmd(), newOverviewCmd(), newHealthCmd(), newBranchesCmd(), newStackCmd(), newAICmd(),
+		newMarketplaceCmd(), newOverviewCmd(), newHealthCmd(), newBranchesCmd(), newStackCmd(), newAICmd(), newLLMCmd(),
 		newCommitsCmd(), newCommitCmd(), newCheckCmd(), newStandardCmd(),
 		newAPICmd(), newUpdateCmd(),
 	)
