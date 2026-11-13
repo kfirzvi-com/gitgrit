@@ -211,7 +211,7 @@
   font-weight: 600;
 }
 
-/* ── Footer — 4-column structured layout ─────────────────────────── */
+/* ── Footer — multi-column structured layout ─────────────────────────── */
 .md-footer-meta {
   background: var(--gg-bg-200);
   border-top: 1px solid var(--gg-border);
@@ -219,7 +219,7 @@
 
 .gg-footer {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 1.2fr 1fr;
+  grid-template-columns: 1.5fr 1fr 1fr 1.2fr 1.2fr 1fr;
   gap: 2.5rem;
   padding: 3rem 0 2rem;
 }
@@ -409,6 +409,11 @@
   transition: color 0.15s, background-color 0.15s;
 }
 
+/* "Use cases" sits before "Docs"; only the last link pushes search right. */
+.gg-header__docs--inline {
+  margin-right: 0;
+}
+
 .gg-header__docs:hover,
 .gg-header__docs:focus-visible {
   color: var(--gg-primary);
@@ -436,4 +441,204 @@
 }
 .md-typeset img.gg-shot--narrow {
   max-width: 28rem;
+}
+
+/* ── Use cases hub (docs/use-cases/index.md) ───────────────────────────
+ * Card grid in the landing page's style: round outlined icon, 16px card
+ * radius, a large faded icon in the corner, and the whole card clickable
+ * (the title link stretches over the card). Icons are Material shortcodes
+ * (pymdownx.emoji), classed with attr_list. */
+.md-typeset .gg-uc-hero {
+  text-align: center;
+  max-width: 46rem;
+  margin: 1.5rem auto 3.5rem;
+}
+.md-typeset .gg-uc-eyebrow {
+  font-family: var(--gg-font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gg-primary);
+  margin: 0 0 0.75rem;
+}
+.md-typeset .gg-uc-hero h1 {
+  font-size: clamp(2rem, 4.5vw, 2.8rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--gg-text);
+  margin: 0 0 1.25rem;
+}
+.md-typeset .gg-uc-hero p:not(.gg-uc-eyebrow) {
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--site-text-body, var(--gg-text));
+}
+
+.md-typeset .gg-uc-group {
+  margin: 0 0 3.5rem;
+}
+.md-typeset .gg-uc-group > h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gg-text);
+  border: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+}
+
+.md-typeset .gg-uc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+.md-typeset .gg-uc-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 60em) {
+  .md-typeset .gg-uc-grid--3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 45em) {
+  .md-typeset .gg-uc-hero p:not(.gg-uc-eyebrow) { font-size: 0.95rem; }
+  .md-typeset .gg-uc-grid,
+  .md-typeset .gg-uc-grid--3 { grid-template-columns: 1fr; }
+}
+
+.md-typeset .gg-uc-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 16px;
+  padding: 1.75rem 1.75rem 2rem;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.md-typeset .gg-uc-card:hover,
+.md-typeset .gg-uc-card:focus-within {
+  border-color: var(--gg-primary);
+  box-shadow: 0 0 40px var(--gg-primary-glow);
+  transform: translateY(-2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .md-typeset .gg-uc-card { transition: none; }
+  .md-typeset .gg-uc-card:hover,
+  .md-typeset .gg-uc-card:focus-within { transform: none; }
+}
+
+/* Small round icon, as on the landing page */
+.md-typeset .gg-uc-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--gg-primary);
+  background: var(--gg-primary-glow);
+  color: var(--gg-primary);
+  margin-bottom: 1rem;
+}
+.md-typeset .gg-uc-card .gg-uc-card__icon svg {
+  max-height: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  fill: currentColor;
+}
+
+/* Large faded icon in the corner */
+.md-typeset .gg-uc-card__bg {
+  position: absolute;
+  right: -1.5rem;
+  bottom: -1.75rem;
+  color: var(--gg-primary);
+  opacity: 0.07;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.md-typeset .gg-uc-card .gg-uc-card__bg,
+.md-typeset .gg-uc-card .gg-uc-card__bg svg {
+  width: 9rem;
+  height: 9rem;
+  max-height: none;
+  fill: currentColor;
+}
+.md-typeset .gg-uc-card:hover .gg-uc-card__bg { opacity: 0.14; }
+
+.md-typeset .gg-uc-card h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0 0 0.5rem;
+}
+.md-typeset .gg-uc-card h3 a {
+  color: var(--gg-text);
+  text-decoration: none;
+}
+.md-typeset .gg-uc-card h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.md-typeset .gg-uc-card:hover h3 a { color: var(--gg-primary); text-decoration: none; }
+.md-typeset .gg-uc-card h3 .headerlink { display: none; }
+.md-typeset .gg-uc-card p {
+  position: relative;
+  font-size: 0.97rem;
+  line-height: 1.6;
+  color: var(--site-text-body, var(--gg-text));
+  margin: 0;
+}
+/* The icons' paragraph must not become the positioning box */
+.md-typeset .gg-uc-card > p:first-child { position: static; margin: 0; }
+
+/* Closing call to action */
+.md-typeset .gg-uc-cta {
+  text-align: center;
+  background: linear-gradient(160deg, oklch(63% 0.158 200 / 0.14), var(--gg-surface) 70%);
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 16px;
+  padding: 2.5rem 1.75rem;
+  margin: 0 0 2rem;
+}
+.md-typeset .gg-uc-cta h2 {
+  border: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+.md-typeset .gg-uc-cta p {
+  max-width: 36rem;
+  margin: 0 auto 1.5rem;
+}
+.md-typeset .gg-uc-cta p:last-child { margin-bottom: 0; }
+.md-typeset .gg-uc-cta__btn {
+  display: inline-block;
+  font-family: var(--gg-font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.7rem 1.6rem;
+  border-radius: 6px;
+  background: var(--gg-primary);
+  color: var(--gg-bg-base) !important;
+  transition: box-shadow 0.2s;
+}
+.md-typeset .gg-uc-cta__btn:hover {
+  box-shadow: 0 0 20px var(--gg-primary-glow);
+}
+
+/* Eyebrow line on each use case page */
+.md-typeset .gg-uc-page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--gg-primary);
+  margin: 0 0 0.25rem;
+}
+.md-typeset .gg-uc-page-eyebrow svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: currentColor;
 }

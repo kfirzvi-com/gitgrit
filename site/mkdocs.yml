@@ -61,9 +61,11 @@ nav:
 #   - Legal pages: linked from the footer and product surfaces (OAuth
 #     consent, app footer).
 #   - Compare pages: linked from the footer.
+#   - Use cases: the hub is linked from the header; each page from the footer.
 not_in_nav: |
   /index.md
   /compare/*.md
+  /use-cases/*.md
   /legal/terms.md
   /legal/privacy.md
   /legal/cookies.md
@@ -86,6 +88,9 @@ markdown_extensions:
   - pymdownx.details
   - attr_list
   - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
 
 extra_css:
