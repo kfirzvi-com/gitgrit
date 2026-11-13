@@ -41,6 +41,48 @@ func (e AuthMethodEnum) Valid() bool {
 	}
 }
 
+// Defines values for BudgetLevelEnum.
+const (
+	Near    BudgetLevelEnum = "near"
+	Ok      BudgetLevelEnum = "ok"
+	Reached BudgetLevelEnum = "reached"
+)
+
+// Valid indicates whether the value is a known member of the BudgetLevelEnum enum.
+func (e BudgetLevelEnum) Valid() bool {
+	switch e {
+	case Near:
+		return true
+	case Ok:
+		return true
+	case Reached:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BudgetPeriodEnum.
+const (
+	BudgetPeriodEnumDay   BudgetPeriodEnum = "day"
+	BudgetPeriodEnumMonth BudgetPeriodEnum = "month"
+	BudgetPeriodEnumWeek  BudgetPeriodEnum = "week"
+)
+
+// Valid indicates whether the value is a known member of the BudgetPeriodEnum enum.
+func (e BudgetPeriodEnum) Valid() bool {
+	switch e {
+	case BudgetPeriodEnumDay:
+		return true
+	case BudgetPeriodEnumMonth:
+		return true
+	case BudgetPeriodEnumWeek:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EventsEnum.
 const (
 	PullRequest EventsEnum = "pull_request"
@@ -169,25 +211,25 @@ func (e PlatformEnum) Valid() bool {
 
 // Defines values for StatusEnum.
 const (
-	Error   StatusEnum = "error"
-	Failed  StatusEnum = "failed"
-	Passed  StatusEnum = "passed"
-	Running StatusEnum = "running"
-	Skipped StatusEnum = "skipped"
+	StatusEnumError   StatusEnum = "error"
+	StatusEnumFailed  StatusEnum = "failed"
+	StatusEnumPassed  StatusEnum = "passed"
+	StatusEnumRunning StatusEnum = "running"
+	StatusEnumSkipped StatusEnum = "skipped"
 )
 
 // Valid indicates whether the value is a known member of the StatusEnum enum.
 func (e StatusEnum) Valid() bool {
 	switch e {
-	case Error:
+	case StatusEnumError:
 		return true
-	case Failed:
+	case StatusEnumFailed:
 		return true
-	case Passed:
+	case StatusEnumPassed:
 		return true
-	case Running:
+	case StatusEnumRunning:
 		return true
-	case Skipped:
+	case StatusEnumSkipped:
 		return true
 	default:
 		return false
@@ -233,6 +275,48 @@ func (e TypeEnum) Valid() bool {
 	}
 }
 
+// Defines values for UsageCategoryEnum.
+const (
+	Map      UsageCategoryEnum = "map"
+	Standard UsageCategoryEnum = "standard"
+)
+
+// Valid indicates whether the value is a known member of the UsageCategoryEnum enum.
+func (e UsageCategoryEnum) Valid() bool {
+	switch e {
+	case Map:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WarningLightKeyEnum.
+const (
+	WarningLightKeyEnumAiBudget WarningLightKeyEnum = "ai_budget"
+	WarningLightKeyEnumBelowA   WarningLightKeyEnum = "below_a"
+	WarningLightKeyEnumFailed   WarningLightKeyEnum = "failed"
+	WarningLightKeyEnumNoScore  WarningLightKeyEnum = "no_score"
+)
+
+// Valid indicates whether the value is a known member of the WarningLightKeyEnum enum.
+func (e WarningLightKeyEnum) Valid() bool {
+	switch e {
+	case WarningLightKeyEnumAiBudget:
+		return true
+	case WarningLightKeyEnumBelowA:
+		return true
+	case WarningLightKeyEnumFailed:
+		return true
+	case WarningLightKeyEnumNoScore:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebhookEnum.
 const (
 	Active  WebhookEnum = "active"
@@ -255,6 +339,45 @@ func (e WebhookEnum) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Defines values for GetAiUsageParamsPeriod.
+const (
+	GetAiUsageParamsPeriodDay   GetAiUsageParamsPeriod = "day"
+	GetAiUsageParamsPeriodMonth GetAiUsageParamsPeriod = "month"
+	GetAiUsageParamsPeriodWeek  GetAiUsageParamsPeriod = "week"
+)
+
+// Valid indicates whether the value is a known member of the GetAiUsageParamsPeriod enum.
+func (e GetAiUsageParamsPeriod) Valid() bool {
+	switch e {
+	case GetAiUsageParamsPeriodDay:
+		return true
+	case GetAiUsageParamsPeriodMonth:
+		return true
+	case GetAiUsageParamsPeriodWeek:
+		return true
+	default:
+		return false
+	}
+}
+
+// AIUsage defines model for AIUsage.
+type AIUsage struct {
+	Budgets    BudgetSummary   `json:"budgets"`
+	Categories []CategoryUsage `json:"categories"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period BudgetPeriodEnum `json:"period"`
+
+	// Providers Token counts are per model: models are priced apart.
+	Providers []ProviderUsage `json:"providers"`
+
+	// Standards Biggest first.
+	Standards []StandardUsage `json:"standards"`
+	Starts    time.Time       `json:"starts"`
 }
 
 // ActiveStandard defines model for ActiveStandard.
@@ -298,6 +421,26 @@ type AttachedStandardImportance struct {
 	Name       string         `json:"name"`
 }
 
+// AttentionProject defines model for AttentionProject.
+type AttentionProject struct {
+	// Grade Null when the project has no score.
+	Grade   *ScoreDisplay `json:"grade"`
+	Owner   string        `json:"owner"`
+	Project ProjectRef    `json:"project"`
+	Stacks  []string      `json:"stacks"`
+
+	// Tone failed or needs_attention.
+	//
+	// * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+
+	// Why e.g. "Lint failing", "No score: …", "Below par: Docs", "Not checked yet".
+	Why string `json:"why"`
+}
+
 // AuthMethodEnum * `pat` - pat
 // * `github_app` - github_app
 type AuthMethodEnum string
@@ -306,6 +449,110 @@ type AuthMethodEnum string
 type Branch struct {
 	IsDefault bool   `json:"is_default"`
 	Name      string `json:"name"`
+}
+
+// Budget defines model for Budget.
+type Budget struct {
+	Id         openapi_types.UUID `json:"id"`
+	InputLimit *int               `json:"input_limit"`
+
+	// Level ok, near (low) or reached.
+	//
+	// * `ok` - ok
+	// * `near` - near
+	// * `reached` - reached
+	Level BudgetLevelEnum `json:"level"`
+
+	// LowAtPercent Warn owners and admins when this much is left; null: only when used up.
+	LowAtPercent *int   `json:"low_at_percent"`
+	Model        string `json:"model"`
+	OutputLimit  *int   `json:"output_limit"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period   BudgetPeriodEnum `json:"period"`
+	Provider ProviderRef      `json:"provider"`
+
+	// StopAtLimit Hold back new runs on the model once used up.
+	StopAtLimit bool `json:"stop_at_limit"`
+	StopsRuns   bool `json:"stops_runs"`
+
+	// Used What the current period has used.
+	Used   Tokens       `json:"used"`
+	Window BudgetWindow `json:"window"`
+}
+
+// BudgetCreateRequest defines model for BudgetCreateRequest.
+type BudgetCreateRequest struct {
+	InputLimit   *int   `json:"input_limit,omitempty"`
+	LowAtPercent *int   `json:"low_at_percent,omitempty"`
+	Model        string `json:"model"`
+	OutputLimit  *int   `json:"output_limit,omitempty"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period      BudgetPeriodEnum   `json:"period"`
+	ProviderId  openapi_types.UUID `json:"provider_id"`
+	StopAtLimit *bool              `json:"stop_at_limit,omitempty"`
+}
+
+// BudgetLevelEnum * `ok` - ok
+// * `near` - near
+// * `reached` - reached
+type BudgetLevelEnum string
+
+// BudgetPeriodEnum * `day` - day
+// * `week` - week
+// * `month` - month
+type BudgetPeriodEnum string
+
+// BudgetSummary defines model for BudgetSummary.
+type BudgetSummary struct {
+	// Near At or under their low mark.
+	Near int `json:"near"`
+	Ok   int `json:"ok"`
+
+	// Stopping Used up and stopping runs.
+	Stopping int `json:"stopping"`
+	Total    int `json:"total"`
+	UsedUp   int `json:"used_up"`
+}
+
+// BudgetWindow defines model for BudgetWindow.
+type BudgetWindow struct {
+	LastDay openapi_types.Date `json:"last_day"`
+
+	// Resets When it starts over from zero.
+	Resets time.Time `json:"resets"`
+
+	// Starts When the current period began (workspace's local time).
+	Starts time.Time `json:"starts"`
+}
+
+// BudgetableModel defines model for BudgetableModel.
+type BudgetableModel struct {
+	// Blocked No budget: the model does not run.
+	Blocked   bool        `json:"blocked"`
+	HasBudget bool        `json:"has_budget"`
+	Model     string      `json:"model"`
+	Provider  ProviderRef `json:"provider"`
+
+	// Roles Roles that use it (GitGrit calls these).
+	Roles []string `json:"roles"`
+}
+
+// CategoryUsage defines model for CategoryUsage.
+type CategoryUsage struct {
+	Calls int `json:"calls"`
+
+	// Category * `map` - map
+	// * `standard` - standard
+	Category     UsageCategoryEnum `json:"category"`
+	InputTokens  int               `json:"input_tokens"`
+	Label        string            `json:"label"`
+	OutputTokens int               `json:"output_tokens"`
 }
 
 // CheckResult defines model for CheckResult.
@@ -332,6 +579,15 @@ type CheckResult struct {
 
 	// StillAttached Commit views only: whether the standard is still attached.
 	StillAttached *bool `json:"still_attached,omitempty"`
+}
+
+// ChecksByWeek defines model for ChecksByWeek.
+type ChecksByWeek struct {
+	LastWeek int `json:"last_week"`
+
+	// Peak The busiest of the last four (rolling) weeks.
+	Peak     int `json:"peak"`
+	ThisWeek int `json:"this_week"`
 }
 
 // Commit defines model for Commit.
@@ -458,6 +714,23 @@ type Execution struct {
 	Status    string    `json:"status"`
 }
 
+// HealthCounts defines model for HealthCounts.
+type HealthCounts struct {
+	// Checked Projects with a score on record.
+	Checked int `json:"checked"`
+
+	// Failed A Required standard failed.
+	Failed int `json:"failed"`
+
+	// Healthy Graded A+ or A.
+	Healthy int `json:"healthy"`
+
+	// NeedsAttention Graded B to D, no score, or never checked.
+	NeedsAttention int `json:"needs_attention"`
+	Total          int `json:"total"`
+	Unchecked      int `json:"unchecked"`
+}
+
 // ImportanceEnum * `required` - Required
 // * `major` - Major
 // * `minor` - Minor
@@ -469,6 +742,14 @@ type InstalledStandard struct {
 	Created bool               `json:"created"`
 	Id      openapi_types.UUID `json:"id"`
 	Name    string             `json:"name"`
+}
+
+// LastCheck defines model for LastCheck.
+type LastCheck struct {
+	At        time.Time  `json:"at"`
+	Branch    string     `json:"branch"`
+	CommitSha string     `json:"commit_sha"`
+	Project   ProjectRef `json:"project"`
 }
 
 // LastExecution defines model for LastExecution.
@@ -535,6 +816,16 @@ type Me struct {
 	Workspaces []Workspace   `json:"workspaces"`
 }
 
+// ModelUsage defines model for ModelUsage.
+type ModelUsage struct {
+	Blocked      bool     `json:"blocked"`
+	Budgets      []Budget `json:"budgets"`
+	Calls        int      `json:"calls"`
+	InputTokens  int      `json:"input_tokens"`
+	Model        string   `json:"model"`
+	OutputTokens int      `json:"output_tokens"`
+}
+
 // NullEnum defines model for NullEnum.
 type NullEnum = interface{}
 
@@ -553,6 +844,22 @@ type Offender struct {
 // * `scored` - scored
 type OutcomeEnum string
 
+// Overview defines model for Overview.
+type Overview struct {
+	Checks ChecksByWeek `json:"checks"`
+	Health HealthCounts `json:"health"`
+
+	// LastCheck The newest score the counts read.
+	LastCheck *LastCheck     `json:"last_check"`
+	Lights    []WarningLight `json:"lights"`
+
+	// NeedsYou Failed first, each worst first.
+	NeedsYou []AttentionProject `json:"needs_you"`
+
+	// Trend Healthy projects, week by week, oldest first.
+	Trend []TrendPoint `json:"trend"`
+}
+
 // PackInstall defines model for PackInstall.
 type PackInstall struct {
 	Installed []InstalledStandard `json:"installed"`
@@ -560,6 +867,19 @@ type PackInstall struct {
 
 	// Skipped Already in the workspace.
 	Skipped []InstalledStandard `json:"skipped"`
+}
+
+// PatchedBudgetUpdateRequest Only the fields sent change.
+type PatchedBudgetUpdateRequest struct {
+	InputLimit   *int `json:"input_limit,omitempty"`
+	LowAtPercent *int `json:"low_at_percent,omitempty"`
+	OutputLimit  *int `json:"output_limit,omitempty"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period      *BudgetPeriodEnum `json:"period,omitempty"`
+	StopAtLimit *bool             `json:"stop_at_limit,omitempty"`
 }
 
 // PatchedImportanceRequest PATCH body for an attached standard.
@@ -796,6 +1116,20 @@ type ProjectStatus_Outcome struct {
 	union json.RawMessage
 }
 
+// ProviderRef defines model for ProviderRef.
+type ProviderRef struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// ProviderUsage defines model for ProviderUsage.
+type ProviderUsage struct {
+	// Id Null for usage of a deleted provider.
+	Id     *openapi_types.UUID `json:"id"`
+	Models []ModelUsage        `json:"models"`
+	Name   string              `json:"name"`
+}
+
 // Repository defines model for Repository.
 type Repository struct {
 	AlreadyAdded  bool    `json:"already_added"`
@@ -880,6 +1214,58 @@ type ScoredCommitRef struct {
 	Branch      string     `json:"branch"`
 	CommittedAt *time.Time `json:"committed_at"`
 	Sha         string     `json:"sha"`
+}
+
+// StackComponent defines model for StackComponent.
+type StackComponent struct {
+	Grade       *ScoreDisplay      `json:"grade"`
+	Id          openapi_types.UUID `json:"id"`
+	LastChecked *time.Time         `json:"last_checked"`
+	Name        string             `json:"name"`
+	Path        string             `json:"path"`
+	Project     ProjectRef         `json:"project"`
+
+	// Tone Its repository's health.
+	//
+	// * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+	Why  string    `json:"why"`
+}
+
+// StackDetail defines model for StackDetail.
+type StackDetail struct {
+	// Components Worst first.
+	Components     []StackComponent   `json:"components"`
+	Description    string             `json:"description"`
+	Failed         int                `json:"failed"`
+	Healthy        int                `json:"healthy"`
+	Id             openapi_types.UUID `json:"id"`
+	MapRefreshing  bool               `json:"map_refreshing"`
+	MapUpdatedAt   *time.Time         `json:"map_updated_at"`
+	Name           string             `json:"name"`
+	NeedsAttention int                `json:"needs_attention"`
+	ProjectCount   int                `json:"project_count"`
+	StandardCount  int                `json:"standard_count"`
+}
+
+// StackRefresh defines model for StackRefresh.
+type StackRefresh struct {
+	// Queued Projects queued to rebuild the map from their main branch.
+	Queued int `json:"queued"`
+}
+
+// StackSummary defines model for StackSummary.
+type StackSummary struct {
+	Description    string             `json:"description"`
+	Failed         int                `json:"failed"`
+	Healthy        int                `json:"healthy"`
+	Id             openapi_types.UUID `json:"id"`
+	Name           string             `json:"name"`
+	NeedsAttention int                `json:"needs_attention"`
+	ProjectCount   int                `json:"project_count"`
 }
 
 // StandardCreateRequest defines model for StandardCreateRequest.
@@ -974,6 +1360,21 @@ type StandardTestResult struct {
 	Score   int                    `json:"score"`
 }
 
+// StandardUsage defines model for StandardUsage.
+type StandardUsage struct {
+	// Heavy Spends at least twice the median standard.
+	Heavy        bool   `json:"heavy"`
+	InputTokens  int    `json:"input_tokens"`
+	Name         string `json:"name"`
+	OutputTokens int    `json:"output_tokens"`
+	Runs         int    `json:"runs"`
+
+	// Share Of all LLM-standard tokens in the period, 0-1.
+	Share       float64             `json:"share"`
+	StandardId  *openapi_types.UUID `json:"standard_id"`
+	TimesMedian float64             `json:"times_median"`
+}
+
 // StandardsProgress defines model for StandardsProgress.
 type StandardsProgress struct {
 	// Expected Standards the commit's newest check expects.
@@ -995,6 +1396,19 @@ type StatusEnum string
 // * `workspace_token` - workspace_token
 type TokenTypeEnum string
 
+// Tokens defines model for Tokens.
+type Tokens struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// TrendPoint defines model for TrendPoint.
+type TrendPoint struct {
+	Day     openapi_types.Date `json:"day"`
+	Healthy int                `json:"healthy"`
+	Total   int                `json:"total"`
+}
+
 // TypeEnum * `repository` - repository
 // * `artifact` - artifact
 type TypeEnum string
@@ -1012,12 +1426,43 @@ type UploadedCommit struct {
 	Size int    `json:"size"`
 }
 
+// UsageCategoryEnum * `map` - map
+// * `standard` - standard
+type UsageCategoryEnum string
+
 // UserRef defines model for UserRef.
 type UserRef struct {
 	Email    string `json:"email"`
 	Id       string `json:"id"`
 	Username string `json:"username"`
 }
+
+// WarningLight defines model for WarningLight.
+type WarningLight struct {
+	Count int `json:"count"`
+
+	// Key * `failed` - failed
+	// * `below_a` - below_a
+	// * `no_score` - no_score
+	// * `ai_budget` - ai_budget
+	Key WarningLightKeyEnum `json:"key"`
+
+	// Lit A light turns on only when something needs action.
+	Lit   bool   `json:"lit"`
+	Title string `json:"title"`
+
+	// Tone * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+}
+
+// WarningLightKeyEnum * `failed` - failed
+// * `below_a` - below_a
+// * `no_score` - no_score
+// * `ai_budget` - ai_budget
+type WarningLightKeyEnum string
 
 // WebhookEnum * `app` - app
 // * `active` - active
@@ -1040,6 +1485,15 @@ type bearerAuthContextKey string
 // oauth2ContextKey is the context key for oauth2 security scheme
 type oauth2ContextKey string
 
+// GetAiUsageParams defines parameters for GetAiUsage.
+type GetAiUsageParams struct {
+	// Period The current day, week or month (default).
+	Period *GetAiUsageParamsPeriod `form:"period,omitempty" json:"period,omitempty"`
+}
+
+// GetAiUsageParamsPeriod defines parameters for GetAiUsage.
+type GetAiUsageParamsPeriod string
+
 // ListRepositoriesParams defines parameters for ListRepositories.
 type ListRepositoriesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
@@ -1061,6 +1515,12 @@ type ListProjectCommitsParams struct {
 type GetProjectHealthParams struct {
 	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
 }
+
+// CreateAiBudgetJSONRequestBody defines body for CreateAiBudget for application/json ContentType.
+type CreateAiBudgetJSONRequestBody = BudgetCreateRequest
+
+// UpdateAiBudgetJSONRequestBody defines body for UpdateAiBudget for application/json ContentType.
+type UpdateAiBudgetJSONRequestBody = PatchedBudgetUpdateRequest
 
 // CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
 type CreateConnectionJSONRequestBody = ConnectionCreateRequest
@@ -1230,6 +1690,28 @@ type ClientInterface interface {
 	// GetMe request
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAiBudgets request
+	ListAiBudgets(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAiBudgetWithBody request with any body
+	CreateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAiBudget request
+	DeleteAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAiBudgetWithBody request with any body
+	UpdateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAiModels request
+	ListAiModels(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAiUsage request
+	GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListConnections request
 	ListConnections(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1255,6 +1737,9 @@ type ClientInterface interface {
 
 	// UpdateMarketplaceStandard request
 	UpdateMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOverview request
+	GetOverview(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjects request
 	ListProjects(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1317,6 +1802,15 @@ type ClientInterface interface {
 	// GetProjectStatus request
 	GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListStacks request
+	ListStacks(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetStack request
+	GetStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshStackMap request
+	RefreshStackMap(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListStandards request
 	ListStandards(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1350,6 +1844,102 @@ type ClientInterface interface {
 
 func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAiBudgets(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAiBudgetsRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAiBudgetRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAiBudgetRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAiBudgetRequest(c.Server, workspaceId, budgetId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAiBudgetRequestWithBody(c.Server, workspaceId, budgetId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAiBudgetRequest(c.Server, workspaceId, budgetId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAiModels(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAiModelsRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAiUsageRequest(c.Server, workspaceId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1458,6 +2048,18 @@ func (c *Client) InstallMarketplaceStandard(ctx context.Context, workspaceId ope
 
 func (c *Client) UpdateMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMarketplaceStandardRequest(c.Server, workspaceId, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOverview(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOverviewRequest(c.Server, workspaceId)
 	if err != nil {
 		return nil, err
 	}
@@ -1732,6 +2334,42 @@ func (c *Client) GetProjectStatus(ctx context.Context, workspaceId openapi_types
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListStacks(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStacksRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetStackRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RefreshStackMap(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshStackMapRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListStandards(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListStandardsRequest(c.Server, workspaceId)
 	if err != nil {
@@ -1881,6 +2519,277 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAiBudgetsRequest generates requests for ListAiBudgets
+func NewListAiBudgetsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAiBudgetRequest calls the generic CreateAiBudget builder with application/json body
+func NewCreateAiBudgetRequest(server string, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAiBudgetRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateAiBudgetRequestWithBody generates requests for CreateAiBudget with any type of body
+func NewCreateAiBudgetRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAiBudgetRequest generates requests for DeleteAiBudget
+func NewDeleteAiBudgetRequest(server string, workspaceId openapi_types.UUID, budgetId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "budget_id", budgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAiBudgetRequest calls the generic UpdateAiBudget builder with application/json body
+func NewUpdateAiBudgetRequest(server string, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAiBudgetRequestWithBody(server, workspaceId, budgetId, "application/json", bodyReader)
+}
+
+// NewUpdateAiBudgetRequestWithBody generates requests for UpdateAiBudget with any type of body
+func NewUpdateAiBudgetRequestWithBody(server string, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "budget_id", budgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAiModelsRequest generates requests for ListAiModels
+func NewListAiModelsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/models/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAiUsageRequest generates requests for GetAiUsage
+func NewGetAiUsageRequest(server string, workspaceId openapi_types.UUID, params *GetAiUsageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/usage/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Period != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "period", *params.Period, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -2231,6 +3140,40 @@ func NewUpdateMarketplaceStandardRequest(server string, workspaceId openapi_type
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOverviewRequest generates requests for GetOverview
+func NewGetOverviewRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/overview/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -3107,6 +4050,122 @@ func NewGetProjectStatusRequest(server string, workspaceId openapi_types.UUID, p
 	return req, nil
 }
 
+// NewListStacksRequest generates requests for ListStacks
+func NewListStacksRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetStackRequest generates requests for GetStack
+func NewGetStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRefreshStackMapRequest generates requests for RefreshStackMap
+func NewRefreshStackMapRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/refresh/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListStandardsRequest generates requests for ListStandards
 func NewListStandardsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -3499,6 +4558,28 @@ type ClientWithResponsesInterface interface {
 	// GetMeWithResponse request
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
 
+	// ListAiBudgetsWithResponse request
+	ListAiBudgetsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiBudgetsResponse, error)
+
+	// CreateAiBudgetWithBodyWithResponse request with any body
+	CreateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error)
+
+	CreateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error)
+
+	// DeleteAiBudgetWithResponse request
+	DeleteAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAiBudgetResponse, error)
+
+	// UpdateAiBudgetWithBodyWithResponse request with any body
+	UpdateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error)
+
+	UpdateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error)
+
+	// ListAiModelsWithResponse request
+	ListAiModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiModelsResponse, error)
+
+	// GetAiUsageWithResponse request
+	GetAiUsageWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*GetAiUsageResponse, error)
+
 	// ListConnectionsWithResponse request
 	ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error)
 
@@ -3524,6 +4605,9 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateMarketplaceStandardWithResponse request
 	UpdateMarketplaceStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*UpdateMarketplaceStandardResponse, error)
+
+	// GetOverviewWithResponse request
+	GetOverviewWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOverviewResponse, error)
 
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
@@ -3586,6 +4670,15 @@ type ClientWithResponsesInterface interface {
 	// GetProjectStatusWithResponse request
 	GetProjectStatusWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectStatusResponse, error)
 
+	// ListStacksWithResponse request
+	ListStacksWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStacksResponse, error)
+
+	// GetStackWithResponse request
+	GetStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetStackResponse, error)
+
+	// RefreshStackMapWithResponse request
+	RefreshStackMapWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshStackMapResponse, error)
+
 	// ListStandardsWithResponse request
 	ListStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStandardsResponse, error)
 
@@ -3641,6 +4734,185 @@ func (r GetMeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAiBudgetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Budget
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAiBudgetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAiBudgetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAiBudgetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateAiBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Budget
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAiBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAiBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAiBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAiBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAiBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAiBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAiBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAiBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Budget
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAiBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAiBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAiBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAiModelsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]BudgetableModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAiModelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAiModelsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAiModelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAiUsageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AIUsage
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAiUsageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAiUsageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAiUsageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3881,6 +5153,36 @@ func (r UpdateMarketplaceStandardResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateMarketplaceStandardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOverviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Overview
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOverviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOverviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOverviewResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4398,6 +5700,96 @@ func (r GetProjectStatusResponse) ContentType() string {
 	return ""
 }
 
+type ListStacksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]StackSummary
+}
+
+// Status returns HTTPResponse.Status
+func (r ListStacksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListStacksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListStacksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StackDetail
+}
+
+// Status returns HTTPResponse.Status
+func (r GetStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RefreshStackMapResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *StackRefresh
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshStackMapResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshStackMapResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshStackMapResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListStandardsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4646,6 +6038,76 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 	return ParseGetMeResponse(rsp)
 }
 
+// ListAiBudgetsWithResponse request returning *ListAiBudgetsResponse
+func (c *ClientWithResponses) ListAiBudgetsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiBudgetsResponse, error) {
+	rsp, err := c.ListAiBudgets(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAiBudgetsResponse(rsp)
+}
+
+// CreateAiBudgetWithBodyWithResponse request with arbitrary body returning *CreateAiBudgetResponse
+func (c *ClientWithResponses) CreateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error) {
+	rsp, err := c.CreateAiBudgetWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAiBudgetResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error) {
+	rsp, err := c.CreateAiBudget(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAiBudgetResponse(rsp)
+}
+
+// DeleteAiBudgetWithResponse request returning *DeleteAiBudgetResponse
+func (c *ClientWithResponses) DeleteAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAiBudgetResponse, error) {
+	rsp, err := c.DeleteAiBudget(ctx, workspaceId, budgetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAiBudgetResponse(rsp)
+}
+
+// UpdateAiBudgetWithBodyWithResponse request with arbitrary body returning *UpdateAiBudgetResponse
+func (c *ClientWithResponses) UpdateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error) {
+	rsp, err := c.UpdateAiBudgetWithBody(ctx, workspaceId, budgetId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAiBudgetResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error) {
+	rsp, err := c.UpdateAiBudget(ctx, workspaceId, budgetId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAiBudgetResponse(rsp)
+}
+
+// ListAiModelsWithResponse request returning *ListAiModelsResponse
+func (c *ClientWithResponses) ListAiModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiModelsResponse, error) {
+	rsp, err := c.ListAiModels(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAiModelsResponse(rsp)
+}
+
+// GetAiUsageWithResponse request returning *GetAiUsageResponse
+func (c *ClientWithResponses) GetAiUsageWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*GetAiUsageResponse, error) {
+	rsp, err := c.GetAiUsage(ctx, workspaceId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAiUsageResponse(rsp)
+}
+
 // ListConnectionsWithResponse request returning *ListConnectionsResponse
 func (c *ClientWithResponses) ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error) {
 	rsp, err := c.ListConnections(ctx, workspaceId, reqEditors...)
@@ -4724,6 +6186,15 @@ func (c *ClientWithResponses) UpdateMarketplaceStandardWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseUpdateMarketplaceStandardResponse(rsp)
+}
+
+// GetOverviewWithResponse request returning *GetOverviewResponse
+func (c *ClientWithResponses) GetOverviewWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOverviewResponse, error) {
+	rsp, err := c.GetOverview(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOverviewResponse(rsp)
 }
 
 // ListProjectsWithResponse request returning *ListProjectsResponse
@@ -4919,6 +6390,33 @@ func (c *ClientWithResponses) GetProjectStatusWithResponse(ctx context.Context, 
 	return ParseGetProjectStatusResponse(rsp)
 }
 
+// ListStacksWithResponse request returning *ListStacksResponse
+func (c *ClientWithResponses) ListStacksWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStacksResponse, error) {
+	rsp, err := c.ListStacks(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListStacksResponse(rsp)
+}
+
+// GetStackWithResponse request returning *GetStackResponse
+func (c *ClientWithResponses) GetStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetStackResponse, error) {
+	rsp, err := c.GetStack(ctx, workspaceId, stackId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetStackResponse(rsp)
+}
+
+// RefreshStackMapWithResponse request returning *RefreshStackMapResponse
+func (c *ClientWithResponses) RefreshStackMapWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshStackMapResponse, error) {
+	rsp, err := c.RefreshStackMap(ctx, workspaceId, stackId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshStackMapResponse(rsp)
+}
+
 // ListStandardsWithResponse request returning *ListStandardsResponse
 func (c *ClientWithResponses) ListStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStandardsResponse, error) {
 	rsp, err := c.ListStandards(ctx, workspaceId, reqEditors...)
@@ -5031,6 +6529,152 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Me
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAiBudgetsResponse parses an HTTP response from a ListAiBudgetsWithResponse call
+func ParseListAiBudgetsResponse(rsp *http.Response) (*ListAiBudgetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAiBudgetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Budget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAiBudgetResponse parses an HTTP response from a CreateAiBudgetWithResponse call
+func ParseCreateAiBudgetResponse(rsp *http.Response) (*CreateAiBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAiBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Budget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAiBudgetResponse parses an HTTP response from a DeleteAiBudgetWithResponse call
+func ParseDeleteAiBudgetResponse(rsp *http.Response) (*DeleteAiBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAiBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAiBudgetResponse parses an HTTP response from a UpdateAiBudgetWithResponse call
+func ParseUpdateAiBudgetResponse(rsp *http.Response) (*UpdateAiBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAiBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Budget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAiModelsResponse parses an HTTP response from a ListAiModelsWithResponse call
+func ParseListAiModelsResponse(rsp *http.Response) (*ListAiModelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAiModelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []BudgetableModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAiUsageResponse parses an HTTP response from a GetAiUsageWithResponse call
+func ParseGetAiUsageResponse(rsp *http.Response) (*GetAiUsageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAiUsageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIUsage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -5239,6 +6883,32 @@ func ParseUpdateMarketplaceStandardResponse(rsp *http.Response) (*UpdateMarketpl
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MarketplaceUpdate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOverviewResponse parses an HTTP response from a GetOverviewWithResponse call
+func ParseGetOverviewResponse(rsp *http.Response) (*GetOverviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOverviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Overview
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -5689,6 +7359,84 @@ func ParseGetProjectStatusResponse(rsp *http.Response) (*GetProjectStatusRespons
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListStacksResponse parses an HTTP response from a ListStacksWithResponse call
+func ParseListStacksResponse(rsp *http.Response) (*ListStacksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListStacksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []StackSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetStackResponse parses an HTTP response from a GetStackWithResponse call
+func ParseGetStackResponse(rsp *http.Response) (*GetStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StackDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRefreshStackMapResponse parses an HTTP response from a RefreshStackMapWithResponse call
+func ParseRefreshStackMapResponse(rsp *http.Response) (*RefreshStackMapResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshStackMapResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest StackRefresh
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	}
 

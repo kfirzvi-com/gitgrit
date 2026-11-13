@@ -26,6 +26,9 @@ gitgrit health                          # project health; --branch for a branch'
 gitgrit commits --branch feature/x      # commits with their checks
 gitgrit check --wait                    # check the branch's latest commit; exit 1 if it fails
 gitgrit standard list
+gitgrit overview                        # the dashboard: health, warning lights, what needs you
+gitgrit ai usage --period week          # tokens per provider and model
+gitgrit ai budget set claude-haiku-4-5 --per month --input 20M --output 2M
 gitgrit api workspaces/{workspace}/projects/   # anything else in /api/v1
 ```
 

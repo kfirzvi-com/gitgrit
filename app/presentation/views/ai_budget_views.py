@@ -11,9 +11,9 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from app.application.ai_usage import BudgetError, BudgetService, BudgetWatch
+from app.application.ai_usage import BudgetableModels, BudgetError, BudgetService, BudgetWatch
 from app.domain.ai_usage import BudgetPeriod
-from app.domain.models import LLMBudget, LLMProvider, LLMRole
+from app.domain.models import LLMBudget
 from app.presentation.budget_row import BudgetRow
 from app.presentation.htmx import toast
 from app.workspace_access import is_workspace_admin
@@ -23,26 +23,10 @@ def ai_budgets_context(tenant, is_admin: bool) -> dict:
     budgets = LLMBudget.objects.filter(tenant=tenant).select_related("provider").order_by(
         "provider__display_name", "model", "period"
     )
-    # The models a budget can be set on: each provider's known models, the
-    # role models first (those are the ones GitGrit actually calls).
-    options, seen = [], set()
-    for role in LLMRole.objects.filter(tenant=tenant).select_related("provider").order_by("name"):
-        key = (str(role.provider_id), role.model)
-        if key not in seen:
-            seen.add(key)
-            options.append((key[0], role.provider.display_name, role.model, role.get_name_display()))
-    # Every model that already has a budget, so editing it always finds it.
-    for budget in budgets:
-        key = (str(budget.provider_id), budget.model)
-        if key not in seen:
-            seen.add(key)
-            options.append((key[0], budget.provider.display_name, budget.model, ""))
-    for provider in LLMProvider.objects.filter(tenant=tenant).order_by("display_name"):
-        for model in provider.available_models or []:
-            key = (str(provider.pk), model)
-            if key not in seen:
-                seen.add(key)
-                options.append((key[0], provider.display_name, model, ""))
+    options = [
+        (m.provider_id, m.provider_name, m.model, ", ".join(m.roles))
+        for m in BudgetableModels.for_workspace(tenant)
+    ]
     return {
         "budget_rows": [BudgetRow(b, BudgetWatch.used(b)) for b in budgets],
         "budget_model_options": options,
