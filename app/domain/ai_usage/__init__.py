@@ -9,6 +9,7 @@ Pure Python (no Django): the vocabulary and rules every layer shares.
 * ``BudgetLevel`` / ``TokenBudget`` — how far a budget is used, when to warn
   and when a budget stops further runs;
 * ``BudgetSummary`` — how many budgets are fine, nearly used, used up;
+* ``BudgetableModels`` — which models can take a budget, role models first;
 * ``ModelAccess`` — whether a model may run: only with a budget, and not
   once a stop-at-limit budget is used up;
 * ``StandardUsageDistribution`` — which LLM standards spend far more than others.
@@ -16,6 +17,8 @@ Pure Python (no Django): the vocabulary and rules every layer shares.
 from app.domain.ai_usage.budget_level import BudgetLevel
 from app.domain.ai_usage.budget_period import BudgetPeriod
 from app.domain.ai_usage.budget_summary import BudgetSummary
+from app.domain.ai_usage.budgetable_model import BudgetableModel
+from app.domain.ai_usage.budgetable_models import BudgetableModels
 from app.domain.ai_usage.model_access import Denial, ModelAccess
 from app.domain.ai_usage.standard_usage import StandardUsage
 from app.domain.ai_usage.standard_usage_distribution import StandardUsageDistribution
@@ -27,6 +30,8 @@ __all__ = [
     "BudgetLevel",
     "BudgetPeriod",
     "BudgetSummary",
+    "BudgetableModel",
+    "BudgetableModels",
     "Denial",
     "ModelAccess",
     "StandardUsage",

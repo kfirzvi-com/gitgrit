@@ -140,6 +140,16 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit health` | The project's score, standard by standard |
 | `gitgrit check --wait` | Run the standards on a commit and exit by its score |
 | `gitgrit branches` / `commits` / `commit <sha>` | Results per branch and commit |
+| **Workspace** | |
+| `gitgrit overview` | The dashboard: projects by health, warning lights, what needs you |
+| `gitgrit stack list` / `view <stack>` | Stacks with their projects counted by health; a stack's components, worst first |
+| `gitgrit stack refresh <stack>` | Rebuild a stack's map from its projects' main branches (superusers) |
+| **AI** | |
+| `gitgrit ai usage [--period day\|week\|month]` | Input and output tokens per provider and model, per kind of work, per standard |
+| `gitgrit ai models` | Models a budget can cover; a model without one is blocked |
+| `gitgrit ai budget list` | Budgets, what each period has used, and when it resets |
+| `gitgrit ai budget set <model> --per … --input … --output …` | Set or change a budget (owners and admins); `--low-at 20` warns at 20% left, `--stop-at-limit` holds runs |
+| `gitgrit ai budget remove <model> --per …` | Remove a budget (owners and admins) |
 | `gitgrit api <path>` | Call any endpoint of the [public API](https://app.gitgrit.dev/api/v1/docs/) |
 
 Standards can be named (`"README Exists"`) or given by id. Add `--json` to any command for the raw API response, and `--help` for all its options.

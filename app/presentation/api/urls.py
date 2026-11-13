@@ -1,9 +1,17 @@
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from app.presentation.api import manage_views, views
+from app.presentation.api import cockpit_views, manage_views, views
 
 workspace_patterns = [
+    path("overview/", cockpit_views.OverviewView.as_view(), name="api_overview"),
+    path("ai/usage/", cockpit_views.AIUsageView.as_view(), name="api_ai_usage"),
+    path("ai/models/", cockpit_views.AIModelsView.as_view(), name="api_ai_models"),
+    path("ai/budgets/", cockpit_views.AIBudgetsView.as_view(), name="api_ai_budgets"),
+    path("ai/budgets/<uuid:budget_id>/", cockpit_views.AIBudgetView.as_view(), name="api_ai_budget"),
+    path("stacks/", cockpit_views.StackListView.as_view(), name="api_stacks"),
+    path("stacks/<uuid:stack_id>/", cockpit_views.StackDetailView.as_view(), name="api_stack"),
+    path("stacks/<uuid:stack_id>/refresh/", cockpit_views.StackRefreshView.as_view(), name="api_stack_refresh"),
     path("connections/", manage_views.ConnectionListView.as_view(), name="api_connections"),
     path(
         "connections/<uuid:connection_id>/repositories/",

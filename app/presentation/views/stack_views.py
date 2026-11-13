@@ -10,11 +10,11 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
 from app.application import stack_service
+from app.application.stack_health import StackHealth
 from app.application.dependency_agent import refresh_stack_map
-from app.domain.models import Component, Stack, Standard
-from app.domain.score_representation import ScoreTone
+from app.domain.models import Component, Stack
 from app.application.project_health_counts import ProjectHealthCounts
-from app.presentation.architecture import map_status, stack_graph
+from app.presentation.architecture import stack_graph
 from app.presentation.health_note import HealthNote
 
 
@@ -78,35 +78,20 @@ class StackDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         stack = self.object
-        components = list(
-            Component.objects.filter(tenant=stack.tenant, stacks=stack).select_related(
-                "project", "project__platform_connection"
-            )
-        )
-        projects = list({c.project_id: c.project for c in components}.values())
-        health = ProjectHealthCounts.of(projects)
-
-        # Each component shows its repository's health and grade; worst first.
-        health_of = {
-            project.pk: (tone, score)
-            for tone in (ScoreTone.FAILED, ScoreTone.NEEDS_ATTENTION, ScoreTone.HEALTHY)
-            for project, score in health.projects_with(tone)
-        }
-        for component in components:
-            component.tone, component.score = health_of.get(component.project_id, (ScoreTone.UNKNOWN, None))
-            component.health_note = HealthNote.text(component.score)
-        components.sort(key=lambda c: (-c.tone.severity, c.name.lower()))
-
-        status = map_status(stack.projects)
+        view = StackHealth.of(stack)
+        components = []
+        for row in view.components:
+            component = row.component
+            component.tone, component.score = row.tone, row.score
+            component.health_note = HealthNote.text(row.score)
+            components.append(component)
         context.update(
             stack_components=components,
-            project_count=len(projects),
-            standard_count=Standard.objects.filter(
-                tenant=stack.tenant, enabled=True, projects__in=projects
-            ).distinct().count(),
-            stack_health=health,
-            map_updated_at=status["updated_at"],
-            map_analyzing=status["analyzing"],
+            project_count=view.project_count,
+            standard_count=view.standard_count,
+            stack_health=view.health,
+            map_updated_at=view.map_updated_at,
+            map_analyzing=view.map_refreshing,
             architecture_data=json.dumps(stack_graph(stack)),
         )
         return context

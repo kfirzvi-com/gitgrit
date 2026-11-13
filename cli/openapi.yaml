@@ -28,6 +28,203 @@ paths:
               schema:
                 $ref: '#/components/schemas/Me'
           description: ''
+  /api/v1/workspaces/{workspace_id}/ai/budgets/:
+    get:
+      operationId: list_ai_budgets
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: AI budgets, with what each current period has used
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ai
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Budget'
+          description: ''
+    post:
+      operationId: create_ai_budget
+      description: One budget per provider, model and period. A model runs only once
+        it has a budget.
+      summary: Set a budget on a model (owners and admins)
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetCreateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/ai/budgets/{budget_id}/:
+    patch:
+      operationId: update_ai_budget
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Change a budget (owners and admins)
+      parameters:
+      - in: path
+        name: budget_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetUpdateRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+    delete:
+      operationId: delete_ai_budget
+      description: With no budget left, the model stops running.
+      summary: Remove a budget (owners and admins)
+      parameters:
+      - in: path
+        name: budget_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ai
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_id}/ai/models/:
+    get:
+      operationId: list_ai_models
+      description: 'Only models with a budget run: a model without one is blocked.'
+      summary: Models a budget can cover
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ai
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BudgetableModel'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/ai/usage/:
+    get:
+      operationId: get_ai_usage
+      description: Input and output tokens per provider and model (models are priced
+        apart, so never added up across models), each model's budgets, tokens per
+        kind of work, and how LLM-standard tokens split between standards.
+      summary: AI tokens spent this day, week or month
+      parameters:
+      - in: query
+        name: period
+        schema:
+          type: string
+          enum:
+          - day
+          - month
+          - week
+        description: The current day, week or month (default).
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ai
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIUsage'
+          description: ''
   /api/v1/workspaces/{workspace_id}/connections/:
     get:
       operationId: list_connections
@@ -270,6 +467,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MarketplaceUpdate'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/overview/:
+    get:
+      operationId: get_overview
+      description: 'What the dashboard''s cockpit shows: projects counted by health
+        (never one grade for many), the warning lights (each lit only when something
+        needs action), the projects that need you, commits checked per week and healthy
+        projects week by week.'
+      summary: 'The workspace at a glance: health, warning lights, what needs you'
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - overview
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
           description: ''
   /api/v1/workspaces/{workspace_id}/projects/:
     get:
@@ -889,6 +1114,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectNotFound'
           description: ''
+  /api/v1/workspaces/{workspace_id}/stacks/:
+    get:
+      operationId: list_stacks
+      description: 'Worst first: most failed, then most needing attention, then by
+        name.'
+      summary: Stacks, each with its projects counted by health
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StackSummary'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/stacks/{stack_id}/:
+    get:
+      operationId: get_stack
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: A stack's health and its components, worst first
+      parameters:
+      - in: path
+        name: stack_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StackDetail'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/stacks/{stack_id}/refresh/:
+    post:
+      operationId: refresh_stack_map
+      description: Queued; the worker reads each project. It costs one LLM run per
+        project.
+      summary: Rebuild a stack's map from its projects' main branches (superusers)
+      parameters:
+      - in: path
+        name: stack_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StackRefresh'
+          description: ''
   /api/v1/workspaces/{workspace_id}/standards/:
     get:
       operationId: list_standards
@@ -1155,6 +1478,37 @@ paths:
           description: ''
 components:
   schemas:
+    AIUsage:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/BudgetPeriodEnum'
+        starts:
+          type: string
+          format: date-time
+        budgets:
+          $ref: '#/components/schemas/BudgetSummary'
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderUsage'
+          description: 'Token counts are per model: models are priced apart.'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryUsage'
+        standards:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardUsage'
+          description: Biggest first.
+      required:
+      - budgets
+      - categories
+      - period
+      - providers
+      - standards
+      - starts
     ActiveStandard:
       type: object
       properties:
@@ -1237,6 +1591,43 @@ components:
       - id
       - importance
       - name
+    AttentionProject:
+      type: object
+      properties:
+        project:
+          $ref: '#/components/schemas/ProjectRef'
+        tone:
+          allOf:
+          - $ref: '#/components/schemas/LevelEnum'
+          description: |-
+            failed or needs_attention.
+
+            * `healthy` - healthy
+            * `needs_attention` - needs_attention
+            * `failed` - failed
+            * `unknown` - unknown
+        grade:
+          allOf:
+          - $ref: '#/components/schemas/ScoreDisplay'
+          nullable: true
+          description: Null when the project has no score.
+        why:
+          type: string
+          description: 'e.g. "Lint failing", "No score: …", "Below par: Docs", "Not
+            checked yet".'
+        owner:
+          type: string
+        stacks:
+          type: array
+          items:
+            type: string
+      required:
+      - grade
+      - owner
+      - project
+      - stacks
+      - tone
+      - why
     AuthMethodEnum:
       enum:
       - pat
@@ -1255,6 +1646,194 @@ components:
       required:
       - is_default
       - name
+    Budget:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          $ref: '#/components/schemas/ProviderRef'
+        model:
+          type: string
+        period:
+          $ref: '#/components/schemas/BudgetPeriodEnum'
+        input_limit:
+          type: integer
+          nullable: true
+        output_limit:
+          type: integer
+          nullable: true
+        low_at_percent:
+          type: integer
+          nullable: true
+          description: 'Warn owners and admins when this much is left; null: only
+            when used up.'
+        stop_at_limit:
+          type: boolean
+          description: Hold back new runs on the model once used up.
+        used:
+          allOf:
+          - $ref: '#/components/schemas/Tokens'
+          description: What the current period has used.
+        level:
+          allOf:
+          - $ref: '#/components/schemas/BudgetLevelEnum'
+          description: |-
+            ok, near (low) or reached.
+
+            * `ok` - ok
+            * `near` - near
+            * `reached` - reached
+        stops_runs:
+          type: boolean
+        window:
+          $ref: '#/components/schemas/BudgetWindow'
+      required:
+      - id
+      - input_limit
+      - level
+      - low_at_percent
+      - model
+      - output_limit
+      - period
+      - provider
+      - stop_at_limit
+      - stops_runs
+      - used
+      - window
+    BudgetCreateRequest:
+      type: object
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+          minLength: 1
+        period:
+          $ref: '#/components/schemas/BudgetPeriodEnum'
+        input_limit:
+          type: integer
+          minimum: 1
+          nullable: true
+        output_limit:
+          type: integer
+          minimum: 1
+          nullable: true
+        low_at_percent:
+          type: integer
+          maximum: 99
+          minimum: 1
+          nullable: true
+        stop_at_limit:
+          type: boolean
+          default: false
+      required:
+      - model
+      - period
+      - provider_id
+    BudgetLevelEnum:
+      enum:
+      - ok
+      - near
+      - reached
+      type: string
+      description: |-
+        * `ok` - ok
+        * `near` - near
+        * `reached` - reached
+    BudgetPeriodEnum:
+      enum:
+      - day
+      - week
+      - month
+      type: string
+      description: |-
+        * `day` - day
+        * `week` - week
+        * `month` - month
+    BudgetSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        ok:
+          type: integer
+        near:
+          type: integer
+          description: At or under their low mark.
+        used_up:
+          type: integer
+        stopping:
+          type: integer
+          description: Used up and stopping runs.
+      required:
+      - near
+      - ok
+      - stopping
+      - total
+      - used_up
+    BudgetWindow:
+      type: object
+      properties:
+        starts:
+          type: string
+          format: date-time
+          description: When the current period began (workspace's local time).
+        last_day:
+          type: string
+          format: date
+        resets:
+          type: string
+          format: date-time
+          description: When it starts over from zero.
+      required:
+      - last_day
+      - resets
+      - starts
+    BudgetableModel:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/ProviderRef'
+        model:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          description: Roles that use it (GitGrit calls these).
+        has_budget:
+          type: boolean
+        blocked:
+          type: boolean
+          description: 'No budget: the model does not run.'
+      required:
+      - blocked
+      - has_budget
+      - model
+      - provider
+      - roles
+    CategoryUsage:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/UsageCategoryEnum'
+        label:
+          type: string
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        calls:
+          type: integer
+      required:
+      - calls
+      - category
+      - input_tokens
+      - label
+      - output_tokens
     CheckResult:
       type: object
       properties:
@@ -1296,6 +1875,20 @@ components:
       - standard_id
       - standard_name
       - status
+    ChecksByWeek:
+      type: object
+      properties:
+        this_week:
+          type: integer
+        last_week:
+          type: integer
+        peak:
+          type: integer
+          description: The busiest of the last four (rolling) weeks.
+      required:
+      - last_week
+      - peak
+      - this_week
     Commit:
       type: object
       properties:
@@ -1526,6 +2119,32 @@ components:
       - project
       - score
       - status
+    HealthCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+        failed:
+          type: integer
+          description: A Required standard failed.
+        needs_attention:
+          type: integer
+          description: Graded B to D, no score, or never checked.
+        healthy:
+          type: integer
+          description: Graded A+ or A.
+        checked:
+          type: integer
+          description: Projects with a score on record.
+        unchecked:
+          type: integer
+      required:
+      - checked
+      - failed
+      - healthy
+      - needs_attention
+      - total
+      - unchecked
     ImportanceEnum:
       enum:
       - required
@@ -1551,6 +2170,23 @@ components:
       - created
       - id
       - name
+    LastCheck:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        project:
+          $ref: '#/components/schemas/ProjectRef'
+        commit_sha:
+          type: string
+        branch:
+          type: string
+      required:
+      - at
+      - branch
+      - commit_sha
+      - project
     LastExecution:
       type: object
       properties:
@@ -1690,6 +2326,30 @@ components:
       - token_type
       - user
       - workspaces
+    ModelUsage:
+      type: object
+      properties:
+        model:
+          type: string
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        calls:
+          type: integer
+        blocked:
+          type: boolean
+        budgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Budget'
+      required:
+      - blocked
+      - budgets
+      - calls
+      - input_tokens
+      - model
+      - output_tokens
     NullEnum:
       enum:
       - null
@@ -1727,6 +2387,39 @@ components:
         * `no_score` - no_score
         * `failed` - failed
         * `scored` - scored
+    Overview:
+      type: object
+      properties:
+        health:
+          $ref: '#/components/schemas/HealthCounts'
+        lights:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarningLight'
+        needs_you:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttentionProject'
+          description: Failed first, each worst first.
+        last_check:
+          allOf:
+          - $ref: '#/components/schemas/LastCheck'
+          nullable: true
+          description: The newest score the counts read.
+        checks:
+          $ref: '#/components/schemas/ChecksByWeek'
+        trend:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendPoint'
+          description: Healthy projects, week by week, oldest first.
+      required:
+      - checks
+      - health
+      - last_check
+      - lights
+      - needs_you
+      - trend
     PackInstall:
       type: object
       properties:
@@ -1745,6 +2438,27 @@ components:
       - installed
       - pack
       - skipped
+    PatchedBudgetUpdateRequest:
+      type: object
+      description: Only the fields sent change.
+      properties:
+        period:
+          $ref: '#/components/schemas/BudgetPeriodEnum'
+        input_limit:
+          type: integer
+          minimum: 1
+          nullable: true
+        output_limit:
+          type: integer
+          minimum: 1
+          nullable: true
+        low_at_percent:
+          type: integer
+          maximum: 99
+          minimum: 1
+          nullable: true
+        stop_at_limit:
+          type: boolean
     PatchedImportanceRequest:
       type: object
       description: PATCH body for an attached standard.
@@ -2208,6 +2922,35 @@ components:
       - score_failed
       - top_offenders
       - total_standards
+    ProviderRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    ProviderUsage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null for usage of a deleted provider.
+        name:
+          type: string
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelUsage'
+      required:
+      - id
+      - models
+      - name
     Repository:
       type: object
       properties:
@@ -2373,6 +3116,124 @@ components:
       - branch
       - committed_at
       - sha
+    StackComponent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        path:
+          type: string
+        project:
+          $ref: '#/components/schemas/ProjectRef'
+        tone:
+          allOf:
+          - $ref: '#/components/schemas/LevelEnum'
+          description: |-
+            Its repository's health.
+
+            * `healthy` - healthy
+            * `needs_attention` - needs_attention
+            * `failed` - failed
+            * `unknown` - unknown
+        grade:
+          allOf:
+          - $ref: '#/components/schemas/ScoreDisplay'
+          nullable: true
+        why:
+          type: string
+        last_checked:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - grade
+      - id
+      - last_checked
+      - name
+      - path
+      - project
+      - tone
+      - why
+    StackDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        project_count:
+          type: integer
+        failed:
+          type: integer
+        needs_attention:
+          type: integer
+        healthy:
+          type: integer
+        standard_count:
+          type: integer
+        map_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        map_refreshing:
+          type: boolean
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/StackComponent'
+          description: Worst first.
+      required:
+      - components
+      - description
+      - failed
+      - healthy
+      - id
+      - map_refreshing
+      - map_updated_at
+      - name
+      - needs_attention
+      - project_count
+      - standard_count
+    StackRefresh:
+      type: object
+      properties:
+        queued:
+          type: integer
+          description: Projects queued to rebuild the map from their main branch.
+      required:
+      - queued
+    StackSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        project_count:
+          type: integer
+        failed:
+          type: integer
+        needs_attention:
+          type: integer
+        healthy:
+          type: integer
+      required:
+      - description
+      - failed
+      - healthy
+      - id
+      - name
+      - needs_attention
+      - project_count
     StandardCreateRequest:
       type: object
       properties:
@@ -2591,6 +3452,40 @@ components:
       - message
       - passed
       - score
+    StandardUsage:
+      type: object
+      properties:
+        standard_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        runs:
+          type: integer
+        share:
+          type: number
+          format: double
+          description: Of all LLM-standard tokens in the period, 0-1.
+        heavy:
+          type: boolean
+          description: Spends at least twice the median standard.
+        times_median:
+          type: number
+          format: double
+      required:
+      - heavy
+      - input_tokens
+      - name
+      - output_tokens
+      - runs
+      - share
+      - standard_id
+      - times_median
     StandardsProgress:
       type: object
       properties:
@@ -2627,6 +3522,30 @@ components:
         * `oauth` - oauth
         * `personal_token` - personal_token
         * `workspace_token` - workspace_token
+    Tokens:
+      type: object
+      properties:
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+      required:
+      - input_tokens
+      - output_tokens
+    TrendPoint:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        healthy:
+          type: integer
+        total:
+          type: integer
+      required:
+      - day
+      - healthy
+      - total
     TypeEnum:
       enum:
       - repository
@@ -2662,6 +3581,14 @@ components:
       - message
       - sha
       - size
+    UsageCategoryEnum:
+      enum:
+      - map
+      - standard
+      type: string
+      description: |-
+        * `map` - map
+        * `standard` - standard
     UserRef:
       type: object
       properties:
@@ -2675,6 +3602,38 @@ components:
       - email
       - id
       - username
+    WarningLight:
+      type: object
+      properties:
+        key:
+          $ref: '#/components/schemas/WarningLightKeyEnum'
+        title:
+          type: string
+        count:
+          type: integer
+        lit:
+          type: boolean
+          description: A light turns on only when something needs action.
+        tone:
+          $ref: '#/components/schemas/LevelEnum'
+      required:
+      - count
+      - key
+      - lit
+      - title
+      - tone
+    WarningLightKeyEnum:
+      enum:
+      - failed
+      - below_a
+      - no_score
+      - ai_budget
+      type: string
+      description: |-
+        * `failed` - failed
+        * `below_a` - below_a
+        * `no_score` - no_score
+        * `ai_budget` - ai_budget
     WebhookEnum:
       enum:
       - app
