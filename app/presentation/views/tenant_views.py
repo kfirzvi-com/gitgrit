@@ -1,4 +1,3 @@
-import re
 
 from django.conf import settings
 from django import forms
@@ -7,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import escape
@@ -15,6 +15,8 @@ from django.views.generic import FormView, TemplateView
 from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
 from app.application import invitations, membership_service, project_management
+from app.application.errors import NotFoundError
+from app.application.llm_providers import LLMProviderError, LLMProviderService
 from app.application.workspace_service import (
     can_delete_workspace,
     create_workspace,
@@ -34,7 +36,6 @@ from app.domain.models import (
     Tenant,
     WorkspaceInvitation,
 )
-from app.infrastructure.llm_models import discover, test_provider
 from app.infrastructure.platform_client import get_platform_client
 from app.presentation.htmx import toast
 from app.presentation.views.ai_budget_views import ai_budgets_context
@@ -578,66 +579,36 @@ def _require_workspace_admin(request):
     return tenant, None
 
 
-def _auto_provider_name(tenant, provider_type) -> str:
-    label = dict(LLMProviderType.choices).get(provider_type, provider_type)
-    existing = set(
-        LLMProvider.objects.filter(tenant=tenant).values_list(
-            "display_name", flat=True
-        )
-    )
-    if label not in existing:
-        return label
-    n = 2
-    while f"{label} {n}" in existing:
-        n += 1
-    return f"{label} {n}"
-
-
 @login_required
 @require_POST
 def add_llm_provider(request):
     tenant, deny = _require_workspace_admin(request)
     if deny:
         return deny
-
-    provider_type = request.POST.get("provider_type", "")
-    display_name = request.POST.get("display_name", "").strip()
-    base_url = request.POST.get("base_url", "").strip()
-    api_key = request.POST.get("api_key", "").strip()
-
-    if provider_type not in LLMProviderType.values:
-        messages.error(request, "Invalid provider type.")
+    try:
+        provider, reason = LLMProviderService.add(
+            tenant,
+            provider_type=request.POST.get("provider_type", ""),
+            display_name=request.POST.get("display_name", ""),
+            base_url=request.POST.get("base_url", ""),
+            api_key=request.POST.get("api_key", ""),
+        )
+    except LLMProviderError as exc:
+        messages.error(request, str(exc))
         return redirect("tenant_settings")
-    if not api_key:
-        messages.error(request, "API key is required.")
-        return redirect("tenant_settings")
 
-    if not display_name:
-        display_name = _auto_provider_name(tenant, provider_type)
-
-    found = discover(provider_type, base_url, api_key)
-    models = found.models
-    provider = LLMProvider(
-        tenant=tenant,
-        provider_type=provider_type,
-        display_name=display_name,
-        base_url=base_url,
-        api_key=api_key,
-        available_models=models,
-    )
-    provider.save()
-
+    models = provider.available_models
     if models:
         messages.success(
             request,
-            f'Provider "{display_name}" added — {len(models)} models '
+            f'Provider "{provider.display_name}" added — {len(models)} models '
             f"this key can use.",
         )
     else:
-        why = f" The provider said: {found.reason}." if found.reason else ""
+        why = f" The provider said: {reason}." if reason else ""
         messages.warning(
             request,
-            f'Provider "{display_name}" added, but no models this key can '
+            f'Provider "{provider.display_name}" added, but no models this key can '
             f"use were found.{why} Add them manually via Edit.",
         )
     return redirect("tenant_settings")
@@ -651,22 +622,13 @@ def edit_llm_provider(request, provider_id):
         return deny
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    display_name = request.POST.get("display_name", "").strip()
-    base_url = request.POST.get("base_url", "").strip()
-    api_key = request.POST.get("api_key", "").strip()
-    models_text = request.POST.get("models", "")
-
-    if display_name:
-        provider.display_name = display_name
-    provider.base_url = base_url
-    if api_key:
-        provider.api_key = api_key
-
-    manual = [m.strip() for m in re.split(r"[\n,]", models_text) if m.strip()]
-    if manual:
-        provider.available_models = manual
-
-    provider.save()
+    LLMProviderService.edit(
+        provider,
+        display_name=request.POST.get("display_name", ""),
+        base_url=request.POST.get("base_url", ""),
+        api_key=request.POST.get("api_key", ""),
+        models=request.POST.get("models", ""),
+    )
     messages.success(request, f'Provider "{provider.display_name}" updated.')
     return redirect("tenant_settings")
 
@@ -680,7 +642,7 @@ def remove_llm_provider(request, provider_id):
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
     name = provider.display_name
-    provider.delete()  # cascades to any roles pointing at it
+    LLMProviderService.remove(provider)
     messages.success(request, f'Provider "{name}" removed.')
     return redirect("tenant_settings")
 
@@ -695,7 +657,7 @@ def test_llm_provider(request, provider_id):
         return HttpResponse('<span class="badge badge-error">No workspace</span>')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    if test_provider(provider.provider_type, provider.base_url, provider.api_key):
+    if LLMProviderService.test(provider):
         return HttpResponse('<span class="badge badge-success">Connected</span>')
     return HttpResponse('<span class="badge badge-error">Failed</span>')
 
@@ -712,15 +674,13 @@ def fetch_llm_models(request, provider_id):
         return HttpResponse('<span class="badge badge-error">Forbidden</span>')
 
     provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    found = discover(provider.provider_type, provider.base_url, provider.api_key)
-    if found.models:
-        provider.available_models = found.models
-        provider.save(update_fields=["available_models"])
+    models, reason = LLMProviderService.refresh_models(provider)
+    if models:
         return HttpResponse(
-            f'<span class="badge badge-success">{len(found.models)} usable models — '
+            f'<span class="badge badge-success">{len(models)} usable models — '
             f"reload to use</span>"
         )
-    title = f' title="{escape(found.reason)}"' if found.reason else ""
+    title = f' title="{escape(reason)}"' if reason else ""
     return HttpResponse(f'<span class="badge badge-warning"{title}>none found</span>')
 
 
@@ -752,30 +712,22 @@ def set_llm_role(request, role_name):
     tenant, deny = _require_workspace_admin(request)
     if deny:
         return deny
-
-    if role_name not in LLMRole.Name.values:
-        messages.error(request, "Invalid role.")
+    try:
+        role = LLMProviderService.set_role(
+            tenant,
+            role_name,
+            provider_id=request.POST.get("provider_id", "").strip(),
+            model=request.POST.get("model", ""),
+        )
+    except NotFoundError:
+        raise Http404
+    except LLMProviderError as exc:
+        messages.error(request, str(exc))
         return redirect("tenant_settings")
-
-    provider_id = request.POST.get("provider_id", "").strip()
-    model = request.POST.get("model", "").strip()
-
-    if not provider_id:
-        LLMRole.objects.filter(tenant=tenant, name=role_name).delete()
+    if role is None:
         messages.success(request, f'Cleared the "{role_name}" role.')
-        return redirect("tenant_settings")
-
-    provider = get_object_or_404(LLMProvider, id=provider_id, tenant=tenant)
-    if not model:
-        messages.error(request, "Select a model for the role.")
-        return redirect("tenant_settings")
-
-    LLMRole.objects.update_or_create(
-        tenant=tenant,
-        name=role_name,
-        defaults={"provider": provider, "model": model},
-    )
-    messages.success(
-        request, f'Role "{role_name}" set to {provider.display_name}/{model}.'
-    )
+    else:
+        messages.success(
+            request, f'Role "{role_name}" set to {role.provider.display_name}/{role.model}.'
+        )
     return redirect("tenant_settings")
