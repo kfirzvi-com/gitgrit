@@ -183,9 +183,20 @@
         <div class="collapse-content space-y-4">
       <div class="card bg-base-100">
         <div class="card-body">
-          <h2 class="card-title">LLM Providers</h2>
-          <p class="text-sm opacity-70 -mt-1 mb-2">Bring your own model. Add an API
-            key per provider; models are auto-detected where supported.</p>
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="card-title">LLM Providers</h2>
+              <p class="text-sm opacity-70 mt-1 mb-2">Bring your own model. Add an API
+                key per provider; models are auto-detected where supported.</p>
+            </div>
+            {% if is_admin and llm_providers %}
+              <button type="button" class="btn btn-primary btn-sm gap-1" data-open-add-provider
+                      onclick="document.getElementById('add-provider-modal').showModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                Add provider
+              </button>
+            {% endif %}
+          </div>
           {% if llm_providers %}
             <div class="overflow-x-auto">
               <table class="table">
@@ -250,7 +261,16 @@
               </table>
             </div>
           {% else %}
-            <p class="text-sm opacity-70">No LLM providers configured yet.</p>
+            <div class="flex flex-col items-start gap-3 rounded-lg border border-dashed border-base-content/20 p-5" data-providers-empty>
+              <p class="text-sm opacity-70">No LLM providers yet. LLM policies and the dependency map run on your own provider's models.</p>
+              {% if is_admin %}
+                <button type="button" class="btn btn-primary btn-sm gap-1" data-open-add-provider
+                        onclick="document.getElementById('add-provider-modal').showModal()">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                  Add provider
+                </button>
+              {% endif %}
+            </div>
           {% endif %}
         </div>
       </div>
@@ -291,33 +311,6 @@
           </div>
         </div>
 
-        {# Add provider #}
-        <div class="card bg-base-100">
-          <div class="card-body">
-            <h2 class="card-title">Add LLM Provider</h2>
-            <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3">
-              {% csrf_token %}
-              <div class="flex flex-col sm:flex-row gap-3">
-                <select name="provider_type" class="select select-bordered" required>
-                  <option value="" disabled selected>Provider type</option>
-                  {% for value, label in llm_provider_types %}
-                    <option value="{{ value }}">{{ label }}</option>
-                  {% endfor %}
-                </select>
-                <input type="text" name="display_name" placeholder="Display name (optional)"
-                       class="input input-bordered flex-1">
-              </div>
-              <div class="flex flex-col sm:flex-row gap-3">
-                <input type="text" name="base_url"
-                       placeholder="Base URL (required for LiteLLM Proxy / Ollama; blank for hosted)"
-                       class="input input-bordered flex-1">
-                <input type="password" name="api_key" required placeholder="API key"
-                       class="input input-bordered flex-1">
-              </div>
-              <button type="submit" class="btn btn-primary">Add Provider</button>
-            </form>
-          </div>
-        </div>
       {% endif %}
         </div>
       </section>
@@ -819,6 +812,46 @@
   {% endif %}
 
   {% if is_admin %}
+    {# Add provider modal: opened from the LLM Providers card. #}
+    <dialog id="add-provider-modal" class="modal" aria-labelledby="add-provider-title">
+      <div class="modal-box">
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Close">&#x2715;</button>
+        </form>
+        <h3 id="add-provider-title" class="font-bold text-lg">Add LLM provider</h3>
+        <p class="text-sm opacity-70 mt-1 mb-4">GitGrit calls the provider with your key; models are detected after it's added.</p>
+        <form method="post" action="{% url 'add_llm_provider' %}" class="space-y-3" data-add-provider-form>
+          {% csrf_token %}
+          <label class="form-control w-full">
+            <span class="label-text text-sm mb-1">Provider</span>
+            <select name="provider_type" class="select select-bordered w-full" required>
+              <option value="" disabled selected>Choose a provider</option>
+              {% for value, label in llm_provider_types %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="form-control w-full">
+            <span class="label-text text-sm mb-1">API key</span>
+            <input type="password" name="api_key" required autocomplete="off" class="input input-bordered w-full">
+          </label>
+          <label class="form-control w-full">
+            <span class="label-text text-sm mb-1">Display name <span class="opacity-60">(optional)</span></span>
+            <input type="text" name="display_name" class="input input-bordered w-full" placeholder="e.g. Anthropic (team account)">
+          </label>
+          <label class="form-control w-full">
+            <span class="label-text text-sm mb-1">Base URL <span class="opacity-60">(only for LiteLLM Proxy or Ollama)</span></span>
+            <input type="text" name="base_url" class="input input-bordered w-full" placeholder="https://…">
+          </label>
+          <div class="modal-action mt-5">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-provider-modal').close()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add provider</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
     {# Edit provider modal #}
     <dialog id="edit-provider-modal" class="modal">
       <div class="modal-box">
