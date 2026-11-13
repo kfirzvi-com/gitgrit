@@ -1,5 +1,6 @@
-  {% comment %}The instrument cluster, like a car's: commits checked (speedometer), project health
-  (the big centre dial, counts only, never one grade); under them the warning lamps and when the
+{% load ai_tags %}  {% comment %}The instrument cluster, like a car's: commits checked (speedometer), project health
+  (the big centre dial, counts only, never one grade) and the AI fuel gauge (what is left of the
+  tightest AI budget); under them the warning lamps, the trip computer (AI this month) and when the
   numbers were last checked.{% endcomment %}
   <section class="gg-cluster px-6 pt-8 pb-6 flex flex-col gap-6" aria-label="Instrument cluster" data-workspace-health>
     <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10">
@@ -41,6 +42,35 @@
         </div>
       </div>
 
+      {% comment %}AI fuel: a vertical tank per budgeted provider and model, filled to what is left
+      of its budget. Models are priced apart, so no tank adds up another's tokens.{% endcomment %}
+      <a href="#tab-ai" class="flex flex-col items-center gap-2 group self-stretch justify-end" data-gauge="fuel">
+        <span class="gg-eyebrow text-center">AI budget left</span>
+        {% if fuel.has_budget %}
+          <div class="flex items-end gap-3">
+            <div class="flex flex-col justify-between h-[120px] text-[10px] font-bold mb-7" style="color: #5a6478" aria-hidden="true"><span>F</span><span>E</span></div>
+            {% for tank in fuel.tanks %}
+              <div class="flex flex-col items-center gap-1 w-12" data-tank data-level="{{ tank.level }}"
+                   title="{{ tank.row.budget.provider.display_name }} {{ tank.row.budget.model }}, {{ tank.row.period.label|lower }} budget ({{ tank.row.window }}): {{ tank.percent_left }}% left, resets {{ tank.row.resets|date:'M j, H:i' }}{% if tank.row.budget.stop_at_limit %}; stops runs when used up{% endif %}">
+                <span class="text-[10px] tabular-nums gg-dial-digits-text gg-tank-{{ tank.level }}">{{ tank.percent_left }}%</span>
+                <div class="gg-tank">
+                  <span class="gg-tank-fill gg-tank-{{ tank.level }}" style="height: {{ tank.percent_left }}%"></span>
+                  {% if tank.low_at_percent %}<span class="gg-tank-mark" style="bottom: {{ tank.low_at_percent }}%" title="Low at {{ tank.low_at_percent }}% left: owners and admins are warned here" data-low-mark></span>{% endif %}
+                </div>
+                <span class="text-[10px] leading-tight text-center w-full h-6 overflow-hidden break-words" style="color: var(--gg-text-dim)">{{ tank.row.budget.model|short_model }}</span>
+              </div>
+            {% endfor %}
+          </div>
+          <span class="text-[11px] group-hover:underline" style="color: var(--gg-text-dim)">{% if fuel.more %}+{{ fuel.more }} more &middot; {% endif %}see all budgets</span>
+        {% else %}
+          <div class="flex items-end gap-3 opacity-60" aria-hidden="true">
+            <div class="flex flex-col justify-between h-[120px] text-[10px] font-bold" style="color: #5a6478"><span>F</span><span>E</span></div>
+            {% for _ in "123" %}<div class="w-12"><div class="gg-tank"></div></div>{% endfor %}
+          </div>
+          <span class="text-xs text-center" style="color: var(--gg-text-dim)">No budgets: AI models can't run</span>
+        {% endif %}
+        {% if fuel.blocked and fuel.has_budget %}<span class="text-[11px] gg-tone-text-failed" data-fuel-blocked>{{ fuel.blocked }} model{{ fuel.blocked|pluralize }} blocked: no budget</span>{% endif %}
+      </a>
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-4 border-t pt-5" style="border-color: rgba(255,255,255,0.06)">
@@ -57,6 +87,16 @@
             </span>
           {% if light.lit %}</a>{% else %}</span>{% endif %}
         {% endfor %}
+        {% comment %}The low-fuel lamp: lit when an AI budget is low (yellow) or used up (purple).{% endcomment %}
+        {% with b=fuel.summary %}
+          {% if b.near or b.used_up %}<a href="#tab-ai" role="listitem" class="gg-lamp {% if b.used_up %}gg-light-failed{% else %}gg-light-needs_attention{% endif %}" data-light="ai_budget" data-lit title="AI budgets: {{ b.near }} low, {{ b.used_up }} used up">{% else %}<span role="listitem" class="gg-lamp" data-light="ai_budget" title="No AI budget is low">{% endif %}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M3 21h13"/><path d="M7 9h5"/><path d="M15 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg>
+            <span class="flex flex-col leading-tight">
+              <span class="text-xs font-semibold">AI budget low</span>
+              <span class="text-[11px] opacity-80">{% if b.used_up and b.near %}{{ b.used_up }} used up, {{ b.near }} low{% elif b.used_up %}{{ b.used_up }} used up{% elif b.near %}{{ b.near }} low{% else %}none{% endif %}</span>
+            </span>
+          {% if b.near or b.used_up %}</a>{% else %}</span>{% endif %}
+        {% endwith %}
       </div>
 
 

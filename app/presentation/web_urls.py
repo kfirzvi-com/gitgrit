@@ -118,7 +118,7 @@ from app.presentation.views.notification_views import (
     notification_panel,
     open_notification,
 )
-from app.presentation.views.web_views import DashboardView, HomeView, refresh_map
+from app.presentation.views.web_views import DashboardView, HomeView, dashboard_ai_usage, refresh_map
 from app.presentation.views.workspace_switcher_views import workspace_switcher_list
 from app.presentation.views.token_views import (
     create_personal_token,
@@ -155,6 +155,7 @@ urlpatterns = [
     ),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("dashboard/refresh-map/", refresh_map, name="refresh_map"),
+    path("dashboard/ai-usage/", dashboard_ai_usage, name="dashboard_ai_usage"),
     path("notifications/panel/", notification_panel, name="notification_panel"),
     path("notifications/read-all/", mark_all_read, name="notifications_mark_all_read"),
     path("notifications/bell/", notification_bell, name="notification_bell"),

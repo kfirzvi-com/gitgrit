@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load score_tags %}
+{% load score_tags ai_tags %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
 
@@ -101,11 +101,12 @@
 
   {% include "partials/cockpit_cluster.html" %}
 
-  {% comment %}Below the cluster, one tab at a time: what needs you and the stack map. The tab
-  is kept in the URL's hash, so links into it (the lamps) open it.{% endcomment %}
+  {% comment %}Below the cluster, one tab at a time: what needs you, the stack map, AI usage. The tab
+  is kept in the URL's hash, so links into it (the lamps and the fuel gauge) open it.{% endcomment %}
   <div class="flex flex-col gap-5" data-dashboard-tabs>
     <div role="tablist" aria-label="Dashboard views" class="tabs tabs-boxed self-start bg-base-100">
       <a role="tab" href="#tab-overview" class="tab tab-active" aria-selected="true" aria-controls="tab-overview" data-tab="tab-overview">Needs you</a>
+      <a role="tab" href="#tab-ai" class="tab" aria-selected="false" aria-controls="tab-ai" data-tab="tab-ai">AI usage</a>
       <a role="tab" href="#tab-map" class="tab" aria-selected="false" aria-controls="tab-map" data-tab="tab-map">Stack map</a>
     </div>
 
@@ -205,6 +206,10 @@
     {% endif %}
   </section>
     </div>
+
+    <div id="tab-ai" role="tabpanel" data-tab-panel hidden>
+      {% include "partials/dashboard_ai_usage.html" %}
+    </div>
   </div>
 </div>
 <script>
@@ -275,8 +280,16 @@ lamp is dark, and a pre-flight checklist leads to the first checked project.{% e
         </div>
         <a href="{% url 'marketplace_browse' %}" class="btn btn-sm btn-ghost shrink-0">Browse marketplace</a>
       </li>
+      <li class="flex items-start gap-4 py-3 border-b border-base-300" data-step="ai-budget" data-done="{{ fuel.has_budget|yesno:'true,false' }}">
+        {% include "partials/preflight_mark.html" with done=fuel.has_budget number=4 %}
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold">Give your AI models a budget <span class="font-normal text-sm" style="color: var(--gg-text-dim)">(for LLM standards and the dependency map)</span></p>
+          <p class="text-sm" style="color: var(--gg-text-dim)">{% if fuel.has_budget %}{{ fuel.summary.total }} budget{{ fuel.summary.total|pluralize }} set.{% else %}Only models with a budget can run, so nothing spends before you decide it may.{% endif %}</p>
+        </div>
+        {% if is_admin %}<a href="{% url 'tenant_settings' %}#section-llm" class="btn btn-sm btn-ghost shrink-0">{% if fuel.has_budget %}Budgets{% else %}Set budgets{% endif %}</a>{% endif %}
+      </li>
       <li class="flex items-start gap-4 py-3" data-step="stack">
-        {% include "partials/preflight_mark.html" with done=False number=4 %}
+        {% include "partials/preflight_mark.html" with done=False number=5 %}
         <div class="flex-1 min-w-0">
           <p class="font-semibold">Group projects into a stack</p>
           <p class="text-sm" style="color: var(--gg-text-dim)">A stack is a system: its projects, their health and a map of how they connect.</p>

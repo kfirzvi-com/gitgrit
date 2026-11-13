@@ -103,8 +103,10 @@ class DashboardCockpitTests(TestCase):
         stack_map = response.content.decode().split("data-stack-map", 1)[1]
         self.assertIn(reverse("stack_detail", args=[stack.pk]), stack_map)
 
-    def test_overview_and_stack_map_are_tabs(self):
+    def test_overview_stack_map_and_ai_usage_are_tabs(self):
         body = self.client.get(reverse("dashboard")).content.decode()
 
-        for tab in ("tab-overview", "tab-map"):
+        for tab in ("tab-overview", "tab-map", "tab-ai"):
             self.assertIn(f'id="{tab}" role="tabpanel"', body)
+        self.assertIn('data-light="ai_budget"', body)  # the low-fuel lamp, dark with no budgets
+        self.assertLess(body.index('data-tab="tab-ai"'), body.index('data-tab="tab-map"'))
