@@ -240,6 +240,16 @@
       --color-primary-content: oklch(10% 0.020 200);
       --color-secondary: var(--gg-secondary);
       --color-secondary-content: oklch(10% 0.020 163);
+      /* DaisyUI's status colours are the health palette's: error (failed
+         counts, bars, badges, remove and delete buttons) the failed purple,
+         never red; success (passed) the healthy teal; warning (errored) the
+         needs-attention yellow. */
+      --color-error: var(--gg-error);
+      --color-error-content: oklch(18% 0.04 300);
+      --color-success: var(--gg-success);
+      --color-success-content: oklch(18% 0.04 180);
+      --color-warning: var(--gg-warning);
+      --color-warning-content: oklch(18% 0.04 85);
     }
     .card {
       border: 1px solid var(--color-base-300);
