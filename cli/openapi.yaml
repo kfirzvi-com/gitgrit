@@ -225,6 +225,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/AIUsage'
           description: ''
+  /api/v1/workspaces/{workspace_id}/components/:
+    get:
+      operationId: list_components
+      description: 'A component is a deployable unit inside a repository: every project
+        has a root one (path ""), a monorepo one per service.'
+      summary: The workspace's components and the stacks each belongs to
+      parameters:
+      - in: query
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this project's.
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - read
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Component'
+          description: ''
   /api/v1/workspaces/{workspace_id}/connections/:
     get:
       operationId: list_connections
@@ -1467,6 +1501,37 @@ paths:
                 items:
                   $ref: '#/components/schemas/StackSummary'
           description: ''
+    post:
+      operationId: create_stack
+      description: A stack groups components (deployable units inside repositories);
+        add them with `POST stacks/<id>/components/`.
+      summary: Create a stack
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StackCreateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StackSummary'
+          description: ''
   /api/v1/workspaces/{workspace_id}/stacks/{stack_id}/:
     get:
       operationId: get_stack
@@ -1505,6 +1570,152 @@ paths:
               schema:
                 $ref: '#/components/schemas/StackDetail'
           description: ''
+    patch:
+      operationId: update_stack
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Rename a stack or change its description
+      parameters:
+      - in: path
+        name: stack_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStackUpdateRequest'
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StackSummary'
+          description: ''
+    delete:
+      operationId: delete_stack
+      description: Its components stay; only the grouping goes.
+      summary: Delete a stack
+      parameters:
+      - in: path
+        name: stack_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_id}/stacks/{stack_id}/components/:
+    post:
+      operationId: add_stack_components
+      description: For a single-application repository, its root component is the
+        project.
+      summary: Add components to a stack
+      parameters:
+      - in: path
+        name: stack_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentIdsRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StackComponentsChange'
+          description: ''
+  /api/v1/workspaces/{workspace_id}/stacks/{stack_id}/components/{component_id}/:
+    delete:
+      operationId: remove_stack_component
+      description: |-
+        Scoped to the workspace named in the URL.
+
+        A user (OAuth or personal token) must be a member of it; a workspace token
+        reaches only its own workspace. Anything else is a 404, so workspace ids
+        cannot be probed. Service errors map onto HTTP: a tenant-scoped miss is
+        404, any other ``ValueError`` (e.g. standard code without ``evaluate``)
+        is 400.
+      summary: Take a component out of a stack
+      parameters:
+      - in: path
+        name: component_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: stack_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stacks
+      security:
+      - bearerAuth: []
+      - oauth2:
+        - write
+      responses:
+        '204':
+          description: No response body
   /api/v1/workspaces/{workspace_id}/stacks/{stack_id}/refresh/:
     post:
       operationId: refresh_stack_map
@@ -2365,6 +2576,56 @@ components:
       - created
       - message
       - queued
+    Component:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        path:
+          type: string
+          description: Where it lives in the repository; "" for the root component.
+        project:
+          $ref: '#/components/schemas/ComponentProject'
+        stacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectRef'
+          description: Stacks it belongs to.
+      required:
+      - id
+      - name
+      - path
+      - project
+      - stacks
+    ComponentIdsRequest:
+      type: object
+      properties:
+        component_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+      required:
+      - component_ids
+    ComponentProject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        full_path:
+          type: string
+          description: org/repo; empty for an artifact project.
+      required:
+      - full_path
+      - id
+      - name
     Connection:
       type: object
       properties:
@@ -3004,6 +3265,16 @@ components:
           type: string
           minLength: 1
         owner:
+          type: string
+    PatchedStackUpdateRequest:
+      type: object
+      description: Only the fields sent change.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
           type: string
     PatchedStandardUpdateRequest:
       type: object
@@ -3681,6 +3952,26 @@ components:
       - project
       - tone
       - why
+    StackComponentsChange:
+      type: object
+      properties:
+        added:
+          type: integer
+          description: Newly added; ones already in the stack are skipped.
+      required:
+      - added
+    StackCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          default: ''
+      required:
+      - name
     StackDetail:
       type: object
       properties:

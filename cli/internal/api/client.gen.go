@@ -765,6 +765,32 @@ type CommitUploadResult struct {
 	Queued  int    `json:"queued"`
 }
 
+// Component defines model for Component.
+type Component struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+
+	// Path Where it lives in the repository; "" for the root component.
+	Path    string           `json:"path"`
+	Project ComponentProject `json:"project"`
+
+	// Stacks Stacks it belongs to.
+	Stacks []ProjectRef `json:"stacks"`
+}
+
+// ComponentIdsRequest defines model for ComponentIdsRequest.
+type ComponentIdsRequest struct {
+	ComponentIds []openapi_types.UUID `json:"component_ids"`
+}
+
+// ComponentProject defines model for ComponentProject.
+type ComponentProject struct {
+	// FullPath org/repo; empty for an artifact project.
+	FullPath string             `json:"full_path"`
+	Id       openapi_types.UUID `json:"id"`
+	Name     string             `json:"name"`
+}
+
 // Connection defines model for Connection.
 type Connection struct {
 	// AccountLogin GitHub App connections: the org or user.
@@ -1131,6 +1157,12 @@ type PatchedProjectUpdateRequest struct {
 	Owner     *string `json:"owner,omitempty"`
 }
 
+// PatchedStackUpdateRequest Only the fields sent change.
+type PatchedStackUpdateRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
 // PatchedStandardUpdateRequest PATCH body — only the fields sent are changed.
 type PatchedStandardUpdateRequest struct {
 	ChangeSummary *string       `json:"change_summary,omitempty"`
@@ -1468,6 +1500,18 @@ type StackComponent struct {
 	Why  string    `json:"why"`
 }
 
+// StackComponentsChange defines model for StackComponentsChange.
+type StackComponentsChange struct {
+	// Added Newly added; ones already in the stack are skipped.
+	Added int `json:"added"`
+}
+
+// StackCreateRequest defines model for StackCreateRequest.
+type StackCreateRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
 // StackDetail defines model for StackDetail.
 type StackDetail struct {
 	// Components Worst first.
@@ -1727,6 +1771,12 @@ type GetAiUsageParams struct {
 // GetAiUsageParamsPeriod defines parameters for GetAiUsage.
 type GetAiUsageParamsPeriod string
 
+// ListComponentsParams defines parameters for ListComponents.
+type ListComponentsParams struct {
+	// ProjectId Only this project's.
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
 // ListRepositoriesParams defines parameters for ListRepositories.
 type ListRepositoriesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
@@ -1790,6 +1840,15 @@ type AttachProjectStandardsJSONRequestBody = StandardIdsRequest
 
 // SetProjectStandardImportanceJSONRequestBody defines body for SetProjectStandardImportance for application/json ContentType.
 type SetProjectStandardImportanceJSONRequestBody = PatchedImportanceRequest
+
+// CreateStackJSONRequestBody defines body for CreateStack for application/json ContentType.
+type CreateStackJSONRequestBody = StackCreateRequest
+
+// UpdateStackJSONRequestBody defines body for UpdateStack for application/json ContentType.
+type UpdateStackJSONRequestBody = PatchedStackUpdateRequest
+
+// AddStackComponentsJSONRequestBody defines body for AddStackComponents for application/json ContentType.
+type AddStackComponentsJSONRequestBody = ComponentIdsRequest
 
 // CreateStandardJSONRequestBody defines body for CreateStandard for application/json ContentType.
 type CreateStandardJSONRequestBody = StandardCreateRequest
@@ -1960,6 +2019,9 @@ type ClientInterface interface {
 	// GetAiUsage request
 	GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListComponents request
+	ListComponents(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListConnections request
 	ListConnections(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2086,8 +2148,29 @@ type ClientInterface interface {
 	// ListStacks request
 	ListStacks(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateStackWithBody request with any body
+	CreateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateStack(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteStack request
+	DeleteStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetStack request
 	GetStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateStackWithBody request with any body
+	UpdateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddStackComponentsWithBody request with any body
+	AddStackComponentsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddStackComponents(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveStackComponent request
+	RemoveStackComponent(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RefreshStackMap request
 	RefreshStackMap(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2221,6 +2304,18 @@ func (c *Client) ListAiModels(ctx context.Context, workspaceId openapi_types.UUI
 
 func (c *Client) GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAiUsageRequest(c.Server, workspaceId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListComponents(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListComponentsRequest(c.Server, workspaceId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2771,8 +2866,104 @@ func (c *Client) ListStacks(ctx context.Context, workspaceId openapi_types.UUID,
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStackRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateStack(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStackRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteStackRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetStackRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateStackRequestWithBody(c.Server, workspaceId, stackId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateStackRequest(c.Server, workspaceId, stackId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddStackComponentsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddStackComponentsRequestWithBody(c.Server, workspaceId, stackId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddStackComponents(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddStackComponentsRequest(c.Server, workspaceId, stackId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RemoveStackComponent(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveStackComponentRequest(c.Server, workspaceId, stackId, componentId)
 	if err != nil {
 		return nil, err
 	}
@@ -3202,6 +3393,67 @@ func NewGetAiUsageRequest(server string, workspaceId openapi_types.UUID, params 
 		if params.Period != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "period", *params.Period, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListComponentsRequest generates requests for ListComponents
+func NewListComponentsRequest(server string, workspaceId openapi_types.UUID, params *ListComponentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/components/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -4896,6 +5148,94 @@ func NewListStacksRequest(server string, workspaceId openapi_types.UUID) (*http.
 	return req, nil
 }
 
+// NewCreateStackRequest calls the generic CreateStack builder with application/json body
+func NewCreateStackRequest(server string, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateStackRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateStackRequestWithBody generates requests for CreateStack with any type of body
+func NewCreateStackRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteStackRequest generates requests for DeleteStack
+func NewDeleteStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetStackRequest generates requests for GetStack
 func NewGetStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -4930,6 +5270,162 @@ func NewGetStackRequest(server string, workspaceId openapi_types.UUID, stackId o
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateStackRequest calls the generic UpdateStack builder with application/json body
+func NewUpdateStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateStackRequestWithBody(server, workspaceId, stackId, "application/json", bodyReader)
+}
+
+// NewUpdateStackRequestWithBody generates requests for UpdateStack with any type of body
+func NewUpdateStackRequestWithBody(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAddStackComponentsRequest calls the generic AddStackComponents builder with application/json body
+func NewAddStackComponentsRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddStackComponentsRequestWithBody(server, workspaceId, stackId, "application/json", bodyReader)
+}
+
+// NewAddStackComponentsRequestWithBody generates requests for AddStackComponents with any type of body
+func NewAddStackComponentsRequestWithBody(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/components/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRemoveStackComponentRequest generates requests for RemoveStackComponent
+func NewRemoveStackComponentRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "component_id", componentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/components/%s/", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -5392,6 +5888,9 @@ type ClientWithResponsesInterface interface {
 	// GetAiUsageWithResponse request
 	GetAiUsageWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*GetAiUsageResponse, error)
 
+	// ListComponentsWithResponse request
+	ListComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error)
+
 	// ListConnectionsWithResponse request
 	ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error)
 
@@ -5518,8 +6017,29 @@ type ClientWithResponsesInterface interface {
 	// ListStacksWithResponse request
 	ListStacksWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStacksResponse, error)
 
+	// CreateStackWithBodyWithResponse request with any body
+	CreateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStackResponse, error)
+
+	CreateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStackResponse, error)
+
+	// DeleteStackWithResponse request
+	DeleteStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteStackResponse, error)
+
 	// GetStackWithResponse request
 	GetStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetStackResponse, error)
+
+	// UpdateStackWithBodyWithResponse request with any body
+	UpdateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error)
+
+	UpdateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error)
+
+	// AddStackComponentsWithBodyWithResponse request with any body
+	AddStackComponentsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error)
+
+	AddStackComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error)
+
+	// RemoveStackComponentWithResponse request
+	RemoveStackComponentWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackComponentResponse, error)
 
 	// RefreshStackMapWithResponse request
 	RefreshStackMapWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshStackMapResponse, error)
@@ -5758,6 +6278,36 @@ func (r GetAiUsageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetAiUsageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListComponentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Component
+}
+
+// Status returns HTTPResponse.Status
+func (r ListComponentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListComponentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListComponentsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -6843,6 +7393,65 @@ func (r ListStacksResponse) ContentType() string {
 	return ""
 }
 
+type CreateStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *StackSummary
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetStackResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6867,6 +7476,95 @@ func (r GetStackResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StackSummary
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddStackComponentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StackComponentsChange
+}
+
+// Status returns HTTPResponse.Status
+func (r AddStackComponentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddStackComponentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddStackComponentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemoveStackComponentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveStackComponentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveStackComponentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemoveStackComponentResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7219,6 +7917,15 @@ func (c *ClientWithResponses) GetAiUsageWithResponse(ctx context.Context, worksp
 		return nil, err
 	}
 	return ParseGetAiUsageResponse(rsp)
+}
+
+// ListComponentsWithResponse request returning *ListComponentsResponse
+func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error) {
+	rsp, err := c.ListComponents(ctx, workspaceId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListComponentsResponse(rsp)
 }
 
 // ListConnectionsWithResponse request returning *ListConnectionsResponse
@@ -7617,6 +8324,32 @@ func (c *ClientWithResponses) ListStacksWithResponse(ctx context.Context, worksp
 	return ParseListStacksResponse(rsp)
 }
 
+// CreateStackWithBodyWithResponse request with arbitrary body returning *CreateStackResponse
+func (c *ClientWithResponses) CreateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStackResponse, error) {
+	rsp, err := c.CreateStackWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStackResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStackResponse, error) {
+	rsp, err := c.CreateStack(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStackResponse(rsp)
+}
+
+// DeleteStackWithResponse request returning *DeleteStackResponse
+func (c *ClientWithResponses) DeleteStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteStackResponse, error) {
+	rsp, err := c.DeleteStack(ctx, workspaceId, stackId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteStackResponse(rsp)
+}
+
 // GetStackWithResponse request returning *GetStackResponse
 func (c *ClientWithResponses) GetStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetStackResponse, error) {
 	rsp, err := c.GetStack(ctx, workspaceId, stackId, reqEditors...)
@@ -7624,6 +8357,49 @@ func (c *ClientWithResponses) GetStackWithResponse(ctx context.Context, workspac
 		return nil, err
 	}
 	return ParseGetStackResponse(rsp)
+}
+
+// UpdateStackWithBodyWithResponse request with arbitrary body returning *UpdateStackResponse
+func (c *ClientWithResponses) UpdateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error) {
+	rsp, err := c.UpdateStackWithBody(ctx, workspaceId, stackId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateStackResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error) {
+	rsp, err := c.UpdateStack(ctx, workspaceId, stackId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateStackResponse(rsp)
+}
+
+// AddStackComponentsWithBodyWithResponse request with arbitrary body returning *AddStackComponentsResponse
+func (c *ClientWithResponses) AddStackComponentsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error) {
+	rsp, err := c.AddStackComponentsWithBody(ctx, workspaceId, stackId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddStackComponentsResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddStackComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error) {
+	rsp, err := c.AddStackComponents(ctx, workspaceId, stackId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddStackComponentsResponse(rsp)
+}
+
+// RemoveStackComponentWithResponse request returning *RemoveStackComponentResponse
+func (c *ClientWithResponses) RemoveStackComponentWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackComponentResponse, error) {
+	rsp, err := c.RemoveStackComponent(ctx, workspaceId, stackId, componentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveStackComponentResponse(rsp)
 }
 
 // RefreshStackMapWithResponse request returning *RefreshStackMapResponse
@@ -7893,6 +8669,32 @@ func ParseGetAiUsageResponse(rsp *http.Response) (*GetAiUsageResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AIUsage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListComponentsResponse parses an HTTP response from a ListComponentsWithResponse call
+func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListComponentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Component
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8823,6 +9625,48 @@ func ParseListStacksResponse(rsp *http.Response) (*ListStacksResponse, error) {
 	return response, nil
 }
 
+// ParseCreateStackResponse parses an HTTP response from a CreateStackWithResponse call
+func ParseCreateStackResponse(rsp *http.Response) (*CreateStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest StackSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteStackResponse parses an HTTP response from a DeleteStackWithResponse call
+func ParseDeleteStackResponse(rsp *http.Response) (*DeleteStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
 // ParseGetStackResponse parses an HTTP response from a GetStackWithResponse call
 func ParseGetStackResponse(rsp *http.Response) (*GetStackResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8844,6 +9688,74 @@ func ParseGetStackResponse(rsp *http.Response) (*GetStackResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseUpdateStackResponse parses an HTTP response from a UpdateStackWithResponse call
+func ParseUpdateStackResponse(rsp *http.Response) (*UpdateStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StackSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddStackComponentsResponse parses an HTTP response from a AddStackComponentsWithResponse call
+func ParseAddStackComponentsResponse(rsp *http.Response) (*AddStackComponentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddStackComponentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StackComponentsChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveStackComponentResponse parses an HTTP response from a RemoveStackComponentWithResponse call
+func ParseRemoveStackComponentResponse(rsp *http.Response) (*RemoveStackComponentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveStackComponentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
