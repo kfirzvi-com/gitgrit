@@ -1,0 +1,61 @@
+{% comment %}AI budgets (workspace settings): one cap per provider, model and period, in input and
+output tokens. Owners and admins set them; everyone sees them. Answered in place by every
+action (ai_budget_views).{% endcomment %}{% load ai_tags %}
+<div id="ai-budgets-panel" class="space-y-4">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <p class="text-sm opacity-70 max-w-2xl">
+      Only models with a budget can run, so nothing spends without an admin deciding first. Cap each
+      model's input and output tokens per day, week or month (providers price them apart). Owners and
+      admins are told when a budget is used up, and earlier when it runs low if you set a low mark.
+      <b>Stop at limit</b> holds back new runs on the model until the period resets.
+    </p>
+    {% if is_admin and budget_model_options %}
+      <button type="button" class="btn btn-primary btn-sm gap-1" data-open-budget>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        Add budget
+      </button>
+    {% endif %}
+  </div>
+
+  {% if budget_rows %}
+    <div class="overflow-x-auto">
+      <table class="table table-sm" data-budget-table>
+        <thead>
+          <tr><th>Model</th><th>Period</th><th>Input</th><th>Output</th><th>Low at</th><th>At limit</th>{% if is_admin %}<th></th>{% endif %}</tr>
+        </thead>
+        <tbody>
+          {% for row in budget_rows %}
+            <tr data-budget-level="{{ row.level }}">
+              <td><span class="font-medium">{{ row.budget.model }}</span><span class="block text-xs opacity-60">{{ row.budget.provider.display_name }}</span></td>
+              <td class="whitespace-nowrap" data-budget-window>
+                {{ row.period.label }}
+                <span class="block text-xs opacity-60" title="Counts from {{ row.starts|date:'M j, H:i' }}; starts over {{ row.resets|date:'M j, H:i' }}">{{ row.window }} &middot; resets {{ row.resets_short }}</span>
+              </td>
+              <td class="min-w-[9rem]">{% include "partials/budget_meter.html" with used=row.used.input limit=row.budget.input_limit share=row.input_share level=row.input_level %}</td>
+              <td class="min-w-[9rem]">{% include "partials/budget_meter.html" with used=row.used.output limit=row.budget.output_limit share=row.output_share level=row.output_level %}</td>
+              <td class="text-sm">{% if row.budget.low_at_percent %}{{ row.budget.low_at_percent }}% left{% else %}<span class="opacity-60">When used up</span>{% endif %}</td>
+              <td class="text-sm">{% if row.budget.stop_at_limit %}<span class="badge badge-sm {% if row.stops_runs %}badge-error{% else %}badge-outline{% endif %}">{% if row.stops_runs %}Stopped{% else %}Stop{% endif %}</span>{% else %}<span class="opacity-60">Notify</span>{% endif %}</td>
+              {% if is_admin %}
+                <td class="text-right whitespace-nowrap">
+                  <button type="button" class="btn btn-ghost btn-xs"
+                          data-open-budget data-budget-id="{{ row.budget.pk }}" data-model-key="{{ row.budget.provider_id }}|{{ row.budget.model }}" data-period="{{ row.budget.period }}"
+                          data-input="{{ row.budget.input_limit|default_if_none:'' }}" data-output="{{ row.budget.output_limit|default_if_none:'' }}"
+                          data-warn="{{ row.budget.low_at_percent|default_if_none:'' }}" data-stop="{{ row.budget.stop_at_limit|yesno:'1,' }}">Edit</button>
+                  <button type="button" class="btn btn-ghost btn-xs text-error"
+                          hx-post="{% url 'delete_ai_budget' row.budget.pk %}" hx-target="#ai-budgets-panel" hx-swap="outerHTML"
+                          hx-confirm="Remove the {{ row.period.label|lower }} budget for {{ row.budget.model }}?">Remove</button>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif not is_admin %}
+    <p class="text-sm opacity-70">No AI budgets yet. Workspace owners and admins can set them.</p>
+  {% endif %}
+
+  {% if is_admin and not budget_model_options %}
+    <p class="text-sm opacity-70">Add an LLM provider first; budgets are set per model.</p>
+  {% endif %}
+</div>

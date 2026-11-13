@@ -1,0 +1,8 @@
+{% comment %}One limit of a budget as a meter: used of limit, filled by share, in the budget level's
+colour. `limit` None shows "no limit".{% endcomment %}{% load ai_tags %}{% if limit %}
+<div class="flex flex-col gap-1" title="{{ used }} of {{ limit }} tokens">
+  <span class="text-xs tabular-nums"><b>{{ used|tokens }}</b> <span class="opacity-60">/ {{ limit|tokens }}</span></span>
+  <span class="block h-1.5 w-full rounded-full overflow-hidden" style="background: rgba(255,255,255,0.08)">
+    <span class="block h-full rounded-full" style="width: {{ share|percent }}%; background: {% if level == 'reached' %}var(--gg-tone-failed){% elif level == 'near' %}var(--gg-tone-needs_attention){% else %}var(--gg-primary){% endif %}"></span>
+  </span>
+</div>{% else %}<span class="text-xs opacity-50">No limit</span>{% endif %}

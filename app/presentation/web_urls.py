@@ -56,6 +56,7 @@ from app.presentation.views.artifact_views import (
     project_overview_health,
     upload_project_commit,
 )
+from app.presentation.views.ai_budget_views import delete_ai_budget, save_ai_budget
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
@@ -251,6 +252,8 @@ urlpatterns = [
     ),
     # LLM providers & roles
     path("tenants/llm/providers/add/", add_llm_provider, name="add_llm_provider"),
+    path("tenants/ai-budgets/", save_ai_budget, name="save_ai_budget"),
+    path("tenants/ai-budgets/<uuid:budget_id>/delete/", delete_ai_budget, name="delete_ai_budget"),
     path(
         "tenants/llm/providers/<uuid:provider_id>/edit/",
         edit_llm_provider,
