@@ -21,6 +21,13 @@ workspace_patterns = [
     path("llm/roles/<str:role>/", llm_views.LLMRoleView.as_view(), name="api_llm_role"),
     path("stacks/", cockpit_views.StackListView.as_view(), name="api_stacks"),
     path("stacks/<uuid:stack_id>/", cockpit_views.StackDetailView.as_view(), name="api_stack"),
+    path("stacks/<uuid:stack_id>/components/", cockpit_views.StackComponentsView.as_view(), name="api_stack_components"),
+    path(
+        "stacks/<uuid:stack_id>/components/<uuid:component_id>/",
+        cockpit_views.StackComponentView.as_view(),
+        name="api_stack_component",
+    ),
+    path("components/", cockpit_views.ComponentListView.as_view(), name="api_components"),
     path("stacks/<uuid:stack_id>/refresh/", cockpit_views.StackRefreshView.as_view(), name="api_stack_refresh"),
     path("connections/", manage_views.ConnectionListView.as_view(), name="api_connections"),
     path(

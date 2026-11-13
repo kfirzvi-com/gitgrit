@@ -128,7 +128,7 @@ def delete_stack(request, pk):
 
     stack = get_object_or_404(Stack, pk=pk, tenant=tenant)
     name = stack.name
-    stack.delete()
+    stack_service.delete_stack(stack=stack)
     messages.success(request, f'Stack "{name}" deleted.')
     return redirect("stack_list")
 

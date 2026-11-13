@@ -2,17 +2,19 @@
 usage, the models a budget can cover, AI budgets, and stacks' health. Thin
 wrappers over the same application reads the pages use."""
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import exceptions, status
 from rest_framework.response import Response
 
 from app.application.ai_usage import AIUsageReport, BudgetableModelsQuery, BudgetError, BudgetService, BudgetWatch
 from app.application.cockpit import Cockpit, HealthTrend
+from app.application import stack_service
 from app.application.dependency_agent import refresh_stack_map
 from app.application.project_health_counts import ProjectHealthCounts
 from app.application.stack_health import StackHealth
 from app.domain.ai_usage import BudgetPeriod, BudgetSummary
-from app.domain.models import LLMBudget, Stack
+from app.domain.models import Component, LLMBudget, Stack
 from app.domain.score_representation import ScoreTone
 from app.presentation.api import cockpit_serializers as cs
 from app.presentation.api.views import WorkspaceAPIView
@@ -334,6 +336,25 @@ class StackListView(WorkspaceAPIView):
         )
         return Response([_stack_counts(stack, counts) for stack, counts in rows])
 
+    @extend_schema(
+        operation_id="create_stack",
+        tags=["stacks"],
+        summary="Create a stack",
+        description="A stack groups components (deployable units inside repositories); add them with `POST stacks/<id>/components/`.",
+        request=cs.StackCreateSerializer,
+        responses={201: cs.StackSummarySerializer},
+    )
+    def post(self, request, workspace_id):
+        data = cs.StackCreateSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        name = data.validated_data["name"].strip()
+        if not name:
+            raise exceptions.ValidationError({"name": "A stack needs a name."})
+        stack = stack_service.create_stack(
+            tenant=self.tenant, name=name, description=data.validated_data["description"].strip()
+        )
+        return Response(_stack_counts(stack, ProjectHealthCounts.of([])), status=status.HTTP_201_CREATED)
+
 
 class StackDetailView(WorkspaceAPIView):
     @extend_schema(
@@ -367,6 +388,106 @@ class StackDetailView(WorkspaceAPIView):
         })
 
 
+    @extend_schema(
+        operation_id="update_stack",
+        tags=["stacks"],
+        summary="Rename a stack or change its description",
+        request=cs.StackUpdateSerializer,
+        responses={200: cs.StackSummarySerializer},
+    )
+    def patch(self, request, workspace_id, stack_id):
+        stack = _stack(self.tenant, stack_id)
+        data = cs.StackUpdateSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        name = data.validated_data.get("name", stack.name).strip()
+        if not name:
+            raise exceptions.ValidationError({"name": "A stack needs a name."})
+        stack = stack_service.update_stack(
+            stack=stack, name=name, description=data.validated_data.get("description", stack.description).strip()
+        )
+        return Response(_stack_counts(stack, StackHealth.of(stack).health))
+
+    @extend_schema(
+        operation_id="delete_stack",
+        tags=["stacks"],
+        summary="Delete a stack",
+        description="Its components stay; only the grouping goes.",
+        responses={204: None},
+    )
+    def delete(self, request, workspace_id, stack_id):
+        stack_service.delete_stack(stack=_stack(self.tenant, stack_id))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class StackComponentsView(WorkspaceAPIView):
+    @extend_schema(
+        operation_id="add_stack_components",
+        tags=["stacks"],
+        summary="Add components to a stack",
+        description="For a single-application repository, its root component is the project.",
+        request=cs.ComponentIdsSerializer,
+        responses={200: cs.StackComponentsChangeSerializer},
+    )
+    def post(self, request, workspace_id, stack_id):
+        stack = _stack(self.tenant, stack_id)
+        data = cs.ComponentIdsSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        added = sum(
+            stack_service.add_component_to_stack(tenant=self.tenant, stack=stack, component=c)
+            for c in _components(self.tenant, data.validated_data["component_ids"])
+        )
+        return Response({"added": added})
+
+
+class StackComponentView(WorkspaceAPIView):
+    @extend_schema(
+        operation_id="remove_stack_component",
+        tags=["stacks"],
+        summary="Take a component out of a stack",
+        responses={204: None},
+    )
+    def delete(self, request, workspace_id, stack_id, component_id):
+        stack = _stack(self.tenant, stack_id)
+        (component,) = _components(self.tenant, [component_id])
+        if not stack_service.remove_component_from_stack(tenant=self.tenant, stack=stack, component=component):
+            raise exceptions.NotFound("That component isn't in the stack.")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ComponentListView(WorkspaceAPIView):
+    @extend_schema(
+        operation_id="list_components",
+        tags=["stacks"],
+        summary="The workspace's components and the stacks each belongs to",
+        description=(
+            "A component is a deployable unit inside a repository: every project has a root one "
+            '(path ""), a monorepo one per service.'
+        ),
+        parameters=[OpenApiParameter("project_id", OpenApiTypes.UUID, required=False, description="Only this project's.")],
+        responses={200: cs.ComponentSerializer(many=True)},
+    )
+    def get(self, request, workspace_id):
+        components = (
+            Component.objects.filter(tenant=self.tenant)
+            .select_related("project")
+            .prefetch_related("stacks")
+            .order_by("project__name", "path")
+        )
+        project_id = request.query_params.get("project_id")
+        if project_id:
+            components = components.filter(project_id=project_id)
+        return Response([
+            {
+                "id": str(c.pk),
+                "name": c.name,
+                "path": c.path,
+                "project": {**_project(c.project), "full_path": c.project.full_path or ""},
+                "stacks": [{"id": str(s.pk), "name": s.name} for s in sorted(c.stacks.all(), key=lambda s: s.name.lower())],
+            }
+            for c in components
+        ])
+
+
 class StackRefreshView(WorkspaceAPIView):
     @extend_schema(
         operation_id="refresh_stack_map",
@@ -381,6 +502,15 @@ class StackRefreshView(WorkspaceAPIView):
             raise exceptions.PermissionDenied("Only superusers can refresh a map: it costs one LLM run per project.")
         queued = refresh_stack_map(_stack(self.tenant, stack_id))
         return Response({"queued": queued}, status=status.HTTP_202_ACCEPTED)
+
+
+def _components(tenant, ids) -> list:
+    """The workspace's components with these ids; a 404 names any missing."""
+    found = {c.pk: c for c in Component.objects.filter(tenant=tenant, pk__in=ids).select_related("project")}
+    missing = [str(i) for i in ids if i not in found]
+    if missing:
+        raise exceptions.NotFound(f"No component {', '.join(missing)} in this workspace.")
+    return [found[i] for i in dict.fromkeys(ids)]
 
 
 def _stack(tenant, stack_id) -> Stack:

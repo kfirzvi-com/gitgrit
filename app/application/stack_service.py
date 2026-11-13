@@ -36,6 +36,11 @@ def update_stack(*, stack: Stack, name: str, description: str = "") -> Stack:
     return stack
 
 
+def delete_stack(*, stack: Stack) -> None:
+    """Delete the stack; its components stay, only the grouping goes."""
+    stack.delete()
+
+
 def add_component_to_stack(*, tenant, stack, component) -> bool:
     """Add component to stack. Returns True if newly added (else already present)."""
     with transaction.atomic():

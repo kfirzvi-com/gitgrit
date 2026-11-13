@@ -143,6 +143,9 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | **Workspace** | |
 | `gitgrit overview` | The dashboard: projects by health, warning lights, what needs you |
 | `gitgrit stack list` / `view <stack>` | Stacks with their projects counted by health; a stack's components, worst first |
+| `gitgrit stack create <name>` / `edit <stack>` / `delete <stack> --yes` | Create, rename or delete a stack |
+| `gitgrit stack add <stack> [component…]` / `remove` | Put components in a stack or take them out: `org/repo` (its root), `org/repo:path` (a monorepo service); none means this repository |
+| `gitgrit stack components [-p org/repo]` | Every component and the stacks it belongs to |
 | `gitgrit stack refresh <stack>` | Rebuild a stack's map from its projects' main branches (superusers) |
 | **AI** | |
 | `gitgrit ai usage [--period day\|week\|month]` | Input and output tokens per provider and model, per kind of work, per standard |

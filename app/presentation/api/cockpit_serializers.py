@@ -219,3 +219,35 @@ class StackDetailSerializer(StackSummarySerializer):
 
 class StackRefreshSerializer(serializers.Serializer):
     queued = serializers.IntegerField(help_text="Projects queued to rebuild the map from their main branch.")
+
+
+class StackCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class StackUpdateSerializer(serializers.Serializer):
+    """Only the fields sent change."""
+
+    name = serializers.CharField(required=False, max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+
+
+class ComponentProjectSerializer(ProjectRefSerializer):
+    full_path = serializers.CharField(help_text="org/repo; empty for an artifact project.")
+
+
+class ComponentSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    path = serializers.CharField(help_text='Where it lives in the repository; "" for the root component.')
+    project = ComponentProjectSerializer()
+    stacks = ProjectRefSerializer(many=True, help_text="Stacks it belongs to.")
+
+
+class ComponentIdsSerializer(serializers.Serializer):
+    component_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1)
+
+
+class StackComponentsChangeSerializer(serializers.Serializer):
+    added = serializers.IntegerField(help_text="Newly added; ones already in the stack are skipped.")
