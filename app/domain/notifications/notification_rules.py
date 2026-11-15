@@ -35,6 +35,12 @@ def standards_failing(event: StandardRunFinished) -> bool:
     return event.failed > 0 and not could_not_evaluate(event)
 
 
+def required_unverified(event: StandardRunFinished) -> bool:
+    """The run could be evaluated but some standard errored; the policy then
+    checks whether one of them is Required."""
+    return event.errored > 0 and not could_not_evaluate(event)
+
+
 def became_failed(health_before: ScoreTone, health_after: ScoreTone) -> bool:
     """This run failed the project: a Required standard failed it, where it
     had a score and was not failed before. A low score never "fails" a

@@ -33,6 +33,7 @@ class Kind:
     RUN_FAILED = "run.failed"  # GitGrit could not evaluate a project
     STANDARDS_FAILING = "standards.failing"  # a run left standards failing
     PROJECT_CRITICAL = "project.critical"  # a run failed the project (a Required standard failed)
+    REQUIRED_UNVERIFIED = "project.required_unverified"  # a Required standard could not run
     RUN_TIMED_OUT = "run.timed_out"  # runs nobody finished were expired
     CONNECTION_BROKEN = "connection.broken"  # the Git connection stopped working
     # Dependency map

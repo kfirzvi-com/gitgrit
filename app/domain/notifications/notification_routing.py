@@ -78,6 +78,7 @@ ROUTES: dict[str, Route] = {
     Kind.RUN_FAILED: _RUN,
     Kind.STANDARDS_FAILING: _RUN,
     Kind.PROJECT_CRITICAL: _RUN,
+    Kind.REQUIRED_UNVERIFIED: _RUN,
     Kind.RUN_TIMED_OUT: _RUN,
     Kind.CONNECTION_BROKEN: _RUN,
     Kind.GRAPH_FAILED: _RUN,

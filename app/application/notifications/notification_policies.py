@@ -26,6 +26,7 @@ from app.domain.events import (
     StandardRunsTimedOut,
     StandardSaved,
 )
+from app.domain.importance import Importance
 from app.domain.models import Notification, Project, Standard, StandardExecution, User
 from app.domain.notifications import notification_rules
 
@@ -132,6 +133,36 @@ class ProjectFailedNotificationPolicy:
                 reason=_project_status(project)["reason"],
                 execution_ids=event.execution_ids,
                 trigger=_trigger(rows[0] if rows else None),
+                triggered_by_user_ids=_triggered_by(event),
+            )
+        )
+
+
+class RequiredUnverifiedNotificationPolicy:
+    """Whenever a Required standard errors in a run that could otherwise be
+    evaluated, raise "Could not verify a Required standard". A run where
+    everything errored is "GitGrit could not evaluate" instead."""
+
+    def handle(self, event: StandardRunFinished) -> None:
+        if not notification_rules.required_unverified(event):
+            return
+        project = _project(event)
+        if project is None:
+            return
+        rows = _rows(event, project)
+        errored = [
+            r for r in rows
+            if r.status == StandardExecution.Status.ERROR and r.importance == Importance.REQUIRED
+        ]
+        if not errored:
+            return
+        raise_notification(
+            Notification.required_unverified(
+                project=project,
+                standard_names=[r.standard_name for r in errored],
+                execution_id=errored[0].pk,
+                execution_ids=event.execution_ids,
+                trigger=_trigger(rows[0]),
                 triggered_by_user_ids=_triggered_by(event),
             )
         )
@@ -280,6 +311,7 @@ NOTIFICATION_POLICIES = (
     (StandardRunFinished, CouldNotEvaluateNotificationPolicy()),
     (StandardRunFinished, StandardsFailingNotificationPolicy()),
     (StandardRunFinished, ProjectFailedNotificationPolicy()),
+    (StandardRunFinished, RequiredUnverifiedNotificationPolicy()),
     (StandardRunsTimedOut, RunsTimedOutNotificationPolicy()),
     (DependencyInferenceFailed, GraphBrokeNotificationPolicy()),
     (DependencyInferenceFailed, AIProviderFailedNotificationPolicy()),
