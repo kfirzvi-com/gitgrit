@@ -56,12 +56,14 @@ from app.presentation.views.artifact_views import (
     project_overview_health,
     upload_project_commit,
 )
+from app.presentation.views.ai_budget_views import delete_ai_budget, save_ai_budget
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
     StackListView,
     delete_stack,
     edit_stack,
+    refresh_stack,
     remove_component_from_stack,
     stack_components,
 )
@@ -116,7 +118,7 @@ from app.presentation.views.notification_views import (
     notification_panel,
     open_notification,
 )
-from app.presentation.views.web_views import DashboardView, HomeView, refresh_map
+from app.presentation.views.web_views import DashboardView, HomeView, dashboard_ai_usage, refresh_map
 from app.presentation.views.workspace_switcher_views import workspace_switcher_list
 from app.presentation.views.token_views import (
     create_personal_token,
@@ -153,6 +155,7 @@ urlpatterns = [
     ),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("dashboard/refresh-map/", refresh_map, name="refresh_map"),
+    path("dashboard/ai-usage/", dashboard_ai_usage, name="dashboard_ai_usage"),
     path("notifications/panel/", notification_panel, name="notification_panel"),
     path("notifications/read-all/", mark_all_read, name="notifications_mark_all_read"),
     path("notifications/bell/", notification_bell, name="notification_bell"),
@@ -250,6 +253,8 @@ urlpatterns = [
     ),
     # LLM providers & roles
     path("tenants/llm/providers/add/", add_llm_provider, name="add_llm_provider"),
+    path("tenants/ai-budgets/", save_ai_budget, name="save_ai_budget"),
+    path("tenants/ai-budgets/<uuid:budget_id>/delete/", delete_ai_budget, name="delete_ai_budget"),
     path(
         "tenants/llm/providers/<uuid:provider_id>/edit/",
         edit_llm_provider,
@@ -331,6 +336,7 @@ urlpatterns = [
     path("stacks/", StackListView.as_view(), name="stack_list"),
     path("stacks/new/", CreateStackView.as_view(), name="create_stack"),
     path("stacks/<uuid:pk>/", StackDetailView.as_view(), name="stack_detail"),
+    path("stacks/<uuid:pk>/refresh/", refresh_stack, name="refresh_stack"),
     path("stacks/<uuid:pk>/delete/", delete_stack, name="delete_stack"),
     path("stacks/<uuid:pk>/edit/", edit_stack, name="edit_stack"),
     path("stacks/<uuid:pk>/components/", stack_components, name="stack_components"),

@@ -41,6 +41,48 @@ func (e AuthMethodEnum) Valid() bool {
 	}
 }
 
+// Defines values for BudgetLevelEnum.
+const (
+	Near    BudgetLevelEnum = "near"
+	Ok      BudgetLevelEnum = "ok"
+	Reached BudgetLevelEnum = "reached"
+)
+
+// Valid indicates whether the value is a known member of the BudgetLevelEnum enum.
+func (e BudgetLevelEnum) Valid() bool {
+	switch e {
+	case Near:
+		return true
+	case Ok:
+		return true
+	case Reached:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BudgetPeriodEnum.
+const (
+	BudgetPeriodEnumDay   BudgetPeriodEnum = "day"
+	BudgetPeriodEnumMonth BudgetPeriodEnum = "month"
+	BudgetPeriodEnumWeek  BudgetPeriodEnum = "week"
+)
+
+// Valid indicates whether the value is a known member of the BudgetPeriodEnum enum.
+func (e BudgetPeriodEnum) Valid() bool {
+	switch e {
+	case BudgetPeriodEnumDay:
+		return true
+	case BudgetPeriodEnumMonth:
+		return true
+	case BudgetPeriodEnumWeek:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EventsEnum.
 const (
 	PullRequest EventsEnum = "pull_request"
@@ -77,6 +119,63 @@ func (e ImportanceEnum) Valid() bool {
 	case Minor:
 		return true
 	case Required:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LLMProviderTypeEnum.
+const (
+	Anthropic    LLMProviderTypeEnum = "anthropic"
+	Azure        LLMProviderTypeEnum = "azure"
+	Bedrock      LLMProviderTypeEnum = "bedrock"
+	Gemini       LLMProviderTypeEnum = "gemini"
+	LitellmProxy LLMProviderTypeEnum = "litellm_proxy"
+	Mistral      LLMProviderTypeEnum = "mistral"
+	Ollama       LLMProviderTypeEnum = "ollama"
+	Openai       LLMProviderTypeEnum = "openai"
+	VertexAi     LLMProviderTypeEnum = "vertex_ai"
+)
+
+// Valid indicates whether the value is a known member of the LLMProviderTypeEnum enum.
+func (e LLMProviderTypeEnum) Valid() bool {
+	switch e {
+	case Anthropic:
+		return true
+	case Azure:
+		return true
+	case Bedrock:
+		return true
+	case Gemini:
+		return true
+	case LitellmProxy:
+		return true
+	case Mistral:
+		return true
+	case Ollama:
+		return true
+	case Openai:
+		return true
+	case VertexAi:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LLMRoleEnum.
+const (
+	LLMRoleEnumCode      LLMRoleEnum = "code"
+	LLMRoleEnumReasoning LLMRoleEnum = "reasoning"
+)
+
+// Valid indicates whether the value is a known member of the LLMRoleEnum enum.
+func (e LLMRoleEnum) Valid() bool {
+	switch e {
+	case LLMRoleEnumCode:
+		return true
+	case LLMRoleEnumReasoning:
 		return true
 	default:
 		return false
@@ -169,25 +268,25 @@ func (e PlatformEnum) Valid() bool {
 
 // Defines values for StatusEnum.
 const (
-	Error   StatusEnum = "error"
-	Failed  StatusEnum = "failed"
-	Passed  StatusEnum = "passed"
-	Running StatusEnum = "running"
-	Skipped StatusEnum = "skipped"
+	StatusEnumError   StatusEnum = "error"
+	StatusEnumFailed  StatusEnum = "failed"
+	StatusEnumPassed  StatusEnum = "passed"
+	StatusEnumRunning StatusEnum = "running"
+	StatusEnumSkipped StatusEnum = "skipped"
 )
 
 // Valid indicates whether the value is a known member of the StatusEnum enum.
 func (e StatusEnum) Valid() bool {
 	switch e {
-	case Error:
+	case StatusEnumError:
 		return true
-	case Failed:
+	case StatusEnumFailed:
 		return true
-	case Passed:
+	case StatusEnumPassed:
 		return true
-	case Running:
+	case StatusEnumRunning:
 		return true
-	case Skipped:
+	case StatusEnumSkipped:
 		return true
 	default:
 		return false
@@ -233,6 +332,48 @@ func (e TypeEnum) Valid() bool {
 	}
 }
 
+// Defines values for UsageCategoryEnum.
+const (
+	Map      UsageCategoryEnum = "map"
+	Standard UsageCategoryEnum = "standard"
+)
+
+// Valid indicates whether the value is a known member of the UsageCategoryEnum enum.
+func (e UsageCategoryEnum) Valid() bool {
+	switch e {
+	case Map:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WarningLightKeyEnum.
+const (
+	WarningLightKeyEnumAiBudget WarningLightKeyEnum = "ai_budget"
+	WarningLightKeyEnumBelowA   WarningLightKeyEnum = "below_a"
+	WarningLightKeyEnumFailed   WarningLightKeyEnum = "failed"
+	WarningLightKeyEnumNoScore  WarningLightKeyEnum = "no_score"
+)
+
+// Valid indicates whether the value is a known member of the WarningLightKeyEnum enum.
+func (e WarningLightKeyEnum) Valid() bool {
+	switch e {
+	case WarningLightKeyEnumAiBudget:
+		return true
+	case WarningLightKeyEnumBelowA:
+		return true
+	case WarningLightKeyEnumFailed:
+		return true
+	case WarningLightKeyEnumNoScore:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebhookEnum.
 const (
 	Active  WebhookEnum = "active"
@@ -255,6 +396,81 @@ func (e WebhookEnum) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Defines values for GetAiUsageParamsPeriod.
+const (
+	GetAiUsageParamsPeriodDay   GetAiUsageParamsPeriod = "day"
+	GetAiUsageParamsPeriodMonth GetAiUsageParamsPeriod = "month"
+	GetAiUsageParamsPeriodWeek  GetAiUsageParamsPeriod = "week"
+)
+
+// Valid indicates whether the value is a known member of the GetAiUsageParamsPeriod enum.
+func (e GetAiUsageParamsPeriod) Valid() bool {
+	switch e {
+	case GetAiUsageParamsPeriodDay:
+		return true
+	case GetAiUsageParamsPeriodMonth:
+		return true
+	case GetAiUsageParamsPeriodWeek:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClearLlmRoleParamsRole.
+const (
+	ClearLlmRoleParamsRoleCode      ClearLlmRoleParamsRole = "code"
+	ClearLlmRoleParamsRoleReasoning ClearLlmRoleParamsRole = "reasoning"
+)
+
+// Valid indicates whether the value is a known member of the ClearLlmRoleParamsRole enum.
+func (e ClearLlmRoleParamsRole) Valid() bool {
+	switch e {
+	case ClearLlmRoleParamsRoleCode:
+		return true
+	case ClearLlmRoleParamsRoleReasoning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetLlmRoleParamsRole.
+const (
+	Code      SetLlmRoleParamsRole = "code"
+	Reasoning SetLlmRoleParamsRole = "reasoning"
+)
+
+// Valid indicates whether the value is a known member of the SetLlmRoleParamsRole enum.
+func (e SetLlmRoleParamsRole) Valid() bool {
+	switch e {
+	case Code:
+		return true
+	case Reasoning:
+		return true
+	default:
+		return false
+	}
+}
+
+// AIUsage defines model for AIUsage.
+type AIUsage struct {
+	Budgets    BudgetSummary   `json:"budgets"`
+	Categories []CategoryUsage `json:"categories"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period BudgetPeriodEnum `json:"period"`
+
+	// Providers Token counts are per model: models are priced apart.
+	Providers []ProviderUsage `json:"providers"`
+
+	// Standards Biggest first.
+	Standards []StandardUsage `json:"standards"`
+	Starts    time.Time       `json:"starts"`
 }
 
 // ActiveStandard defines model for ActiveStandard.
@@ -298,6 +514,26 @@ type AttachedStandardImportance struct {
 	Name       string         `json:"name"`
 }
 
+// AttentionProject defines model for AttentionProject.
+type AttentionProject struct {
+	// Grade Null when the project has no score.
+	Grade   *ScoreDisplay `json:"grade"`
+	Owner   string        `json:"owner"`
+	Project ProjectRef    `json:"project"`
+	Stacks  []string      `json:"stacks"`
+
+	// Tone failed or needs_attention.
+	//
+	// * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+
+	// Why e.g. "Lint failing", "No score: …", "Below par: Docs", "Not checked yet".
+	Why string `json:"why"`
+}
+
 // AuthMethodEnum * `pat` - pat
 // * `github_app` - github_app
 type AuthMethodEnum string
@@ -306,6 +542,110 @@ type AuthMethodEnum string
 type Branch struct {
 	IsDefault bool   `json:"is_default"`
 	Name      string `json:"name"`
+}
+
+// Budget defines model for Budget.
+type Budget struct {
+	Id         openapi_types.UUID `json:"id"`
+	InputLimit *int               `json:"input_limit"`
+
+	// Level ok, near (low) or reached.
+	//
+	// * `ok` - ok
+	// * `near` - near
+	// * `reached` - reached
+	Level BudgetLevelEnum `json:"level"`
+
+	// LowAtPercent Warn owners and admins when this much is left; null: only when used up.
+	LowAtPercent *int   `json:"low_at_percent"`
+	Model        string `json:"model"`
+	OutputLimit  *int   `json:"output_limit"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period   BudgetPeriodEnum `json:"period"`
+	Provider ProviderRef      `json:"provider"`
+
+	// StopAtLimit Hold back new runs on the model once used up.
+	StopAtLimit bool `json:"stop_at_limit"`
+	StopsRuns   bool `json:"stops_runs"`
+
+	// Used What the current period has used.
+	Used   Tokens       `json:"used"`
+	Window BudgetWindow `json:"window"`
+}
+
+// BudgetCreateRequest defines model for BudgetCreateRequest.
+type BudgetCreateRequest struct {
+	InputLimit   *int   `json:"input_limit,omitempty"`
+	LowAtPercent *int   `json:"low_at_percent,omitempty"`
+	Model        string `json:"model"`
+	OutputLimit  *int   `json:"output_limit,omitempty"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period      BudgetPeriodEnum   `json:"period"`
+	ProviderId  openapi_types.UUID `json:"provider_id"`
+	StopAtLimit *bool              `json:"stop_at_limit,omitempty"`
+}
+
+// BudgetLevelEnum * `ok` - ok
+// * `near` - near
+// * `reached` - reached
+type BudgetLevelEnum string
+
+// BudgetPeriodEnum * `day` - day
+// * `week` - week
+// * `month` - month
+type BudgetPeriodEnum string
+
+// BudgetSummary defines model for BudgetSummary.
+type BudgetSummary struct {
+	// Near At or under their low mark.
+	Near int `json:"near"`
+	Ok   int `json:"ok"`
+
+	// Stopping Used up and stopping runs.
+	Stopping int `json:"stopping"`
+	Total    int `json:"total"`
+	UsedUp   int `json:"used_up"`
+}
+
+// BudgetWindow defines model for BudgetWindow.
+type BudgetWindow struct {
+	LastDay openapi_types.Date `json:"last_day"`
+
+	// Resets When it starts over from zero.
+	Resets time.Time `json:"resets"`
+
+	// Starts When the current period began (workspace's local time).
+	Starts time.Time `json:"starts"`
+}
+
+// BudgetableModel defines model for BudgetableModel.
+type BudgetableModel struct {
+	// Blocked No budget: the model does not run.
+	Blocked   bool        `json:"blocked"`
+	HasBudget bool        `json:"has_budget"`
+	Model     string      `json:"model"`
+	Provider  ProviderRef `json:"provider"`
+
+	// Roles Roles that use it (GitGrit calls these).
+	Roles []string `json:"roles"`
+}
+
+// CategoryUsage defines model for CategoryUsage.
+type CategoryUsage struct {
+	Calls int `json:"calls"`
+
+	// Category * `map` - map
+	// * `standard` - standard
+	Category     UsageCategoryEnum `json:"category"`
+	InputTokens  int               `json:"input_tokens"`
+	Label        string            `json:"label"`
+	OutputTokens int               `json:"output_tokens"`
 }
 
 // CheckResult defines model for CheckResult.
@@ -332,6 +672,15 @@ type CheckResult struct {
 
 	// StillAttached Commit views only: whether the standard is still attached.
 	StillAttached *bool `json:"still_attached,omitempty"`
+}
+
+// ChecksByWeek defines model for ChecksByWeek.
+type ChecksByWeek struct {
+	LastWeek int `json:"last_week"`
+
+	// Peak The busiest of the last four (rolling) weeks.
+	Peak     int `json:"peak"`
+	ThisWeek int `json:"this_week"`
 }
 
 // Commit defines model for Commit.
@@ -416,6 +765,32 @@ type CommitUploadResult struct {
 	Queued  int    `json:"queued"`
 }
 
+// Component defines model for Component.
+type Component struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+
+	// Path Where it lives in the repository; "" for the root component.
+	Path    string           `json:"path"`
+	Project ComponentProject `json:"project"`
+
+	// Stacks Stacks it belongs to.
+	Stacks []ProjectRef `json:"stacks"`
+}
+
+// ComponentIdsRequest defines model for ComponentIdsRequest.
+type ComponentIdsRequest struct {
+	ComponentIds []openapi_types.UUID `json:"component_ids"`
+}
+
+// ComponentProject defines model for ComponentProject.
+type ComponentProject struct {
+	// FullPath org/repo; empty for an artifact project.
+	FullPath string             `json:"full_path"`
+	Id       openapi_types.UUID `json:"id"`
+	Name     string             `json:"name"`
+}
+
 // Connection defines model for Connection.
 type Connection struct {
 	// AccountLogin GitHub App connections: the org or user.
@@ -458,6 +833,23 @@ type Execution struct {
 	Status    string    `json:"status"`
 }
 
+// HealthCounts defines model for HealthCounts.
+type HealthCounts struct {
+	// Checked Projects with a score on record.
+	Checked int `json:"checked"`
+
+	// Failed A Required standard failed.
+	Failed int `json:"failed"`
+
+	// Healthy Graded A+ or A.
+	Healthy int `json:"healthy"`
+
+	// NeedsAttention Graded B to D, no score, or never checked.
+	NeedsAttention int `json:"needs_attention"`
+	Total          int `json:"total"`
+	Unchecked      int `json:"unchecked"`
+}
+
 // ImportanceEnum * `required` - Required
 // * `major` - Major
 // * `minor` - Minor
@@ -469,6 +861,143 @@ type InstalledStandard struct {
 	Created bool               `json:"created"`
 	Id      openapi_types.UUID `json:"id"`
 	Name    string             `json:"name"`
+}
+
+// LLMModelsRefresh defines model for LLMModelsRefresh.
+type LLMModelsRefresh struct {
+	// Models Models found; the list is kept when none are.
+	Models []string `json:"models"`
+
+	// Note Why none were found, when none were.
+	Note string `json:"note"`
+}
+
+// LLMProvider defines model for LLMProvider.
+type LLMProvider struct {
+	// BaseUrl Empty for the provider's own endpoint.
+	BaseUrl     string             `json:"base_url"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DisplayName string             `json:"display_name"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Models Models this key can use.
+	Models []string `json:"models"`
+
+	// ProviderType * `anthropic` - anthropic
+	// * `openai` - openai
+	// * `azure` - azure
+	// * `bedrock` - bedrock
+	// * `vertex_ai` - vertex_ai
+	// * `gemini` - gemini
+	// * `mistral` - mistral
+	// * `ollama` - ollama
+	// * `litellm_proxy` - litellm_proxy
+	ProviderType LLMProviderTypeEnum `json:"provider_type"`
+
+	// Roles Roles that use it.
+	Roles []LLMRoleEnum `json:"roles"`
+}
+
+// LLMProviderAdded defines model for LLMProviderAdded.
+type LLMProviderAdded struct {
+	// BaseUrl Empty for the provider's own endpoint.
+	BaseUrl     string             `json:"base_url"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DisplayName string             `json:"display_name"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Models Models this key can use.
+	Models []string `json:"models"`
+
+	// Note Why no models were found (the provider's own words), when none were; else empty.
+	Note string `json:"note"`
+
+	// ProviderType * `anthropic` - anthropic
+	// * `openai` - openai
+	// * `azure` - azure
+	// * `bedrock` - bedrock
+	// * `vertex_ai` - vertex_ai
+	// * `gemini` - gemini
+	// * `mistral` - mistral
+	// * `ollama` - ollama
+	// * `litellm_proxy` - litellm_proxy
+	ProviderType LLMProviderTypeEnum `json:"provider_type"`
+
+	// Roles Roles that use it.
+	Roles []LLMRoleEnum `json:"roles"`
+}
+
+// LLMProviderCreateRequest defines model for LLMProviderCreateRequest.
+type LLMProviderCreateRequest struct {
+	// ApiKey Stored encrypted; never returned.
+	ApiKey string `json:"api_key"`
+
+	// BaseUrl A proxy or self-hosted endpoint.
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// DisplayName Default: the type, e.g. "Anthropic".
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// ProviderType * `anthropic` - anthropic
+	// * `openai` - openai
+	// * `azure` - azure
+	// * `bedrock` - bedrock
+	// * `vertex_ai` - vertex_ai
+	// * `gemini` - gemini
+	// * `mistral` - mistral
+	// * `ollama` - ollama
+	// * `litellm_proxy` - litellm_proxy
+	ProviderType LLMProviderTypeEnum `json:"provider_type"`
+}
+
+// LLMProviderTest defines model for LLMProviderTest.
+type LLMProviderTest struct {
+	// Ok The provider accepted the key.
+	Ok bool `json:"ok"`
+}
+
+// LLMProviderTypeEnum * `anthropic` - anthropic
+// * `openai` - openai
+// * `azure` - azure
+// * `bedrock` - bedrock
+// * `vertex_ai` - vertex_ai
+// * `gemini` - gemini
+// * `mistral` - mistral
+// * `ollama` - ollama
+// * `litellm_proxy` - litellm_proxy
+type LLMProviderTypeEnum string
+
+// LLMRole defines model for LLMRole.
+type LLMRole struct {
+	// HasBudget Budgets are an allow-list: without one the role's model never runs.
+	HasBudget bool    `json:"has_budget"`
+	Label     string  `json:"label"`
+	Model     *string `json:"model"`
+
+	// Provider Null when the role is not set.
+	Provider *ProviderRef `json:"provider"`
+
+	// Role * `reasoning` - reasoning
+	// * `code` - code
+	Role LLMRoleEnum `json:"role"`
+}
+
+// LLMRoleEnum * `reasoning` - reasoning
+// * `code` - code
+type LLMRoleEnum string
+
+// LLMRoleSetRequest defines model for LLMRoleSetRequest.
+type LLMRoleSetRequest struct {
+	Model      string             `json:"model"`
+	ProviderId openapi_types.UUID `json:"provider_id"`
+}
+
+// LastCheck defines model for LastCheck.
+type LastCheck struct {
+	At        time.Time  `json:"at"`
+	Branch    string     `json:"branch"`
+	CommitSha string     `json:"commit_sha"`
+	Project   ProjectRef `json:"project"`
 }
 
 // LastExecution defines model for LastExecution.
@@ -535,6 +1064,16 @@ type Me struct {
 	Workspaces []Workspace   `json:"workspaces"`
 }
 
+// ModelUsage defines model for ModelUsage.
+type ModelUsage struct {
+	Blocked      bool     `json:"blocked"`
+	Budgets      []Budget `json:"budgets"`
+	Calls        int      `json:"calls"`
+	InputTokens  int      `json:"input_tokens"`
+	Model        string   `json:"model"`
+	OutputTokens int      `json:"output_tokens"`
+}
+
 // NullEnum defines model for NullEnum.
 type NullEnum = interface{}
 
@@ -553,6 +1092,22 @@ type Offender struct {
 // * `scored` - scored
 type OutcomeEnum string
 
+// Overview defines model for Overview.
+type Overview struct {
+	Checks ChecksByWeek `json:"checks"`
+	Health HealthCounts `json:"health"`
+
+	// LastCheck The newest score the counts read.
+	LastCheck *LastCheck     `json:"last_check"`
+	Lights    []WarningLight `json:"lights"`
+
+	// NeedsYou Failed first, each worst first.
+	NeedsYou []AttentionProject `json:"needs_you"`
+
+	// Trend Healthy projects, week by week, oldest first.
+	Trend []TrendPoint `json:"trend"`
+}
+
 // PackInstall defines model for PackInstall.
 type PackInstall struct {
 	Installed []InstalledStandard `json:"installed"`
@@ -560,6 +1115,19 @@ type PackInstall struct {
 
 	// Skipped Already in the workspace.
 	Skipped []InstalledStandard `json:"skipped"`
+}
+
+// PatchedBudgetUpdateRequest Only the fields sent change.
+type PatchedBudgetUpdateRequest struct {
+	InputLimit   *int `json:"input_limit,omitempty"`
+	LowAtPercent *int `json:"low_at_percent,omitempty"`
+	OutputLimit  *int `json:"output_limit,omitempty"`
+
+	// Period * `day` - day
+	// * `week` - week
+	// * `month` - month
+	Period      *BudgetPeriodEnum `json:"period,omitempty"`
+	StopAtLimit *bool             `json:"stop_at_limit,omitempty"`
 }
 
 // PatchedImportanceRequest PATCH body for an attached standard.
@@ -572,10 +1140,27 @@ type PatchedImportanceRequest struct {
 	Importance *ImportanceEnum `json:"importance,omitempty"`
 }
 
+// PatchedLLMProviderUpdateRequest Only the fields sent change.
+type PatchedLLMProviderUpdateRequest struct {
+	// ApiKey A new key; never returned.
+	ApiKey      *string `json:"api_key,omitempty"`
+	BaseUrl     *string `json:"base_url,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Models Replace the list by hand (when discovery finds none).
+	Models *[]string `json:"models,omitempty"`
+}
+
 // PatchedProjectUpdateRequest PATCH body — only the fields sent are changed.
 type PatchedProjectUpdateRequest struct {
 	Lifecycle *string `json:"lifecycle,omitempty"`
 	Owner     *string `json:"owner,omitempty"`
+}
+
+// PatchedStackUpdateRequest Only the fields sent change.
+type PatchedStackUpdateRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
 }
 
 // PatchedStandardUpdateRequest PATCH body — only the fields sent are changed.
@@ -796,6 +1381,20 @@ type ProjectStatus_Outcome struct {
 	union json.RawMessage
 }
 
+// ProviderRef defines model for ProviderRef.
+type ProviderRef struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// ProviderUsage defines model for ProviderUsage.
+type ProviderUsage struct {
+	// Id Null for usage of a deleted provider.
+	Id     *openapi_types.UUID `json:"id"`
+	Models []ModelUsage        `json:"models"`
+	Name   string              `json:"name"`
+}
+
 // Repository defines model for Repository.
 type Repository struct {
 	AlreadyAdded  bool    `json:"already_added"`
@@ -880,6 +1479,70 @@ type ScoredCommitRef struct {
 	Branch      string     `json:"branch"`
 	CommittedAt *time.Time `json:"committed_at"`
 	Sha         string     `json:"sha"`
+}
+
+// StackComponent defines model for StackComponent.
+type StackComponent struct {
+	Grade       *ScoreDisplay      `json:"grade"`
+	Id          openapi_types.UUID `json:"id"`
+	LastChecked *time.Time         `json:"last_checked"`
+	Name        string             `json:"name"`
+	Path        string             `json:"path"`
+	Project     ProjectRef         `json:"project"`
+
+	// Tone Its repository's health.
+	//
+	// * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+	Why  string    `json:"why"`
+}
+
+// StackComponentsChange defines model for StackComponentsChange.
+type StackComponentsChange struct {
+	// Added Newly added; ones already in the stack are skipped.
+	Added int `json:"added"`
+}
+
+// StackCreateRequest defines model for StackCreateRequest.
+type StackCreateRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// StackDetail defines model for StackDetail.
+type StackDetail struct {
+	// Components Worst first.
+	Components     []StackComponent   `json:"components"`
+	Description    string             `json:"description"`
+	Failed         int                `json:"failed"`
+	Healthy        int                `json:"healthy"`
+	Id             openapi_types.UUID `json:"id"`
+	MapRefreshing  bool               `json:"map_refreshing"`
+	MapUpdatedAt   *time.Time         `json:"map_updated_at"`
+	Name           string             `json:"name"`
+	NeedsAttention int                `json:"needs_attention"`
+	ProjectCount   int                `json:"project_count"`
+	StandardCount  int                `json:"standard_count"`
+}
+
+// StackRefresh defines model for StackRefresh.
+type StackRefresh struct {
+	// Queued Projects queued to rebuild the map from their main branch.
+	Queued int `json:"queued"`
+}
+
+// StackSummary defines model for StackSummary.
+type StackSummary struct {
+	Description    string             `json:"description"`
+	Failed         int                `json:"failed"`
+	Healthy        int                `json:"healthy"`
+	Id             openapi_types.UUID `json:"id"`
+	Name           string             `json:"name"`
+	NeedsAttention int                `json:"needs_attention"`
+	ProjectCount   int                `json:"project_count"`
 }
 
 // StandardCreateRequest defines model for StandardCreateRequest.
@@ -974,6 +1637,21 @@ type StandardTestResult struct {
 	Score   int                    `json:"score"`
 }
 
+// StandardUsage defines model for StandardUsage.
+type StandardUsage struct {
+	// Heavy Spends at least twice the median standard.
+	Heavy        bool   `json:"heavy"`
+	InputTokens  int    `json:"input_tokens"`
+	Name         string `json:"name"`
+	OutputTokens int    `json:"output_tokens"`
+	Runs         int    `json:"runs"`
+
+	// Share Of all LLM-standard tokens in the period, 0-1.
+	Share       float64             `json:"share"`
+	StandardId  *openapi_types.UUID `json:"standard_id"`
+	TimesMedian float64             `json:"times_median"`
+}
+
 // StandardsProgress defines model for StandardsProgress.
 type StandardsProgress struct {
 	// Expected Standards the commit's newest check expects.
@@ -995,6 +1673,19 @@ type StatusEnum string
 // * `workspace_token` - workspace_token
 type TokenTypeEnum string
 
+// Tokens defines model for Tokens.
+type Tokens struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// TrendPoint defines model for TrendPoint.
+type TrendPoint struct {
+	Day     openapi_types.Date `json:"day"`
+	Healthy int                `json:"healthy"`
+	Total   int                `json:"total"`
+}
+
 // TypeEnum * `repository` - repository
 // * `artifact` - artifact
 type TypeEnum string
@@ -1012,12 +1703,43 @@ type UploadedCommit struct {
 	Size int    `json:"size"`
 }
 
+// UsageCategoryEnum * `map` - map
+// * `standard` - standard
+type UsageCategoryEnum string
+
 // UserRef defines model for UserRef.
 type UserRef struct {
 	Email    string `json:"email"`
 	Id       string `json:"id"`
 	Username string `json:"username"`
 }
+
+// WarningLight defines model for WarningLight.
+type WarningLight struct {
+	Count int `json:"count"`
+
+	// Key * `failed` - failed
+	// * `below_a` - below_a
+	// * `no_score` - no_score
+	// * `ai_budget` - ai_budget
+	Key WarningLightKeyEnum `json:"key"`
+
+	// Lit A light turns on only when something needs action.
+	Lit   bool   `json:"lit"`
+	Title string `json:"title"`
+
+	// Tone * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+}
+
+// WarningLightKeyEnum * `failed` - failed
+// * `below_a` - below_a
+// * `no_score` - no_score
+// * `ai_budget` - ai_budget
+type WarningLightKeyEnum string
 
 // WebhookEnum * `app` - app
 // * `active` - active
@@ -1040,10 +1762,31 @@ type bearerAuthContextKey string
 // oauth2ContextKey is the context key for oauth2 security scheme
 type oauth2ContextKey string
 
+// GetAiUsageParams defines parameters for GetAiUsage.
+type GetAiUsageParams struct {
+	// Period The current day, week or month (default).
+	Period *GetAiUsageParamsPeriod `form:"period,omitempty" json:"period,omitempty"`
+}
+
+// GetAiUsageParamsPeriod defines parameters for GetAiUsage.
+type GetAiUsageParamsPeriod string
+
+// ListComponentsParams defines parameters for ListComponents.
+type ListComponentsParams struct {
+	// ProjectId Only this project's.
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
 // ListRepositoriesParams defines parameters for ListRepositories.
 type ListRepositoriesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
+
+// ClearLlmRoleParamsRole defines parameters for ClearLlmRole.
+type ClearLlmRoleParamsRole string
+
+// SetLlmRoleParamsRole defines parameters for SetLlmRole.
+type SetLlmRoleParamsRole string
 
 // ResolveProjectParams defines parameters for ResolveProject.
 type ResolveProjectParams struct {
@@ -1062,8 +1805,23 @@ type GetProjectHealthParams struct {
 	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
 }
 
+// CreateAiBudgetJSONRequestBody defines body for CreateAiBudget for application/json ContentType.
+type CreateAiBudgetJSONRequestBody = BudgetCreateRequest
+
+// UpdateAiBudgetJSONRequestBody defines body for UpdateAiBudget for application/json ContentType.
+type UpdateAiBudgetJSONRequestBody = PatchedBudgetUpdateRequest
+
 // CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
 type CreateConnectionJSONRequestBody = ConnectionCreateRequest
+
+// CreateLlmProviderJSONRequestBody defines body for CreateLlmProvider for application/json ContentType.
+type CreateLlmProviderJSONRequestBody = LLMProviderCreateRequest
+
+// UpdateLlmProviderJSONRequestBody defines body for UpdateLlmProvider for application/json ContentType.
+type UpdateLlmProviderJSONRequestBody = PatchedLLMProviderUpdateRequest
+
+// SetLlmRoleJSONRequestBody defines body for SetLlmRole for application/json ContentType.
+type SetLlmRoleJSONRequestBody = LLMRoleSetRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = ProjectCreateRequest
@@ -1082,6 +1840,15 @@ type AttachProjectStandardsJSONRequestBody = StandardIdsRequest
 
 // SetProjectStandardImportanceJSONRequestBody defines body for SetProjectStandardImportance for application/json ContentType.
 type SetProjectStandardImportanceJSONRequestBody = PatchedImportanceRequest
+
+// CreateStackJSONRequestBody defines body for CreateStack for application/json ContentType.
+type CreateStackJSONRequestBody = StackCreateRequest
+
+// UpdateStackJSONRequestBody defines body for UpdateStack for application/json ContentType.
+type UpdateStackJSONRequestBody = PatchedStackUpdateRequest
+
+// AddStackComponentsJSONRequestBody defines body for AddStackComponents for application/json ContentType.
+type AddStackComponentsJSONRequestBody = ComponentIdsRequest
 
 // CreateStandardJSONRequestBody defines body for CreateStandard for application/json ContentType.
 type CreateStandardJSONRequestBody = StandardCreateRequest
@@ -1230,6 +1997,31 @@ type ClientInterface interface {
 	// GetMe request
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAiBudgets request
+	ListAiBudgets(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAiBudgetWithBody request with any body
+	CreateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAiBudget request
+	DeleteAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAiBudgetWithBody request with any body
+	UpdateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAiModels request
+	ListAiModels(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAiUsage request
+	GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListComponents request
+	ListComponents(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListConnections request
 	ListConnections(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1240,6 +2032,39 @@ type ClientInterface interface {
 
 	// ListRepositories request
 	ListRepositories(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLlmProviders request
+	ListLlmProviders(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLlmProviderWithBody request with any body
+	CreateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLlmProvider request
+	DeleteLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLlmProviderWithBody request with any body
+	UpdateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshLlmModels request
+	RefreshLlmModels(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestLlmProvider request
+	TestLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLlmRoles request
+	ListLlmRoles(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClearLlmRole request
+	ClearLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetLlmRoleWithBody request with any body
+	SetLlmRoleWithBody(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMarketplace request
 	GetMarketplace(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1255,6 +2080,9 @@ type ClientInterface interface {
 
 	// UpdateMarketplaceStandard request
 	UpdateMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOverview request
+	GetOverview(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjects request
 	ListProjects(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1317,6 +2145,36 @@ type ClientInterface interface {
 	// GetProjectStatus request
 	GetProjectStatus(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListStacks request
+	ListStacks(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateStackWithBody request with any body
+	CreateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateStack(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteStack request
+	DeleteStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetStack request
+	GetStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateStackWithBody request with any body
+	UpdateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddStackComponentsWithBody request with any body
+	AddStackComponentsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddStackComponents(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveStackComponent request
+	RemoveStackComponent(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshStackMap request
+	RefreshStackMap(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListStandards request
 	ListStandards(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1350,6 +2208,114 @@ type ClientInterface interface {
 
 func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAiBudgets(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAiBudgetsRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAiBudgetRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAiBudgetRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAiBudgetRequest(c.Server, workspaceId, budgetId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAiBudgetWithBody(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAiBudgetRequestWithBody(c.Server, workspaceId, budgetId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAiBudget(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAiBudgetRequest(c.Server, workspaceId, budgetId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAiModels(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAiModelsRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAiUsageRequest(c.Server, workspaceId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListComponents(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListComponentsRequest(c.Server, workspaceId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1398,6 +2364,150 @@ func (c *Client) CreateConnection(ctx context.Context, workspaceId openapi_types
 
 func (c *Client) ListRepositories(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListRepositoriesRequest(c.Server, workspaceId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLlmProviders(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmProvidersRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLlmProviderRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLlmProviderRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLlmProviderRequest(c.Server, workspaceId, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLlmProviderWithBody(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLlmProviderRequestWithBody(c.Server, workspaceId, providerId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLlmProviderRequest(c.Server, workspaceId, providerId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RefreshLlmModels(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshLlmModelsRequest(c.Server, workspaceId, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestLlmProvider(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestLlmProviderRequest(c.Server, workspaceId, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLlmRoles(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmRolesRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClearLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearLlmRoleRequest(c.Server, workspaceId, role)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetLlmRoleWithBody(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLlmRoleRequestWithBody(c.Server, workspaceId, role, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetLlmRole(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLlmRoleRequest(c.Server, workspaceId, role, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1458,6 +2568,18 @@ func (c *Client) InstallMarketplaceStandard(ctx context.Context, workspaceId ope
 
 func (c *Client) UpdateMarketplaceStandard(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMarketplaceStandardRequest(c.Server, workspaceId, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOverview(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOverviewRequest(c.Server, workspaceId)
 	if err != nil {
 		return nil, err
 	}
@@ -1732,6 +2854,138 @@ func (c *Client) GetProjectStatus(ctx context.Context, workspaceId openapi_types
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListStacks(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStacksRequest(c.Server, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStackRequestWithBody(c.Server, workspaceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateStack(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStackRequest(c.Server, workspaceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteStackRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetStackRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateStackWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateStackRequestWithBody(c.Server, workspaceId, stackId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateStackRequest(c.Server, workspaceId, stackId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddStackComponentsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddStackComponentsRequestWithBody(c.Server, workspaceId, stackId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddStackComponents(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddStackComponentsRequest(c.Server, workspaceId, stackId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RemoveStackComponent(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveStackComponentRequest(c.Server, workspaceId, stackId, componentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RefreshStackMap(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshStackMapRequest(c.Server, workspaceId, stackId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListStandards(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListStandardsRequest(c.Server, workspaceId)
 	if err != nil {
@@ -1891,6 +3145,338 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListAiBudgetsRequest generates requests for ListAiBudgets
+func NewListAiBudgetsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAiBudgetRequest calls the generic CreateAiBudget builder with application/json body
+func NewCreateAiBudgetRequest(server string, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAiBudgetRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateAiBudgetRequestWithBody generates requests for CreateAiBudget with any type of body
+func NewCreateAiBudgetRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAiBudgetRequest generates requests for DeleteAiBudget
+func NewDeleteAiBudgetRequest(server string, workspaceId openapi_types.UUID, budgetId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "budget_id", budgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAiBudgetRequest calls the generic UpdateAiBudget builder with application/json body
+func NewUpdateAiBudgetRequest(server string, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAiBudgetRequestWithBody(server, workspaceId, budgetId, "application/json", bodyReader)
+}
+
+// NewUpdateAiBudgetRequestWithBody generates requests for UpdateAiBudget with any type of body
+func NewUpdateAiBudgetRequestWithBody(server string, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "budget_id", budgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/budgets/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAiModelsRequest generates requests for ListAiModels
+func NewListAiModelsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/models/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAiUsageRequest generates requests for GetAiUsage
+func NewGetAiUsageRequest(server string, workspaceId openapi_types.UUID, params *GetAiUsageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/ai/usage/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Period != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "period", *params.Period, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListComponentsRequest generates requests for ListComponents
+func NewListComponentsRequest(server string, workspaceId openapi_types.UUID, params *ListComponentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/components/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListConnectionsRequest generates requests for ListConnections
 func NewListConnectionsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -2036,6 +3622,393 @@ func NewListRepositoriesRequest(server string, workspaceId openapi_types.UUID, c
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListLlmProvidersRequest generates requests for ListLlmProviders
+func NewListLlmProvidersRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLlmProviderRequest calls the generic CreateLlmProvider builder with application/json body
+func NewCreateLlmProviderRequest(server string, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLlmProviderRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateLlmProviderRequestWithBody generates requests for CreateLlmProvider with any type of body
+func NewCreateLlmProviderRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLlmProviderRequest generates requests for DeleteLlmProvider
+func NewDeleteLlmProviderRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLlmProviderRequest calls the generic UpdateLlmProvider builder with application/json body
+func NewUpdateLlmProviderRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLlmProviderRequestWithBody(server, workspaceId, providerId, "application/json", bodyReader)
+}
+
+// NewUpdateLlmProviderRequestWithBody generates requests for UpdateLlmProvider with any type of body
+func NewUpdateLlmProviderRequestWithBody(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRefreshLlmModelsRequest generates requests for RefreshLlmModels
+func NewRefreshLlmModelsRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/models/refresh/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTestLlmProviderRequest generates requests for TestLlmProvider
+func NewTestLlmProviderRequest(server string, workspaceId openapi_types.UUID, providerId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "provider_id", providerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/providers/%s/test/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListLlmRolesRequest generates requests for ListLlmRoles
+func NewListLlmRolesRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/roles/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClearLlmRoleRequest generates requests for ClearLlmRole
+func NewClearLlmRoleRequest(server string, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "role", role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/roles/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetLlmRoleRequest calls the generic SetLlmRole builder with application/json body
+func NewSetLlmRoleRequest(server string, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetLlmRoleRequestWithBody(server, workspaceId, role, "application/json", bodyReader)
+}
+
+// NewSetLlmRoleRequestWithBody generates requests for SetLlmRole with any type of body
+func NewSetLlmRoleRequestWithBody(server string, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "role", role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/llm/roles/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2231,6 +4204,40 @@ func NewUpdateMarketplaceStandardRequest(server string, workspaceId openapi_type
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOverviewRequest generates requests for GetOverview
+func NewGetOverviewRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/overview/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -3107,6 +5114,366 @@ func NewGetProjectStatusRequest(server string, workspaceId openapi_types.UUID, p
 	return req, nil
 }
 
+// NewListStacksRequest generates requests for ListStacks
+func NewListStacksRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateStackRequest calls the generic CreateStack builder with application/json body
+func NewCreateStackRequest(server string, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateStackRequestWithBody(server, workspaceId, "application/json", bodyReader)
+}
+
+// NewCreateStackRequestWithBody generates requests for CreateStack with any type of body
+func NewCreateStackRequestWithBody(server string, workspaceId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteStackRequest generates requests for DeleteStack
+func NewDeleteStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetStackRequest generates requests for GetStack
+func NewGetStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateStackRequest calls the generic UpdateStack builder with application/json body
+func NewUpdateStackRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateStackRequestWithBody(server, workspaceId, stackId, "application/json", bodyReader)
+}
+
+// NewUpdateStackRequestWithBody generates requests for UpdateStack with any type of body
+func NewUpdateStackRequestWithBody(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAddStackComponentsRequest calls the generic AddStackComponents builder with application/json body
+func NewAddStackComponentsRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddStackComponentsRequestWithBody(server, workspaceId, stackId, "application/json", bodyReader)
+}
+
+// NewAddStackComponentsRequestWithBody generates requests for AddStackComponents with any type of body
+func NewAddStackComponentsRequestWithBody(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/components/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRemoveStackComponentRequest generates requests for RemoveStackComponent
+func NewRemoveStackComponentRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "component_id", componentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/components/%s/", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRefreshStackMapRequest generates requests for RefreshStackMap
+func NewRefreshStackMapRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stack_id", stackId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/refresh/", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListStandardsRequest generates requests for ListStandards
 func NewListStandardsRequest(server string, workspaceId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -3499,6 +5866,31 @@ type ClientWithResponsesInterface interface {
 	// GetMeWithResponse request
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
 
+	// ListAiBudgetsWithResponse request
+	ListAiBudgetsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiBudgetsResponse, error)
+
+	// CreateAiBudgetWithBodyWithResponse request with any body
+	CreateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error)
+
+	CreateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error)
+
+	// DeleteAiBudgetWithResponse request
+	DeleteAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAiBudgetResponse, error)
+
+	// UpdateAiBudgetWithBodyWithResponse request with any body
+	UpdateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error)
+
+	UpdateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error)
+
+	// ListAiModelsWithResponse request
+	ListAiModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiModelsResponse, error)
+
+	// GetAiUsageWithResponse request
+	GetAiUsageWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*GetAiUsageResponse, error)
+
+	// ListComponentsWithResponse request
+	ListComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error)
+
 	// ListConnectionsWithResponse request
 	ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error)
 
@@ -3509,6 +5901,39 @@ type ClientWithResponsesInterface interface {
 
 	// ListRepositoriesWithResponse request
 	ListRepositoriesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, connectionId openapi_types.UUID, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*ListRepositoriesResponse, error)
+
+	// ListLlmProvidersWithResponse request
+	ListLlmProvidersWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmProvidersResponse, error)
+
+	// CreateLlmProviderWithBodyWithResponse request with any body
+	CreateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error)
+
+	CreateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error)
+
+	// DeleteLlmProviderWithResponse request
+	DeleteLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLlmProviderResponse, error)
+
+	// UpdateLlmProviderWithBodyWithResponse request with any body
+	UpdateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error)
+
+	UpdateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error)
+
+	// RefreshLlmModelsWithResponse request
+	RefreshLlmModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshLlmModelsResponse, error)
+
+	// TestLlmProviderWithResponse request
+	TestLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TestLlmProviderResponse, error)
+
+	// ListLlmRolesWithResponse request
+	ListLlmRolesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmRolesResponse, error)
+
+	// ClearLlmRoleWithResponse request
+	ClearLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*ClearLlmRoleResponse, error)
+
+	// SetLlmRoleWithBodyWithResponse request with any body
+	SetLlmRoleWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error)
+
+	SetLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error)
 
 	// GetMarketplaceWithResponse request
 	GetMarketplaceWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetMarketplaceResponse, error)
@@ -3524,6 +5949,9 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateMarketplaceStandardWithResponse request
 	UpdateMarketplaceStandardWithResponse(ctx context.Context, workspaceId openapi_types.UUID, slug string, reqEditors ...RequestEditorFn) (*UpdateMarketplaceStandardResponse, error)
+
+	// GetOverviewWithResponse request
+	GetOverviewWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOverviewResponse, error)
 
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
@@ -3586,6 +6014,36 @@ type ClientWithResponsesInterface interface {
 	// GetProjectStatusWithResponse request
 	GetProjectStatusWithResponse(ctx context.Context, workspaceId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectStatusResponse, error)
 
+	// ListStacksWithResponse request
+	ListStacksWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStacksResponse, error)
+
+	// CreateStackWithBodyWithResponse request with any body
+	CreateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStackResponse, error)
+
+	CreateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStackResponse, error)
+
+	// DeleteStackWithResponse request
+	DeleteStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteStackResponse, error)
+
+	// GetStackWithResponse request
+	GetStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetStackResponse, error)
+
+	// UpdateStackWithBodyWithResponse request with any body
+	UpdateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error)
+
+	UpdateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error)
+
+	// AddStackComponentsWithBodyWithResponse request with any body
+	AddStackComponentsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error)
+
+	AddStackComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error)
+
+	// RemoveStackComponentWithResponse request
+	RemoveStackComponentWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackComponentResponse, error)
+
+	// RefreshStackMapWithResponse request
+	RefreshStackMapWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshStackMapResponse, error)
+
 	// ListStandardsWithResponse request
 	ListStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStandardsResponse, error)
 
@@ -3641,6 +6099,215 @@ func (r GetMeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAiBudgetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Budget
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAiBudgetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAiBudgetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAiBudgetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateAiBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Budget
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAiBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAiBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAiBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAiBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAiBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAiBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAiBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAiBudgetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Budget
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAiBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAiBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAiBudgetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAiModelsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]BudgetableModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAiModelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAiModelsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAiModelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAiUsageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AIUsage
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAiUsageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAiUsageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAiUsageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListComponentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Component
+}
+
+// Status returns HTTPResponse.Status
+func (r ListComponentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListComponentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListComponentsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3731,6 +6398,274 @@ func (r ListRepositoriesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListRepositoriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLlmProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]LLMProvider
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLlmProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLlmProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLlmProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *LLMProviderAdded
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMProvider
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RefreshLlmModelsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMModelsRefresh
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshLlmModelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshLlmModelsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshLlmModelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type TestLlmProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMProviderTest
+}
+
+// Status returns HTTPResponse.Status
+func (r TestLlmProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestLlmProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TestLlmProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLlmRolesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]LLMRole
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLlmRolesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLlmRolesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLlmRolesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClearLlmRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearLlmRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearLlmRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearLlmRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetLlmRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LLMRole
+}
+
+// Status returns HTTPResponse.Status
+func (r SetLlmRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetLlmRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetLlmRoleResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3881,6 +6816,36 @@ func (r UpdateMarketplaceStandardResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateMarketplaceStandardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOverviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Overview
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOverviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOverviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOverviewResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4398,6 +7363,244 @@ func (r GetProjectStatusResponse) ContentType() string {
 	return ""
 }
 
+type ListStacksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]StackSummary
+}
+
+// Status returns HTTPResponse.Status
+func (r ListStacksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListStacksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListStacksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *StackSummary
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StackDetail
+}
+
+// Status returns HTTPResponse.Status
+func (r GetStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateStackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StackSummary
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateStackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateStackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateStackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddStackComponentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StackComponentsChange
+}
+
+// Status returns HTTPResponse.Status
+func (r AddStackComponentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddStackComponentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddStackComponentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemoveStackComponentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveStackComponentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveStackComponentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemoveStackComponentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RefreshStackMapResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *StackRefresh
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshStackMapResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshStackMapResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshStackMapResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListStandardsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4646,6 +7849,85 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 	return ParseGetMeResponse(rsp)
 }
 
+// ListAiBudgetsWithResponse request returning *ListAiBudgetsResponse
+func (c *ClientWithResponses) ListAiBudgetsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiBudgetsResponse, error) {
+	rsp, err := c.ListAiBudgets(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAiBudgetsResponse(rsp)
+}
+
+// CreateAiBudgetWithBodyWithResponse request with arbitrary body returning *CreateAiBudgetResponse
+func (c *ClientWithResponses) CreateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error) {
+	rsp, err := c.CreateAiBudgetWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAiBudgetResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAiBudgetResponse, error) {
+	rsp, err := c.CreateAiBudget(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAiBudgetResponse(rsp)
+}
+
+// DeleteAiBudgetWithResponse request returning *DeleteAiBudgetResponse
+func (c *ClientWithResponses) DeleteAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAiBudgetResponse, error) {
+	rsp, err := c.DeleteAiBudget(ctx, workspaceId, budgetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAiBudgetResponse(rsp)
+}
+
+// UpdateAiBudgetWithBodyWithResponse request with arbitrary body returning *UpdateAiBudgetResponse
+func (c *ClientWithResponses) UpdateAiBudgetWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error) {
+	rsp, err := c.UpdateAiBudgetWithBody(ctx, workspaceId, budgetId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAiBudgetResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateAiBudgetWithResponse(ctx context.Context, workspaceId openapi_types.UUID, budgetId openapi_types.UUID, body UpdateAiBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAiBudgetResponse, error) {
+	rsp, err := c.UpdateAiBudget(ctx, workspaceId, budgetId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAiBudgetResponse(rsp)
+}
+
+// ListAiModelsWithResponse request returning *ListAiModelsResponse
+func (c *ClientWithResponses) ListAiModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAiModelsResponse, error) {
+	rsp, err := c.ListAiModels(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAiModelsResponse(rsp)
+}
+
+// GetAiUsageWithResponse request returning *GetAiUsageResponse
+func (c *ClientWithResponses) GetAiUsageWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*GetAiUsageResponse, error) {
+	rsp, err := c.GetAiUsage(ctx, workspaceId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAiUsageResponse(rsp)
+}
+
+// ListComponentsWithResponse request returning *ListComponentsResponse
+func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error) {
+	rsp, err := c.ListComponents(ctx, workspaceId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListComponentsResponse(rsp)
+}
+
 // ListConnectionsWithResponse request returning *ListConnectionsResponse
 func (c *ClientWithResponses) ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error) {
 	rsp, err := c.ListConnections(ctx, workspaceId, reqEditors...)
@@ -4679,6 +7961,111 @@ func (c *ClientWithResponses) ListRepositoriesWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseListRepositoriesResponse(rsp)
+}
+
+// ListLlmProvidersWithResponse request returning *ListLlmProvidersResponse
+func (c *ClientWithResponses) ListLlmProvidersWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmProvidersResponse, error) {
+	rsp, err := c.ListLlmProviders(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLlmProvidersResponse(rsp)
+}
+
+// CreateLlmProviderWithBodyWithResponse request with arbitrary body returning *CreateLlmProviderResponse
+func (c *ClientWithResponses) CreateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error) {
+	rsp, err := c.CreateLlmProviderWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLlmProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLlmProviderResponse, error) {
+	rsp, err := c.CreateLlmProvider(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLlmProviderResponse(rsp)
+}
+
+// DeleteLlmProviderWithResponse request returning *DeleteLlmProviderResponse
+func (c *ClientWithResponses) DeleteLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLlmProviderResponse, error) {
+	rsp, err := c.DeleteLlmProvider(ctx, workspaceId, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLlmProviderResponse(rsp)
+}
+
+// UpdateLlmProviderWithBodyWithResponse request with arbitrary body returning *UpdateLlmProviderResponse
+func (c *ClientWithResponses) UpdateLlmProviderWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error) {
+	rsp, err := c.UpdateLlmProviderWithBody(ctx, workspaceId, providerId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLlmProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, body UpdateLlmProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLlmProviderResponse, error) {
+	rsp, err := c.UpdateLlmProvider(ctx, workspaceId, providerId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLlmProviderResponse(rsp)
+}
+
+// RefreshLlmModelsWithResponse request returning *RefreshLlmModelsResponse
+func (c *ClientWithResponses) RefreshLlmModelsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshLlmModelsResponse, error) {
+	rsp, err := c.RefreshLlmModels(ctx, workspaceId, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshLlmModelsResponse(rsp)
+}
+
+// TestLlmProviderWithResponse request returning *TestLlmProviderResponse
+func (c *ClientWithResponses) TestLlmProviderWithResponse(ctx context.Context, workspaceId openapi_types.UUID, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TestLlmProviderResponse, error) {
+	rsp, err := c.TestLlmProvider(ctx, workspaceId, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestLlmProviderResponse(rsp)
+}
+
+// ListLlmRolesWithResponse request returning *ListLlmRolesResponse
+func (c *ClientWithResponses) ListLlmRolesWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLlmRolesResponse, error) {
+	rsp, err := c.ListLlmRoles(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLlmRolesResponse(rsp)
+}
+
+// ClearLlmRoleWithResponse request returning *ClearLlmRoleResponse
+func (c *ClientWithResponses) ClearLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role ClearLlmRoleParamsRole, reqEditors ...RequestEditorFn) (*ClearLlmRoleResponse, error) {
+	rsp, err := c.ClearLlmRole(ctx, workspaceId, role, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearLlmRoleResponse(rsp)
+}
+
+// SetLlmRoleWithBodyWithResponse request with arbitrary body returning *SetLlmRoleResponse
+func (c *ClientWithResponses) SetLlmRoleWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error) {
+	rsp, err := c.SetLlmRoleWithBody(ctx, workspaceId, role, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLlmRoleResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetLlmRoleWithResponse(ctx context.Context, workspaceId openapi_types.UUID, role SetLlmRoleParamsRole, body SetLlmRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmRoleResponse, error) {
+	rsp, err := c.SetLlmRole(ctx, workspaceId, role, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLlmRoleResponse(rsp)
 }
 
 // GetMarketplaceWithResponse request returning *GetMarketplaceResponse
@@ -4724,6 +8111,15 @@ func (c *ClientWithResponses) UpdateMarketplaceStandardWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseUpdateMarketplaceStandardResponse(rsp)
+}
+
+// GetOverviewWithResponse request returning *GetOverviewResponse
+func (c *ClientWithResponses) GetOverviewWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOverviewResponse, error) {
+	rsp, err := c.GetOverview(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOverviewResponse(rsp)
 }
 
 // ListProjectsWithResponse request returning *ListProjectsResponse
@@ -4919,6 +8315,102 @@ func (c *ClientWithResponses) GetProjectStatusWithResponse(ctx context.Context, 
 	return ParseGetProjectStatusResponse(rsp)
 }
 
+// ListStacksWithResponse request returning *ListStacksResponse
+func (c *ClientWithResponses) ListStacksWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStacksResponse, error) {
+	rsp, err := c.ListStacks(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListStacksResponse(rsp)
+}
+
+// CreateStackWithBodyWithResponse request with arbitrary body returning *CreateStackResponse
+func (c *ClientWithResponses) CreateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStackResponse, error) {
+	rsp, err := c.CreateStackWithBody(ctx, workspaceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStackResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, body CreateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStackResponse, error) {
+	rsp, err := c.CreateStack(ctx, workspaceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStackResponse(rsp)
+}
+
+// DeleteStackWithResponse request returning *DeleteStackResponse
+func (c *ClientWithResponses) DeleteStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteStackResponse, error) {
+	rsp, err := c.DeleteStack(ctx, workspaceId, stackId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteStackResponse(rsp)
+}
+
+// GetStackWithResponse request returning *GetStackResponse
+func (c *ClientWithResponses) GetStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetStackResponse, error) {
+	rsp, err := c.GetStack(ctx, workspaceId, stackId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetStackResponse(rsp)
+}
+
+// UpdateStackWithBodyWithResponse request with arbitrary body returning *UpdateStackResponse
+func (c *ClientWithResponses) UpdateStackWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error) {
+	rsp, err := c.UpdateStackWithBody(ctx, workspaceId, stackId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateStackResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error) {
+	rsp, err := c.UpdateStack(ctx, workspaceId, stackId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateStackResponse(rsp)
+}
+
+// AddStackComponentsWithBodyWithResponse request with arbitrary body returning *AddStackComponentsResponse
+func (c *ClientWithResponses) AddStackComponentsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error) {
+	rsp, err := c.AddStackComponentsWithBody(ctx, workspaceId, stackId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddStackComponentsResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddStackComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error) {
+	rsp, err := c.AddStackComponents(ctx, workspaceId, stackId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddStackComponentsResponse(rsp)
+}
+
+// RemoveStackComponentWithResponse request returning *RemoveStackComponentResponse
+func (c *ClientWithResponses) RemoveStackComponentWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackComponentResponse, error) {
+	rsp, err := c.RemoveStackComponent(ctx, workspaceId, stackId, componentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveStackComponentResponse(rsp)
+}
+
+// RefreshStackMapWithResponse request returning *RefreshStackMapResponse
+func (c *ClientWithResponses) RefreshStackMapWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshStackMapResponse, error) {
+	rsp, err := c.RefreshStackMap(ctx, workspaceId, stackId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshStackMapResponse(rsp)
+}
+
 // ListStandardsWithResponse request returning *ListStandardsResponse
 func (c *ClientWithResponses) ListStandardsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListStandardsResponse, error) {
 	rsp, err := c.ListStandards(ctx, workspaceId, reqEditors...)
@@ -5041,6 +8533,178 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	return response, nil
 }
 
+// ParseListAiBudgetsResponse parses an HTTP response from a ListAiBudgetsWithResponse call
+func ParseListAiBudgetsResponse(rsp *http.Response) (*ListAiBudgetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAiBudgetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Budget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAiBudgetResponse parses an HTTP response from a CreateAiBudgetWithResponse call
+func ParseCreateAiBudgetResponse(rsp *http.Response) (*CreateAiBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAiBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Budget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAiBudgetResponse parses an HTTP response from a DeleteAiBudgetWithResponse call
+func ParseDeleteAiBudgetResponse(rsp *http.Response) (*DeleteAiBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAiBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAiBudgetResponse parses an HTTP response from a UpdateAiBudgetWithResponse call
+func ParseUpdateAiBudgetResponse(rsp *http.Response) (*UpdateAiBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAiBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Budget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAiModelsResponse parses an HTTP response from a ListAiModelsWithResponse call
+func ParseListAiModelsResponse(rsp *http.Response) (*ListAiModelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAiModelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []BudgetableModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAiUsageResponse parses an HTTP response from a GetAiUsageWithResponse call
+func ParseGetAiUsageResponse(rsp *http.Response) (*GetAiUsageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAiUsageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AIUsage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListComponentsResponse parses an HTTP response from a ListComponentsWithResponse call
+func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListComponentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Component
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListConnectionsResponse parses an HTTP response from a ListConnectionsWithResponse call
 func ParseListConnectionsResponse(rsp *http.Response) (*ListConnectionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5109,6 +8773,220 @@ func ParseListRepositoriesResponse(rsp *http.Response) (*ListRepositoriesRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []Repository
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLlmProvidersResponse parses an HTTP response from a ListLlmProvidersWithResponse call
+func ParseListLlmProvidersResponse(rsp *http.Response) (*ListLlmProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLlmProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []LLMProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLlmProviderResponse parses an HTTP response from a CreateLlmProviderWithResponse call
+func ParseCreateLlmProviderResponse(rsp *http.Response) (*CreateLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LLMProviderAdded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLlmProviderResponse parses an HTTP response from a DeleteLlmProviderWithResponse call
+func ParseDeleteLlmProviderResponse(rsp *http.Response) (*DeleteLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLlmProviderResponse parses an HTTP response from a UpdateLlmProviderWithResponse call
+func ParseUpdateLlmProviderResponse(rsp *http.Response) (*UpdateLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRefreshLlmModelsResponse parses an HTTP response from a RefreshLlmModelsWithResponse call
+func ParseRefreshLlmModelsResponse(rsp *http.Response) (*RefreshLlmModelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshLlmModelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMModelsRefresh
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestLlmProviderResponse parses an HTTP response from a TestLlmProviderWithResponse call
+func ParseTestLlmProviderResponse(rsp *http.Response) (*TestLlmProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestLlmProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMProviderTest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLlmRolesResponse parses an HTTP response from a ListLlmRolesWithResponse call
+func ParseListLlmRolesResponse(rsp *http.Response) (*ListLlmRolesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLlmRolesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []LLMRole
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearLlmRoleResponse parses an HTTP response from a ClearLlmRoleWithResponse call
+func ParseClearLlmRoleResponse(rsp *http.Response) (*ClearLlmRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearLlmRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseSetLlmRoleResponse parses an HTTP response from a SetLlmRoleWithResponse call
+func ParseSetLlmRoleResponse(rsp *http.Response) (*SetLlmRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetLlmRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -5239,6 +9117,32 @@ func ParseUpdateMarketplaceStandardResponse(rsp *http.Response) (*UpdateMarketpl
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MarketplaceUpdate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOverviewResponse parses an HTTP response from a GetOverviewWithResponse call
+func ParseGetOverviewResponse(rsp *http.Response) (*GetOverviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOverviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Overview
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -5689,6 +9593,194 @@ func ParseGetProjectStatusResponse(rsp *http.Response) (*GetProjectStatusRespons
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListStacksResponse parses an HTTP response from a ListStacksWithResponse call
+func ParseListStacksResponse(rsp *http.Response) (*ListStacksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListStacksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []StackSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateStackResponse parses an HTTP response from a CreateStackWithResponse call
+func ParseCreateStackResponse(rsp *http.Response) (*CreateStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest StackSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteStackResponse parses an HTTP response from a DeleteStackWithResponse call
+func ParseDeleteStackResponse(rsp *http.Response) (*DeleteStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetStackResponse parses an HTTP response from a GetStackWithResponse call
+func ParseGetStackResponse(rsp *http.Response) (*GetStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StackDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateStackResponse parses an HTTP response from a UpdateStackWithResponse call
+func ParseUpdateStackResponse(rsp *http.Response) (*UpdateStackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateStackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StackSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddStackComponentsResponse parses an HTTP response from a AddStackComponentsWithResponse call
+func ParseAddStackComponentsResponse(rsp *http.Response) (*AddStackComponentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddStackComponentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StackComponentsChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveStackComponentResponse parses an HTTP response from a RemoveStackComponentWithResponse call
+func ParseRemoveStackComponentResponse(rsp *http.Response) (*RemoveStackComponentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveStackComponentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseRefreshStackMapResponse parses an HTTP response from a RefreshStackMapWithResponse call
+func ParseRefreshStackMapResponse(rsp *http.Response) (*RefreshStackMapResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshStackMapResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest StackRefresh
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	}
 

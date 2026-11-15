@@ -27,10 +27,16 @@ servers:
   # only queues them. Standard runs start sandboxed
   # containers, so this role needs the same Docker socket + sandbox scratch
   # mounts as web.
+  #
+  # Concurrency 1: one job at a time. Each standard run starts a sandbox of
+  # up to 512 MB (LLM_MEMORY_LIMIT); four at once took the 2 GB prod box
+  # down on 2026-10-26. Jobs queue up and finish slower, but never take the
+  # app down. Notifications have a higher priority, so they wait only for
+  # the job already running, not for the whole queue.
   worker:
     hosts:
       - <SERVER_IP>
-    cmd: python manage.py procrastinate worker --queues=graph,standards,notifications --concurrency 4
+    cmd: python manage.py procrastinate worker --queues=graph,standards,notifications --concurrency 1
     options:
       volume:
         - /var/run/docker.sock:/var/run/docker.sock

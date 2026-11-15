@@ -122,13 +122,42 @@ def _analyzing(project):
 def workspace_map_status(tenant):
     """When the map was last rebuilt — the newest successful refresh among the
     workspace's projects — and whether a refresh is queued or running now."""
-    projects = Project.objects.filter(tenant=tenant)
+    return map_status(Project.objects.filter(tenant=tenant))
+
+
+def map_status(projects):
+    """When the map of these projects was last rebuilt (their newest
+    successful refresh) and whether a refresh is queued or running now."""
     return {
         "updated_at": projects.aggregate(latest=Max("deps_analyzed_at"))["latest"],
         "analyzing": projects.filter(
             deps_status__in=(Project.DepsStatus.PENDING, Project.DepsStatus.RUNNING)
         ).exists(),
     }
+
+
+def stack_dependencies(tenant, stacks) -> dict:
+    """Stack-to-stack dependencies, derived from component dependencies and
+    stack membership: if component A (in stack X) depends on component B (in
+    stack Y), then X depends on Y. As {(X id, Y id): {labels}}, ids as
+    strings. ``stacks`` should prefetch ``components``."""
+    component_stacks = defaultdict(set)
+    for stack in stacks:
+        for c in stack.components.all():
+            component_stacks[c.id].add(str(stack.id))
+
+    edge_labels: dict[tuple[str, str], set] = defaultdict(set)
+    for dep in ComponentDependency.objects.filter(tenant=tenant).values(
+        "source_id", "target_id", "label"
+    ):
+        for src in component_stacks.get(dep["source_id"], ()):
+            for tgt in component_stacks.get(dep["target_id"], ()):
+                if src != tgt:
+                    if dep["label"]:
+                        edge_labels[(src, tgt)].add(dep["label"])
+                    else:
+                        edge_labels.setdefault((src, tgt), set())
+    return edge_labels
 
 
 def workspace_graph(tenant):
@@ -168,24 +197,7 @@ def workspace_graph(tenant):
             }
         )
 
-    # Derive stack→stack edges from component dependencies + stack membership:
-    # if component A (in stack X) depends on component B (in stack Y), then X→Y.
-    component_stacks = defaultdict(set)
-    for stack in stacks:
-        for c in stack.components.all():
-            component_stacks[c.id].add(str(stack.id))
-
-    edge_labels: dict[tuple[str, str], set] = defaultdict(set)
-    for dep in ComponentDependency.objects.filter(tenant=tenant).values(
-        "source_id", "target_id", "label"
-    ):
-        for src in component_stacks.get(dep["source_id"], ()):
-            for tgt in component_stacks.get(dep["target_id"], ()):
-                if src != tgt:
-                    if dep["label"]:
-                        edge_labels[(src, tgt)].add(dep["label"])
-                    else:
-                        edge_labels.setdefault((src, tgt), set())
+    edge_labels = stack_dependencies(tenant, stacks)
 
     dependencies = [
         {

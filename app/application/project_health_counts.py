@@ -38,6 +38,20 @@ class ProjectHealthCounts:
     def projects_with(self, tone) -> tuple:
         return (self.projects or {}).get(ScoreTone(tone), ())
 
+    @property
+    def total(self) -> int:
+        return self.failed + self.needs_attention + self.healthy
+
+    @property
+    def checked(self) -> int:
+        """How many of the projects have a score on record (any outcome)."""
+        return sum(1 for rows in (self.projects or {}).values() for _, score in rows if score is not None)
+
+    @property
+    def unchecked(self) -> int:
+        """How many of the projects have no score on record yet."""
+        return self.total - self.checked
+
     # The projects behind each count, for templates.
     @property
     def failed_projects(self) -> tuple:
@@ -87,6 +101,19 @@ class ProjectHealthCounts:
     def for_workspace(cls, tenant) -> "ProjectHealthCounts":
         return cls.of(Project.objects.filter(tenant=tenant))
 
+    @classmethod
+    def for_stacks(cls, stacks) -> dict:
+        """Each stack's projects counted, as {stack pk: counts}. A project
+        with several components in a stack counts once; every project's
+        score is read once. ``stacks`` should prefetch
+        ``components__project``."""
+        projects_by_stack = {
+            stack.pk: list({c.project_id: c.project for c in stack.components.all()}.values())
+            for stack in stacks
+        }
+        scores = scoring.project_scores({p for ps in projects_by_stack.values() for p in ps})
+        return {pk: cls.of(projects, scores) for pk, projects in projects_by_stack.items()}
+
     @staticmethod
     def project_health(commit_score) -> ScoreTone:
         """A project's health from its commit score (``ScoreHealth``)."""
@@ -101,3 +128,4 @@ class ProjectHealthCounts:
             "needs_attention": self.needs_attention,
             "healthy": self.healthy,
         }
+

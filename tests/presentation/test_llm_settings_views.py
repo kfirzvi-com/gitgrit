@@ -20,7 +20,7 @@ def _found(models, results=()):
     return Discovery(list(models), list(results))
 
 ADD_URL = "/tenants/llm/providers/add/"
-DISCOVER = "app.presentation.views.tenant_views.discover"
+DISCOVER = "app.application.llm_providers.llm_provider_service.discover"
 
 
 @pytest.mark.django_db

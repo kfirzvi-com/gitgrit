@@ -1,22 +1,27 @@
-import json
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from app.application.ai_usage import AIUsageReport
+from app.application.cockpit import Cockpit, HealthTrend
+from app.domain.ai_usage import BudgetPeriod
 from app.application.dependency_agent import refresh_workspace_map
-from app.application.standard_results import attention_items
 from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.models import PlatformConnection, Standard, Project, Stack
+from app.presentation.ai_usage_section import AIUsageSection
+from app.presentation.budget_row import BudgetRow
+from app.presentation.fuel_gauge import FuelGauge
+from app.presentation.architecture import map_status, stack_dependencies
+from app.presentation.health_dial import HealthDial
+from app.presentation.health_note import HealthNote
+from app.presentation.speedometer import Speedometer
+from app.presentation.stack_map import StackMap
+from app.presentation.trend_chart import TrendChart
 from app.workspace_access import is_workspace_admin
-from app.presentation.architecture import (
-    workspace_graph,
-    workspace_map_status,
-)
 
 
 class HomeView(TemplateView):
@@ -46,24 +51,38 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ).count()
             context["stack_count"] = Stack.objects.filter(tenant=tenant).count()
 
-            context["workspace_health"] = ProjectHealthCounts.for_workspace(tenant)
-            context["architecture_data"] = json.dumps(workspace_graph(tenant))
-            map_status = workspace_map_status(tenant)
-            context["map_updated_at"] = map_status["updated_at"]
-            context["map_analyzing"] = map_status["analyzing"]
-            attention = attention_items(tenant)
-            context["attention_items"] = attention
-            context["attention_total"] = len(attention)
+            cockpit = Cockpit.for_workspace(tenant)
+            context["cockpit"] = cockpit
+            context["workspace_health"] = cockpit.health
+            context["dial"] = HealthDial.segments(cockpit.health)
+            context["attention_rows"] = [
+                (row, HealthNote.text(row.score, row.below_par)) for row in cockpit.rows
+            ]
+            context["trend"] = TrendChart(HealthTrend.weekly(tenant))
+            context["speedometer"] = Speedometer(cockpit.checks_this_week, cockpit.checks_peak)
+
+            stacks = list(Stack.objects.filter(tenant=tenant).prefetch_related("components__project"))
+            health = ProjectHealthCounts.for_stacks(stacks)
+            # Worst first: most failed, then most needing attention, then by name.
+            context["stack_health"] = sorted(
+                ((stack, health[stack.pk]) for stack in stacks),
+                key=lambda row: (-row[1].failed, -row[1].needs_attention, row[0].name.lower()),
+            )
+            context["stack_map"] = StackMap(context["stack_health"], stack_dependencies(tenant, stacks))
+            context["map_updated_at"] = map_status(Project.objects.filter(tenant=tenant))["updated_at"]
+            context.update(ai_usage_context(self.request, BudgetPeriod.MONTH))
+            models = [m for provider in context["ai"].report.providers for m in provider.models]
+            context["fuel"] = FuelGauge(
+                [BudgetRow(budget, used) for m in models for budget, used in m.budgets],
+                blocked=sum(1 for m in models if not m.budgets),
+            )
         else:
             context["project_count"] = 0
             context["standard_count"] = 0
             context["stack_count"] = 0
             context["workspace_health"] = None
-            context["architecture_data"] = json.dumps(
-                {"stacks": [], "dependencies": []}
-            )
-            context["attention_items"] = []
-            context["attention_total"] = 0
+            context["stack_health"] = []
+            context["cockpit"] = None
         return context
 
 
@@ -90,3 +109,24 @@ def refresh_map(request):
     else:
         messages.warning(request, "No projects to refresh.")
     return redirect("dashboard")
+
+
+def ai_usage_context(request, period: BudgetPeriod) -> dict:
+    report = AIUsageReport.for_workspace(request.tenant, period)
+    return {
+        "ai": AIUsageSection(report),
+        "ai_periods": list(BudgetPeriod),
+        "is_admin": is_workspace_admin(request),
+    }
+
+
+@login_required
+def dashboard_ai_usage(request):
+    """The dashboard's AI section for another period, swapped in place."""
+    if not request.tenant:
+        return redirect("dashboard")
+    try:
+        period = BudgetPeriod(request.GET.get("period", "month"))
+    except ValueError:
+        period = BudgetPeriod.MONTH
+    return render(request, "partials/dashboard_ai_usage.html", ai_usage_context(request, period))

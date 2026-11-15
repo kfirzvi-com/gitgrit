@@ -213,6 +213,17 @@ class LLMTopologyInference:
     def __init__(self, config: dict, *, agent_factory=None):
         self._config = config
         self._agent_factory = agent_factory or self._default_agent
+        # The last ``infer``'s token usage (input/output/calls), kept even
+        # when it failed part-way: those tokens were spent all the same.
+        self.usage: dict = {}
+
+    @property
+    def provider_id(self):
+        return self._config.get("provider_id")
+
+    @property
+    def model_name(self) -> str:
+        return self._config.get("model_name") or self._config.get("model", "")
 
     def _default_agent(self, log):
         return LLMAgent(
@@ -224,6 +235,7 @@ class LLMTopologyInference:
 
     def infer(self, snapshot: RepositorySnapshot, context: InferenceContext) -> RepositoryTopology:
         agent = self._agent_factory(context.log)
+        self.usage = agent.usage  # the same dict: it fills in as the agent runs
         toolbox = RepoToolbox(snapshot, context.full_path)
 
         discovery: ComponentDiscovery = agent.run(

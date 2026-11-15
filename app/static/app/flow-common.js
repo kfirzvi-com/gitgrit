@@ -249,6 +249,9 @@ window.GitGritFlow = (function () {
           fitViewOptions: { padding: 0.2 },
           minZoom: 0.15,
           maxZoom: 2,
+          // The page scrolls past the map; zoom with the buttons or a pinch.
+          zoomOnScroll: false,
+          preventScrolling: false,
           proOptions: { hideAttribution: true },
           onInit: function (inst) {
             _instance = inst;
