@@ -26,9 +26,9 @@
   --gg-secondary:    oklch(72%   0.177 163);   /* teal-green */
 
   /* ── Status ──────────────────────────────────── */
-  --gg-success:      oklch(72%   0.177 163);   /* green */
-  --gg-warning:      oklch(78%   0.170 80);    /* amber */
-  --gg-error:        oklch(65%   0.200 27);    /* red */
+  --gg-success:      #5eead4;                    /* teal: passed, healthy */
+  --gg-warning:      #eab308;                    /* yellow: errored, needs attention */
+  --gg-error:        #c084fc;                    /* purple: failed, errors and destructive actions (no red in the palette) */
   --gg-info:         oklch(63%   0.158 200);   /* same as primary */
 
   /* ── Text ────────────────────────────────────── */

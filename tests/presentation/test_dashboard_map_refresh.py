@@ -1,5 +1,5 @@
-"""The dashboard shows when the map was last rebuilt and lets a superuser
-rebuild it from every project's main branch.
+"""The map is off the dashboard for now; the refresh endpoint is kept and
+lets a superuser rebuild it from every project's main branch.
 
 The refresh button queues the per-project dependency job for each project in
 the workspace (each run reads the project's default branch); the "last update"
@@ -12,7 +12,6 @@ from unittest import mock
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.formats import date_format
 from model_bakery import baker
 
 from app.domain.models import Project
@@ -45,31 +44,15 @@ class DashboardMapRefreshTests(TestCase):
         )
         self.other_tenant_project = baker.make("app.Project", deps_status=Project.DepsStatus.OK)
 
-    def test_dashboard_shows_the_newest_refresh_as_the_map_update_time(self):
+    def test_dashboard_no_longer_builds_or_shows_the_map(self):
+        # The map is off the dashboard for now: no graph is built, no refresh
+        # button, no diagram scripts. The refresh endpoint below is kept.
         response = self.client.get(reverse("dashboard"))
 
-        self.assertEqual(response.context["map_updated_at"], self.new.deps_analyzed_at)
-        self.assertFalse(response.context["map_analyzing"])
-        self.assertContains(
-            response, "last update: " + date_format(timezone.localtime(self.new.deps_analyzed_at), "d/m/y")
-        )
-
-    def test_dashboard_disables_the_button_while_a_project_is_queued(self):
-        Project.objects.filter(pk=self.old.pk).update(deps_status=Project.DepsStatus.PENDING)
-
-        response = self.client.get(reverse("dashboard"))
-
-        self.assertTrue(response.context["map_analyzing"])
-        self.assertContains(response, 'title="Refreshing map…"')
-        self.assertContains(response, "disabled")
-
-    def test_dashboard_says_not_generated_when_no_project_was_ever_analyzed(self):
-        Project.objects.filter(tenant=self.tenant).update(deps_analyzed_at=None)
-
-        response = self.client.get(reverse("dashboard"))
-
-        self.assertIsNone(response.context["map_updated_at"])
-        self.assertContains(response, "last update: ---")
+        self.assertNotIn("architecture_data", response.context)
+        self.assertNotContains(response, 'id="architecture-flow"')
+        self.assertNotContains(response, reverse("refresh_map"))
+        self.assertNotContains(response, "architecture-diagram.js")
 
     def test_refresh_queues_every_workspace_project_from_its_main_branch(self):
         with mock.patch(CONFIGURE) as configure:
@@ -101,20 +84,6 @@ class DashboardMapRefreshTests(TestCase):
 
         configure.return_value.defer.assert_not_called()
         self.assertContains(response, "No projects to refresh.")
-
-    def test_superuser_sees_the_refresh_button(self):
-        response = self.client.get(reverse("dashboard"))
-
-        self.assertContains(response, 'id="map-refresh"')
-
-    def test_member_does_not_see_the_refresh_button(self):
-        self.user.is_superuser = False
-        self.user.save()
-
-        response = self.client.get(reverse("dashboard"))
-
-        self.assertNotContains(response, 'id="map-refresh"')
-        self.assertContains(response, "last update: ")  # the date stays for everyone
 
     def test_member_cannot_refresh(self):
         self.user.is_superuser = False

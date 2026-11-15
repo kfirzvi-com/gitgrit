@@ -1,9 +1,34 @@
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from app.presentation.api import manage_views, views
+from app.presentation.api import cockpit_views, llm_views, manage_views, views
 
 workspace_patterns = [
+    path("overview/", cockpit_views.OverviewView.as_view(), name="api_overview"),
+    path("ai/usage/", cockpit_views.AIUsageView.as_view(), name="api_ai_usage"),
+    path("ai/models/", cockpit_views.AIModelsView.as_view(), name="api_ai_models"),
+    path("ai/budgets/", cockpit_views.AIBudgetsView.as_view(), name="api_ai_budgets"),
+    path("ai/budgets/<uuid:budget_id>/", cockpit_views.AIBudgetView.as_view(), name="api_ai_budget"),
+    path("llm/providers/", llm_views.LLMProvidersView.as_view(), name="api_llm_providers"),
+    path("llm/providers/<uuid:provider_id>/", llm_views.LLMProviderView.as_view(), name="api_llm_provider"),
+    path("llm/providers/<uuid:provider_id>/test/", llm_views.LLMProviderTestView.as_view(), name="api_llm_provider_test"),
+    path(
+        "llm/providers/<uuid:provider_id>/models/refresh/",
+        llm_views.LLMModelsRefreshView.as_view(),
+        name="api_llm_models_refresh",
+    ),
+    path("llm/roles/", llm_views.LLMRolesView.as_view(), name="api_llm_roles"),
+    path("llm/roles/<str:role>/", llm_views.LLMRoleView.as_view(), name="api_llm_role"),
+    path("stacks/", cockpit_views.StackListView.as_view(), name="api_stacks"),
+    path("stacks/<uuid:stack_id>/", cockpit_views.StackDetailView.as_view(), name="api_stack"),
+    path("stacks/<uuid:stack_id>/components/", cockpit_views.StackComponentsView.as_view(), name="api_stack_components"),
+    path(
+        "stacks/<uuid:stack_id>/components/<uuid:component_id>/",
+        cockpit_views.StackComponentView.as_view(),
+        name="api_stack_component",
+    ),
+    path("components/", cockpit_views.ComponentListView.as_view(), name="api_components"),
+    path("stacks/<uuid:stack_id>/refresh/", cockpit_views.StackRefreshView.as_view(), name="api_stack_refresh"),
     path("connections/", manage_views.ConnectionListView.as_view(), name="api_connections"),
     path(
         "connections/<uuid:connection_id>/repositories/",

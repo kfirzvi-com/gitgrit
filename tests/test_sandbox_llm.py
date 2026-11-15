@@ -164,6 +164,10 @@ class SandboxLLMTests(SimpleTestCase):
         # two loop calls (tool, then stop) + one final structured call
         assert obj.usage["calls"] == 3
         assert obj.usage["total_tokens"] == 50
+        # ... and per model, for the host to bill
+        [per_model] = obj.usage["by_model"].values()
+        assert per_model["calls"] == 3 and per_model["model"] == "anthropic/claude-x"
+        assert per_model["prompt_tokens"] + per_model["completion_tokens"] == 50
         # the list_files tool result was fed back into the conversation
         final_messages = scripted.calls[-1]["messages"]
         assert any(m.get("role") == "tool" for m in final_messages)

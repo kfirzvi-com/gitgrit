@@ -11,19 +11,15 @@ it look healthy before it merges.
 
 Every screen that scores projects or lists problems reads from here (the
 dashboard, the stack diagram, the project page, the badge, the project
-status service, "Needs attention"), so they never disagree.
+status service), so they never disagree.
 """
 
 from __future__ import annotations
-
-from dataclasses import dataclass
-from datetime import datetime
 
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 
 from app.application.standard_engine import literal_ref
-from app.domain.score_representation import ScoreTone
 from app.domain.models import Project, ProjectStandard, StandardExecution
 
 Status = StandardExecution.Status
@@ -103,52 +99,3 @@ def project_score(results) -> int | None:
     there are none."""
     scores = [r.score for r in results if r.score is not None]
     return round(sum(scores) / len(scores)) if scores else None
-
-
-@dataclass(frozen=True)
-class AttentionItem:
-    """One current result that needs attention."""
-
-    level: ScoreTone  # FAILED when it fails the project, NEEDS_ATTENTION when it errored
-    project_id: object
-    project_name: str
-    standard_id: object
-    standard_name: str
-    execution_id: object
-    score: int
-    status: str  # display label, e.g. "Failed"
-    when: datetime
-    errored: bool = False
-
-
-def attention_items(tenant) -> list[AttentionItem]:
-    """Current results that need attention
-    (``scoring.StandardRunResult.needs_attention``): Required standards that
-    failed, whatever their score, which are FAILED and come first; then runs
-    that errored, of any importance (their commit has no score); newest
-    first within each. A Major or Minor failure only lowers the score, so it
-    is not listed. Returns the full ranked list; screens decide how many to
-    show.
-    """
-    items = []
-    for ex in current_results(Project.objects.filter(tenant=tenant)):
-        if not ex.needs_attention:
-            continue
-        level = ScoreTone.FAILED if ex.fails_the_commit else ScoreTone.NEEDS_ATTENTION
-        items.append(
-            AttentionItem(
-                level=level,
-                project_id=ex.project_id,
-                project_name=ex.project.name,
-                standard_id=ex.standard_id,
-                standard_name=ex.standard_name,
-                execution_id=ex.id,
-                score=ex.score,
-                status=ex.get_status_display(),
-                when=ex.created_at,
-                errored=ex.status == Status.ERROR,
-            )
-        )
-
-    items.sort(key=lambda i: (i.level.severity, i.when), reverse=True)
-    return items

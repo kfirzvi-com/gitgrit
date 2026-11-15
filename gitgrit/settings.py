@@ -515,6 +515,12 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "LevelEnum": "app.presentation.api.serializers.LEVEL_CHOICES",
         "OutcomeEnum": "app.presentation.api.serializers.OUTCOME_CHOICES",
+        "BudgetPeriodEnum": "app.presentation.api.cockpit_serializers.PERIOD_CHOICES",
+        "BudgetLevelEnum": "app.presentation.api.cockpit_serializers.BUDGET_LEVEL_CHOICES",
+        "UsageCategoryEnum": "app.presentation.api.cockpit_serializers.CATEGORY_CHOICES",
+        "WarningLightKeyEnum": "app.presentation.api.cockpit_serializers.LIGHT_KEYS",
+        "LLMProviderTypeEnum": "app.presentation.api.llm_serializers.PROVIDER_TYPES",
+        "LLMRoleEnum": "app.presentation.api.llm_serializers.ROLE_NAMES",
     },
 }
 

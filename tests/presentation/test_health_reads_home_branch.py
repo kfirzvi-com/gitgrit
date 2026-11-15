@@ -56,7 +56,6 @@ class HealthIgnoresOtherBranchesTests(TestCase):
     def test_dashboard_has_nothing_needing_attention(self):
         response = self.client.get(reverse("dashboard"))
 
-        self.assertEqual(response.context["attention_items"], [])
         health = response.context["workspace_health"]
         self.assertEqual((health.failed, health.needs_attention, health.healthy), (0, 0, 1))
 

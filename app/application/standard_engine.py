@@ -18,6 +18,8 @@ from app.domain.models import (
 from app.domain.standard_criteria import applies, bare_ref, literal_ref  # noqa: F401 (re-exported)
 from app.infrastructure import archives, upload_storage
 from app.infrastructure.sandbox.runner import SANDBOX_TMP, SandboxRunner
+from app.application.ai_usage import BudgetWatch, UsageRecorder
+from app.domain.llm_standard import asks_for_llm
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,10 @@ def resolve_llm_roles(tenant) -> dict:
             "model": f"{role.provider.provider_type}/{role.model}",
             "base_url": role.provider.base_url,
             "api_key": role.provider.api_key,  # decrypted here; plaintext only in /input.json
+            # Who the tokens are billed to (``ai_usage``): echoed back in the
+            # run's usage, never used to call the provider.
+            "provider_id": str(role.provider_id),
+            "model_name": role.model,
         }
         for role in roles
     }
@@ -203,6 +209,20 @@ class StandardEngine:
             input_config["llm_roles"] = llm_roles
         return input_config
 
+    @staticmethod
+    def _budget_refusal(project, code: str, llm_roles: dict) -> str | None:
+        """Why this run may not call its models (``ai_usage.ModelAccess``):
+        only a standard that asks for the ``llm`` spends tokens, and it is
+        held back when any of the workspace's role models has no budget, or
+        a stop-at-limit budget that is used up."""
+        if not llm_roles or not asks_for_llm(code):
+            return None
+        for role in llm_roles.values():
+            refused = BudgetWatch.refusal(project.tenant, role.get("provider_id"), role.get("model_name"))
+            if refused:
+                return refused
+        return None
+
     def run_execution(self, execution: StandardExecution, input_config: dict) -> dict:
         """Run one already-created ``StandardExecution`` and record its result.
 
@@ -232,7 +252,10 @@ class StandardEngine:
         version = execution.standard_version
         code = version.code if version else standard.code
         config = {**input_config, "ref": read_at}
-        if not project.is_artifact:
+        refused = self._budget_refusal(project, code, input_config.get("llm_roles") or {})
+        if refused:
+            result = {"passed": False, "score": 0, "message": refused, "details": {"error": True, "ai_budget": True}}
+        elif not project.is_artifact:
             result = self.runner.run(code, config)
         elif project_dir := self._commit_dir(project, read_at):
             result = self.runner.run(code, config, project_dir=project_dir)
@@ -253,6 +276,9 @@ class StandardEngine:
         execution.details = result.get("details", {})
         execution.logs = result.get("logs", [])
         execution.save()
+        UsageRecorder.record_standard_run(
+            execution, (result.get("details") or {}).get("llm_usage") or {}, input_config.get("llm_roles") or {}
+        )
 
         result["standard_id"] = str(standard.id)
         result["standard_name"] = standard.name
