@@ -141,15 +141,8 @@
                     data-group-platform="{{ project.platform }}">
                   <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
                   <td class="max-w-sm">
-                    <div class="flex items-start gap-2">
-                      <button type="button" class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full gg-tone-bg-{{ row.health.value }}"
-                              title="{{ row.health.label }} — filter by it" aria-label="Filter by {{ row.health.label|lower }}"
-                              data-filter-toggle="health" data-filter-value="{{ row.health_value }}"></button>
-                      <div class="min-w-0">
-                        <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
-                        <p class="text-xs opacity-60 truncate">{{ project.full_path }}</p>
-                      </div>
-                    </div>
+                    <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
+                    <p class="text-xs opacity-60 truncate">{{ project.full_path }}</p>
                   </td>
                   <td class="text-center" data-project-score>
                     <span class="text-2xl">{% if row.head.outcome == "checking" or row.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=row.head size="sm" %}{% else %}{% score row.score_value failed=row.score.failed %}{% endif %}</span>
