@@ -68,7 +68,7 @@
               {% for row in rows %}
                 {% with mp=row.standard %}
                 <tr class="gg-smart-row" data-marketplace-row
-                    data-filter-row data-smart-row
+                    data-filter-row data-smart-row data-smart-id="{{ mp.pk }}"
                     data-filter-is="{{ row.status }}"
                     data-filter-pack="{{ row.pack_names|lower }}"
                     data-filter-label="{{ row.label_names|lower }}"

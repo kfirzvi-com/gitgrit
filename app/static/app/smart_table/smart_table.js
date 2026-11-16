@@ -48,6 +48,21 @@ export class SmartTable {
     this.scope.dispatchEvent(new CustomEvent('filter-search:refresh'));
   }
 
+  // A row changed in place (a standard's Enabled toggle), maybe in one of its
+  // copies: that row becomes the item's own (`data-smart-id`), and the table
+  // is laid out again from it, so every copy and its group follow.
+  adopt(row) {
+    if (!row || !row.dataset.smartId) return;
+    const at = this.rows.findIndex((r) => r.dataset.smartId === row.dataset.smartId);
+    if (at < 0) return;
+    if (this.rows[at] !== row) {
+      row.removeAttribute('data-smart-copy');
+      row.setAttribute('data-smart-row', '');
+      this.rows[at] = row;
+    }
+    this.render();
+  }
+
   // After a bulk change: the page's list again, in place.
   reload() {
     const list = this.element.closest('[data-smart-list]');
@@ -118,6 +133,7 @@ export class SmartTable {
       this.scope.addEventListener('filter-search:applied', () => { this.recount(); this.writeAddress(); });
     }
     this.element.addEventListener('smart-table:reload', () => this.reload());
+    this.element.addEventListener('smart-table:row-changed', (event) => this.adopt(event.target.closest('tr')));
   }
 
   openMenu(menu) {

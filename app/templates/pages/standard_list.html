@@ -82,7 +82,7 @@
                 {% with standard=row.standard %}
                 {# The row's edge: red when it fails on a project, green when it passes everywhere it ran. #}
                 <tr class="gg-smart-row gg-tone-card-{{ row.tone }}"
-                    data-filter-row data-smart-row
+                    data-filter-row data-smart-row data-smart-id="{{ standard.pk }}"
                     data-filter-is="{{ standard|standard_status_values }}"
                     data-filter-label="{{ standard|standard_label_values }}"
                     data-filter-event="{{ row.event_values }}"
@@ -190,7 +190,9 @@
 {% endif %}
 <script>
   // Enabling or disabling a standard swaps its badge: keep the row's is: values
-  // (data-filter-is), and what it sorts and groups by, in step, then re-filter.
+  // (data-filter-is), and what it sorts and groups by, in step, then have the
+  // smart table lay out again from this row, so its copies under other groups
+  // (a standard with two labels) and its status group follow.
   document.addEventListener('htmx:afterSettle', function (event) {
     var row = event.target.closest && event.target.closest('[data-standard-list] [data-filter-row]');
     if (!row) return;
@@ -202,7 +204,7 @@
       row.dataset.groupStatus = enabled ? 'enabled' : 'disabled';
       row.dataset.sortStatus = enabled ? '0' : '2';
     }
-    row.closest('[data-filter-scope]').dispatchEvent(new CustomEvent('filter-search:refresh'));
+    row.dispatchEvent(new CustomEvent('smart-table:row-changed', { bubbles: true }));
   });
 </script>
 {% endblock %}

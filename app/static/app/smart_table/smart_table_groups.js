@@ -1,7 +1,8 @@
 // A smart table's rows in groups, by `data-group-<key>` (`|` between
 // several): a heading row per group, then its rows in their sorted order. A
 // row in several groups shows under each, as a copy (`data-smart-copy`) after
-// the first. The groups follow the option's `values` when it has them, else
+// the first; a copy keeps the row's `data-smart-id`, so a change made in it can
+// be taken back to the row (SmartTable.adopt). The groups follow the option's `values` when it has them, else
 // A to Z, with the rows that have none (`emptyLabel`) last. Without an
 // option, the rows stay as they are.
 const SEPARATOR = '|';

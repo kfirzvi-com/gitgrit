@@ -34,7 +34,7 @@
                 {% with stack=row.stack %}
                 {# A stack is never one grade or colour: it shows its projects counted by health (ProjectHealthCounts). #}
                 <tr class="gg-smart-row" data-stack-row
-                    data-filter-row data-smart-row
+                    data-filter-row data-smart-row data-smart-id="{{ stack.pk }}"
                     data-filter-has="{{ row.health_values }}"
                     data-filter-owner="{{ row.owner_values|lower }}"
                     data-filter-project="{{ row.project_values }}"

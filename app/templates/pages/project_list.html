@@ -118,7 +118,7 @@
                 {# The row takes its score's tone: a bar on its left edge (smart_table.css). #}
                 {% score_tone row.score.value row.score.failed as tone %}
                 <tr class="gg-smart-row gg-tone-card-{{ tone }}" data-project-row="{{ tone }}"
-                    data-filter-row data-smart-row data-smart-tone="{{ row.health.value }}"
+                    data-filter-row data-smart-row data-smart-id="{{ project.pk }}" data-smart-tone="{{ row.health.value }}"
                     data-filter-health="{{ row.health_value }}"
                     data-filter-stack="{{ row.stack_values }}"
                     data-filter-owner="{{ row.owner_value|lower }}"
