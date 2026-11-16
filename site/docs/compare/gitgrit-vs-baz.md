@@ -1,6 +1,6 @@
 ---
-title: "GitGrit vs Baz: AI code review and engineering standards"
-description: "Baz is an AI code reviewer that comments on pull requests. GitGrit checks every repository against your standards as code and grades each one. Here's how they differ, and how they work together."
+title: "GitGrit vs Baz: AI code review vs standards"
+description: "Baz's AI agents comment on each pull request. GitGrit puts every repository's grade, A+ to F, on one screen and tracks it over time. See how the two compare."
 ---
 
 # GitGrit vs Baz

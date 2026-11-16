@@ -1,3 +1,7 @@
+---
+description: "A full audit trail for your standards: every change is saved as a version, with who changed what and when. Revert safely, without losing history."
+---
+
 # Standard Versioning
 
 Every change to a standard is tracked as a version, giving you a full audit trail of who changed what and when.

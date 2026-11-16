@@ -1,3 +1,7 @@
+---
+description: "Hold what you ship to your standards: upload build artifacts like a dist/ folder, and GitGrit checks each upload the way it checks a commit."
+---
+
 # Artifact Projects
 
 An artifact project is a project whose files are **build artifacts you upload**

@@ -1,3 +1,7 @@
+---
+description: "Add a live GitGrit badge to your GitHub README. It shows the repo's letter grade, A+ to F, and updates within minutes of every check."
+---
+
 # Compliance Badges
 
 Embed a live compliance badge in your repository README to show your GitGrit compliance score.

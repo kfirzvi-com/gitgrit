@@ -1,3 +1,7 @@
+---
+description: "Install ready-made standards in one click: packs for repo hygiene, Node.js, Python, Docker and AI agents (CLAUDE.md, MCP config). Customize them freely."
+---
+
 # Standard Marketplace
 
 The marketplace provides pre-built standard templates that you can install into your workspace with one click.

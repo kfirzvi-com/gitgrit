@@ -78,7 +78,7 @@ def _render(releases: list[dict]) -> str:
     lines = [
         "---",
         "title: What's New",
-        "description: Every GitGrit release, newest first.",
+        "description: \"Release notes for GitGrit, the open-source engineering standards platform: every version, newest first, with what changed and where to download it.\"",
         "---",
         "",
         "# What's New",
