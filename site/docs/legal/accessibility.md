@@ -26,7 +26,7 @@ GitGrit is designed to work with current versions of Chrome, Firefox, Safari, an
 
 ## Feedback
 
-We welcome feedback on accessibility barriers. Please email [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com) with a description of the issue, the page URL, and the assistive technology you are using. We aim to respond within ten business days.
+We welcome feedback on accessibility barriers. Please email [kfir@praktical.dev](mailto:kfir@praktical.dev) with a description of the issue, the page URL, and the assistive technology you are using. We aim to respond within ten business days.
 
 ## Assessment
 

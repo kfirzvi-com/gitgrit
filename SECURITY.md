@@ -7,7 +7,7 @@ GitGrit's threat surface is unusually wide for an open-source web app: it execut
 **Please do not open a public GitHub issue.** Use one of:
 
 1. **GitHub Private Vulnerability Reporting** — preferred. From the [Security tab](https://github.com/kfirzvi-com/gitgrit/security/advisories/new) on this repo, click *Report a vulnerability*.
-2. **Email** — `kfir@kfirzvi.com`.
+2. **Email** — `kfir@praktical.dev`.
 
 GitGrit is maintained on a best-effort basis without a dedicated security on-call, so we cannot commit to specific response, triage, or fix timelines. We aim to work through reports as quickly as we reasonably can. We follow coordinated disclosure where practical: ship a fix, then a CVE/advisory, then credit the reporter (unless they prefer to remain anonymous).
 
