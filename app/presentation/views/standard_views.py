@@ -9,6 +9,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.standard_bulk_edit import StandardBulkEdit
 from app.application.standard_service import StandardService, create_standard_version
 from app.domain.models import (
     DraftCannotBeEnabled,
@@ -377,3 +379,11 @@ def run_standard_test(request):
     runner = SandboxRunner()
     result = runner.run(code, input_config)
     return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def bulk_edit_standards(request):
+    """The Standards page's bulk bar: enable, disable, label, unlabel or
+    delete the selected standards (``StandardBulkEdit``)."""
+    return BulkEditAnswer.to(request, StandardBulkEdit)

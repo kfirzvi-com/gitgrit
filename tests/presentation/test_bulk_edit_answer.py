@@ -1,5 +1,6 @@
-"""The bulk bars' endpoints: they answer with a toast and ask the page to
-fetch its table again; nothing changes without a selection."""
+"""The bulk bars' endpoints (each in its context's views, answered by
+BulkEditAnswer): a toast, and the page fetches its table again; nothing
+changes without a selection."""
 import json
 
 from django.test import TestCase

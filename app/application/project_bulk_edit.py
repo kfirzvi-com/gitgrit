@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 
 from app.application import project_management, stack_service
-from app.application.bulk_edit.bulk_edit_result import BulkEditResult
+from app.application.bulk_edit_result import BulkEditResult
 from app.application.errors import NotFoundError
 from app.domain import importance
 from app.domain.models import Project, Stack, Standard

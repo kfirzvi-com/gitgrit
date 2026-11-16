@@ -10,6 +10,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
 
+from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.project_bulk_edit import ProjectBulkEdit
 from app.application import commit_checks, project_management
 from app.application.errors import NotFoundError
 from app.application.commit_checks import (
@@ -608,3 +610,9 @@ def retry_webhook(request, pk):
     return redirect("project_detail", pk=project.pk)
 
 
+@login_required
+@require_POST
+def bulk_edit_projects(request):
+    """The Projects page's bulk bar: owner, lifecycle, stack, or attach or
+    detach a standard on the selected projects (``ProjectBulkEdit``)."""
+    return BulkEditAnswer.to(request, ProjectBulkEdit, importance_value=request.POST.get("importance", ""))

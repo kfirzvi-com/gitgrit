@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 
-from app.application.bulk_edit.bulk_edit_result import BulkEditResult
+from app.application.bulk_edit_result import BulkEditResult
 from app.application.errors import NotFoundError
 from app.application.standard_service import StandardService
 from app.domain.models import DraftCannotBeEnabled, Standard, StandardLabel

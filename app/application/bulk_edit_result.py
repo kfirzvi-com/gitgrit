@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 
 @dataclass
 class BulkEditResult:
-    """What one bulk change did: ``changed`` items, ``unchanged`` ones that
+    """What one bulk change did (``ProjectBulkEdit``, ``StandardBulkEdit``,
+    ``MarketplaceBulkInstall``, each in its own context): ``changed`` items, ``unchanged`` ones that
     already were as asked, and ``skipped`` ones it could not apply to, with
     why (``reason``). ``done`` says the change in words ("Disabled",
     "Set the owner of"); ``noun`` / ``noun_plural`` count the items."""

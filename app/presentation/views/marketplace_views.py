@@ -6,6 +6,8 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
+from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.marketplace_bulk_install import MarketplaceBulkInstall
 from app.application import marketplace_service
 from app.application.errors import NotFoundError
 from app.domain.models import MarketplacePack, MarketplaceStandard
@@ -115,3 +117,11 @@ def install_marketplace_pack(request, slug):
         parts.append(f"{len(result['skipped'])} already existed")
     messages.success(request, f'Pack "{result["pack"].name}": {", ".join(parts)}.')
     return redirect("marketplace_pack_detail", slug=result["pack"].slug)
+
+
+@login_required
+@require_POST
+def bulk_install_marketplace(request):
+    """The Marketplace's bulk bar: install the selected standards, or update
+    the installed ones (``MarketplaceBulkInstall``)."""
+    return BulkEditAnswer.to(request, MarketplaceBulkInstall)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 
 from app.application import marketplace_service
-from app.application.bulk_edit.bulk_edit_result import BulkEditResult
+from app.application.bulk_edit_result import BulkEditResult
 from app.application.errors import NotFoundError
 from app.domain.models import MarketplaceStandard
 

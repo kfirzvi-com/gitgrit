@@ -23,6 +23,7 @@ from app.presentation.views.staff_views import (
 )
 
 from app.presentation.views.standard_views import (
+    bulk_edit_standards,
     CreateStandardView,
     EditStandardView,
     StandardDetailView,
@@ -35,6 +36,7 @@ from app.presentation.views.standard_views import (
     toggle_standard,
 )
 from app.presentation.views.project_views import (
+    bulk_edit_projects,
     EditProjectView,
     ProjectDetailView,
     ProjectListView,
@@ -57,7 +59,6 @@ from app.presentation.views.artifact_views import (
     upload_project_commit,
 )
 from app.presentation.views.ai_budget_views import delete_ai_budget, save_ai_budget
-from app.presentation.views.bulk_edit_views import bulk_edit_projects, bulk_edit_standards, bulk_install_marketplace
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
@@ -104,6 +105,7 @@ from app.presentation.views.badge_views import project_badge
 from app.presentation.views.feedback_views import submit_feedback
 from app.presentation.views.profile_views import ProfileView, disconnect_social
 from app.presentation.views.marketplace_views import (
+    bulk_install_marketplace,
     MarketplaceBrowseView,
     MarketplacePackDetailView,
     MarketplaceStandardPreviewView,
