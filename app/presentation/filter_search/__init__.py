@@ -20,6 +20,7 @@ Each filtered row says its own values in ``data-filter-<key>`` attributes
 from app.presentation.filter_search.filter_field import FilterField
 from app.presentation.filter_search.filter_search import FilterSearch
 from app.presentation.filter_search.filter_value import FilterValue
+from app.presentation.filter_search.marketplace_filter_search import MarketplaceFilterSearch
 from app.presentation.filter_search.project_list_filter_search import ProjectListFilterSearch
 from app.presentation.filter_search.stack_list_filter_search import StackListFilterSearch
 from app.presentation.filter_search.standard_list_filter_search import StandardListFilterSearch
@@ -29,6 +30,7 @@ __all__ = [
     "FilterField",
     "FilterSearch",
     "FilterValue",
+    "MarketplaceFilterSearch",
     "ProjectListFilterSearch",
     "StackListFilterSearch",
     "StandardListFilterSearch",

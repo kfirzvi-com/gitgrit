@@ -14,6 +14,7 @@ import uuid
 from django import template
 
 from app.presentation.filter_search import (
+    MarketplaceFilterSearch,
     ProjectListFilterSearch,
     StackListFilterSearch,
     StandardListFilterSearch,
@@ -40,6 +41,12 @@ def standard_list_filter_search(standards):
 def project_list_filter_search(rows):
     """The Projects page's filters, for its ``ProjectRow``s."""
     return ProjectListFilterSearch.for_rows(rows)
+
+
+@register.simple_tag
+def marketplace_filter_search(rows):
+    """The Marketplace's filters, for its ``MarketplaceRow``s."""
+    return MarketplaceFilterSearch.for_rows(rows)
 
 
 @register.simple_tag

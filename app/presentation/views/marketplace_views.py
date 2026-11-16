@@ -9,6 +9,7 @@ from django.views.generic import DetailView, ListView
 from app.application import marketplace_service
 from app.application.errors import NotFoundError
 from app.domain.models import MarketplacePack, MarketplaceStandard
+from app.presentation.smart_table import MarketplaceRow
 
 
 class MarketplaceBrowseView(LoginRequiredMixin, ListView):
@@ -16,12 +17,15 @@ class MarketplaceBrowseView(LoginRequiredMixin, ListView):
     context_object_name = "standards"
 
     def get_queryset(self):
-        return MarketplaceStandard.objects.all()
+        return MarketplaceStandard.objects.prefetch_related("packs")
 
     def get_context_data(self, **kwargs):
+        """The packs, and a row per standard (``MarketplaceRow``): its packs
+        and whether the workspace has it; the page's smart table sorts and
+        groups them in place."""
         ctx = super().get_context_data(**kwargs)
         ctx["packs"] = MarketplacePack.objects.prefetch_related("standards").all()
-        ctx["installed_slugs"] = set(marketplace_service.installed_by_slug(self.request.tenant))
+        ctx["rows"] = MarketplaceRow.for_standards(ctx["standards"], self.request.tenant)
         return ctx
 
 

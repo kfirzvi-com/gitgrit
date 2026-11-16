@@ -181,3 +181,25 @@ class StandardListPageTests(Fixture):
         assert 'data-filter-event="push|manual"' in body
         assert 'data-sort-failing="1"' in body and 'data-sort-rate="50"' in body
         assert "<b>1</b> failing" in body and "<b>1</b> passing" in body
+
+
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class MarketplacePageTests(Fixture):
+    def test_each_row_says_its_packs_labels_and_whether_it_is_installed(self):
+        from app.application import marketplace_service
+
+        mp = baker.make(
+            "app.MarketplaceStandard", slug="lint", name="Lint", version=1, author="GitGrit",
+            suggested_labels=["ci", "quality"], criteria={"events": ["push"]}, code="x = 1",
+        )
+        baker.make("app.MarketplacePack", slug="ci", name="CI Pack").standards.add(mp)
+        other = baker.make("app.MarketplaceStandard", slug="docs", name="Docs", code="x = 1")
+        marketplace_service.install_standard(self.tenant, None, "docs")
+
+        body = self.client.get(reverse("marketplace_browse")).content.decode()
+
+        assert 'data-group-pack="CI Pack"' in body
+        assert 'data-filter-label="ci|quality"' in body
+        assert 'data-filter-is="available"' in body and 'data-filter-is="installed"' in body
+        assert body.count("data-smart-row") == 2
+        assert other.slug in body

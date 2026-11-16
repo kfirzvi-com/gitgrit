@@ -57,7 +57,7 @@ from app.presentation.views.artifact_views import (
     upload_project_commit,
 )
 from app.presentation.views.ai_budget_views import delete_ai_budget, save_ai_budget
-from app.presentation.views.bulk_edit_views import bulk_edit_projects, bulk_edit_standards
+from app.presentation.views.bulk_edit_views import bulk_edit_projects, bulk_edit_standards, bulk_install_marketplace
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
@@ -390,6 +390,7 @@ urlpatterns = [
     path("feedback/", submit_feedback, name="submit_feedback"),
     # Marketplace
     path("marketplace/", MarketplaceBrowseView.as_view(), name="marketplace_browse"),
+    path("marketplace/bulk/", bulk_install_marketplace, name="bulk_install_marketplace"),
     path(
         "marketplace/packs/<slug:slug>/",
         MarketplacePackDetailView.as_view(),

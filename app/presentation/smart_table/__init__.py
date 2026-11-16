@@ -11,13 +11,16 @@ filters the same rows.
 - ``ProjectRow`` / ``StackRow`` / ``StandardRow``: a project, a stack or a
   standard as its row shows it.
 - ``ProjectListSmartTable`` / ``StackListSmartTable`` /
-  ``StandardListSmartTable``: the Projects, Stacks and Standards pages' tables.
+  ``StandardListSmartTable`` / ``MarketplaceSmartTable``: the Projects, Stacks,
+  Standards and Marketplace pages' tables.
 
 Each row says what it sorts by in ``data-sort-<key>`` and the groups it
 falls in in ``data-group-<key>`` (``|`` between several: a project in two
 stacks shows under both).
 """
 from app.presentation.smart_table.group_option import GroupOption
+from app.presentation.smart_table.marketplace_row import MarketplaceRow
+from app.presentation.smart_table.marketplace_smart_table import MarketplaceSmartTable
 from app.presentation.smart_table.project_list_smart_table import ProjectListSmartTable
 from app.presentation.smart_table.project_row import ProjectRow
 from app.presentation.smart_table.smart_table import SmartTable
@@ -29,6 +32,8 @@ from app.presentation.smart_table.standard_row import StandardRow
 
 __all__ = [
     "GroupOption",
+    "MarketplaceRow",
+    "MarketplaceSmartTable",
     "ProjectListSmartTable",
     "ProjectRow",
     "SmartTable",
