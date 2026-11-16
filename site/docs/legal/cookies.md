@@ -25,4 +25,4 @@ Under the EU ePrivacy Directive and the UK PECR, consent is required for cookies
 
 ## Contact
 
-Questions about this notice: [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com).
+Questions about this notice: [kfir@praktical.dev](mailto:kfir@praktical.dev).

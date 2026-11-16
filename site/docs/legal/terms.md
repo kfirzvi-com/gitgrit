@@ -16,7 +16,7 @@ GitGrit is a standards-as-code compliance platform. Users connect source-code re
 
 ## 3. Accounts and authentication
 
-Sign-in is performed through OAuth with Google, GitHub, or GitLab. You are responsible for maintaining the confidentiality of your provider account and for all activity on your GitGrit account. You must promptly notify us at [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com) of any suspected unauthorized access. We may suspend or terminate accounts we reasonably believe present a security or abuse risk to the Service.
+Sign-in is performed through OAuth with Google, GitHub, or GitLab. You are responsible for maintaining the confidentiality of your provider account and for all activity on your GitGrit account. You must promptly notify us at [kfir@praktical.dev](mailto:kfir@praktical.dev) of any suspected unauthorized access. We may suspend or terminate accounts we reasonably believe present a security or abuse risk to the Service.
 
 ## 4. Acceptable use
 
@@ -78,4 +78,4 @@ These Terms, together with the [Privacy Policy](privacy.md) and any other polici
 
 Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel.
 
-Contact: [kfir@kfirzvi.com](mailto:kfir@kfirzvi.com).
+Contact: [kfir@praktical.dev](mailto:kfir@praktical.dev).
