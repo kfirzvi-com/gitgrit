@@ -1,0 +1,5 @@
+{% comment %}One choice in a smart table menu (partials/smart_table_toolbar.html): `kind` is group, sort
+or dir; ticked when it is the table's current one.{% endcomment %}<button type="button" class="gg-filter-option" role="menuitemradio" aria-checked="false" data-smart-option="{{ kind }}" data-value="{{ value }}">
+  <svg xmlns="http://www.w3.org/2000/svg" class="gg-filter-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.58l7.3-7.3a1 1 0 0 1 1.4.02Z" clip-rule="evenodd"/></svg>
+  <span class="truncate">{{ label }}</span>
+</button>

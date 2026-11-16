@@ -13,7 +13,12 @@ import uuid
 
 from django import template
 
-from app.presentation.filter_search import StandardListFilterSearch, StandardPickerFilterSearch
+from app.presentation.filter_search import (
+    ProjectListFilterSearch,
+    StackListFilterSearch,
+    StandardListFilterSearch,
+    StandardPickerFilterSearch,
+)
 
 register = template.Library()
 
@@ -29,6 +34,18 @@ def standard_picker_filter_search(standards):
 @register.simple_tag
 def standard_list_filter_search(standards):
     return StandardListFilterSearch.for_standards(standards)
+
+
+@register.simple_tag
+def project_list_filter_search(rows):
+    """The Projects page's filters, for its ``ProjectRow``s."""
+    return ProjectListFilterSearch.for_rows(rows)
+
+
+@register.simple_tag
+def stack_list_filter_search(rows):
+    """The Stacks page's filters, for its ``StackRow``s."""
+    return StackListFilterSearch.for_rows(rows)
 
 
 @register.inclusion_tag("partials/filter_search.html")

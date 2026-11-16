@@ -1,0 +1,42 @@
+{% comment %}A smart table's toolbar (app.templatetags.smart_table_tags.smart_table_toolbar): how many
+rows show, and menus that group and sort them in place (script: app/static/app/smart_table/). The
+choice rides in the address (?group=owner&sort=score&dir=desc), so a link keeps it.{% endcomment %}
+{{ config|json_script }}
+<div class="mt-3 mb-1 flex flex-wrap items-center justify-between gap-2" data-smart-toolbar>
+  <p class="text-sm opacity-70" data-smart-count aria-live="polite"></p>
+  <div class="flex flex-wrap items-center gap-2">
+    {% if table.groups %}
+      <div class="relative" data-smart-menu="group">
+        <button type="button" class="gg-filter-menu-button" data-smart-menu-button
+                aria-haspopup="true" aria-expanded="false" aria-controls="smart-group-{{ uid }}">
+          <span class="opacity-60">Group:</span> <span class="font-medium" data-smart-menu-current>None</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="smart-group-{{ uid }}" class="gg-filter-menu gg-smart-menu hidden" role="menu" aria-label="Group by" data-smart-menu-panel>
+          <p class="gg-filter-menu-title">Group by</p>
+          {% include "partials/smart_table_option.html" with kind="group" value="" label="None" %}
+          {% for group in table.groups %}
+            {% include "partials/smart_table_option.html" with kind="group" value=group.key label=group.label %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    <div class="relative" data-smart-menu="sort">
+      <button type="button" class="gg-filter-menu-button" data-smart-menu-button
+              aria-haspopup="true" aria-expanded="false" aria-controls="smart-sort-{{ uid }}">
+        <span class="opacity-60">Sort:</span> <span class="font-medium" data-smart-menu-current></span>
+        <span class="opacity-70" data-smart-direction aria-hidden="true"></span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
+      </button>
+      <div id="smart-sort-{{ uid }}" class="gg-filter-menu gg-smart-menu hidden" role="menu" aria-label="Sort by" data-smart-menu-panel>
+        <p class="gg-filter-menu-title">Sort by</p>
+        {% for sort in table.sorts %}
+          {% include "partials/smart_table_option.html" with kind="sort" value=sort.key label=sort.label %}
+        {% endfor %}
+        <div class="my-1 border-t border-base-content/10"></div>
+        {% include "partials/smart_table_option.html" with kind="dir" value="asc" label="Ascending" %}
+        {% include "partials/smart_table_option.html" with kind="dir" value="desc" label="Descending" %}
+      </div>
+    </div>
+  </div>
+</div>

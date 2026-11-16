@@ -44,7 +44,7 @@ class ProjectScoreSurfacesTests(TestCase):
             None, "F", "failed", ["No secrets failing"]
         )
 
-    def test_a_project_card_glows_in_its_letter_and_says_when_the_project_failed(self):
+    def test_a_project_row_takes_its_letters_tone_and_says_when_the_project_failed(self):
         user = baker.make("app.User")
         baker.make("app.Membership", user=user, tenant=self.tenant, role="owner")
         self.client.force_login(user)
@@ -54,11 +54,12 @@ class ProjectScoreSurfacesTests(TestCase):
 
         body = self.client.get(reverse("project_list")).content.decode()
 
-        assert 'gg-tone-card gg-tone-card-failed" data-project-card="failed"' in body
+        assert 'gg-smart-row gg-tone-card-failed" data-project-row="failed"' in body
+        assert 'data-filter-health="failed"' in body
         assert ">F</span>" in body
         assert "Project failed!" in body
 
-    def test_a_stack_card_counts_its_projects_and_has_no_grade_of_its_own(self):
+    def test_a_stack_row_counts_its_projects_and_has_no_grade_of_its_own(self):
         user = baker.make("app.User")
         baker.make("app.Membership", user=user, tenant=self.tenant, role="owner")
         self.client.force_login(user)
@@ -70,6 +71,7 @@ class ProjectScoreSurfacesTests(TestCase):
 
         body = self.client.get(reverse("stack_list")).content.decode()
 
-        assert 'data-stack-card>' in body
+        assert "data-stack-row" in body
         assert 'data-count="failed"' in body and "<b>1</b> failed" in body
-        assert "gg-tone-card" not in body.split("data-stack-card")[1].split("</a>")[0]
+        assert 'data-sort-failed="1"' in body and 'data-filter-has="failed"' in body
+        assert "gg-tone-card" not in body.split("data-stack-row")[1].split("</tr>")[0]

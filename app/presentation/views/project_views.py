@@ -20,6 +20,7 @@ from app.application.commit_checks import (
 from app.application import scoring
 from app.domain.scoring import CommitScoreOutcome
 from app.presentation.commit_results import CommitResultGrouping
+from app.presentation.smart_table import ProjectRow
 from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
@@ -91,16 +92,18 @@ class ProjectListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return Project.objects.none()
-        return Project.objects.filter(tenant=tenant).select_related("platform_connection")
+        return (
+            Project.objects.filter(tenant=tenant)
+            .select_related("platform_connection")
+            .prefetch_related("components__stacks")
+        )
 
     def get_context_data(self, **kwargs):
+        """A row per project (``ProjectRow``): its newest commit's grade, or
+        why there is none, its health and its stacks; the page's smart table
+        sorts and groups them in place."""
         context = super().get_context_data(**kwargs)
-        # Each card shows its project's score; read in one query.
-        # Each card reads its project's newest commit: a grade, or why none.
-        heads = scoring.project_heads(context["projects"])
-        for project in context["projects"]:
-            project.head = heads.get(project.pk)
-            project.commit_score = project.head.score if project.head else None
+        context["rows"] = ProjectRow.for_projects(context["projects"])
         return context
 
 
