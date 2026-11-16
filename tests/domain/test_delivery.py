@@ -1,0 +1,140 @@
+"""The delivery domain: deployment strategies, production environments and
+deployment frequency with its DORA tier."""
+from datetime import date, datetime, time, timedelta, timezone
+
+from django.test import SimpleTestCase
+
+from app.domain.delivery import (
+    DeploymentEvent,
+    DeploymentFrequency,
+    DeploymentStrategy,
+    DoraTier,
+    ProductionEnvironment,
+)
+
+TODAY = date(2026, 11, 16)  # a Monday
+
+
+def deployed(day: date, sha: str, succeeded: bool = True, hour: int = 12) -> DeploymentEvent:
+    return DeploymentEvent(
+        strategy=DeploymentStrategy.ENVIRONMENTS,
+        external_id=f"{sha}-{day}-{hour}",
+        sha=sha,
+        deployed_at=datetime.combine(day, time(hour), tzinfo=timezone.utc),
+        succeeded=succeeded,
+        environment="production",
+    )
+
+
+def every(days: int, weeks: int = 13) -> list[DeploymentEvent]:
+    """One deployment every ``days`` days, newest today, each a new commit."""
+    return [deployed(TODAY - timedelta(days=offset), f"c{offset}") for offset in range(0, weeks * 7, days)]
+
+
+class DeploymentStrategyTests(SimpleTestCase):
+    def test_detection_tries_precise_signals_before_the_default_branch(self):
+        order = DeploymentStrategy.detection_order()
+
+        self.assertEqual(order[-1], DeploymentStrategy.DEFAULT_BRANCH)
+        self.assertNotIn(DeploymentStrategy.AUTO, order)
+
+    def test_every_strategy_explains_itself(self):
+        for strategy in DeploymentStrategy:
+            self.assertTrue(strategy.label)
+            self.assertTrue(strategy.description)
+
+
+class ProductionEnvironmentTests(SimpleTestCase):
+    def test_default_names_match_production_environments_by_word(self):
+        production = ProductionEnvironment()
+
+        for name in ("production", "Prod", "prod-eu", "us/production", "production_west"):
+            self.assertTrue(production.matches(name), name)
+        for name in ("staging", "preprod", "non-prod", "not_production", "dev", "productionish"):
+            self.assertFalse(production.matches(name), name)
+
+    def test_names_are_configurable_and_blank_means_the_default(self):
+        self.assertTrue(ProductionEnvironment.from_text("live, prd").matches("eu-live"))
+        self.assertEqual(ProductionEnvironment.from_text(" , ").names, ("production", "prod"))
+        self.assertEqual(ProductionEnvironment.from_text("Live,live, PRD").as_text(), "live, prd")
+
+
+class DeploymentEventTests(SimpleTestCase):
+    def test_a_deployment_comes_from_a_concrete_strategy(self):
+        with self.assertRaises(ValueError):
+            DeploymentEvent(DeploymentStrategy.AUTO, "1", "abc", datetime.now(timezone.utc))
+
+    def test_a_deployment_time_carries_its_timezone(self):
+        with self.assertRaises(ValueError):
+            DeploymentEvent(DeploymentStrategy.RELEASE_TAGS, "v1", "abc", datetime(2026, 11, 1))
+
+
+class DeploymentFrequencyTests(SimpleTestCase):
+    def test_the_window_is_thirteen_weeks_ending_today(self):
+        frequency = DeploymentFrequency.of([], TODAY)
+
+        self.assertEqual(len(frequency.weeks), 13)
+        self.assertEqual(frequency.weeks[-1].starts + timedelta(days=6), TODAY)
+        self.assertEqual(frequency.tier, DoraTier.NONE)
+
+    def test_counts_changes_shipped_not_deploy_jobs(self):
+        frequency = DeploymentFrequency.of(
+            [
+                deployed(TODAY, "a", hour=9),
+                deployed(TODAY, "a", hour=10),  # redeploy of the same commit
+                deployed(TODAY, "b", succeeded=False),  # failed: nothing shipped
+                deployed(TODAY, "c"),
+            ],
+            TODAY,
+        )
+
+        self.assertEqual(frequency.total, 2)
+        self.assertEqual(frequency.weeks[-1].deploy_days, 1)
+
+    def test_a_commit_counts_on_its_first_successful_arrival(self):
+        frequency = DeploymentFrequency.of(
+            [deployed(TODAY, "a"), deployed(TODAY - timedelta(days=20), "a")], TODAY
+        )
+
+        self.assertEqual([week.deployments for week in frequency.weeks if week.deployments], [1])
+        self.assertEqual(frequency.weeks[-3].deployments, 1)
+
+    def test_deployments_outside_the_window_are_ignored(self):
+        frequency = DeploymentFrequency.of(
+            [deployed(TODAY - timedelta(weeks=13), "old"), deployed(TODAY + timedelta(days=1), "future")],
+            TODAY,
+        )
+
+        self.assertEqual(frequency.total, 0)
+
+    def test_days_are_counted_in_the_given_timezone(self):
+        late_sunday_utc = DeploymentEvent(
+            DeploymentStrategy.RELEASE_TAGS, "v1", "a", datetime(2026, 11, 15, 23, tzinfo=timezone.utc)
+        )
+        jerusalem = timezone(timedelta(hours=2))
+
+        frequency = DeploymentFrequency.of([late_sunday_utc], TODAY + timedelta(days=6), tz=jerusalem)
+
+        self.assertEqual(frequency.weeks[-1].deployments, 1)  # Monday the 16th there
+
+    def test_tiers_follow_the_typical_week_and_month(self):
+        self.assertEqual(DeploymentFrequency.of(every(1), TODAY).tier, DoraTier.ELITE)
+        self.assertEqual(DeploymentFrequency.of(every(2), TODAY).tier, DoraTier.ELITE)  # 3-4 days a week
+        self.assertEqual(DeploymentFrequency.of(every(3), TODAY).tier, DoraTier.HIGH)
+        self.assertEqual(DeploymentFrequency.of(every(7), TODAY).tier, DoraTier.HIGH)
+        # Every 14 days is the High/Medium boundary: it lands on whichever side
+        # the window starts on, so the tests use clearer cadences around it.
+        self.assertEqual(DeploymentFrequency.of(every(21), TODAY).tier, DoraTier.MEDIUM)
+        self.assertEqual(DeploymentFrequency.of(every(28), TODAY).tier, DoraTier.MEDIUM)
+        self.assertEqual(DeploymentFrequency.of(every(60), TODAY).tier, DoraTier.LOW)
+
+    def test_one_busy_week_does_not_lift_a_quiet_quarter(self):
+        burst = [deployed(TODAY - timedelta(days=day), f"b{day}") for day in range(7)]
+
+        frequency = DeploymentFrequency.of(burst, TODAY)
+
+        self.assertEqual(frequency.total, 7)
+        self.assertEqual(frequency.tier, DoraTier.LOW)
+
+    def test_per_week_is_the_average_over_the_window(self):
+        self.assertAlmostEqual(DeploymentFrequency.of(every(7), TODAY).per_week, 1.0)
