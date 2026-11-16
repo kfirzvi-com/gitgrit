@@ -1,3 +1,7 @@
+---
+description: "Go from sign-in to your first engineering standards score in about 10 minutes: connect GitHub or GitLab, install a standards pack, add your repos."
+---
+
 # Quick Start
 
 From sign-in to your first health score in about 10 minutes.

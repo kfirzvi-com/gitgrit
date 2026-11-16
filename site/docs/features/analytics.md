@@ -1,3 +1,7 @@
+---
+description: "See how your standards hold across every repo: a 30-day score trend, scores by label, lowest-scoring projects and the standards that fail most."
+---
+
 # Analytics Dashboard
 
 The Analytics tab on your dashboard provides insights into compliance trends across your workspace.

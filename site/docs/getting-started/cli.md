@@ -1,3 +1,7 @@
+---
+description: "The gitgrit CLI: connect repos, install standards and check health from your terminal, scripts, CI or AI agents. One binary for macOS, Linux and Windows."
+---
+
 # Command Line
 
 Everything you do in the web app on the way to a health score also works from your terminal, scripts, CI, and AI agents: the `gitgrit` CLI. It's one static binary for macOS, Linux and Windows, and it talks to the same public API the web app uses.

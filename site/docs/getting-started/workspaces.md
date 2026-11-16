@@ -1,3 +1,7 @@
+---
+description: "Workspaces hold your team's connections, projects and standards. Invite people by email and manage owner, admin and member roles."
+---
+
 # Workspaces & Members
 
 A workspace holds everything your team shares: platform connections, projects, stacks, standards and AI providers. Each person belongs to one or more workspaces, with a role in each.

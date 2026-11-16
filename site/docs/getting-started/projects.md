@@ -1,3 +1,7 @@
+---
+description: "Add GitHub or GitLab repositories to GitGrit, attach standards and set their importance, and keep scores current on every push and pull request."
+---
+
 # Adding Projects
 
 A project is what GitGrit checks against your standards. Each belongs to a workspace and is one of two kinds:

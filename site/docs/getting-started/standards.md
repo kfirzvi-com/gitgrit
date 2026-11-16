@@ -1,3 +1,7 @@
+---
+description: "Write your own standards as policy as code: Python functions that check any file in a repo, return a score, and run only on the events and branches you choose."
+---
+
 # Writing Standards
 
 Standards are Python functions that evaluate a repository and return a compliance result.
