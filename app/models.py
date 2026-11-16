@@ -10,6 +10,8 @@ from app.domain.models import (  # noqa: F401
     Standard,
     StandardExecution,
     Project,
+    DeliverySettings,
+    Deployment,
     ProjectStack,
     Stack,
     Tenant,

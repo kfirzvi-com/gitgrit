@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from app.domain import importance as importance_domain
 from app.domain import schedules
+from app.domain.delivery import DeploymentEvent, DeploymentStrategy, ProductionEnvironment
 from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCount, UsageCategory
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
@@ -1149,6 +1150,96 @@ class InfrastructureComponent(models.Model):
 
     def __str__(self):
         return f"{self.project} ⟐ {self.name}"
+
+
+class DeliverySettings(models.Model):
+    """How GitGrit tells that a project was deployed (``delivery`` holds the
+    rules), and how the last look for deployments went. One per project,
+    made on first use."""
+
+    project = models.OneToOneField("Project", on_delete=models.CASCADE, related_name="delivery")
+    strategy = models.CharField(
+        max_length=20, choices=DeploymentStrategy.choices(), default=DeploymentStrategy.AUTO
+    )
+    # Comma-separated environment names that count as production; blank: the default.
+    production_environments = models.CharField(max_length=255, blank=True, default="")
+    release_tag_pattern = models.CharField(max_length=100, default="v*")
+    deploy_workflow = models.CharField(max_length=255, blank=True, default="")
+    deploy_branch = models.CharField(max_length=255, default="production")
+    # The strategy the last refresh used: the chosen one, or what AUTO found.
+    detected_strategy = models.CharField(
+        max_length=20, choices=DeploymentStrategy.choices(), blank=True, default=""
+    )
+    refresh_requested_at = models.DateTimeField(null=True, blank=True)
+    refreshed_at = models.DateTimeField(null=True, blank=True)
+    refresh_error = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "delivery_settings"
+
+    def __str__(self):
+        return f"{self.project} delivery: {self.strategy}"
+
+    @property
+    def production(self) -> ProductionEnvironment:
+        return ProductionEnvironment.from_text(self.production_environments)
+
+    @property
+    def refreshing(self) -> bool:
+        """A refresh was asked for and has not finished yet."""
+        requested, done = self.refresh_requested_at, self.refreshed_at
+        return requested is not None and (done is None or done < requested)
+
+    @property
+    def strategy_in_use(self) -> DeploymentStrategy | None:
+        """The strategy deployments are counted by: the chosen one, or the one
+        detection settled on (None until a refresh has run)."""
+        if self.strategy != DeploymentStrategy.AUTO:
+            return DeploymentStrategy(self.strategy)
+        return DeploymentStrategy(self.detected_strategy) if self.detected_strategy else None
+
+
+class Deployment(models.Model):
+    """A deployment to production a strategy found. Deployments from every
+    strategy a project tried are kept, so switching strategy needs no
+    refetch; the frequency counts only the strategy in use."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey("Project", on_delete=models.CASCADE, related_name="deployments")
+    strategy = models.CharField(max_length=20, choices=DeploymentStrategy.choices())
+    external_id = models.CharField(max_length=255)
+    sha = models.CharField(max_length=64)
+    ref = models.CharField(max_length=255, blank=True, default="")
+    environment = models.CharField(max_length=255, blank=True, default="")
+    deployed_at = models.DateTimeField()
+    succeeded = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "deployments"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "strategy", "external_id"], name="unique_project_deployment"
+            ),
+        ]
+        indexes = [models.Index(fields=["project", "strategy", "deployed_at"])]
+        ordering = ["-deployed_at"]
+
+    def __str__(self):
+        return f"{self.project} {self.sha[:7]} {self.deployed_at:%Y-%m-%d}"
+
+    @property
+    def event(self) -> DeploymentEvent:
+        return DeploymentEvent(
+            strategy=DeploymentStrategy(self.strategy),
+            external_id=self.external_id,
+            sha=self.sha,
+            deployed_at=self.deployed_at,
+            succeeded=self.succeeded,
+            environment=self.environment,
+            ref=self.ref,
+        )
 
 
 class APIToken(models.Model):

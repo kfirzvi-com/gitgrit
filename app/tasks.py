@@ -338,6 +338,37 @@ def snapshot_workspace_usage(timestamp: int) -> int:
     return UsageMeter.snapshot_all()
 
 
+@app.task(queue="graph", name="refresh_deployments")
+@fresh_db_connection
+def refresh_deployments(project_id: str) -> None:
+    """Look for one project's deployments and record them (DORA deployment
+    frequency). Idempotent; a source that can't be read is noted on the
+    project's delivery settings rather than failing the job."""
+    from app.application.delivery import DeploymentRefresh
+    from app.infrastructure.delivery import deployment_sources_for
+    from app.models import Project
+
+    project = Project.objects.filter(pk=project_id).select_related("platform_connection").first()
+    if project is None:
+        return
+    DeploymentRefresh(deployment_sources_for).run(project)
+
+
+@app.periodic(cron="17 */6 * * *")
+@app.task(queue="graph", name="refresh_all_deployments", pass_context=False)
+@fresh_db_connection
+def refresh_all_deployments(timestamp: int) -> int:
+    """Ask for a deployment refresh of every Git project, four times a day,
+    so deployment frequency keeps up without anyone pressing Refresh."""
+    from app.application.delivery import DeploymentRefreshRequest
+    from app.models import Platform, Project
+
+    projects = Project.objects.exclude(platform=Platform.ARTIFACT)
+    for project in projects:
+        DeploymentRefreshRequest.send(project)
+    return projects.count()
+
+
 @app.periodic(cron="*/2 * * * *")
 @app.task(queue="graph", name="recover_stalled_jobs", pass_context=False)
 async def recover_stalled_jobs(timestamp: int) -> int:
