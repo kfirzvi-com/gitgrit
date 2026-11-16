@@ -6,9 +6,12 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
+from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.marketplace_bulk_install import MarketplaceBulkInstall
 from app.application import marketplace_service
 from app.application.errors import NotFoundError
 from app.domain.models import MarketplacePack, MarketplaceStandard
+from app.presentation.smart_table import MarketplaceRow
 
 
 class MarketplaceBrowseView(LoginRequiredMixin, ListView):
@@ -16,12 +19,15 @@ class MarketplaceBrowseView(LoginRequiredMixin, ListView):
     context_object_name = "standards"
 
     def get_queryset(self):
-        return MarketplaceStandard.objects.all()
+        return MarketplaceStandard.objects.prefetch_related("packs")
 
     def get_context_data(self, **kwargs):
+        """The packs, and a row per standard (``MarketplaceRow``): its packs
+        and whether the workspace has it; the page's smart table sorts and
+        groups them in place."""
         ctx = super().get_context_data(**kwargs)
         ctx["packs"] = MarketplacePack.objects.prefetch_related("standards").all()
-        ctx["installed_slugs"] = set(marketplace_service.installed_by_slug(self.request.tenant))
+        ctx["rows"] = MarketplaceRow.for_standards(ctx["standards"], self.request.tenant)
         return ctx
 
 
@@ -111,3 +117,11 @@ def install_marketplace_pack(request, slug):
         parts.append(f"{len(result['skipped'])} already existed")
     messages.success(request, f'Pack "{result["pack"].name}": {", ".join(parts)}.')
     return redirect("marketplace_pack_detail", slug=result["pack"].slug)
+
+
+@login_required
+@require_POST
+def bulk_install_marketplace(request):
+    """The Marketplace's bulk bar: install the selected standards, or update
+    the installed ones (``MarketplaceBulkInstall``)."""
+    return BulkEditAnswer.to(request, MarketplaceBulkInstall)

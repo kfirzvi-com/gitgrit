@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load filter_search_tags smart_table_tags %}
 
 {% block title %}Stacks — GitGrit{% endblock %}
 
@@ -8,23 +9,81 @@
   <a href="{% url 'create_stack' %}" class="btn btn-primary btn-sm">New Stack</a>
 </div>
 
-{% if stacks %}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for stack in stacks %}
-      {# A stack is never one grade or colour: it shows its projects counted by health (ProjectHealthCounts). #}
-      <a href="{% url 'stack_detail' stack.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow" data-stack-card>
-        <div class="card-body">
-          <h2 class="card-title text-lg min-w-0 break-words">{{ stack.name }}</h2>
-          <div class="flex flex-wrap gap-2 mt-1">
-            <span class="badge badge-outline badge-sm">{{ stack.component_count }} component{{ stack.component_count|pluralize }}</span>
-          </div>
-          <div class="text-sm mt-2">{% include "partials/project_health_counts.html" with counts=stack.project_health %}</div>
-          {% if stack.description %}
-            <p class="text-sm opacity-60 mt-1 line-clamp-2">{{ stack.description }}</p>
-          {% endif %}
+{% if rows %}
+  {# A smart table: filtered by the filter search, sorted and grouped in place (app.presentation.smart_table). #}
+  <div class="card bg-base-100 shadow-xl" data-filter-scope>
+    <div class="card-body">
+      {% stack_list_filter_search rows as list_filter_search %}
+      {% filter_search list_filter_search label="Filter stacks" %}
+      {% stack_list_smart_table as table %}
+      <div data-smart-table>
+        {% smart_table_toolbar table %}
+        <div class="overflow-x-auto lg:overflow-visible">
+          <table class="table gg-smart-table">
+            <thead>
+              <tr>
+                <th data-smart-sort="name">Stack</th>
+                <th data-smart-sort="failed">Projects by health</th>
+                <th data-smart-sort="projects" class="text-right">Projects</th>
+                <th data-smart-sort="components" class="text-right">Components</th>
+                <th>Owners</th>
+              </tr>
+            </thead>
+            <tbody data-smart-table-body>
+              {% for row in rows %}
+                {% with stack=row.stack %}
+                {# A stack is never one grade or colour: it shows its projects counted by health (ProjectHealthCounts). #}
+                <tr class="gg-smart-row" data-stack-row
+                    data-filter-row data-smart-row data-smart-id="{{ stack.pk }}"
+                    data-filter-has="{{ row.health_values }}"
+                    data-filter-owner="{{ row.owner_values|lower }}"
+                    data-filter-project="{{ row.project_values }}"
+                    data-filter-name="{{ stack.name|lower }}"
+                    data-filter-description="{{ stack.description|lower }}"
+                    data-sort-name="{{ stack.name|lower }}"
+                    data-sort-failed="{{ row.health.failed }}"
+                    data-sort-attention="{{ row.health.needs_attention }}"
+                    data-sort-healthy="{{ row.health.healthy }}"
+                    data-sort-share="{{ row.healthy_share }}"
+                    data-sort-projects="{{ row.projects|length }}"
+                    data-sort-components="{{ row.component_count }}"
+                    data-group-owner="{{ row.owner_values }}">
+                  <td class="max-w-sm">
+                    <a href="{% url 'stack_detail' stack.pk %}" class="link link-hover font-medium break-words">{{ stack.name }}</a>
+                    {% if stack.description %}
+                      <p class="text-xs opacity-60 line-clamp-2">{{ stack.description }}</p>
+                    {% endif %}
+                  </td>
+                  <td class="text-sm">
+                    {% if row.projects %}
+                      {% include "partials/project_health_counts.html" with counts=row.health linked=True %}
+                    {% else %}
+                      <span class="opacity-40">No projects</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-right tabular-nums">{{ row.projects|length }}</td>
+                  <td class="text-right tabular-nums">{{ row.component_count }}</td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      {% for owner in row.owners %}
+                        <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this owner"
+                                data-filter-toggle="owner" data-filter-value="{{ owner|lower }}">{{ owner }}</button>
+                      {% empty %}
+                        <span class="text-sm opacity-40">—</span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+              <tr class="hidden" data-filter-empty>
+                <td colspan="5"><p class="text-sm opacity-70">No stacks match these filters.</p></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </a>
-    {% endfor %}
+      </div>
+    </div>
   </div>
 {% else %}
   <div class="card bg-base-100 shadow-xl">

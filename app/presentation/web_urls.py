@@ -23,6 +23,7 @@ from app.presentation.views.staff_views import (
 )
 
 from app.presentation.views.standard_views import (
+    bulk_edit_standards,
     CreateStandardView,
     EditStandardView,
     StandardDetailView,
@@ -35,6 +36,7 @@ from app.presentation.views.standard_views import (
     toggle_standard,
 )
 from app.presentation.views.project_views import (
+    bulk_edit_projects,
     EditProjectView,
     ProjectDetailView,
     ProjectListView,
@@ -103,6 +105,7 @@ from app.presentation.views.badge_views import project_badge
 from app.presentation.views.feedback_views import submit_feedback
 from app.presentation.views.profile_views import ProfileView, disconnect_social
 from app.presentation.views.marketplace_views import (
+    bulk_install_marketplace,
     MarketplaceBrowseView,
     MarketplacePackDetailView,
     MarketplaceStandardPreviewView,
@@ -279,6 +282,7 @@ urlpatterns = [
     path("tenants/scores/display/", set_score_display, name="set_score_display"),
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
+    path("projects/bulk/", bulk_edit_projects, name="bulk_edit_projects"),
     path("projects/add/", add_project_select, name="add_project_select"),
     path("projects/add/artifact/", add_artifact_project, name="add_artifact_project"),
     path(
@@ -347,6 +351,7 @@ urlpatterns = [
     ),
     # Standards
     path("standards/", StandardListView.as_view(), name="standard_list"),
+    path("standards/bulk/", bulk_edit_standards, name="bulk_edit_standards"),
     path("standards/new/", CreateStandardView.as_view(), name="create_standard"),
     path("standards/<uuid:pk>/", StandardDetailView.as_view(), name="standard_detail"),
     path("standards/<uuid:pk>/edit/", EditStandardView.as_view(), name="edit_standard"),
@@ -387,6 +392,7 @@ urlpatterns = [
     path("feedback/", submit_feedback, name="submit_feedback"),
     # Marketplace
     path("marketplace/", MarketplaceBrowseView.as_view(), name="marketplace_browse"),
+    path("marketplace/bulk/", bulk_install_marketplace, name="bulk_install_marketplace"),
     path(
         "marketplace/packs/<slug:slug>/",
         MarketplacePackDetailView.as_view(),

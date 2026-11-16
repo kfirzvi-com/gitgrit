@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load score_tags %}
+{% load score_tags time_tags filter_search_tags smart_table_tags %}
 
 {% block title %}Projects — GitGrit{% endblock %}
 
@@ -9,41 +9,188 @@
   <a href="{% url 'add_project_select' %}" class="btn btn-primary btn-sm">Add Project</a>
 </div>
 
-{% if projects %}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for project in projects %}
-      {# The card takes its score's tone: a glowing side bar (scores.css). #}
-      {% score_tone project.commit_score.value project.commit_score.failed as tone %}
-      <a href="{% url 'project_detail' project.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow gg-tone-card gg-tone-card-{{ tone }}" data-project-card="{{ tone }}">
-        <div class="card-body">
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0 flex-1">
-              <h2 class="card-title text-lg min-w-0 break-words">{{ project.name }}</h2>
-              <p class="text-sm opacity-70 truncate">{{ project.full_path }}</p>
-              <div class="flex flex-wrap gap-2 mt-2">
-                <span class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm">
-                  {{ project.get_platform_display }}
-                </span>
-                <span class="badge badge-outline badge-sm">{{ project.get_lifecycle_display }}</span>
-              </div>
-              {% if project.owner %}
-                <span class="text-sm text-gray-500">{{ project.owner }}</span>
-              {% endif %}
-            </div>
-            {# A fixed-width column, centred, so the letters line up across cards. #}
-            <div class="-mr-3 w-14 shrink-0 flex flex-col items-center text-center" data-project-score>
-              {% if project.head.outcome == "checking" or project.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=project.head size="card" %}{% else %}{% score project.commit_score.value failed=project.commit_score.failed size="card" %}{% endif %}
-              {% if project.commit_score.failed %}
-                <span class="gg-required-failed mt-1.5 text-xs leading-tight" data-project-failed><span class="w-min text-center">Project failed!</span></span>
-              {% endif %}
-            </div>
-          </div>
-          {% if project.description %}
-            <p class="text-sm opacity-60 mt-2 line-clamp-2">{{ project.description }}</p>
-          {% endif %}
+{% if rows %}
+  {# A smart table: filtered by the filter search, sorted and grouped in place (app.presentation.smart_table). #}
+  <div class="card bg-base-100 shadow-xl" data-filter-scope data-smart-list>
+    <div class="card-body">
+      {% project_list_filter_search rows as list_filter_search %}
+      {% filter_search list_filter_search label="Filter projects" %}
+      {% project_list_smart_table as table %}
+      <div data-smart-table>
+        {% smart_table_toolbar table %}
+        <div class="overflow-x-auto lg:overflow-visible">
+          <table class="table gg-smart-table">
+            <thead>
+              <tr data-bulk-header>
+                {% include "partials/bulk_select_cell.html" with noun="project" %}
+                <th data-smart-sort="name">Project</th>
+                <th data-smart-sort="score" class="text-center">Score</th>
+                <th data-smart-sort="stacks">Stacks</th>
+                <th data-smart-sort="owner">Owner</th>
+                <th data-smart-sort="lifecycle">Lifecycle</th>
+                <th>Platform</th>
+                <th data-smart-sort="checked">Last checked</th>
+              </tr>
+              {# Replaces the header row while any project is selected (bulk edit). #}
+              <tr class="hidden gg-bulk-bar" data-bulk-bar>
+                {% include "partials/bulk_select_cell.html" with noun="project" %}
+                <th colspan="7">
+                  {% url 'bulk_edit_projects' as bulk_url %}
+                  <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
+                    <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-owner" label="Owner" %}
+                    <div popover id="bulk-owner" class="gg-bulk-menu" role="menu" aria-label="Set the owner">
+                      <p class="gg-filter-menu-title">Set the owner</p>
+                      {% for owner in owners %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "set_owner"}' name="value" value="{{ owner }}">{{ owner }}</button>
+                      {% endfor %}
+                      <form class="flex gap-1 p-2" hx-post="{{ bulk_url }}" hx-swap="none">
+                        <input type="hidden" name="action" value="set_owner">
+                        <input type="text" name="value" class="input input-bordered input-sm min-w-0 grow" placeholder="New owner" aria-label="New owner" required>
+                        <button type="submit" class="btn btn-sm">Set</button>
+                      </form>
+                      <div class="gg-bulk-menu-section">
+                        <button type="button" class="gg-filter-option opacity-80" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "set_owner"}' name="value" value="">Clear the owner</button>
+                      </div>
+                    </div>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-lifecycle" label="Lifecycle" %}
+                    <div popover id="bulk-lifecycle" class="gg-bulk-menu" role="menu" aria-label="Set the lifecycle">
+                      <p class="gg-filter-menu-title">Set the lifecycle</p>
+                      {% for value, label in lifecycle_choices %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "set_lifecycle"}' name="value" value="{{ value }}">{{ label }}</button>
+                      {% endfor %}
+                    </div>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-stack" label="Stack" %}
+                    <div popover id="bulk-stack" class="gg-bulk-menu" role="menu" aria-label="Add to or remove from a stack">
+                      <p class="gg-filter-menu-title">Add to stack</p>
+                      {% for stack in stacks %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "add_to_stack"}' name="value" value="{{ stack.pk }}">{{ stack.name }}</button>
+                      {% empty %}
+                        <p class="px-3 py-2 opacity-60">No stacks yet.</p>
+                      {% endfor %}
+                      {% if stacks %}
+                        <div class="gg-bulk-menu-section">
+                          <p class="gg-filter-menu-title">Remove from stack</p>
+                          {% for stack in stacks %}
+                            <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                    hx-vals='{"action": "remove_from_stack"}' name="value" value="{{ stack.pk }}">{{ stack.name }}</button>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-standard" label="Standard" %}
+                    <div popover id="bulk-standard" class="gg-bulk-menu" aria-label="Attach or detach a standard">
+                      <p class="gg-filter-menu-title">Attach or detach a standard</p>
+                      <form class="flex flex-col gap-2 p-2" onsubmit="return false">
+                        <select name="value" class="select select-bordered select-sm w-full" aria-label="Standard" required>
+                          {% for standard in standards %}<option value="{{ standard.pk }}">{{ standard.name }}</option>{% endfor %}
+                        </select>
+                        <select name="importance" class="select select-bordered select-sm w-full" aria-label="Importance">
+                          <option value="">Importance: as is (new: default)</option>
+                          {% for option in importance_options %}<option value="{{ option.value }}">Importance: {{ option.label }}</option>{% endfor %}
+                        </select>
+                        <div class="flex gap-2">
+                          {# Each button posts the form's fields with its own action. #}
+                          <button type="button" class="btn btn-primary btn-sm grow" hx-post="{{ bulk_url }}" hx-swap="none"
+                                  hx-include="closest form" hx-vals='{"action": "attach_standard"}'>Attach</button>
+                          <button type="button" class="btn btn-sm grow" hx-post="{{ bulk_url }}" hx-swap="none"
+                                  hx-include="closest form" hx-vals='{"action": "detach_standard"}'>Detach</button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <button type="button" class="link link-hover ml-auto opacity-70" data-bulk-clear>Clear selection</button>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody data-smart-table-body>
+              {% for row in rows %}
+                {% with project=row.project %}
+                {# The row takes its score's tone: a bar on its left edge (smart_table.css). #}
+                {% score_tone row.score.value row.score.failed as tone %}
+                <tr class="gg-smart-row gg-tone-card-{{ tone }}" data-project-row="{{ tone }}"
+                    data-filter-row data-smart-row data-smart-id="{{ project.pk }}" data-smart-tone="{{ row.health.value }}"
+                    data-filter-health="{{ row.health_value }}"
+                    data-filter-stack="{{ row.stack_values }}"
+                    data-filter-owner="{{ row.owner_value|lower }}"
+                    data-filter-lifecycle="{{ project.lifecycle }}"
+                    data-filter-platform="{{ project.platform }}"
+                    data-filter-language="{{ row.language_values }}"
+                    data-filter-name="{{ project.name|lower }}"
+                    data-filter-path="{{ project.full_path|lower }}"
+                    data-sort-name="{{ project.name|lower }}"
+                    data-sort-score="{{ row.sort_score }}"
+                    data-sort-health="{{ row.sort_health }}"
+                    data-sort-owner="{{ row.owner_value|lower }}"
+                    data-sort-lifecycle="{{ row.sort_lifecycle }}"
+                    data-sort-stacks="{{ row.stacks|length }}"
+                    data-sort-checked="{{ row.sort_checked }}"
+                    data-group-owner="{{ row.owner_value }}"
+                    data-group-stack="{{ row.stack_names }}"
+                    data-group-health="{{ row.health_value }}"
+                    data-group-lifecycle="{{ project.lifecycle }}"
+                    data-group-platform="{{ project.platform }}">
+                  <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
+                  <td class="max-w-sm">
+                    <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
+                    <p class="text-xs opacity-60 truncate">{{ project.full_path }}</p>
+                  </td>
+                  <td class="text-center" data-project-score>
+                    <span class="text-2xl">{% if row.head.outcome == "checking" or row.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=row.head size="sm" %}{% else %}{% score row.score_value failed=row.score.failed %}{% endif %}</span>
+                    {% if row.score.failed %}
+                      <span class="gg-required-failed block text-xs leading-tight" data-project-failed>Project failed!</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      {% for stack in row.stacks %}
+                        <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this stack"
+                                data-filter-toggle="stack" data-filter-value="{{ stack.name|lower }}">{{ stack.name }}</button>
+                      {% empty %}
+                        <span class="text-sm opacity-40">—</span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td>
+                    {% if project.owner %}
+                      <button type="button" class="link link-hover text-sm text-left whitespace-nowrap" title="Filter by this owner"
+                              data-filter-toggle="owner" data-filter-value="{{ row.owner_value|lower }}">{{ project.owner }}</button>
+                    {% else %}
+                      <span class="text-sm opacity-40">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this lifecycle"
+                            data-filter-toggle="lifecycle" data-filter-value="{{ project.lifecycle }}">{{ project.get_lifecycle_display }}</button>
+                  </td>
+                  <td>
+                    <button type="button" class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm cursor-pointer"
+                            title="Filter by this platform"
+                            data-filter-toggle="platform" data-filter-value="{{ project.platform }}">{{ project.get_platform_display }}</button>
+                  </td>
+                  <td class="text-sm whitespace-nowrap opacity-70">
+                    {% if row.checked_at %}{% local_time row.checked_at "j M Y, H:i" %}{% else %}<span class="opacity-60">Never</span>{% endif %}
+                  </td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+              <tr class="hidden" data-filter-empty>
+                <td colspan="8"><p class="text-sm opacity-70">No projects match these filters.</p></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </a>
-    {% endfor %}
+      </div>
+    </div>
   </div>
 {% else %}
   <div class="card bg-base-100 shadow-xl">

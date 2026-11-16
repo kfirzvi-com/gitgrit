@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load filter_search_tags smart_table_tags %}
 
 {% block title %}Standard Marketplace — GitGrit{% endblock %}
 
@@ -27,50 +28,119 @@
 {% endif %}
 
 <h2 class="text-xl font-semibold mb-4">Individual Standards</h2>
-{% if standards %}
-  <div class="card bg-base-100 shadow-xl">
+{% if rows %}
+  {# A smart table: filtered by the filter search, sorted and grouped in place, bulk-installed (app.presentation.smart_table). #}
+  <div class="card bg-base-100 shadow-xl" data-filter-scope data-smart-list>
     <div class="card-body">
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Labels</th>
-              <th>Author</th>
-              <th>Version</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for mp in standards %}
-              <tr>
-                <td class="max-w-xs">
-                  <a href="{% url 'marketplace_standard_preview' mp.slug %}" class="link font-medium">{{ mp.name }}</a>
-                  {% if mp.description %}
-                    <p class="text-sm opacity-60 truncate">{{ mp.description }}</p>
-                  {% endif %}
-                </td>
-                <td>
-                  {% for label in mp.suggested_labels %}
-                    <span class="badge badge-outline badge-sm">{{ label }}</span>
-                  {% endfor %}
-                </td>
-                <td class="text-sm">{{ mp.author|default:"\u2014" }}</td>
-                <td><span class="badge badge-ghost badge-sm">v{{ mp.version }}</span></td>
-                <td class="text-right">
-                  {% if mp.slug in installed_slugs %}
-                    <span class="badge badge-success badge-sm">Installed</span>
-                  {% else %}
-                    <form method="post" action="{% url 'install_marketplace_standard' mp.slug %}">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-primary btn-xs">Install</button>
-                    </form>
-                  {% endif %}
-                </td>
+      {% marketplace_filter_search rows as list_filter_search %}
+      {% filter_search list_filter_search label="Filter the Marketplace" %}
+      {% marketplace_smart_table as table %}
+      <div data-smart-table>
+        {% smart_table_toolbar table %}
+        <div class="overflow-x-auto lg:overflow-visible">
+          <table class="table gg-smart-table">
+            <thead>
+              <tr data-bulk-header>
+                {% include "partials/bulk_select_cell.html" with noun="standard" %}
+                <th data-smart-sort="name">Name</th>
+                <th>Packs</th>
+                <th>Labels</th>
+                <th data-smart-sort="author">Author</th>
+                <th data-smart-sort="version">Version</th>
+                <th data-smart-sort="status" class="text-right">Installed</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+              {# Replaces the header row while any standard is selected (bulk install). #}
+              <tr class="hidden gg-bulk-bar" data-bulk-bar>
+                {% include "partials/bulk_select_cell.html" with noun="standard" %}
+                <th colspan="6">
+                  {% url 'bulk_install_marketplace' as bulk_url %}
+                  <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
+                    <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
+                    <button type="button" class="gg-filter-menu-button" hx-post="{{ bulk_url }}" hx-swap="none" hx-vals='{"action": "install"}'>Install</button>
+                    <button type="button" class="gg-filter-menu-button" hx-post="{{ bulk_url }}" hx-swap="none" hx-vals='{"action": "update"}'
+                            title="Update the installed ones that have a newer version">Update</button>
+                    <button type="button" class="link link-hover ml-auto opacity-70" data-bulk-clear>Clear selection</button>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody data-smart-table-body>
+              {% for row in rows %}
+                {% with mp=row.standard %}
+                <tr class="gg-smart-row" data-marketplace-row
+                    data-filter-row data-smart-row data-smart-id="{{ mp.pk }}"
+                    data-filter-is="{{ row.status }}"
+                    data-filter-pack="{{ row.pack_names|lower }}"
+                    data-filter-label="{{ row.label_names|lower }}"
+                    data-filter-author="{{ row.author|lower }}"
+                    data-filter-event="{{ row.event_values }}"
+                    data-filter-name="{{ mp.name|lower }}"
+                    data-filter-description="{{ mp.description|lower }}"
+                    data-sort-name="{{ mp.name|lower }}"
+                    data-sort-status="{{ row.sort_status }}"
+                    data-sort-author="{{ row.author|lower }}"
+                    data-sort-version="{{ mp.version }}"
+                    data-sort-updated="{{ mp.updated_at|date:'U' }}"
+                    data-group-pack="{{ row.pack_names }}"
+                    data-group-label="{{ row.label_names }}"
+                    data-group-author="{{ row.author }}"
+                    data-group-status="{{ row.status }}">
+                  <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ mp.pk }}" aria-label="Select {{ mp.name }}"></td>
+                  <td class="max-w-xs">
+                    <a href="{% url 'marketplace_standard_preview' mp.slug %}" class="link link-hover font-medium">{{ mp.name }}</a>
+                    {% if mp.description %}
+                      <p class="text-xs opacity-60 truncate">{{ mp.description }}</p>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      {% for pack in row.packs %}
+                        <button type="button" class="badge badge-ghost badge-sm cursor-pointer" title="Filter by this pack"
+                                data-filter-toggle="pack" data-filter-value="{{ pack.name|lower }}">{% if pack.icon %}{{ pack.icon }} {% endif %}{{ pack.name }}</button>
+                      {% empty %}
+                        <span class="text-sm opacity-40">—</span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      {% for label in mp.suggested_labels %}
+                        <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this label"
+                                data-filter-toggle="label" data-filter-value="{{ label|lower }}">{{ label }}</button>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td class="text-sm whitespace-nowrap">
+                    {% if row.author %}
+                      <button type="button" class="link link-hover" title="Filter by this author"
+                              data-filter-toggle="author" data-filter-value="{{ row.author|lower }}">{{ row.author }}</button>
+                    {% else %}<span class="opacity-40">—</span>{% endif %}
+                  </td>
+                  <td><span class="badge badge-ghost badge-sm">v{{ mp.version }}</span></td>
+                  <td class="text-right whitespace-nowrap">
+                    {% if row.status == "update" %}
+                      <form method="post" action="{% url 'update_marketplace_standard' mp.slug %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning btn-xs" title="Installed v{{ row.installed.source_version }}">Update to v{{ mp.version }}</button>
+                      </form>
+                    {% elif row.status == "installed" %}
+                      <a href="{% url 'standard_detail' row.installed.pk %}" class="badge badge-success badge-sm link-hover">Installed</a>
+                    {% else %}
+                      <form method="post" action="{% url 'install_marketplace_standard' mp.slug %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-xs">Install</button>
+                      </form>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+              <tr class="hidden" data-filter-empty>
+                <td colspan="7"><p class="text-sm opacity-70">No standards match these filters.</p></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

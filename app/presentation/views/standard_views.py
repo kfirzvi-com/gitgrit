@@ -9,6 +9,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.standard_bulk_edit import StandardBulkEdit
 from app.application.standard_service import StandardService, create_standard_version
 from app.domain.models import (
     DraftCannotBeEnabled,
@@ -19,6 +21,7 @@ from app.domain.models import (
 )
 from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
+from app.presentation.smart_table import StandardRow
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 LANGUAGE_CHOICES = [
@@ -40,6 +43,16 @@ class StandardListView(LoginRequiredMixin, ListView):
             .prefetch_related("labels")
             .select_related("source_marketplace_standard")
         )
+
+    def get_context_data(self, **kwargs):
+        """A row per standard (``StandardRow``): how many projects it is on
+        and how many of them it passes or fails; the page's smart table sorts
+        and groups them in place."""
+        context = super().get_context_data(**kwargs)
+        context["rows"] = StandardRow.for_standards(context["standards"])
+        # The bulk bar's label menu.
+        context["labels"] = StandardLabel.objects.filter(tenant=self.request.tenant).order_by("name")
+        return context
 
 
 class CreateStandardView(LoginRequiredMixin, CreateView):
@@ -366,3 +379,11 @@ def run_standard_test(request):
     runner = SandboxRunner()
     result = runner.run(code, input_config)
     return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def bulk_edit_standards(request):
+    """The Standards page's bulk bar: enable, disable, label, unlabel or
+    delete the selected standards (``StandardBulkEdit``)."""
+    return BulkEditAnswer.to(request, StandardBulkEdit)

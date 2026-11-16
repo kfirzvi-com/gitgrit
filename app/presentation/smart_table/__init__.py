@@ -1,0 +1,45 @@
+"""A smart table: a list on a page its reader sorts and groups in place,
+alongside the filter search (``app.presentation.filter_search``) that
+filters the same rows.
+
+- ``SortOption``: one order the rows can take (``score``, numbers or text).
+- ``GroupOption``: one way to group the rows (``owner``), the order and
+  labels of its groups when they are known up front.
+- ``SmartTable``: the sorts and groupings one list offers and its default
+  ones; ``as_dict()`` is the config the page's script reads
+  (``app/static/app/smart_table/``).
+- ``ProjectRow`` / ``StackRow`` / ``StandardRow``: a project, a stack or a
+  standard as its row shows it.
+- ``ProjectListSmartTable`` / ``StackListSmartTable`` /
+  ``StandardListSmartTable`` / ``MarketplaceSmartTable``: the Projects, Stacks,
+  Standards and Marketplace pages' tables.
+
+Each row says what it sorts by in ``data-sort-<key>`` and the groups it
+falls in in ``data-group-<key>`` (``|`` between several: a project in two
+stacks shows under both).
+"""
+from app.presentation.smart_table.group_option import GroupOption
+from app.presentation.smart_table.marketplace_row import MarketplaceRow
+from app.presentation.smart_table.marketplace_smart_table import MarketplaceSmartTable
+from app.presentation.smart_table.project_list_smart_table import ProjectListSmartTable
+from app.presentation.smart_table.project_row import ProjectRow
+from app.presentation.smart_table.smart_table import SmartTable
+from app.presentation.smart_table.sort_option import SortOption
+from app.presentation.smart_table.stack_list_smart_table import StackListSmartTable
+from app.presentation.smart_table.stack_row import StackRow
+from app.presentation.smart_table.standard_list_smart_table import StandardListSmartTable
+from app.presentation.smart_table.standard_row import StandardRow
+
+__all__ = [
+    "GroupOption",
+    "MarketplaceRow",
+    "MarketplaceSmartTable",
+    "ProjectListSmartTable",
+    "ProjectRow",
+    "SmartTable",
+    "SortOption",
+    "StackListSmartTable",
+    "StackRow",
+    "StandardListSmartTable",
+    "StandardRow",
+]

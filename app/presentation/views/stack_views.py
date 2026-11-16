@@ -13,7 +13,7 @@ from app.application import stack_service
 from app.application.stack_health import StackHealth
 from app.application.dependency_agent import refresh_stack_map
 from app.domain.models import Component, Stack
-from app.application.project_health_counts import ProjectHealthCounts
+from app.presentation.smart_table import StackRow
 from app.presentation.architecture import stack_graph
 from app.presentation.health_note import HealthNote
 
@@ -33,14 +33,11 @@ class StackListView(LoginRequiredMixin, ListView):
         )
 
     def get_context_data(self, **kwargs):
-        """Each stack with its projects counted by health
-        (``ProjectHealthCounts``): never one grade or colour for the stack."""
+        """A row per stack (``StackRow``): its projects counted by health
+        (``ProjectHealthCounts``), never one grade or colour for the stack,
+        and their owners; the page's smart table sorts and groups them."""
         context = super().get_context_data(**kwargs)
-        stacks = list(context["stacks"])
-        health = ProjectHealthCounts.for_stacks(stacks)
-        for stack in stacks:
-            stack.project_health = health[stack.pk]
-        context["stacks"] = stacks
+        context["rows"] = StackRow.for_stacks(context["stacks"])
         return context
 
 

@@ -1,0 +1,81 @@
+/* Smart tables (partials/smart_table_toolbar.html, app/static/app/smart_table/): a list sorted and
+ * grouped in place. Its menus reuse the filter search's (filter_search.css).
+ *
+ *   .gg-smart-row               a row; with .gg-tone-card-<tone> a bar on its left edge in that tone
+ *   .gg-smart-sort-button       a sortable header; th[aria-sort] is the one the table is sorted by
+ *   .gg-smart-group             a group's heading row: its name, how many rows it shows, their health
+ *   .gg-smart-collapsed         a row of a folded group
+ */
+.gg-smart-table > tbody > tr.gg-smart-row > td:first-child {
+  box-shadow: inset 3px 0 0 var(--gg-card-tone, transparent);
+}
+.gg-smart-table > tbody > tr.gg-smart-row:hover { background-color: color-mix(in srgb, var(--color-base-content) 4%, transparent); }
+.gg-smart-collapsed { display: none; }
+
+.gg-smart-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.gg-smart-sort-button:hover { color: var(--color-base-content); }
+.gg-smart-sort-arrow { opacity: 0.35; font-size: 0.8em; }
+th[aria-sort] .gg-smart-sort-arrow { opacity: 1; color: var(--color-primary); }
+th[aria-sort] { color: var(--color-base-content); }
+
+.gg-smart-group > th {
+  padding-top: 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-base-content) 15%, transparent);
+  background-color: color-mix(in srgb, var(--color-base-200) 60%, transparent);
+}
+.gg-smart-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.gg-smart-chevron { width: 0.9rem; height: 0.9rem; opacity: 0.6; transition: transform 120ms ease; }
+.gg-smart-group-toggle[aria-expanded="false"] .gg-smart-chevron { transform: rotate(-90deg); }
+.gg-smart-group-label { font-weight: 600; }
+.gg-smart-group-count {
+  min-width: 1.5rem;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-base-content) 12%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  text-align: center;
+}
+.gg-smart-group-tones { display: inline-flex; gap: 10px; margin-left: 4px; font-size: 0.75rem; font-weight: 500; opacity: 0.85; }
+.gg-smart-group-tone { display: inline-flex; align-items: center; gap: 4px; }
+.gg-smart-menu { width: 16rem; }
+.gg-smart-menu:where([data-smart-menu-panel]) { left: auto; right: 0; }
+
+/* Bulk edit (smart_table_selection.js): the bar that replaces the header while rows are selected,
+ * and its menus — popovers in the top layer, placed under their button by the script. */
+.gg-smart-select { width: 2.25rem; }
+.gg-bulk-bar > th { background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-base-100)); }
+.gg-bulk-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 18rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
+  border-radius: 10px;
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.gg-bulk-menu .gg-filter-option { font-weight: 400; }
+.gg-bulk-menu-section { margin-top: 4px; border-top: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent); padding-top: 4px; }

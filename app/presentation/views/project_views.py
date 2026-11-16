@@ -10,6 +10,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
 
+from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.project_bulk_edit import ProjectBulkEdit
 from app.application import commit_checks, project_management
 from app.application.errors import NotFoundError
 from app.application.commit_checks import (
@@ -20,6 +22,7 @@ from app.application.commit_checks import (
 from app.application import scoring
 from app.domain.scoring import CommitScoreOutcome
 from app.presentation.commit_results import CommitResultGrouping
+from app.presentation.smart_table import ProjectRow
 from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
 from app.domain import importance
@@ -91,16 +94,25 @@ class ProjectListView(LoginRequiredMixin, ListView):
         tenant = self.request.tenant
         if not tenant:
             return Project.objects.none()
-        return Project.objects.filter(tenant=tenant).select_related("platform_connection")
+        return (
+            Project.objects.filter(tenant=tenant)
+            .select_related("platform_connection")
+            .prefetch_related("components__stacks")
+        )
 
     def get_context_data(self, **kwargs):
+        """A row per project (``ProjectRow``): its newest commit's grade, or
+        why there is none, its health and its stacks; the page's smart table
+        sorts and groups them in place."""
         context = super().get_context_data(**kwargs)
-        # Each card shows its project's score; read in one query.
-        # Each card reads its project's newest commit: a grade, or why none.
-        heads = scoring.project_heads(context["projects"])
-        for project in context["projects"]:
-            project.head = heads.get(project.pk)
-            project.commit_score = project.head.score if project.head else None
+        context["rows"] = ProjectRow.for_projects(context["projects"])
+        # The bulk bar's menus.
+        tenant = self.request.tenant
+        context["owners"] = sorted(_existing_owners(tenant), key=str.lower) if tenant else []
+        context["lifecycle_choices"] = Project.Lifecycle.choices
+        context["stacks"] = Stack.objects.filter(tenant=tenant) if tenant else []
+        context["standards"] = Standard.objects.filter(tenant=tenant).order_by("name") if tenant else []
+        context["importance_options"] = importance_text.options()
         return context
 
 
@@ -598,3 +610,9 @@ def retry_webhook(request, pk):
     return redirect("project_detail", pk=project.pk)
 
 
+@login_required
+@require_POST
+def bulk_edit_projects(request):
+    """The Projects page's bulk bar: owner, lifecycle, stack, or attach or
+    detach a standard on the selected projects (``ProjectBulkEdit``)."""
+    return BulkEditAnswer.to(request, ProjectBulkEdit, importance_value=request.POST.get("importance", ""))

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load filter_search_tags %}
+{% load filter_search_tags smart_table_tags time_tags %}
 
 {% block title %}Standards — GitGrit{% endblock %}
 
@@ -12,82 +12,170 @@
   </div>
 </div>
 
-{% if standards %}
-  <div class="card bg-base-100 shadow-xl" data-filter-scope data-standard-list>
+{% if rows %}
+  {# A smart table: filtered by the filter search, sorted and grouped in place (app.presentation.smart_table). #}
+  <div class="card bg-base-100 shadow-xl" data-filter-scope data-standard-list data-smart-list>
     <div class="card-body">
       {% standard_list_filter_search standards as list_filter_search %}
       {% filter_search list_filter_search label="Filter standards" %}
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Labels</th>
-              <th>Events</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for standard in standards %}
-              <tr data-filter-row
-                  data-filter-is="{{ standard|standard_status_values }}"
-                  data-filter-label="{{ standard|standard_label_values }}"
-                  data-filter-name="{{ standard.name|lower }}"
-                  data-filter-description="{{ standard.description|lower }}"
-                  {% if standard.draft %}data-draft{% endif %}>
-                <td class="max-w-xs">
-                  <a href="{% url 'standard_detail' standard.pk %}" class="link font-medium">{{ standard.name }}</a>
-                  {% if standard.description %}
-                    <p class="text-sm opacity-60 truncate">{{ standard.description }}</p>
-                  {% endif %}
-                </td>
-                <td>
-                  {% for label in standard.labels.all %}
-                    <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this label"
-                            data-filter-toggle="label" data-filter-value="{{ label.name|lower }}">{{ label.name }}</button>
-                  {% endfor %}
-                </td>
-                <td>
-                  {% for event in standard.criteria.events %}
-                    <span class="badge badge-outline badge-sm">{{ event }}</span>
-                  {% empty %}
-                    <span class="text-sm opacity-50">none</span>
-                  {% endfor %}
-                </td>
-                <td>
-                  <div class="flex gap-1">
-                    <span hx-post="{% url 'toggle_standard' standard.pk %}"
-                          hx-swap="outerHTML"
-                          class="badge {% if standard.enabled %}badge-success{% else %}badge-error{% endif %} badge-sm cursor-pointer"
-                          title="Click to toggle">
-                      {% if standard.enabled %}Enabled{% else %}Disabled{% endif %}
-                    </span>
-                    {% if standard.draft %}
-                      <span class="badge badge-warning badge-sm">Draft</span>
-                    {% endif %}
-                    {% if standard.source_marketplace_standard and standard.source_version < standard.source_marketplace_standard.version %}
-                      <a href="{% url 'marketplace_standard_preview' standard.source_marketplace_standard.slug %}" class="badge badge-warning badge-sm link link-hover">Update available</a>
-                    {% endif %}
-                  </div>
-                </td>
-                <td class="text-right">
-                  <a href="{% url 'edit_standard' standard.pk %}" class="btn btn-ghost btn-xs">Edit</a>
-                  <form method="post" action="{% url 'delete_standard' standard.pk %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-ghost btn-xs text-error"
-                            onclick="return confirm('Delete standard &quot;{{ standard.name }}&quot;?')">
-                      Delete
-                    </button>
-                  </form>
-                </td>
+      {% standard_list_smart_table as table %}
+      <div data-smart-table>
+        {% smart_table_toolbar table %}
+        <div class="overflow-x-auto lg:overflow-visible">
+          <table class="table gg-smart-table">
+            <thead>
+              <tr data-bulk-header>
+                {% include "partials/bulk_select_cell.html" with noun="standard" %}
+                <th data-smart-sort="name">Name</th>
+                <th>Labels</th>
+                <th>Events</th>
+                <th data-smart-sort="projects" class="text-right">Projects</th>
+                <th data-smart-sort="failing">Results</th>
+                <th data-smart-sort="status">Status</th>
+                <th></th>
               </tr>
-            {% endfor %}
-            <tr class="hidden" data-filter-empty>
-              <td colspan="5"><p class="text-sm opacity-70">No standards match these filters.</p></td>
-            </tr>
-          </tbody>
-        </table>
+              {# Replaces the header row while any standard is selected (bulk edit). #}
+              <tr class="hidden gg-bulk-bar" data-bulk-bar>
+                {% include "partials/bulk_select_cell.html" with noun="standard" %}
+                <th colspan="7">
+                  {% url 'bulk_edit_standards' as bulk_url %}
+                  <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
+                    <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
+                    <button type="button" class="gg-filter-menu-button" hx-post="{{ bulk_url }}" hx-swap="none" hx-vals='{"action": "enable"}'>Enable</button>
+                    <button type="button" class="gg-filter-menu-button" hx-post="{{ bulk_url }}" hx-swap="none" hx-vals='{"action": "disable"}'>Disable</button>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-label" label="Label" %}
+                    <div popover id="bulk-label" class="gg-bulk-menu" role="menu" aria-label="Add or remove a label">
+                      <p class="gg-filter-menu-title">Add a label</p>
+                      {% for label in labels %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "add_label"}' name="value" value="{{ label.name }}">{{ label.name }}</button>
+                      {% endfor %}
+                      <form class="flex gap-1 p-2" hx-post="{{ bulk_url }}" hx-swap="none">
+                        <input type="hidden" name="action" value="add_label">
+                        <input type="text" name="value" class="input input-bordered input-sm min-w-0 grow" placeholder="New label" aria-label="New label" required>
+                        <button type="submit" class="btn btn-sm">Add</button>
+                      </form>
+                      {% if labels %}
+                        <div class="gg-bulk-menu-section">
+                          <p class="gg-filter-menu-title">Remove a label</p>
+                          {% for label in labels %}
+                            <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                    hx-vals='{"action": "remove_label"}' name="value" value="{{ label.name }}">{{ label.name }}</button>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    <button type="button" class="gg-filter-menu-button text-error" hx-post="{{ bulk_url }}" hx-swap="none" hx-vals='{"action": "delete"}'
+                            data-bulk-confirm="Delete {count}?" hx-confirm="Delete these standards?"
+                            data-confirm-body="They are detached from every project. Their versions and past results stay."
+                            data-confirm-action="Delete" data-confirm-danger>Delete</button>
+
+                    <button type="button" class="link link-hover ml-auto opacity-70" data-bulk-clear>Clear selection</button>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody data-smart-table-body>
+              {% for row in rows %}
+                {% with standard=row.standard %}
+                {# The row's edge: red when it fails on a project, green when it passes everywhere it ran. #}
+                <tr class="gg-smart-row gg-tone-card-{{ row.tone }}"
+                    data-filter-row data-smart-row data-smart-id="{{ standard.pk }}"
+                    data-filter-is="{{ standard|standard_status_values }}"
+                    data-filter-label="{{ standard|standard_label_values }}"
+                    data-filter-event="{{ row.event_values }}"
+                    data-filter-source="{{ row.source_value }}"
+                    data-filter-name="{{ standard.name|lower }}"
+                    data-filter-description="{{ standard.description|lower }}"
+                    data-sort-name="{{ standard.name|lower }}"
+                    data-sort-status="{{ row.sort_status }}"
+                    data-sort-projects="{{ row.projects }}"
+                    data-sort-failing="{{ row.failing }}"
+                    data-sort-rate="{{ row.pass_rate }}"
+                    data-sort-updated="{{ standard.updated_at|date:'U' }}"
+                    data-group-label="{{ row.label_names }}"
+                    data-group-status="{{ row.status_value }}"
+                    data-group-event="{{ row.event_values }}"
+                    data-group-source="{{ row.source_value }}"
+                    {% if standard.draft %}data-draft{% endif %}>
+                  <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ standard.pk }}" aria-label="Select {{ standard.name }}"></td>
+                  <td class="max-w-xs">
+                    <a href="{% url 'standard_detail' standard.pk %}" class="link link-hover font-medium">{{ standard.name }}</a>
+                    {% if standard.description %}
+                      <p class="text-xs opacity-60 truncate">{{ standard.description }}</p>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      {% for label in standard.labels.all %}
+                        <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this label"
+                                data-filter-toggle="label" data-filter-value="{{ label.name|lower }}">{{ label.name }}</button>
+                      {% empty %}
+                        <span class="text-sm opacity-40">—</span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      {% for event in row.events %}
+                        <button type="button" class="badge badge-ghost badge-sm cursor-pointer" title="Filter by this event"
+                                data-filter-toggle="event" data-filter-value="{{ event|lower }}">{{ event }}</button>
+                      {% empty %}
+                        <span class="text-sm opacity-50">none</span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td class="text-right tabular-nums">{{ row.projects }}</td>
+                  <td class="text-sm whitespace-nowrap">
+                    {% if row.passing or row.failing %}
+                      <span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {% if row.failing %}<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full gg-tone-bg-failed"></span><b>{{ row.failing }}</b> failing</span>{% endif %}
+                        {% if row.passing %}<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full gg-tone-bg-healthy"></span><b>{{ row.passing }}</b> passing</span>{% endif %}
+                        {% if row.unchecked %}<span class="opacity-50">{{ row.unchecked }} not run</span>{% endif %}
+                      </span>
+                    {% elif row.projects %}
+                      <span class="opacity-50">Not run yet</span>
+                    {% else %}
+                      <span class="opacity-40">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="flex gap-1">
+                      <span hx-post="{% url 'toggle_standard' standard.pk %}"
+                            hx-swap="outerHTML"
+                            class="badge {% if standard.enabled %}badge-success{% else %}badge-error{% endif %} badge-sm cursor-pointer"
+                            title="Click to toggle">
+                        {% if standard.enabled %}Enabled{% else %}Disabled{% endif %}
+                      </span>
+                      {% if standard.draft %}
+                        <span class="badge badge-warning badge-sm">Draft</span>
+                      {% endif %}
+                      {% if standard.source_marketplace_standard and standard.source_version < standard.source_marketplace_standard.version %}
+                        <a href="{% url 'marketplace_standard_preview' standard.source_marketplace_standard.slug %}" class="badge badge-warning badge-sm link link-hover">Update available</a>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="text-right whitespace-nowrap">
+                    <a href="{% url 'edit_standard' standard.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+                    <form method="post" action="{% url 'delete_standard' standard.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs text-error"
+                              onclick="return confirm('Delete standard &quot;{{ standard.name }}&quot;?')">
+                        Delete
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+              <tr class="hidden" data-filter-empty>
+                <td colspan="8"><p class="text-sm opacity-70">No standards match these filters.</p></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -102,14 +190,21 @@
 {% endif %}
 <script>
   // Enabling or disabling a standard swaps its badge: keep the row's is: values
-  // (data-filter-is) in step, then re-filter.
+  // (data-filter-is), and what it sorts and groups by, in step, then have the
+  // smart table lay out again from this row, so its copies under other groups
+  // (a standard with two labels) and its status group follow.
   document.addEventListener('htmx:afterSettle', function (event) {
     var row = event.target.closest && event.target.closest('[data-standard-list] [data-filter-row]');
     if (!row) return;
-    var values = [event.target.textContent.trim() === 'Enabled' ? 'enabled' : 'disabled'];
+    var enabled = event.target.textContent.trim() === 'Enabled';
+    var values = [enabled ? 'enabled' : 'disabled'];
     if (row.hasAttribute('data-draft')) values.push('draft');
     row.dataset.filterIs = values.join('|');
-    row.closest('[data-filter-scope]').dispatchEvent(new CustomEvent('filter-search:refresh'));
+    if (!row.hasAttribute('data-draft')) {
+      row.dataset.groupStatus = enabled ? 'enabled' : 'disabled';
+      row.dataset.sortStatus = enabled ? '0' : '2';
+    }
+    row.dispatchEvent(new CustomEvent('smart-table:row-changed', { bubbles: true }));
   });
 </script>
 {% endblock %}
