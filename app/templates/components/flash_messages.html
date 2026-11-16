@@ -1,3 +1,6 @@
+{# Always drawn (even empty) so an in-place save can replace it out of band: #}
+{# include with oob=True.                                                   #}
+<div id="flash-messages"{% if oob %} hx-swap-oob="true"{% endif %}>
 {% if messages %}
 <div class="space-y-2 mb-4">
   {% for message in messages %}
@@ -7,3 +10,4 @@
   {% endfor %}
 </div>
 {% endif %}
+</div>

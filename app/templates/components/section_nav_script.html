@@ -3,16 +3,30 @@
   // target is open first, since a collapsed section would otherwise scroll
   // to nothing. Sections carry data-settings-section and a radio named
   // settings-section; links carry data-settings-link.
+  // The open section is remembered for this browser tab, so a save that
+  // reloads the page comes back to the section it was made in.
   (function () {
+    var storeKey = 'settings-section:' + window.location.pathname;
+
+    function remember(hash) {
+      try { sessionStorage.setItem(storeKey, hash); } catch (e) {}
+    }
+
+    function remembered() {
+      try { return sessionStorage.getItem(storeKey); } catch (e) { return null; }
+    }
+
     function openSection(hash) {
-      if (!hash) return;
-      var target = document.querySelector(hash);
+      // Only "#section-id": a stray hash or stored value must not throw.
+      if (!hash || !/^#[\w-]+$/.test(hash)) return;
+      var target = document.getElementById(hash.slice(1));
       if (!target || !target.hasAttribute('data-settings-section')) return;
       var toggle = target.querySelector('input[name="settings-section"]');
       if (toggle) toggle.checked = true;
       document.querySelectorAll('[data-settings-link]').forEach(function (link) {
         link.classList.toggle('menu-active', link.getAttribute('href') === hash);
       });
+      remember(hash);
     }
 
     document.querySelectorAll('[data-settings-link]').forEach(function (link) {
@@ -21,9 +35,17 @@
       });
     });
 
+    document.querySelectorAll('[data-settings-section]').forEach(function (section) {
+      var toggle = section.querySelector('input[name="settings-section"]');
+      if (!toggle) return;
+      toggle.addEventListener('change', function () {
+        if (toggle.checked) openSection('#' + section.id);
+      });
+    });
+
     window.addEventListener('hashchange', function () {
       openSection(window.location.hash);
     });
-    openSection(window.location.hash);
+    openSection(window.location.hash || remembered());
   })();
 </script>
