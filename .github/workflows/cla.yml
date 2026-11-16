@@ -25,5 +25,5 @@ jobs:
         with:
           path-to-signatures: .github/cla-signatures.json
           path-to-document: https://github.com/kfirzvi-com/gitgrit/blob/main/CLA.md
-          branch: main
+          branch: cla-signatures
           allowlist: zvikfir,dependabot[bot],github-actions[bot]
