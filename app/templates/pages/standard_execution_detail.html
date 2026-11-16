@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load score_tags %}
 {% load project_tags %}
+{% load time_tags %}
 
 {% block title %}Execution — {{ execution.standard_name }} — GitGrit{% endblock %}
 
@@ -30,7 +31,7 @@
       <div><span class="opacity-70">Commit</span><p><code>{% if execution.commit_check and execution.commit_check.commit_sha %}{{ execution.commit_check.commit_sha|slice:":12" }}{% else %}—{% endif %}</code></p></div>
       <div><span class="opacity-70">Standard version</span><p>{% if execution.standard_version %}v{{ execution.standard_version.version }}{% if execution.standard is None or execution.standard.archived_at %} <span class="opacity-60">(standard deleted)</span>{% elif execution.standard.code != execution.standard_version.code %} <span class="text-warning">(changed since)</span>{% endif %}{% else %}—{% endif %}</p></div>
       <div><span class="opacity-70">Triggered by</span><p>{{ execution.triggered_by|default:"—" }}</p></div>
-      <div><span class="opacity-70">When</span><p>{{ execution.created_at }}</p></div>
+      <div><span class="opacity-70">When</span><p>{% local_time execution.created_at "N j, Y, P" %}</p></div>
       {% if execution.details.llm_usage %}
         <div><span class="opacity-70">LLM tokens</span><p>{{ execution.details.llm_usage.total_tokens }} ({{ execution.details.llm_usage.calls }} calls)</p></div>
       {% endif %}

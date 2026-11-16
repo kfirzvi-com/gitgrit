@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load score_tags ai_tags %}
+{% load score_tags ai_tags time_tags %}
 
 {% block title %}Dashboard — GitGrit{% endblock %}
 
@@ -176,7 +176,7 @@
   {% comment %}Stack map: dependants above what they depend on; each stack's projects counted by health.{% endcomment %}
   <section aria-labelledby="map-title" class="gg-map-grid rounded-xl border border-base-300 px-8 pt-6 pb-5 flex flex-col gap-3 min-w-0 overflow-hidden" style="box-shadow: var(--gg-shadow-inset), var(--gg-shadow-card)" data-stack-map data-stack-health>
     <div class="flex flex-wrap items-baseline justify-between gap-3">
-      <h2 id="map-title" class="gg-eyebrow">Stack map{% if map_updated_at %} <span class="normal-case tracking-normal opacity-70" id="map-updated">&middot; updated {{ map_updated_at|date:"d/m/y" }}</span>{% endif %}</h2>
+      <h2 id="map-title" class="gg-eyebrow">Stack map{% if map_updated_at %} <span class="normal-case tracking-normal opacity-70" id="map-updated">&middot; updated {% local_time map_updated_at "d/m/y" %}</span>{% endif %}</h2>
       <a href="{% url 'stack_list' %}" class="link link-primary link-hover text-sm">All stacks &rarr;</a>
     </div>
     {% if stack_map.nodes %}
