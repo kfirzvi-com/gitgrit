@@ -89,9 +89,10 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-{# Three tabs, picked by the URL hash so links can open one: #overview (and   #}
-{# #repository), #results (and #compliance, where notifications link) and     #}
-{# #standards. Results and Standards load their content when first opened     #}
+{# Four tabs, picked by the URL hash so links can open one: #overview (and    #}
+{# #repository), #results (and #compliance, where notifications link),       #}
+{# #delivery and #standards. Results, Delivery and Standards load their     #}
+{# content when first opened                                                 #}
 {# (the script sends their loaders "tab-open").                               #}
 <div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
   <input type="radio" name="project_tab" class="tab" aria-label="Overview" data-tab="overview" checked>
@@ -108,6 +109,14 @@
     <div id="project-history" class="card bg-base-100 shadow-xl"
          hx-get="{% url 'project_history' project.pk %}" hx-trigger="tab-open once" hx-swap="outerHTML" data-tab-load data-no-loader>
       <div class="card-body"><p class="text-sm opacity-60">Loading branches and commits…</p></div>
+    </div>
+  </div>
+
+  <input type="radio" name="project_tab" class="tab" aria-label="Delivery" data-tab="delivery">
+  <div class="tab-content pt-6" id="delivery">
+    <div id="project-delivery" class="card bg-base-100 shadow-xl"
+         hx-get="{% url 'project_delivery' project.pk %}" hx-trigger="tab-open once" hx-swap="outerHTML" data-tab-load data-no-loader>
+      <div class="card-body"><p class="text-sm opacity-60">Loading deployments…</p></div>
     </div>
   </div>
 
@@ -135,7 +144,7 @@
 
 <script>
   (function () {
-    var byHash = {overview: "overview", repository: "overview", results: "results", compliance: "results", standards: "standards"};
+    var byHash = {overview: "overview", repository: "overview", results: "results", compliance: "results", standards: "standards", delivery: "delivery"};
     var tabs = document.querySelectorAll("[data-project-tabs] input[data-tab]");
     // A tab's panel is the element right after its radio input.
     function load(tab) {
