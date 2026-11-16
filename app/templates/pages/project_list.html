@@ -11,7 +11,7 @@
 
 {% if rows %}
   {# A smart table: filtered by the filter search, sorted and grouped in place (app.presentation.smart_table). #}
-  <div class="card bg-base-100 shadow-xl" data-filter-scope>
+  <div class="card bg-base-100 shadow-xl" data-filter-scope data-smart-list>
     <div class="card-body">
       {% project_list_filter_search rows as list_filter_search %}
       {% filter_search list_filter_search label="Filter projects" %}
@@ -21,7 +21,8 @@
         <div class="overflow-x-auto lg:overflow-visible">
           <table class="table gg-smart-table">
             <thead>
-              <tr>
+              <tr data-bulk-header>
+                {% include "partials/bulk_select_cell.html" with noun="project" %}
                 <th data-smart-sort="name">Project</th>
                 <th data-smart-sort="score" class="text-center">Score</th>
                 <th data-smart-sort="stacks">Stacks</th>
@@ -29,6 +30,86 @@
                 <th data-smart-sort="lifecycle">Lifecycle</th>
                 <th>Platform</th>
                 <th data-smart-sort="checked">Last checked</th>
+              </tr>
+              {# Replaces the header row while any project is selected (bulk edit). #}
+              <tr class="hidden gg-bulk-bar" data-bulk-bar>
+                {% include "partials/bulk_select_cell.html" with noun="project" %}
+                <th colspan="7">
+                  {% url 'bulk_edit_projects' as bulk_url %}
+                  <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
+                    <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-owner" label="Owner" %}
+                    <div popover id="bulk-owner" class="gg-bulk-menu" role="menu" aria-label="Set the owner">
+                      <p class="gg-filter-menu-title">Set the owner</p>
+                      {% for owner in owners %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "set_owner"}' name="value" value="{{ owner }}">{{ owner }}</button>
+                      {% endfor %}
+                      <form class="flex gap-1 p-2" hx-post="{{ bulk_url }}" hx-swap="none">
+                        <input type="hidden" name="action" value="set_owner">
+                        <input type="text" name="value" class="input input-bordered input-sm min-w-0 grow" placeholder="New owner" aria-label="New owner" required>
+                        <button type="submit" class="btn btn-sm">Set</button>
+                      </form>
+                      <div class="gg-bulk-menu-section">
+                        <button type="button" class="gg-filter-option opacity-80" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "set_owner"}' name="value" value="">Clear the owner</button>
+                      </div>
+                    </div>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-lifecycle" label="Lifecycle" %}
+                    <div popover id="bulk-lifecycle" class="gg-bulk-menu" role="menu" aria-label="Set the lifecycle">
+                      <p class="gg-filter-menu-title">Set the lifecycle</p>
+                      {% for value, label in lifecycle_choices %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "set_lifecycle"}' name="value" value="{{ value }}">{{ label }}</button>
+                      {% endfor %}
+                    </div>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-stack" label="Stack" %}
+                    <div popover id="bulk-stack" class="gg-bulk-menu" role="menu" aria-label="Add to or remove from a stack">
+                      <p class="gg-filter-menu-title">Add to stack</p>
+                      {% for stack in stacks %}
+                        <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                hx-vals='{"action": "add_to_stack"}' name="value" value="{{ stack.pk }}">{{ stack.name }}</button>
+                      {% empty %}
+                        <p class="px-3 py-2 opacity-60">No stacks yet.</p>
+                      {% endfor %}
+                      {% if stacks %}
+                        <div class="gg-bulk-menu-section">
+                          <p class="gg-filter-menu-title">Remove from stack</p>
+                          {% for stack in stacks %}
+                            <button type="button" class="gg-filter-option" role="menuitem" hx-post="{{ bulk_url }}" hx-swap="none"
+                                    hx-vals='{"action": "remove_from_stack"}' name="value" value="{{ stack.pk }}">{{ stack.name }}</button>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    {% include "partials/bulk_menu_button.html" with menu_id="bulk-standard" label="Standard" %}
+                    <div popover id="bulk-standard" class="gg-bulk-menu" aria-label="Attach or detach a standard">
+                      <p class="gg-filter-menu-title">Attach or detach a standard</p>
+                      <form class="flex flex-col gap-2 p-2" onsubmit="return false">
+                        <select name="value" class="select select-bordered select-sm w-full" aria-label="Standard" required>
+                          {% for standard in standards %}<option value="{{ standard.pk }}">{{ standard.name }}</option>{% endfor %}
+                        </select>
+                        <select name="importance" class="select select-bordered select-sm w-full" aria-label="Importance">
+                          <option value="">Importance: as is (new: default)</option>
+                          {% for option in importance_options %}<option value="{{ option.value }}">Importance: {{ option.label }}</option>{% endfor %}
+                        </select>
+                        <div class="flex gap-2">
+                          {# Each button posts the form's fields with its own action. #}
+                          <button type="button" class="btn btn-primary btn-sm grow" hx-post="{{ bulk_url }}" hx-swap="none"
+                                  hx-include="closest form" hx-vals='{"action": "attach_standard"}'>Attach</button>
+                          <button type="button" class="btn btn-sm grow" hx-post="{{ bulk_url }}" hx-swap="none"
+                                  hx-include="closest form" hx-vals='{"action": "detach_standard"}'>Detach</button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <button type="button" class="link link-hover ml-auto opacity-70" data-bulk-clear>Clear selection</button>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody data-smart-table-body>
@@ -58,6 +139,7 @@
                     data-group-health="{{ row.health_value }}"
                     data-group-lifecycle="{{ project.lifecycle }}"
                     data-group-platform="{{ project.platform }}">
+                  <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
                   <td class="max-w-sm">
                     <div class="flex items-start gap-2">
                       <button type="button" class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full gg-tone-bg-{{ row.health.value }}"
@@ -109,7 +191,7 @@
                 {% endwith %}
               {% endfor %}
               <tr class="hidden" data-filter-empty>
-                <td colspan="7"><p class="text-sm opacity-70">No projects match these filters.</p></td>
+                <td colspan="8"><p class="text-sm opacity-70">No projects match these filters.</p></td>
               </tr>
             </tbody>
           </table>

@@ -48,6 +48,8 @@ class StandardListView(LoginRequiredMixin, ListView):
         and groups them in place."""
         context = super().get_context_data(**kwargs)
         context["rows"] = StandardRow.for_standards(context["standards"])
+        # The bulk bar's label menu.
+        context["labels"] = StandardLabel.objects.filter(tenant=self.request.tenant).order_by("name")
         return context
 
 

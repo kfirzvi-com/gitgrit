@@ -104,6 +104,13 @@ class ProjectListView(LoginRequiredMixin, ListView):
         sorts and groups them in place."""
         context = super().get_context_data(**kwargs)
         context["rows"] = ProjectRow.for_projects(context["projects"])
+        # The bulk bar's menus.
+        tenant = self.request.tenant
+        context["owners"] = sorted(_existing_owners(tenant), key=str.lower) if tenant else []
+        context["lifecycle_choices"] = Project.Lifecycle.choices
+        context["stacks"] = Stack.objects.filter(tenant=tenant) if tenant else []
+        context["standards"] = Standard.objects.filter(tenant=tenant).order_by("name") if tenant else []
+        context["importance_options"] = importance_text.options()
         return context
 
 

@@ -1,4 +1,5 @@
 import { SmartTableGroups } from './smart_table_groups.js';
+import { SmartTableSelection } from './smart_table_selection.js';
 import { SmartTableSort } from './smart_table_sort.js';
 
 // One smart table (partials/smart_table_toolbar.html): sorts and groups the
@@ -10,7 +11,9 @@ import { SmartTableSort } from './smart_table_sort.js';
 // Grouped by a field a row has several values of (a project in two stacks),
 // the row shows under each: copies, `data-smart-copy`, which the filter
 // search filters like any row. The choice rides in the address
-// (?group=owner&sort=score&dir=desc).
+// (?group=owner&sort=score&dir=desc), and so does the filter search's query
+// (?q=…), so a link — or the table fetched again after a bulk change
+// (`smart-table:reload`) — reads the same.
 export class SmartTable {
   constructor(element) {
     this.element = element;
@@ -25,9 +28,31 @@ export class SmartTable {
     this.groupOptions = new Map(this.config.groups.map((g) => [g.key, g]));
     this.collapsed = new Set();
     this.readAddress();
+    this.restoreQuery();
     this.decorateHeaders();
+    this.selection = element.querySelector('[data-bulk-bar]') ? new SmartTableSelection(this) : null;
     this.listen();
     this.render();
+  }
+
+  get filterInput() {
+    return this.scope ? this.scope.querySelector('[data-filter-input]') : null;
+  }
+
+  // The filter query from the address, into the search box (which then filters).
+  restoreQuery() {
+    const q = new URLSearchParams(window.location.search).get('q');
+    const input = this.filterInput;
+    if (!q || !input || input.value) return;
+    input.value = q;
+    this.scope.dispatchEvent(new CustomEvent('filter-search:refresh'));
+  }
+
+  // After a bulk change: the page's list again, in place.
+  reload() {
+    const list = this.element.closest('[data-smart-list]');
+    if (!list || !window.htmx) { window.location.reload(); return; }
+    window.htmx.ajax('GET', window.location.href, { target: list, select: '[data-smart-list]', swap: 'outerHTML' });
   }
 
   readAddress() {
@@ -47,6 +72,8 @@ export class SmartTable {
     set('sort', this.sort, this.config.defaultSort);
     set('dir', this.descending ? 'desc' : 'asc', this.sorts.get(this.sort).descending ? 'desc' : 'asc');
     set('group', this.group, this.config.defaultGroup || '');
+    const input = this.filterInput;
+    if (input) set('q', input.value.trim(), '');
     const query = params.toString();
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
   }
@@ -87,7 +114,10 @@ export class SmartTable {
     document.addEventListener('click', (event) => {
       if (!event.target.closest('[data-smart-menu]')) this.closeMenus();
     });
-    if (this.scope) this.scope.addEventListener('filter-search:applied', () => this.recount());
+    if (this.scope) {
+      this.scope.addEventListener('filter-search:applied', () => { this.recount(); this.writeAddress(); });
+    }
+    this.element.addEventListener('smart-table:reload', () => this.reload());
   }
 
   openMenu(menu) {
@@ -151,9 +181,10 @@ export class SmartTable {
   render() {
     const sorted = new SmartTableSort(this.sorts.get(this.sort), this.descending).sorted(this.rows);
     const option = this.groupOptions.get(this.group);
-    this.groups = new SmartTableGroups(option, this.table.querySelectorAll('thead th').length);
+    this.groups = new SmartTableGroups(option, this.table.querySelector('thead tr').children.length);
     this.body.replaceChildren(...this.groups.arrange(sorted), ...(this.empty ? [this.empty] : []));
     this.groups.collapse(this.collapsed);
+    if (this.selection) this.selection.syncCopies();
     // Copies carry the row's HTMX controls (a standard's Enabled toggle): wire them up.
     if (window.htmx) this.body.querySelectorAll('[data-smart-copy]').forEach((copy) => window.htmx.process(copy));
     this.showChoice();

@@ -55,3 +55,27 @@ th[aria-sort] { color: var(--color-base-content); }
 .gg-smart-group-tone { display: inline-flex; align-items: center; gap: 4px; }
 .gg-smart-menu { width: 16rem; }
 .gg-smart-menu:where([data-smart-menu-panel]) { left: auto; right: 0; }
+
+/* Bulk edit (smart_table_selection.js): the bar that replaces the header while rows are selected,
+ * and its menus — popovers in the top layer, placed under their button by the script. */
+.gg-smart-select { width: 2.25rem; }
+.gg-bulk-bar > th { background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-base-100)); }
+.gg-bulk-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 18rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
+  border-radius: 10px;
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.gg-bulk-menu .gg-filter-option { font-weight: 400; }
+.gg-bulk-menu-section { margin-top: 4px; border-top: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent); padding-top: 4px; }

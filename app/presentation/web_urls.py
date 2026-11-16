@@ -57,6 +57,7 @@ from app.presentation.views.artifact_views import (
     upload_project_commit,
 )
 from app.presentation.views.ai_budget_views import delete_ai_budget, save_ai_budget
+from app.presentation.views.bulk_edit_views import bulk_edit_projects, bulk_edit_standards
 from app.presentation.views.stack_views import (
     CreateStackView,
     StackDetailView,
@@ -279,6 +280,7 @@ urlpatterns = [
     path("tenants/scores/display/", set_score_display, name="set_score_display"),
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
+    path("projects/bulk/", bulk_edit_projects, name="bulk_edit_projects"),
     path("projects/add/", add_project_select, name="add_project_select"),
     path("projects/add/artifact/", add_artifact_project, name="add_artifact_project"),
     path(
@@ -347,6 +349,7 @@ urlpatterns = [
     ),
     # Standards
     path("standards/", StandardListView.as_view(), name="standard_list"),
+    path("standards/bulk/", bulk_edit_standards, name="bulk_edit_standards"),
     path("standards/new/", CreateStandardView.as_view(), name="create_standard"),
     path("standards/<uuid:pk>/", StandardDetailView.as_view(), name="standard_detail"),
     path("standards/<uuid:pk>/edit/", EditStandardView.as_view(), name="edit_standard"),
