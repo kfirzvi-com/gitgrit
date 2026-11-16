@@ -9,7 +9,14 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.presentation.filter_search import ProjectListFilterSearch, StackListFilterSearch
-from app.presentation.smart_table import ProjectListSmartTable, ProjectRow, StackListSmartTable, StackRow
+from app.presentation.smart_table import (
+    ProjectListSmartTable,
+    ProjectRow,
+    StackListSmartTable,
+    StackRow,
+    StandardListSmartTable,
+    StandardRow,
+)
 
 NON_MANIFEST_STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
@@ -122,3 +129,55 @@ class StackListPageTests(Fixture):
         assert 'data-filter-project="api|infra"' in body
         assert 'data-sort-projects="2"' in body
         assert body.count("data-smart-row") == 2
+
+
+@override_settings(STORAGES=NON_MANIFEST_STORAGES)
+class StandardListPageTests(Fixture):
+    def setUp(self):
+        super().setUp()
+        from app.domain.models import StandardExecution
+
+        status = StandardExecution.Status
+        security = baker.make("app.StandardLabel", tenant=self.tenant, name="Security")
+        self.secrets = baker.make(
+            "app.Standard", tenant=self.tenant, name="No Secrets", enabled=True, draft=False,
+            criteria={"events": ["push", "manual"]},
+        )
+        self.secrets.labels.add(security)
+        self.api.standards.add(self.secrets)
+        self.infra.standards.add(self.secrets)
+        self.lonely.standards.add(self.secrets)
+        for project, result in ((self.api, status.FAILED), (self.infra, status.PASSED)):
+            baker.make(
+                "app.StandardExecution", project=project, standard=self.secrets, standard_name="No Secrets",
+                status=result, ref=project.default_branch,
+            )
+        # A failure on a feature branch is not the project's result.
+        baker.make(
+            "app.StandardExecution", project=self.infra, standard=self.secrets, standard_name="No Secrets",
+            status=status.FAILED, ref="feature/x",
+        )
+
+    def test_a_standard_row_counts_its_newest_results_on_default_branches(self):
+        row = StandardRow.for_standards([self.secrets])[0]
+
+        assert (row.projects, row.passing, row.failing, row.unchecked) == (3, 1, 1, 1)
+        assert row.pass_rate == "50"
+        assert row.tone == "failed"
+        assert row.status_value == "enabled"
+        assert row.source_value == "custom"
+        assert row.event_values == "push|manual"
+
+    def test_the_table_groups_by_label_status_event_and_source(self):
+        table = StandardListSmartTable.build()
+
+        assert [g.key for g in table.groups] == ["label", "status", "event", "source"]
+        assert {"failing", "rate", "projects"} <= {s.key for s in table.sorts}
+
+    def test_each_row_says_what_it_is_sorted_and_grouped_by(self):
+        body = self.client.get(reverse("standard_list")).content.decode()
+
+        assert 'data-group-label="Security"' in body
+        assert 'data-filter-event="push|manual"' in body
+        assert 'data-sort-failing="1"' in body and 'data-sort-rate="50"' in body
+        assert "<b>1</b> failing" in body and "<b>1</b> passing" in body

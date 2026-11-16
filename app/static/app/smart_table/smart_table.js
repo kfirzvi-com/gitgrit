@@ -154,6 +154,8 @@ export class SmartTable {
     this.groups = new SmartTableGroups(option, this.table.querySelectorAll('thead th').length);
     this.body.replaceChildren(...this.groups.arrange(sorted), ...(this.empty ? [this.empty] : []));
     this.groups.collapse(this.collapsed);
+    // Copies carry the row's HTMX controls (a standard's Enabled toggle): wire them up.
+    if (window.htmx) this.body.querySelectorAll('[data-smart-copy]').forEach((copy) => window.htmx.process(copy));
     this.showChoice();
     this.writeAddress();
     // The copies are new rows: the filter search hides the ones that don't match, then we recount.

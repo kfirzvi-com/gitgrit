@@ -19,6 +19,7 @@ from app.domain.models import (
 )
 from app.domain.standard_validator import validate_standard_code
 from app.infrastructure.sandbox.runner import SandboxRunner
+from app.presentation.smart_table import StandardRow
 
 EVENT_CHOICES = ["push", "pull_request", "tag"]
 LANGUAGE_CHOICES = [
@@ -40,6 +41,14 @@ class StandardListView(LoginRequiredMixin, ListView):
             .prefetch_related("labels")
             .select_related("source_marketplace_standard")
         )
+
+    def get_context_data(self, **kwargs):
+        """A row per standard (``StandardRow``): how many projects it is on
+        and how many of them it passes or fails; the page's smart table sorts
+        and groups them in place."""
+        context = super().get_context_data(**kwargs)
+        context["rows"] = StandardRow.for_standards(context["standards"])
+        return context
 
 
 class CreateStandardView(LoginRequiredMixin, CreateView):

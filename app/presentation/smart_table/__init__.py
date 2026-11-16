@@ -8,9 +8,10 @@ filters the same rows.
 - ``SmartTable``: the sorts and groupings one list offers and its default
   ones; ``as_dict()`` is the config the page's script reads
   (``app/static/app/smart_table/``).
-- ``ProjectRow`` / ``StackRow``: a project or a stack as its row shows it.
-- ``ProjectListSmartTable`` / ``StackListSmartTable``: the Projects and
-  Stacks pages' tables.
+- ``ProjectRow`` / ``StackRow`` / ``StandardRow``: a project, a stack or a
+  standard as its row shows it.
+- ``ProjectListSmartTable`` / ``StackListSmartTable`` /
+  ``StandardListSmartTable``: the Projects, Stacks and Standards pages' tables.
 
 Each row says what it sorts by in ``data-sort-<key>`` and the groups it
 falls in in ``data-group-<key>`` (``|`` between several: a project in two
@@ -23,6 +24,8 @@ from app.presentation.smart_table.smart_table import SmartTable
 from app.presentation.smart_table.sort_option import SortOption
 from app.presentation.smart_table.stack_list_smart_table import StackListSmartTable
 from app.presentation.smart_table.stack_row import StackRow
+from app.presentation.smart_table.standard_list_smart_table import StandardListSmartTable
+from app.presentation.smart_table.standard_row import StandardRow
 
 __all__ = [
     "GroupOption",
@@ -32,4 +35,6 @@ __all__ = [
     "SortOption",
     "StackListSmartTable",
     "StackRow",
+    "StandardListSmartTable",
+    "StandardRow",
 ]

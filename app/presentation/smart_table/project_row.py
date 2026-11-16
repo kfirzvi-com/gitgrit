@@ -69,6 +69,14 @@ class ProjectRow:
     # --- What the row sorts by (data-sort-*) --------------------------------
 
     @property
+    def sort_score(self) -> str:
+        """Its score; a failed project (a Required standard failed) below
+        every score, a project with no grade empty (last either way)."""
+        if self.score and self.score.failed:
+            return "-1"
+        return "" if self.score_value is None else str(self.score_value)
+
+    @property
     def sort_health(self) -> int:
         """Worst first: failed, then needs attention, then healthy; lowest
         score first within each."""

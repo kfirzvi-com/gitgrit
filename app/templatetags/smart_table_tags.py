@@ -17,7 +17,7 @@ import uuid
 
 from django import template
 
-from app.presentation.smart_table import ProjectListSmartTable, StackListSmartTable
+from app.presentation.smart_table import ProjectListSmartTable, StackListSmartTable, StandardListSmartTable
 
 register = template.Library()
 
@@ -30,6 +30,11 @@ def project_list_smart_table():
 @register.simple_tag
 def stack_list_smart_table():
     return StackListSmartTable.build()
+
+
+@register.simple_tag
+def standard_list_smart_table():
+    return StandardListSmartTable.build()
 
 
 @register.inclusion_tag("partials/smart_table_toolbar.html")

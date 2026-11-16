@@ -54,7 +54,7 @@ class StandardFilterSearchTests(TestCase):
     def test_the_standards_page_filters_by_status_label_name_and_description(self):
         search = StandardListFilterSearch.for_standards([self.secrets, self.linter])
 
-        assert [f.key for f in search.fields] == ["is", "label", "name", "description"]
+        assert [f.key for f in search.fields] == ["is", "label", "event", "source", "name", "description"]
         assert [v.value for v in search.fields[0].values] == ["enabled", "disabled", "draft"]
         assert StandardListFilterSearch.statuses_of(self.linter) == ["disabled", "draft"]
 
@@ -74,6 +74,6 @@ class StandardFilterSearchTests(TestCase):
     def test_the_standards_page_rows_say_their_status(self):
         body = self.client.get(reverse("standard_list")).content.decode()
 
-        assert [f["key"] for f in _config(body)["fields"]] == ["is", "label", "name", "description"]
+        assert [f["key"] for f in _config(body)["fields"]] == ["is", "label", "event", "source", "name", "description"]
         assert 'data-filter-is="enabled"' in body
         assert 'data-filter-is="disabled|draft"' in body
