@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -15,8 +16,17 @@ from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
-from app.domain.user_time_zone import UserTimeZone
+from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
 from app.infrastructure.model_fields import EncryptedCharField
+
+
+def validate_time_zone(value: str) -> None:
+    """Only a known time zone name is saved, whoever writes it (forms,
+    admin, full_clean); empty means not chosen yet."""
+    try:
+        UserTimeZone.parse(value)
+    except UnknownTimeZone as error:
+        raise ValidationError(str(error)) from error
 
 
 class User(AbstractUser):
@@ -28,19 +38,27 @@ class User(AbstractUser):
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     superuser_granted_at = models.DateTimeField(null=True, blank=True)
-    # The IANA name of the time zone the user reads emails in; empty until
-    # they choose (app.domain.user_time_zone). The database default keeps
-    # inserts working on a database still shared with code that lacks it.
-    time_zone = models.CharField(max_length=64, blank=True, default="", db_default="")
+    # The IANA name of the user's time zone; empty until they choose
+    # (app.domain.user_time_zone). The database default keeps inserts from
+    # branches without this field working on a shared database.
+    time_zone = models.CharField(
+        max_length=64, blank=True, default="", db_default="", validators=[validate_time_zone]
+    )
 
     class Meta:
         db_table = "users"
 
     @property
     def user_time_zone(self) -> UserTimeZone:
-        """The time zone to write this user's email times in (UTC until
-        they choose one)."""
+        """The time zone to write times in for this user (UTC until they
+        choose one)."""
         return UserTimeZone.of(self.time_zone)
+
+    @property
+    def has_chosen_time_zone(self) -> bool:
+        """Whether the user has chosen a time zone (else they read UTC and
+        are asked once)."""
+        return UserTimeZone.is_chosen(self.time_zone)
 
 
 class Tenant(models.Model):

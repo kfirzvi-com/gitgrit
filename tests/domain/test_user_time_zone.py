@@ -2,6 +2,7 @@
 named after the rule's sentence."""
 from datetime import datetime, timezone
 
+from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase
 
 from app.domain.models import User
@@ -105,3 +106,16 @@ class UserReadsItsSavedTimeZone(SimpleTestCase):
     def test_saved_zone_is_read(self):
         self.assertEqual(User(time_zone="Asia/Jerusalem").user_time_zone.name, "Asia/Jerusalem")
         self.assertEqual(User(time_zone="Gone/Zone").user_time_zone.name, "UTC")
+
+    def test_has_chosen_time_zone(self):
+        self.assertFalse(User().has_chosen_time_zone)
+        self.assertTrue(User(time_zone="UTC").has_chosen_time_zone)
+        self.assertTrue(User(time_zone="Asia/Jerusalem").has_chosen_time_zone)
+        self.assertFalse(User(time_zone="Gone/Zone").has_chosen_time_zone)
+
+    def test_only_a_known_name_passes_the_field_check(self):
+        field = User._meta.get_field("time_zone")
+        field.run_validators("Asia/Jerusalem")
+        field.run_validators("")  # not chosen yet
+        with self.assertRaises(ValidationError):
+            field.run_validators("Mars/Base")

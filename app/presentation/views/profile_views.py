@@ -61,7 +61,7 @@ def disconnect_social(request, provider):
 @login_required
 @require_POST
 def update_time_zone(request):
-    """The signed-in user picks their own time zone (used for emails)."""
+    """The signed-in user picks their own time zone."""
     try:
         zone = change_time_zone(request.user, request.POST.get("time_zone", ""))
     except UnknownTimeZone:

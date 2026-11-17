@@ -1,17 +1,17 @@
-"""The time zone a person reads times in, for what GitGrit sends them outside
-the browser (emails). Pages don't use it: they show times in the browser's
-own zone (``static/app/local-time.js``).
+"""The time zone a user reads times in: a setting of the user (identity).
 
 Rules:
 1. A time zone is one of the IANA names (``Asia/Jerusalem``); any other name
    is refused.
 2. A user who never chose a time zone reads times in UTC.
-3. A stored name that is no longer known reads as UTC, so an email never
-   fails because of it.
+3. A stored name that is no longer known reads as UTC, so writing a time for
+   the user never fails because of it.
 4. Showing a moment in a user's time zone changes how it is written, never
    the moment itself (times are stored in UTC).
+5. Only the user sets their own time zone (the application's rule:
+   ``app.application.user_time_zone_setting``).
 6. A user who has not chosen a time zone is asked once; either answer is a
-   choice. (Rule 5, only the user sets their own, is the application's.)
+   choice.
 """
 from __future__ import annotations
 
