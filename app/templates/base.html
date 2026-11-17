@@ -298,6 +298,10 @@
   {% endif %}
   {% include "components/navbar.html" %}
   {% if not hide_invitation_banner %}{% include "components/invitation_banner.html" %}{% endif %}
+  {% if user.is_authenticated and user.should_be_asked_time_zone and not hide_time_zone_question %}
+    <div id="time-zone-question" data-url="{% url 'time_zone_question' %}"></div>
+    <script src="{% static 'app/time-zone-question.js' %}"></script>
+  {% endif %}
 
   <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
         style="visibility:hidden;">

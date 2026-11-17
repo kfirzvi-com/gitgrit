@@ -39,6 +39,9 @@ dependencies = [
     # Upload projects' archives in S3 (GITGRIT_UPLOADS_BUCKET) with the host's
     # AWS role, like SES above. Pinned for the same reason.
     "django-storages[s3]==1.14.6",
+    # Time zone data for users' time zones (app/domain/user_time_zone.py),
+    # shipped with the app so it doesn't depend on the OS image having it.
+    "tzdata>=2025.3",
 ]
 
 [dependency-groups]

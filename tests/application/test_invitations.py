@@ -1,5 +1,7 @@
 """The invitation service: sending, managing and accepting, with storage,
 email and events."""
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from unittest import mock
 
 import pytest
@@ -38,6 +40,39 @@ class TestInvitations(TestCase):
         assert kwargs["context"]["has_account"] is False
         assert invitations.find_open(self._token(defer)) == invitation
         assert Membership.objects.filter(tenant=self.tenant).count() == 3
+
+    # --- the expiry date, in the reader's time zone ------------------------------
+    # Sent 17 Nov 23:30 UTC, so the link works until 1 Dec 23:30 UTC: already
+    # 2 December in Jerusalem.
+
+    SENT = datetime(2026, 11, 17, 23, 30, tzinfo=dt_timezone.utc)
+
+    def _expires_for(self, email):
+        with mock.patch("app.domain.models.timezone.now", return_value=self.SENT):
+            _, defer = self._invite(email=email)
+        return defer.call_args.kwargs["context"]["expires"]
+
+    def _reader(self, email, *, time_zone="Asia/Jerusalem", verified=True, main_email=None):
+        user = baker.make("app.User", email=main_email or email, time_zone=time_zone)
+        EmailAddress.objects.create(user=user, email=email, verified=verified, primary=main_email is None)
+        return user
+
+    def test_expiry_is_written_in_the_readers_time_zone(self):
+        self._reader("dana@acme.example")
+        assert self._expires_for("dana@acme.example") == "2 December 2026"
+
+    def test_a_second_confirmed_address_counts_too(self):
+        self._reader("dana.work@acme.example", main_email="dana@home.example")
+        assert self._expires_for("dana.work@acme.example") == "2 December 2026"
+
+    def test_an_unconfirmed_address_is_written_in_utc(self):
+        self._reader("dana@acme.example", verified=False)
+        assert self._expires_for("dana@acme.example") == "1 December 2026"
+
+    def test_no_account_or_no_time_zone_is_written_in_utc(self):
+        self._reader("sam@acme.example", time_zone="")
+        assert self._expires_for("sam@acme.example") == "1 December 2026"
+        assert self._expires_for("nobody@acme.example") == "1 December 2026"
 
     def test_who_may_invite(self):
         with pytest.raises(NotAllowed):

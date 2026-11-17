@@ -2,11 +2,15 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from app.application.user_time_zone_setting import ask_for_time_zone, change_time_zone
 from app.domain.models import APIToken
+from app.domain.user_time_zone import UTC, UnknownTimeZone, UserTimeZone
+from app.presentation.htmx import toast
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):
@@ -34,6 +38,10 @@ class ProfileView(LoginRequiredMixin, TemplateView):
             })
 
         ctx["providers"] = providers
+        ctx["time_zones"] = UserTimeZone.names()
+        ctx["current_time_zone"] = self.request.user.user_time_zone.name
+        # The picker is right here; the question would only repeat it.
+        ctx["hide_time_zone_question"] = True
 
         ctx["api_tokens"] = APIToken.objects.filter(
             kind=APIToken.Kind.PERSONAL, user=self.request.user
@@ -52,6 +60,36 @@ def disconnect_social(request, provider):
     account.delete()
     messages.success(request, f"Disconnected {provider}.")
     return redirect("profile")
+
+
+@login_required
+@require_POST
+def update_time_zone(request):
+    """The signed-in user picks their own time zone: from the Profile picker,
+    or in place from the time zone question (which then goes away)."""
+    try:
+        zone = change_time_zone(request.user, request.POST.get("time_zone", ""))
+        text, level = f"Time zone set to {zone.name}.", "success"
+    except UnknownTimeZone:
+        text, level = "Pick a time zone from the list.", "error"
+    if request.htmx:
+        response = toast(HttpResponse(""), text, level)
+        if level == "error":
+            response["HX-Reswap"] = "none"  # keep the question, so they can answer again
+        return response
+    getattr(messages, level)(request, text)
+    return redirect("profile")
+
+
+@login_required
+@require_POST
+def time_zone_question(request):
+    """The time zone question for the device's zone, once (rule 6), or
+    nothing when there is nothing to ask."""
+    zone = ask_for_time_zone(request.user, request.POST.get("device_time_zone", ""))
+    if zone is None:
+        return HttpResponse("")
+    return render(request, "components/time_zone_question.html", {"zone": zone, "utc": UTC})
 
 
 def _get_display_name(provider, social_account):
