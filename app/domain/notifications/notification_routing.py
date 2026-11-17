@@ -91,6 +91,8 @@ ROUTES: dict[str, Route] = {
     Kind.MEMBER_REMOVED: _WORKSPACE,
     Kind.MEMBER_ROLE_CHANGED: Route((Admins(), AffectedMember()), ("inbox",)),
     Kind.STANDARD_CHANGED: _WORKSPACE,
+    # About the person's own account: only they hear it.
+    Kind.TIME_ZONE_NOT_CHOSEN: Route((AffectedMember(),), ("inbox",)),
 }
 
 # An unknown kind (most likely a typo) still lands somewhere visible.

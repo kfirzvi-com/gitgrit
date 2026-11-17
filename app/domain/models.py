@@ -44,6 +44,8 @@ class User(AbstractUser):
     time_zone = models.CharField(
         max_length=64, blank=True, default="", db_default="", validators=[validate_time_zone]
     )
+    # When the user was asked for their time zone (once); empty until then.
+    time_zone_asked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "users"
@@ -53,6 +55,11 @@ class User(AbstractUser):
         """The time zone to write times in for this user (UTC until they
         choose one)."""
         return UserTimeZone.of(self.time_zone)
+
+    @property
+    def should_be_asked_time_zone(self) -> bool:
+        """Whether to ask the user for their time zone (once, rule 6)."""
+        return UserTimeZone.should_ask(self.time_zone, self.time_zone_asked_at is not None)
 
     @property
     def has_chosen_time_zone(self) -> bool:
@@ -2073,6 +2080,21 @@ class Notification(models.Model):
             body=f"{_display_name(actor)} {verb} {standard.name}. It runs on its projects again.",
             url=reverse("standard_detail", args=[standard.pk]),
             context={"standard_id": str(standard.pk), "activated": activated},
+        )
+
+    @classmethod
+    def time_zone_not_chosen(cls, *, tenant_id, user):
+        """``user`` was asked for their time zone and hasn't chosen one: keeps
+        the question in their notification center, linking to Profile."""
+        return cls._new(
+            tenant_id=tenant_id,
+            subject=_display_name(user),
+            kind=Kind.TIME_ZONE_NOT_CHOSEN,
+            severity=Severity.INFO,
+            title="Set your time zone",
+            body="Times in messages GitGrit sends you use UTC until you choose your time zone.",
+            url=reverse("profile") + "#time-zone",
+            context={"member_user_id": str(user.pk)},
         )
 
     @classmethod

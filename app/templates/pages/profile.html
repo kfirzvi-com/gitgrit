@@ -27,7 +27,7 @@
           <span class="opacity-70">Joined</span>
           <p>{% local_time user.date_joined "N j, Y" %}</p>
         </div>
-        <form method="post" action="{% url 'update_time_zone' %}">
+        <form method="post" action="{% url 'update_time_zone' %}" id="time-zone">
           {% csrf_token %}
           <label for="time-zone" class="opacity-70">Time zone</label>
           <p class="text-xs opacity-60">Used for times in messages GitGrit sends you.</p>

@@ -1,10 +1,13 @@
-"""Picking your time zone on the Profile page (rule 5: only the user sets
-their own time zone)."""
+"""Choosing your time zone: the Profile picker, the question asked once
+(rule 6), and rule 5: only the user sets their own time zone."""
 from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
 
 from app.admin import UserAdmin
+from app.domain.models import Notification
+from app.domain.notifications import Kind
+from app.domain.notifications.notification_routing import route_for
 from app.presentation.api.views import MeView
 
 
@@ -37,6 +40,78 @@ class ProfileTimeZoneTests(TestCase):
         self.client.post(reverse("update_time_zone"), {})
         self.user.refresh_from_db()
         self.assertEqual(self.user.time_zone, "")
+
+
+class AskedOnce(TestCase):
+    """Rule 6: a user who has not chosen a time zone is asked once, with their
+    device's zone; a note in their notification center keeps the question;
+    either answer is a choice; ignoring it is not asked again."""
+
+    PLACEHOLDER = 'id="time-zone-question"'
+
+    def setUp(self):
+        self.user = baker.make("app.User")
+        self.tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=self.user, tenant=self.tenant, role="member")
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["active_tenant_id"] = str(self.tenant.id)
+        session.save()
+
+    def ask(self, device_zone="Asia/Jerusalem"):
+        return self.client.post(reverse("time_zone_question"), {"device_time_zone": device_zone}, HTTP_HX_REQUEST="true")
+
+    def test_pages_carry_the_question_while_not_asked(self):
+        self.assertContains(self.client.get(reverse("dashboard")), self.PLACEHOLDER)
+
+    def test_the_question_suggests_the_device_zone_with_both_answers(self):
+        html = self.ask().content.decode()
+        self.assertIn("Your device is in <strong>Asia/Jerusalem</strong>", html)
+        self.assertIn('name="time_zone" value="Asia/Jerusalem"', html)
+        self.assertIn('name="time_zone" value="UTC"', html)
+
+    def test_asked_once_even_if_ignored(self):
+        self.ask()
+        self.assertEqual(self.ask().content, b"")
+        self.assertNotContains(self.client.get(reverse("dashboard")), self.PLACEHOLDER)
+
+    def test_asking_puts_one_note_in_the_notification_center(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.ask()
+            self.ask()
+        note = Notification.objects.get(kind=Kind.TIME_ZONE_NOT_CHOSEN)
+        self.assertEqual(note.tenant_id, self.tenant.id)
+        self.assertEqual(route_for(note.kind).recipients(note), [str(self.user.pk)])
+
+    def test_a_device_on_utc_has_nothing_to_ask(self):
+        self.assertEqual(self.ask("Etc/UTC").content, b"")
+        self.assertFalse(Notification.objects.exists())
+        self.assertNotContains(self.client.get(reverse("dashboard")), self.PLACEHOLDER)
+
+    def test_keep_utc_saves_utc_in_place(self):
+        r = self.client.post(reverse("update_time_zone"), {"time_zone": "UTC"}, HTTP_HX_REQUEST="true")
+        self.assertEqual((r.status_code, r.content), (200, b""))
+        self.assertIn("Time zone set to UTC.", r["HX-Trigger"])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.time_zone, "UTC")
+
+    def test_in_place_save_leaves_no_message_for_the_next_page(self):
+        self.client.post(reverse("update_time_zone"), {"time_zone": "UTC"}, HTTP_HX_REQUEST="true")
+        self.assertNotContains(self.client.get(reverse("profile")), "Time zone set to")
+
+    def test_an_error_keeps_the_question(self):
+        r = self.client.post(reverse("update_time_zone"), {"time_zone": "Mars/Base"}, HTTP_HX_REQUEST="true")
+        self.assertIn("Pick a time zone from the list.", r["HX-Trigger"])
+        self.assertEqual(r["HX-Reswap"], "none")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.time_zone, "")
+
+    def test_not_on_the_profile_page(self):
+        self.assertNotContains(self.client.get(reverse("profile")), self.PLACEHOLDER)
+
+    def test_not_when_signed_out(self):
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse("account_login")), self.PLACEHOLDER)
 
 
 class OnlyTheUserSetsTheirOwnTimeZone(TestCase):

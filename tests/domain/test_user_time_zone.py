@@ -79,8 +79,9 @@ class Rule4ShowingAMomentNeverChangesIt(SimpleTestCase):
 
 
 class Rule6NotChosenIsAskedOnce(SimpleTestCase):
-    """A user who has not chosen a time zone is asked once; answering
-    either way counts as choosing."""
+    """A user who has not chosen a time zone is asked once, with their
+    device's zone; nothing to suggest on UTC or an unknown zone; either
+    answer is a choice."""
 
     def test_empty_is_not_chosen(self):
         self.assertFalse(UserTimeZone.is_chosen(""))
@@ -93,6 +94,23 @@ class Rule6NotChosenIsAskedOnce(SimpleTestCase):
 
     def test_a_name_no_longer_known_is_asked_again(self):
         self.assertFalse(UserTimeZone.is_chosen("Gone/Zone"))
+
+    def test_asked_while_not_chosen_and_not_asked_before(self):
+        self.assertTrue(UserTimeZone.should_ask("", already_asked=False))
+
+    def test_asked_only_once(self):
+        self.assertFalse(UserTimeZone.should_ask("", already_asked=True))
+
+    def test_not_asked_once_chosen(self):
+        self.assertFalse(UserTimeZone.should_ask("UTC", already_asked=False))
+
+    def test_the_device_zone_is_the_suggestion(self):
+        self.assertEqual(UserTimeZone.suggestion_for("Asia/Jerusalem"), UserTimeZone("Asia/Jerusalem"))
+
+    def test_nothing_to_suggest_on_utc_or_an_unknown_zone(self):
+        for zone in ["UTC", "Etc/UTC", "Zulu", "", "Mars/Base"]:
+            with self.subTest(zone=zone):
+                self.assertIsNone(UserTimeZone.suggestion_for(zone))
 
 
 class UserReadsItsSavedTimeZone(SimpleTestCase):

@@ -1,0 +1,23 @@
+{# The time zone question (rule 6 in app.domain.user_time_zone), as        #}
+{# time_zone_question returns it: shown once, with the device's zone.      #}
+{# Either answer saves a choice in place; a form's action is the fallback  #}
+{# without HTMX.                                                            #}
+<div class="container mx-auto px-4 pt-4" id="time-zone-question">
+  <div role="status" class="alert alert-info shadow-sm">
+    <span>Your device is in <strong>{{ zone.name }}</strong>. Set it as your GitGrit time zone?</span>
+    <div class="flex gap-2">
+      <form method="post" action="{% url 'update_time_zone' %}"
+            hx-post="{% url 'update_time_zone' %}" hx-target="#time-zone-question" hx-swap="outerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="time_zone" value="{{ utc }}">
+        <button type="submit" class="btn btn-ghost btn-sm">Keep {{ utc }}</button>
+      </form>
+      <form method="post" action="{% url 'update_time_zone' %}"
+            hx-post="{% url 'update_time_zone' %}" hx-target="#time-zone-question" hx-swap="outerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="time_zone" value="{{ zone.name }}">
+        <button type="submit" class="btn btn-primary btn-sm">Use {{ zone.name }}</button>
+      </form>
+    </div>
+  </div>
+</div>
