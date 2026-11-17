@@ -15,6 +15,7 @@ from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
+from app.domain.user_time_zone import UserTimeZone
 from app.infrastructure.model_fields import EncryptedCharField
 
 
@@ -27,9 +28,19 @@ class User(AbstractUser):
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     superuser_granted_at = models.DateTimeField(null=True, blank=True)
+    # The IANA name of the time zone the user reads emails in; empty until
+    # they choose (app.domain.user_time_zone). The database default keeps
+    # inserts working on a database still shared with code that lacks it.
+    time_zone = models.CharField(max_length=64, blank=True, default="", db_default="")
 
     class Meta:
         db_table = "users"
+
+    @property
+    def user_time_zone(self) -> UserTimeZone:
+        """The time zone to write this user's email times in (UTC until
+        they choose one)."""
+        return UserTimeZone.of(self.time_zone)
 
 
 class Tenant(models.Model):

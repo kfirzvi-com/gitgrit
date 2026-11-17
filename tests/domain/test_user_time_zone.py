@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from django.test import SimpleTestCase
 
+from app.domain.models import User
 from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
 
 
@@ -83,3 +84,16 @@ class Rule6NotChosenIsAskedOnce(SimpleTestCase):
 
     def test_a_name_no_longer_known_is_asked_again(self):
         self.assertFalse(UserTimeZone.is_chosen("Gone/Zone"))
+
+
+class UserReadsItsSavedTimeZone(SimpleTestCase):
+    """A user's saved ``time_zone`` is read through UserTimeZone: UTC until
+    they choose, and when what they saved is no longer known."""
+
+    def test_new_user_is_utc(self):
+        self.assertEqual(User().user_time_zone, UserTimeZone.of(""))
+        self.assertEqual(User().time_zone, "")
+
+    def test_saved_zone_is_read(self):
+        self.assertEqual(User(time_zone="Asia/Jerusalem").user_time_zone.name, "Asia/Jerusalem")
+        self.assertEqual(User(time_zone="Gone/Zone").user_time_zone.name, "UTC")
