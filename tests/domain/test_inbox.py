@@ -35,6 +35,30 @@ class InboxTests(TestCase):
         self.assertTrue(item.is_unread)
         self.assertEqual(self.inbox.unread_count(), 1)
 
+    # --- mark_kind_read ---------------------------------------------------------
+
+    def test_mark_kind_read_reads_only_active_items_of_that_kind_here(self):
+        reminder = self._item(title="Reminder")
+        Notification.objects.filter(pk=reminder.notification_id).update(kind="time_zone.not_chosen")
+        other_kind = self._item(title="Other")
+        elsewhere = self._item(title="Reminder elsewhere", tenant=baker.make("app.Tenant"))
+        Notification.objects.filter(pk=elsewhere.notification_id).update(kind="time_zone.not_chosen")
+
+        self.assertEqual(self.inbox.mark_kind_read("time_zone.not_chosen"), 1)
+
+        for item in (reminder, other_kind, elsewhere):
+            item.refresh_from_db()
+        self.assertFalse(reminder.is_unread)
+        self.assertTrue(other_kind.is_unread)
+        self.assertTrue(elsewhere.is_unread)
+
+    def test_mark_kind_read_keeps_the_first_read_time(self):
+        read = self._item(read=True)
+        Notification.objects.filter(pk=read.notification_id).update(kind="time_zone.not_chosen")
+        first = InboxItem.objects.get(pk=read.pk).read_at
+        self.assertEqual(self.inbox.mark_kind_read("time_zone.not_chosen"), 0)
+        self.assertEqual(InboxItem.objects.get(pk=read.pk).read_at, first)
+
     def test_receive_refuses_another_workspaces_notification(self):
         with self.assertRaises(ValueError):
             self.inbox.receive(self._notification(tenant=baker.make("app.Tenant")))

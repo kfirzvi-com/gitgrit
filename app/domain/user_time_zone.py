@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo, available_timezones
 
 UTC = "UTC"
 # Names that are UTC by another name: a device on one has nothing to suggest.
-UTC_NAMES = frozenset({"UTC", "Etc/UTC", "Etc/UCT", "UCT", "Etc/Universal", "Universal", "Etc/Zulu", "Zulu"})
+UTC_NAMES = frozenset({UTC, "Etc/UTC", "Etc/UCT", "UCT", "Etc/Universal", "Universal", "Etc/Zulu", "Zulu"})
 
 
 class UnknownTimeZone(ValueError):
@@ -71,12 +71,6 @@ class UserTimeZone:
     def names() -> tuple[str, ...]:
         """Every known time zone name, sorted: the ones a user can pick."""
         return _names()
-
-    @staticmethod
-    def is_chosen(stored: str) -> bool:
-        """Whether the user has chosen a time zone that is still known; if
-        not, they are asked (rule 6). ``UTC`` saved by "Keep UTC" counts."""
-        return _is_known(stored)
 
     @staticmethod
     def should_ask(stored: str, already_asked: bool) -> bool:

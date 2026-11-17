@@ -46,7 +46,8 @@ class Triggerer:
 
 
 class AffectedMember:
-    """The member a membership notification is about, while still a member."""
+    """The member a notification is about (a change to their membership, or
+    their own account), while still a member."""
 
     def user_ids(self, notification: Notification) -> set[str]:
         member = notification.member_user_id

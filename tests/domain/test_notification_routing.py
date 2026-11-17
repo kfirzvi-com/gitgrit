@@ -107,3 +107,8 @@ class RoutingTests(TestCase):
 
         self.assertEqual(set(recipients), set(self.users.values()))
         self.assertNotIn(str(actor.pk), recipients)
+
+    def test_a_time_zone_note_goes_only_to_the_user_it_is_about(self):
+        member = User.objects.get(pk=self.users["member"])
+        n = Notification.time_zone_not_chosen(tenant_id=self.tenant.pk, user=member)
+        self.assertEqual(route_for(n.kind).recipients(n), [self.users["member"]])

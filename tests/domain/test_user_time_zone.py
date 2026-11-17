@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase
 
 from app.domain.models import User
-from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
+from app.domain.user_time_zone import UTC_NAMES, UnknownTimeZone, UserTimeZone
 
 
 class Rule1TimeZoneIsAnIanaName(SimpleTestCase):
@@ -83,17 +83,8 @@ class Rule6NotChosenIsAskedOnce(SimpleTestCase):
     device's zone; nothing to suggest on UTC or an unknown zone; either
     answer is a choice."""
 
-    def test_empty_is_not_chosen(self):
-        self.assertFalse(UserTimeZone.is_chosen(""))
-
     def test_keep_utc_counts_as_chosen(self):
-        self.assertTrue(UserTimeZone.is_chosen("UTC"))
-
-    def test_a_zone_counts_as_chosen(self):
-        self.assertTrue(UserTimeZone.is_chosen("Asia/Jerusalem"))
-
-    def test_a_name_no_longer_known_is_asked_again(self):
-        self.assertFalse(UserTimeZone.is_chosen("Gone/Zone"))
+        self.assertFalse(UserTimeZone.should_ask("UTC", already_asked=False))
 
     def test_asked_while_not_chosen_and_not_asked_before(self):
         self.assertTrue(UserTimeZone.should_ask("", already_asked=False))
@@ -106,6 +97,11 @@ class Rule6NotChosenIsAskedOnce(SimpleTestCase):
 
     def test_the_device_zone_is_the_suggestion(self):
         self.assertEqual(UserTimeZone.suggestion_for("Asia/Jerusalem"), UserTimeZone("Asia/Jerusalem"))
+
+    def test_every_utc_name_is_a_known_zone(self):
+        for name in UTC_NAMES:
+            with self.subTest(name=name):
+                UserTimeZone.parse(name)
 
     def test_nothing_to_suggest_on_utc_or_an_unknown_zone(self):
         for zone in ["UTC", "Etc/UTC", "Zulu", "", "Mars/Base"]:
@@ -125,11 +121,10 @@ class UserReadsItsSavedTimeZone(SimpleTestCase):
         self.assertEqual(User(time_zone="Asia/Jerusalem").user_time_zone.name, "Asia/Jerusalem")
         self.assertEqual(User(time_zone="Gone/Zone").user_time_zone.name, "UTC")
 
-    def test_has_chosen_time_zone(self):
-        self.assertFalse(User().has_chosen_time_zone)
-        self.assertTrue(User(time_zone="UTC").has_chosen_time_zone)
-        self.assertTrue(User(time_zone="Asia/Jerusalem").has_chosen_time_zone)
-        self.assertFalse(User(time_zone="Gone/Zone").has_chosen_time_zone)
+    def test_should_be_asked_time_zone(self):
+        self.assertTrue(User().should_be_asked_time_zone)
+        self.assertFalse(User(time_zone="UTC").should_be_asked_time_zone)
+        self.assertFalse(User(time_zone_asked_at=datetime.now(timezone.utc)).should_be_asked_time_zone)
 
     def test_only_a_known_name_passes_the_field_check(self):
         field = User._meta.get_field("time_zone")

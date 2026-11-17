@@ -29,10 +29,10 @@
         </div>
         <form method="post" action="{% url 'update_time_zone' %}" id="time-zone">
           {% csrf_token %}
-          <label for="time-zone" class="opacity-70">Time zone</label>
+          <label for="time-zone-select" class="opacity-70">Time zone</label>
           <p class="text-xs opacity-60">Used for times in messages GitGrit sends you.</p>
           <div class="flex gap-2 mt-1">
-            <select id="time-zone" name="time_zone" class="select select-bordered select-sm flex-1">
+            <select id="time-zone-select" name="time_zone" class="select select-bordered select-sm flex-1">
               {% for name in time_zones %}
                 <option value="{{ name }}"{% if name == current_time_zone %} selected{% endif %}>{{ name }}</option>
               {% endfor %}

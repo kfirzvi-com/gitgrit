@@ -61,12 +61,6 @@ class User(AbstractUser):
         """Whether to ask the user for their time zone (once, rule 6)."""
         return UserTimeZone.should_ask(self.time_zone, self.time_zone_asked_at is not None)
 
-    @property
-    def has_chosen_time_zone(self) -> bool:
-        """Whether the user has chosen a time zone (else they read UTC and
-        are asked once)."""
-        return UserTimeZone.is_chosen(self.time_zone)
-
 
 class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -2085,14 +2079,15 @@ class Notification(models.Model):
     @classmethod
     def time_zone_not_chosen(cls, *, tenant_id, user):
         """``user`` was asked for their time zone and hasn't chosen one: keeps
-        the question in their notification center, linking to Profile."""
+        the question in their notification center, linking to Profile. Read
+        for them once they choose."""
         return cls._new(
             tenant_id=tenant_id,
             subject=_display_name(user),
             kind=Kind.TIME_ZONE_NOT_CHOSEN,
             severity=Severity.INFO,
             title="Set your time zone",
-            body="Times in messages GitGrit sends you use UTC until you choose your time zone.",
+            body="GitGrit uses UTC for your times until you choose your time zone.",
             url=reverse("profile") + "#time-zone",
             context={"member_user_id": str(user.pk)},
         )

@@ -86,10 +86,7 @@ def update_time_zone(request):
 def time_zone_question(request):
     """The time zone question for the device's zone, once (rule 6), or
     nothing when there is nothing to ask."""
-    tenant = getattr(request, "tenant", None)
-    zone = ask_for_time_zone(
-        request.user, request.POST.get("device_time_zone", ""), tenant.pk if tenant else None
-    )
+    zone = ask_for_time_zone(request.user, request.POST.get("device_time_zone", ""))
     if zone is None:
         return HttpResponse("")
     return render(request, "components/time_zone_question.html", {"zone": zone, "utc": UTC})
