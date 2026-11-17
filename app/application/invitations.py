@@ -28,6 +28,7 @@ from app.domain.models import (
     Tenant,
     WorkspaceInvitation,
 )
+from app.domain.user_time_zone import UTC, UserTimeZone
 from app.domain.workspace_roles import ROLE_LABELS, AlreadyMember, NotAllowed
 
 logger = logging.getLogger("app.access")
@@ -57,7 +58,12 @@ def invite(tenant: Tenant, email: str, role: str, by) -> WorkspaceInvitation:
         else:
             token = invitation.renew(role=role, invited_by=by)
         invitation.save()
-        _email_invitation(invitation, token, has_account=existing is not None)
+        # Two different questions: ``has_account`` is about the account's email
+        # (sign in or sign up?); the reader is whoever confirmed this address,
+        # since only they may set how the email is written for them.
+        _email_invitation(
+            invitation, token, has_account=existing is not None, reader=_user_who_confirmed(email)
+        )
     logger.info("invitation for %s to %s as %s sent by %s", email, tenant.slug, role, by.pk)
     return invitation
 
@@ -86,8 +92,23 @@ def _check_can_manage(invitation, by):
         raise NotAllowed("Only owners and admins manage invitations; only owners, owner ones.")
 
 
-def _email_invitation(invitation, token, *, has_account):
+def _user_who_confirmed(email):
+    """The user who confirmed ``email``, if anyone: the only person the
+    invitation's times may be written for (an unconfirmed address could be
+    anyone's)."""
+    found = (
+        EmailAddress.objects.filter(email__iexact=email, verified=True)
+        .select_related("user")
+        .first()
+    )
+    return found.user if found else None
+
+
+def _email_invitation(invitation, token, *, has_account, reader):
+    """``reader``: the user the email goes to, when known; its times are
+    written in their time zone (UTC otherwise)."""
     inviter = invitation.invited_by
+    time_zone = reader.user_time_zone if reader is not None else UserTimeZone(UTC)
     send_later(
         "workspace_invitation",
         [invitation.email],
@@ -98,7 +119,7 @@ def _email_invitation(invitation, token, *, has_account):
             "inviter_email": inviter.email if inviter else "",
             "accept_path": reverse("invitation", args=[token]),
             "has_account": has_account,
-            "expires": invitation.expires_at.strftime("%-d %B %Y"),
+            "expires": time_zone.local(invitation.expires_at).strftime("%-d %B %Y"),
         },
     )
 
