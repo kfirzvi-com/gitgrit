@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 
 [[package]]
@@ -671,6 +671,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "tzdata" },
     { name = "uvicorn" },
     { name = "whitenoise" },
 ]
@@ -704,6 +705,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.11.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "tzdata", specifier = ">=2025.3" },
     { name = "uvicorn", specifier = ">=0.30" },
     { name = "whitenoise", specifier = ">=6.0" },
 ]
