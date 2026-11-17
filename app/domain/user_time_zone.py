@@ -28,8 +28,13 @@ class UnknownTimeZone(ValueError):
 
 
 @cache
+def _names() -> tuple[str, ...]:
+    return tuple(sorted(available_timezones()))
+
+
+@cache
 def _known_names() -> frozenset[str]:
-    return frozenset(available_timezones())
+    return frozenset(_names())
 
 
 def _is_known(name: str) -> bool:
@@ -57,6 +62,11 @@ class UserTimeZone:
         """A stored choice, or UTC when there is none or it is no longer
         known (rules 2 and 3)."""
         return cls(stored) if _is_known(stored) else cls(UTC)
+
+    @staticmethod
+    def names() -> tuple[str, ...]:
+        """Every known time zone name, sorted: the ones a user can pick."""
+        return _names()
 
     @staticmethod
     def is_chosen(stored: str) -> bool:

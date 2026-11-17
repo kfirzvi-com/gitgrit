@@ -20,6 +20,14 @@ class Rule1TimeZoneIsAnIanaName(SimpleTestCase):
             with self.subTest(name=name), self.assertRaises(UnknownTimeZone):
                 UserTimeZone.parse(name)
 
+    def test_the_names_to_pick_from_are_the_known_ones_sorted(self):
+        names = UserTimeZone.names()
+        self.assertEqual(list(names), sorted(names))
+        self.assertIn("Asia/Jerusalem", names)
+        self.assertIn("UTC", names)
+        for name in names:
+            UserTimeZone.parse(name)  # every name offered is accepted
+
     def test_building_one_directly_is_refused_too(self):
         with self.assertRaises(UnknownTimeZone):
             UserTimeZone("Mars/Base")

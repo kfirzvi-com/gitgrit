@@ -103,7 +103,7 @@ from app.presentation.views.github_app_views import (
 )
 from app.presentation.views.badge_views import project_badge
 from app.presentation.views.feedback_views import submit_feedback
-from app.presentation.views.profile_views import ProfileView, disconnect_social
+from app.presentation.views.profile_views import ProfileView, disconnect_social, update_time_zone
 from app.presentation.views.marketplace_views import (
     bulk_install_marketplace,
     MarketplaceBrowseView,
@@ -167,6 +167,7 @@ urlpatterns = [
     path("notifications/<uuid:pk>/unread/", mark_unread, name="notification_mark_unread"),
     path("profile/", ProfileView.as_view(), name="profile"),
     path("profile/disconnect/<str:provider>/", disconnect_social, name="disconnect_social"),
+    path("profile/time-zone/", update_time_zone, name="update_time_zone"),
     # Tenant management
     path("tenants/switch/", switch_tenant, name="switch_tenant"),
     path("tenants/switcher/", workspace_switcher_list, name="workspace_switcher_list"),

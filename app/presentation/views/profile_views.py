@@ -6,7 +6,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from app.application.user_time_zone_setting import change_time_zone
 from app.domain.models import APIToken
+from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):
@@ -34,6 +36,8 @@ class ProfileView(LoginRequiredMixin, TemplateView):
             })
 
         ctx["providers"] = providers
+        ctx["time_zones"] = UserTimeZone.names()
+        ctx["current_time_zone"] = self.request.user.user_time_zone.name
 
         ctx["api_tokens"] = APIToken.objects.filter(
             kind=APIToken.Kind.PERSONAL, user=self.request.user
@@ -51,6 +55,19 @@ def disconnect_social(request, provider):
     )
     account.delete()
     messages.success(request, f"Disconnected {provider}.")
+    return redirect("profile")
+
+
+@login_required
+@require_POST
+def update_time_zone(request):
+    """The signed-in user picks their own time zone (used for emails)."""
+    try:
+        zone = change_time_zone(request.user, request.POST.get("time_zone", ""))
+    except UnknownTimeZone:
+        messages.error(request, "Pick a time zone from the list.")
+        return redirect("profile")
+    messages.success(request, f"Time zone set to {zone.name}.")
     return redirect("profile")
 
 
