@@ -49,8 +49,6 @@ class Kind:
     MEMBER_REMOVED = "member.removed"
     MEMBER_ROLE_CHANGED = "member.role_changed"
     STANDARD_CHANGED = "standard.changed"
-    # The person's own account
-    TIME_ZONE_NOT_CHOSEN = "time_zone.not_chosen"  # asked to choose a time zone
 
 
 # Detail text longer than this is cut.

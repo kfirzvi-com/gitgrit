@@ -200,14 +200,6 @@ class NewKindConstructorTests(TestCase):
         self.assertEqual(changed.subject, "Pinned CI")
         self.assertEqual(changed.url, reverse("standard_detail", args=[standard.pk]))
 
-    def test_time_zone_not_chosen(self):
-        user = baker.make("app.User", first_name="Sam", last_name="Kim")
-        n = Notification.time_zone_not_chosen(tenant_id=self.project.tenant_id, user=user)
-        self.assertEqual((n.kind, n.severity, n.title), (Kind.TIME_ZONE_NOT_CHOSEN, Severity.INFO, "Set your time zone"))
-        self.assertEqual(n.body, "GitGrit uses UTC for your times until you choose your time zone.")
-        self.assertEqual(n.url, reverse("profile") + "#time-zone")
-        self.assertEqual((n.subject, n.member_user_id), ("Sam Kim", str(user.pk)))
-
     def test_an_unknown_actor_reads_as_someone(self):
         n = Notification.project_added(project=self.project, actor=None)
         self.assertEqual(n.body, "Someone added Acme.")

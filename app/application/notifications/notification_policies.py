@@ -6,8 +6,7 @@ notification_rules``), gathers the facts, builds the notification through its
 named constructor on ``Notification`` (which holds the wording) and raises it.
 It never decides who hears it; that is notification routing's job
 (``notification_routing.py``). Workers publish the events and know nothing
-about these listeners. A few policies retire notifications instead: when what
-a reminder asked for is done, they read it for the person.
+about these listeners.
 """
 
 from __future__ import annotations
@@ -26,13 +25,10 @@ from app.domain.events import (
     StandardRunFinished,
     StandardRunsTimedOut,
     StandardSaved,
-    TimeZoneAsked,
-    TimeZoneChosen,
 )
 from app.domain.importance import Importance
-from app.domain.models import Membership, Notification, Project, Standard, StandardExecution, User
-from app.domain.notifications import Kind, notification_rules
-from app.domain.notifications.inbox import Inbox
+from app.domain.models import Notification, Project, Standard, StandardExecution, User
+from app.domain.notifications import notification_rules
 
 # ``triggered_by`` values written by the app itself (``standard_runs`` and
 # ``subscribers``); anything else there is a webhook actor's username.
@@ -311,32 +307,6 @@ class StandardChangedNotificationPolicy:
         )
 
 
-# --- A user's own account ---------------------------------------------------
-
-
-class TimeZoneNotChosenNotificationPolicy:
-    """Whenever a user is asked for their time zone, keep the question in
-    their notification center, in every workspace they belong to (it is
-    about them, not one workspace). A user with no workspace has no
-    notification center: the question on the page is all they get."""
-
-    def handle(self, event: TimeZoneAsked) -> None:
-        user = _user(event.user_id)
-        if user is None:
-            return
-        for tenant_id in _workspaces_of(user.pk):
-            raise_notification(Notification.time_zone_not_chosen(tenant_id=tenant_id, user=user))
-
-
-class TimeZoneChosenNotificationPolicy:
-    """Whenever a user chooses their time zone, the "Set your time zone"
-    reminder is done: read it for them in every workspace."""
-
-    def handle(self, event: TimeZoneChosen) -> None:
-        for tenant_id in _workspaces_of(event.user_id):
-            Inbox(event.user_id, tenant_id).mark_kind_read(Kind.TIME_ZONE_NOT_CHOSEN)
-
-
 NOTIFICATION_POLICIES = (
     (StandardRunFinished, CouldNotEvaluateNotificationPolicy()),
     (StandardRunFinished, StandardsFailingNotificationPolicy()),
@@ -352,8 +322,6 @@ NOTIFICATION_POLICIES = (
     (MemberRoleChanged, MemberRoleChangedNotificationPolicy()),
     (StandardSaved, StandardChangedNotificationPolicy()),
     (StandardActivated, StandardChangedNotificationPolicy()),
-    (TimeZoneAsked, TimeZoneNotChosenNotificationPolicy()),
-    (TimeZoneChosen, TimeZoneChosenNotificationPolicy()),
 )
 
 
@@ -371,10 +339,6 @@ def _project(event):
 
 def _user(user_id):
     return User.objects.filter(pk=user_id).first() if user_id else None
-
-
-def _workspaces_of(user_id) -> list:
-    return list(Membership.objects.filter(user_id=user_id).values_list("tenant_id", flat=True))
 
 
 def _rows(event, project, order="created_at"):

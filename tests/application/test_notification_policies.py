@@ -20,8 +20,6 @@ from app.application.notifications.notification_policies import (
     RunsTimedOutNotificationPolicy,
     StandardChangedNotificationPolicy,
     StandardsFailingNotificationPolicy,
-    TimeZoneChosenNotificationPolicy,
-    TimeZoneNotChosenNotificationPolicy,
 )
 from app.domain.events import (
     DependencyInferenceFailed,
@@ -34,12 +32,8 @@ from app.domain.events import (
     StandardRunFinished,
     StandardRunsTimedOut,
     StandardSaved,
-    TimeZoneAsked,
-    TimeZoneChosen,
 )
 from app.domain.models import Notification, StandardExecution
-from app.domain.notifications import Kind
-from app.domain.notifications.inbox import Inbox
 from tests.support import deliver_defer_patch, score_commit
 
 
@@ -515,34 +509,3 @@ class RegistrationTests(_PolicyTestCase):
             sorted(Notification.objects.values_list("kind", flat=True)),
             ["graph.failed", "run.failed"],
         )
-
-
-class TimeZoneNotificationPolicyTests(_PolicyTestCase):
-    """The "Set your time zone" reminder: left in every workspace of a user
-    who was asked, and read for them once they choose."""
-
-    def setUp(self):
-        super().setUp()
-        self.user = baker.make("app.User")
-        self.other = baker.make("app.Tenant")
-        baker.make("app.Membership", user=self.user, tenant=self.tenant, role="member")
-        baker.make("app.Membership", user=self.user, tenant=self.other, role="owner")
-
-    def test_asked_leaves_one_note_in_every_workspace_of_the_user(self):
-        TimeZoneNotChosenNotificationPolicy().handle(TimeZoneAsked(user_id=str(self.user.pk)))
-        notes = Notification.objects.filter(kind=Kind.TIME_ZONE_NOT_CHOSEN)
-        self.assertEqual({n.tenant_id for n in notes}, {self.tenant.pk, self.other.pk})
-        self.assertEqual({n.member_user_id for n in notes}, {str(self.user.pk)})
-
-    def test_a_user_without_a_workspace_gets_no_note(self):
-        loner = baker.make("app.User")
-        TimeZoneNotChosenNotificationPolicy().handle(TimeZoneAsked(user_id=str(loner.pk)))
-        self.assertFalse(Notification.objects.exists())
-
-    def test_chosen_reads_the_note_in_every_workspace(self):
-        TimeZoneNotChosenNotificationPolicy().handle(TimeZoneAsked(user_id=str(self.user.pk)))
-        for note in Notification.objects.all():
-            Inbox(self.user.pk, note.tenant_id).receive(note)
-        TimeZoneChosenNotificationPolicy().handle(TimeZoneChosen(user_id=str(self.user.pk)))
-        for tenant in (self.tenant, self.other):
-            self.assertEqual(Inbox(self.user.pk, tenant.pk).unread_count(), 0)

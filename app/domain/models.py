@@ -2077,22 +2077,6 @@ class Notification(models.Model):
         )
 
     @classmethod
-    def time_zone_not_chosen(cls, *, tenant_id, user):
-        """``user`` was asked for their time zone and hasn't chosen one: keeps
-        the question in their notification center, linking to Profile. Read
-        for them once they choose."""
-        return cls._new(
-            tenant_id=tenant_id,
-            subject=_display_name(user),
-            kind=Kind.TIME_ZONE_NOT_CHOSEN,
-            severity=Severity.INFO,
-            title="Set your time zone",
-            body="GitGrit uses UTC for your times until you choose your time zone.",
-            url=reverse("profile") + "#time-zone",
-            context={"member_user_id": str(user.pk)},
-        )
-
-    @classmethod
     def _new(
         cls, *, kind, severity, title, body, url, context, project=None, tenant_id=None,
         subject=None, actor=None,

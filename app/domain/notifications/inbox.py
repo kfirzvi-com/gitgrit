@@ -8,8 +8,6 @@ The aggregate root over ``InboxItem`` rows. It owns the reading rules:
 * an item is Active until its recipient reads it, by opening it, marking it
   read, or marking everything read; read items are History, and marking one
   unread puts it back in Active;
-* a reminder can be read for the person when what it asks is done (e.g. they
-  chose their time zone), by its kind;
 * reading is personal: one person reading an item never changes anyone
   else's copy;
 * an inbox only holds notifications from its own workspace.
@@ -59,15 +57,6 @@ class Inbox:
     def mark_all_read(self) -> int:
         """Read every Active item; returns how many."""
         return self._items().filter(read_at__isnull=True).update(read_at=timezone.now())
-
-    def mark_kind_read(self, kind: str) -> int:
-        """Read every Active item of one kind: a reminder whose ask is done
-        (e.g. the user chose their time zone). Returns how many."""
-        return (
-            self._items()
-            .filter(read_at__isnull=True, notification__kind=kind)
-            .update(read_at=timezone.now())
-        )
 
     # --- Reads ---------------------------------------------------------------
 

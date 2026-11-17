@@ -5,11 +5,6 @@ from django.urls import reverse
 from model_bakery import baker
 
 from app.admin import UserAdmin
-from app.domain.models import Notification
-from app.domain.models import Membership
-from app.domain.notifications import Kind
-from app.domain.notifications.inbox import Inbox
-from app.domain.notifications.notification_routing import route_for
 from app.presentation.api.views import MeView
 
 
@@ -46,8 +41,8 @@ class ProfileTimeZoneTests(TestCase):
 
 class AskedOnce(TestCase):
     """Rule 6: a user who has not chosen a time zone is asked once, with their
-    device's zone; a note in their notification center keeps the question;
-    either answer is a choice; ignoring it is not asked again."""
+    device's zone; either answer is a choice; ignoring it is not asked
+    again."""
 
     PLACEHOLDER = 'id="time-zone-question"'
 
@@ -77,36 +72,8 @@ class AskedOnce(TestCase):
         self.assertEqual(self.ask().content, b"")
         self.assertNotContains(self.client.get(reverse("dashboard")), self.PLACEHOLDER)
 
-    def test_asking_puts_one_note_in_every_workspace_of_the_user(self):
-        other = baker.make("app.Tenant")
-        baker.make("app.Membership", user=self.user, tenant=other, role="owner")
-        with self.captureOnCommitCallbacks(execute=True):
-            self.ask()
-            self.ask()
-        notes = Notification.objects.filter(kind=Kind.TIME_ZONE_NOT_CHOSEN)
-        self.assertEqual({n.tenant_id for n in notes}, {self.tenant.id, other.id})
-        self.assertEqual(notes.count(), 2)
-        for note in notes:
-            self.assertEqual(route_for(note.kind).recipients(note), [str(self.user.pk)])
-
-    def test_choosing_reads_the_note_everywhere(self):
-        with self.captureOnCommitCallbacks(execute=True):
-            self.ask()
-        note = Notification.objects.get(kind=Kind.TIME_ZONE_NOT_CHOSEN)
-        Inbox(self.user.pk, self.tenant.pk).receive(note)
-        with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(reverse("update_time_zone"), {"time_zone": "Asia/Jerusalem"}, HTTP_HX_REQUEST="true")
-        self.assertEqual(Inbox(self.user.pk, self.tenant.pk).unread_count(), 0)
-
-    def test_no_workspace_means_no_note(self):
-        Membership.objects.filter(user=self.user).delete()
-        with self.captureOnCommitCallbacks(execute=True):
-            self.ask()
-        self.assertFalse(Notification.objects.exists())
-
     def test_a_device_on_utc_has_nothing_to_ask(self):
         self.assertEqual(self.ask("Etc/UTC").content, b"")
-        self.assertFalse(Notification.objects.exists())
         self.assertNotContains(self.client.get(reverse("dashboard")), self.PLACEHOLDER)
 
     def test_keep_utc_saves_utc_in_place(self):
