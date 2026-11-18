@@ -1,13 +1,14 @@
 ---
-title: "Hold contractors and outside developers to your engineering standards"
-description: "Contractors, outsourced teams and partners building on your platform write code you don't review line by line. GitGrit checks their repositories against your standards on every push."
+title: "Coding standards for contractors and outsourced teams"
+description: "Contractors and outsourced teams write code you don't review line by line. GitGrit checks their repositories against your standards on every push."
 ---
 
 <p class="gg-uc-page-eyebrow" markdown>:material-handshake-outline: Use case · Contractors, outsourced teams and platform partners</p>
 
-# Hold outside developers to your standards
+# Hold contractors and outsourced developers to your standards
 
-**The short answer:** more and more of your code is written by people outside your team: contractors, an outsourced team, partners who build on your platform or SDK. You can't review every line, and you can't sit next to them. GitGrit checks their repositories against your standards on every push, so you know the code meets your bar before it reaches you.
+More and more of your code is written by people outside your team: contractors, an outsourced team, partners who build on your platform or SDK. You can't review every line, and you can't sit next to them. GitGrit checks their repositories against your standards on every push, so you know the code meets your bar before it reaches you.
+{ .gg-uc-lead }
 
 ## The problem
 
@@ -51,6 +52,11 @@ A GitHub App or GitLab connection with the access you choose. GitGrit is open so
 
 ### Can I accept a delivery based on the grade?
 Many teams use a passing grade, or no failing Required standards, as part of the bar for accepting work.
+
+## Related
+
+- [Enforce engineering standards on every commit](enforce-engineering-standards.md)
+- [Engineering visibility: know where every repository stands](engineering-visibility.md)
 
 ## Talk to us
 

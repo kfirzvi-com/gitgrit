@@ -1,13 +1,14 @@
 ---
-title: "AI coding standards: check CLAUDE.md, AGENTS.md and AI-written code"
-description: "Keep AI-written code on your engineering standards. GitGrit checks every change, human or AI, on every push, keeps CLAUDE.md, AGENTS.md and Cursor rules current and safe, and keeps AI spend on budget."
+title: "AI coding standards: CLAUDE.md and AI-written code"
+description: "Check every change, human or AI, against your engineering standards, and keep CLAUDE.md, AGENTS.md and Cursor rules current and safe."
 ---
 
 <p class="gg-uc-page-eyebrow" markdown>:material-robot-outline: Use case · AI coding standards</p>
 
-# Keep AI-written code on your standards
+# AI coding standards: keep AI-written code on your standards
 
-**The short answer:** rule files like `CLAUDE.md`, `AGENTS.md` and `.cursorrules` tell an AI assistant what to do while it writes. Nothing checks what actually landed, or whether those files are still true. GitGrit does both: it checks every change, human or AI, against the same standards on every push, and it checks the agent files themselves.
+Rule files like `CLAUDE.md`, `AGENTS.md` and `.cursorrules` tell an AI assistant what to do while it writes. Nothing checks what actually landed, or whether those files are still true. GitGrit does both: it checks every change, human or AI, against the same standards on every push, and it checks the agent files themselves.
+{ .gg-uc-lead }
 
 ## The problem
 
@@ -77,6 +78,11 @@ No. The usage and budgets cover the AI models GitGrit's own checks use. Your tea
 
 ### Which AI tools does it cover?
 The agent-file standards look for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules` and `.github/copilot-instructions.md`. The code checks apply to all code, whoever or whatever wrote it.
+
+## Related
+
+- [Enforce engineering standards on every commit](enforce-engineering-standards.md)
+- [Engineering governance: decide which standards apply where](engineering-governance.md)
 
 ## Talk to us
 

@@ -1,13 +1,14 @@
 ---
-title: "Find repositories on end-of-life Node.js and Python versions"
-description: "Node.js 20 reached end of life in April 2026 and Python 3.10 in October 2026. GitGrit checks every repository on every push and shows which ones still run an end-of-life version."
+title: "Find repositories on end-of-life Node.js and Python"
+description: "Node.js 20 reached end of life in April 2026 and Python 3.10 in October 2026. GitGrit shows which repositories still run them, on every push."
 ---
 
 <p class="gg-uc-page-eyebrow" markdown>:material-clock-alert-outline: Use case · Node.js and Python end of life</p>
 
-# Find repositories on end-of-life runtimes
+# Find repositories on end-of-life Node.js and Python versions
 
-**The short answer:** Node.js 20 reached end of life on April 30, 2026, and Python 3.10 in October 2026. End-of-life versions get no more security fixes, and libraries start dropping support. GitGrit checks every repository on every push and shows which ones still run an end-of-life version, so you can plan the upgrade instead of being forced into it.
+Node.js 20 reached end of life on April 30, 2026, and Python 3.10 in October 2026. End-of-life versions get no more security fixes, and libraries start dropping support. GitGrit checks every repository on every push and shows which ones still run an end-of-life version, so you can plan the upgrade instead of being forced into it.
+{ .gg-uc-lead }
 
 ## The problem
 
@@ -65,6 +66,11 @@ The Python Standards pack includes a standard that checks a version is specified
 
 ### Can I check other runtimes?
 Yes. Every standard is a short piece of Python, so you can write the same check for Go, Java or anything else your repositories declare.
+
+## Related
+
+- [Standardize engineering across every repository](engineering-standardization.md)
+- [Engineering visibility: know where every repository stands](engineering-visibility.md)
 
 ## Talk to us
 

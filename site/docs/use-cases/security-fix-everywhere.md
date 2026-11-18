@@ -1,13 +1,14 @@
 ---
-title: "Make sure a security fix reached every repository"
-description: "A vulnerable package or a bad configuration turns up in one repository. Is it anywhere else? GitGrit lets you write a check in minutes, run it across every repository, and track the fix until every one is clean."
+title: "Track a security fix across every repository"
+description: "Found a vulnerable package or bad config in one repository? Write a check in minutes, find it everywhere, and track the fix until every one is clean."
 ---
 
 <p class="gg-uc-page-eyebrow" markdown>:material-shield-check-outline: Use case · Responding to a security issue across repositories</p>
 
-# Make sure a fix reached every repository
+# Track a security fix across every repository
 
-**The short answer:** when a vulnerable dependency or a risky configuration is found, the first question is "where else do we have this?" and the second is "are we sure it's fixed everywhere?" With GitGrit you turn the issue into a standard in minutes, run it across every repository, mark it Required, and watch until every repository passes. Then it keeps running, so the issue can't quietly come back.
+When a vulnerable dependency or a risky configuration is found, the first question is "where else do we have this?" and the second is "are we sure it's fixed everywhere?" With GitGrit you turn the issue into a standard in minutes, run it across every repository, mark it Required, and watch until every repository passes. Then it keeps running, so the issue can't quietly come back.
+{ .gg-uc-lead }
 
 ## The problem
 
@@ -60,6 +61,11 @@ Yes. GitGrit records results per commit and per branch, and you choose which bra
 
 ### Where does the check run?
 In an isolated sandbox, on GitGrit's cloud or on your own infrastructure if you self-host.
+
+## Related
+
+- [Enforce engineering standards on every commit](enforce-engineering-standards.md)
+- [Find repositories on end-of-life Node.js and Python versions](end-of-life-runtimes.md)
 
 ## Talk to us
 

@@ -1,6 +1,6 @@
 ---
-title: "GitGrit use cases: engineering standards in practice"
-description: "How engineering teams use GitGrit, the engineering standards platform: keep AI-written code on standard, catch mistakes on the first commit, lead with visibility and control, scale teams, onboard developers and roll out changes across every repository."
+title: "Engineering standards use cases"
+description: "How growing engineering teams use GitGrit: engineering visibility, governance, standardization and enforcement, plus AI coding standards and migrations."
 hide:
   - navigation
   - toc
@@ -10,42 +10,15 @@ hide:
 
 <p class="gg-uc-eyebrow">Use cases</p>
 
-# How teams use GitGrit
+# Engineering standards, in practice
 
-Every team is different. Whatever your needs, GitGrit fits the way you work. We've got you.
+GitGrit is built for **CTOs and engineering leaders at growing startups**. Here's what it does for you, and the moments when teams reach for it.
 
 </div>
 
 <div class="gg-uc-group" markdown>
 
-## Build with confidence
-
-<div class="gg-uc-grid" markdown>
-
-<div class="gg-uc-card" markdown>
-:material-robot-outline:{ .gg-uc-card__bg }
-:material-robot-outline:{ .gg-uc-card__icon }
-
-### [Keep AI-written code on your standards](ai-coding-standards.md)
-
-Every change, human or AI, checked against the same standards. The files your agents read, like `CLAUDE.md`, kept current and safe, and the AI your checks use kept on budget.
-</div>
-
-<div class="gg-uc-card" markdown>
-:material-source-commit:{ .gg-uc-card__bg }
-:material-source-commit:{ .gg-uc-card__icon }
-
-### [Catch mistakes on the first commit](catch-mistakes-early.md)
-
-A missing CI pipeline or an unpinned Docker image costs minutes on day one and days once it has spread. GitGrit flags it on the push that introduced it.
-</div>
-
-</div>
-</div>
-
-<div class="gg-uc-group" markdown>
-
-## Lead and grow
+## What GitGrit does for you
 
 <div class="gg-uc-grid" markdown>
 
@@ -53,36 +26,36 @@ A missing CI pipeline or an unpinned Docker image costs minutes on day one and d
 :material-view-dashboard-outline:{ .gg-uc-card__bg }
 :material-view-dashboard-outline:{ .gg-uc-card__icon }
 
-### [Lead with visibility and control](engineering-visibility.md)
+### [Know where every repository stands](engineering-visibility.md)
 
-One screen with every repository's grade and the exact reason behind it. Decide which standards apply where, and how much each one matters.
+**Engineering visibility** for managers: a clear **dashboard**, **project and standard** pages and an **architecture map**. **No chasing people.**
 </div>
 
 <div class="gg-uc-card" markdown>
-:material-trending-up:{ .gg-uc-card__bg }
-:material-trending-up:{ .gg-uc-card__icon }
+:material-tune-variant:{ .gg-uc-card__bg }
+:material-tune-variant:{ .gg-uc-card__icon }
 
-### [Grow your team without losing speed](scaling-engineering-teams.md)
+### [Set the rules in one place](engineering-governance.md)
 
-The practices that made your small team fast, written down once and checked on every repository, so they scale from one team to many.
+**Engineering governance** as policy as code. Decide which standards apply where, and how much each one matters.
 </div>
 
 <div class="gg-uc-card" markdown>
-:material-account-plus-outline:{ .gg-uc-card__bg }
-:material-account-plus-outline:{ .gg-uc-card__icon }
+:material-vector-arrange-below:{ .gg-uc-card__bg }
+:material-vector-arrange-below:{ .gg-uc-card__icon }
 
-### [Onboard new developers onto your standards](developer-onboarding.md)
+### [One bar for every team](engineering-standardization.md)
 
-New developers learn "how we do things here" from the first commit, not from a wiki or a babysat pull request.
+**Standardize** how every team and repository builds, onboard new developers from their first commit, and roll out new standards to done.
 </div>
 
 <div class="gg-uc-card" markdown>
-:material-handshake-outline:{ .gg-uc-card__bg }
-:material-handshake-outline:{ .gg-uc-card__icon }
+:material-source-commit:{ .gg-uc-card__bg }
+:material-source-commit:{ .gg-uc-card__icon }
 
-### [Hold outside developers to your standards](outside-developers.md)
+### [Catch it on the commit](enforce-engineering-standards.md)
 
-Contractors, outsourced teams and partners building on your platform are checked against the same standards as your own team.
+**Enforce your standards** on every push, pull request and tag. The exact commit is flagged, and the CI build fails when a Required standard fails.
 </div>
 
 </div>
@@ -90,35 +63,44 @@ Contractors, outsourced teams and partners building on your platform are checked
 
 <div class="gg-uc-group" markdown>
 
-## Change everything, safely
+## When teams reach for GitGrit
 
-<div class="gg-uc-grid gg-uc-grid--3" markdown>
-
-<div class="gg-uc-card" markdown>
-:material-rocket-launch-outline:{ .gg-uc-card__bg }
-:material-rocket-launch-outline:{ .gg-uc-card__icon }
-
-### [Roll out a change across every repository](rollout-standards.md)
-
-Write a new standard once, roll it out everywhere, and watch the list of repositories that still need it shrink to zero.
-</div>
+<div class="gg-uc-grid" markdown>
 
 <div class="gg-uc-card" markdown>
-:material-shield-check-outline:{ .gg-uc-card__bg }
-:material-shield-check-outline:{ .gg-uc-card__icon }
+:material-robot-outline:{ .gg-uc-card__bg }
+:material-robot-outline:{ .gg-uc-card__icon }
 
-### [Make sure a fix reached every repository](security-fix-everywhere.md)
+### [AI coding standards](ai-coding-standards.md)
 
-Write a check in minutes, see every repository an issue affects, and track the fix until every one is clean.
+You rolled out AI coding tools. Every change, human or AI, is checked against the same standards, and **`CLAUDE.md` and `AGENTS.md` stay current and safe**.
 </div>
 
 <div class="gg-uc-card" markdown>
 :material-clock-alert-outline:{ .gg-uc-card__bg }
 :material-clock-alert-outline:{ .gg-uc-card__icon }
 
-### [Find repositories on end-of-life runtimes](end-of-life-runtimes.md)
+### [End-of-life Node.js and Python](end-of-life-runtimes.md)
 
-See which repositories still run Node.js 20 or Python 3.10, before a forced migration shows you.
+See which repositories still run **Node.js 20 or Python 3.10**, before a forced migration shows you.
+</div>
+
+<div class="gg-uc-card" markdown>
+:material-shield-check-outline:{ .gg-uc-card__bg }
+:material-shield-check-outline:{ .gg-uc-card__icon }
+
+### [Track a security fix everywhere](security-fix-everywhere.md)
+
+Write a check in minutes, **see every repository an issue affects**, and track the fix until every one is clean.
+</div>
+
+<div class="gg-uc-card" markdown>
+:material-handshake-outline:{ .gg-uc-card__bg }
+:material-handshake-outline:{ .gg-uc-card__icon }
+
+### [Contractors and outsourced teams](outside-developers.md)
+
+Contractors, outsourced teams and partners are **checked against the same standards** as your own team.
 </div>
 
 </div>
@@ -128,7 +110,7 @@ See which repositories still run Node.js 20 or Python 3.10, before a forced migr
 
 ## Have a use case that isn't here?
 
-Every GitGrit standard is code, so if you can describe a rule, you can usually check it. We'd love to hear what you're facing, and see together if we can help.
+Every GitGrit standard is code, so **if you can describe a rule, you can usually check it**. We'd love to hear what you're facing, and see together if we can help.
 
 [Let's talk](mailto:kfir@praktical.dev?subject=GitGrit%20use%20case){ .gg-uc-cta__btn }
 

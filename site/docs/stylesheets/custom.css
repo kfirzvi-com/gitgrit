@@ -651,7 +651,7 @@
   right: -1.5rem;
   bottom: -1.75rem;
   color: var(--gg-primary);
-  opacity: 0.07;
+  opacity: 0.12;
   pointer-events: none;
   transition: opacity 0.2s;
 }
@@ -662,7 +662,7 @@
   max-height: none;
   fill: currentColor;
 }
-.md-typeset .gg-uc-card:hover .gg-uc-card__bg { opacity: 0.14; }
+.md-typeset .gg-uc-card:hover .gg-uc-card__bg { opacity: 0.2; }
 
 .md-typeset .gg-uc-card h3 {
   font-size: 1.15rem;
@@ -727,6 +727,15 @@
 }
 
 /* Eyebrow line on each use case page */
+/* Use case pages: the short explanation under the H1, set apart as a lead. */
+.md-typeset .gg-uc-lead {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  font-weight: 500;
+  padding: 0.25rem 0 0.25rem 1.1rem;
+  border-left: 3px solid var(--gg-primary);
+  margin: 1.25rem 0 2rem;
+}
 .md-typeset .gg-uc-page-eyebrow {
   display: inline-flex;
   align-items: center;
