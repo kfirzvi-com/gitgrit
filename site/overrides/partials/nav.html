@@ -1,8 +1,10 @@
 {#
   Primary nav override: copies Material's partials/nav.html (mkdocs-material
   9.x). Below 76.25em this nav is the menu drawer, so it changes per page:
-    - Landing page: only Docs and What's New (the header shows neither on
-      mobile). The landing page hides this sidebar on desktop.
+    - Marketing pages (landing page and use cases): Use cases, Docs and
+      What's New, mirroring the desktop header links (the header shows none
+      of them on mobile). These pages hide this sidebar on desktop
+      (overrides/main.html), so they stand apart from the docs.
     - Docs pages: a link back to the landing page, then the docs tree. The
       link is mobile only (custom.css); on desktop the header logo does it.
   Search for GG: below to find the inserted blocks.
@@ -29,8 +31,12 @@
     </div>
   {% endif %}
   <ul class="md-nav__list" data-md-scrollfix>
-    {% if page.is_homepage %}
-      {# GG: landing page menu #}
+    {% set gg_use_case = page and page.url.startswith('use-cases/') %}
+    {% if page.is_homepage or gg_use_case %}
+      {# GG: marketing menu (landing page and use cases) #}
+      <li class="md-nav__item">
+        <a href="{{ 'use-cases/' | url }}" class="md-nav__link{% if gg_use_case %} md-nav__link--active{% endif %}">Use cases</a>
+      </li>
       <li class="md-nav__item">
         <a href="{{ 'getting-started/quickstart/' | url }}" class="md-nav__link">Docs</a>
       </li>
