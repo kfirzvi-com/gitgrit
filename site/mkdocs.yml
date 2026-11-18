@@ -114,6 +114,12 @@ extra_css:
 
 extra:
   is_staging: !ENV [DOCS_IS_STAGING, false]
+  # PostHog, cookieless (overrides/partials/integrations/analytics/custom.html).
+  # Loads only on `host`, so staging and local serve send nothing.
+  analytics:
+    provider: custom
+    host: gitgrit.dev
+    key: phc_pFw4gWovt4B6yCG8sTYxVGjjovLkEPqrDFgJyguogM7N
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/kfirzvi-com/gitgrit
