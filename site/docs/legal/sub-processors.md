@@ -4,7 +4,7 @@ title: Sub-processors
 
 # Sub-processors
 
-*Effective 2026-05-04.*
+*Effective 2026-11-18.*
 
 A sub-processor is a third party engaged by GitGrit that processes customer personal data in connection with the service. The list below reflects the production hosted service at [app.gitgrit.dev](https://app.gitgrit.dev). Self-hosted deployments do not involve these sub-processors.
 
@@ -18,6 +18,7 @@ A sub-processor is a third party engaged by GitGrit that processes customer pers
 | GitLab Inc. | OAuth sign-in and repository data access for connected GitLab projects. | United States |
 | Google LLC — OAuth | OAuth sign-in for users authenticating with a Google account. | United States |
 | Google LLC — Fonts | CDN delivery of typefaces used by the web UI. | Global edge |
+| PostHog Inc. | Cookieless website analytics for [gitgrit.dev](https://gitgrit.dev) (pages viewed, clicks, referrers). Not used in the app. | EU — Frankfurt, Germany |
 | Public CDNs (jsDelivr, unpkg) | Delivery of front-end libraries (DaisyUI, Tailwind, HTMX) when the application is not running in airgapped mode. No personal data is submitted; the CDN sees the visitor's IP address and user-agent. | Global edge |
 
 ## Optional sub-processors

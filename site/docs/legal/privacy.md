@@ -4,7 +4,7 @@ title: Privacy Policy
 
 # Privacy Policy
 
-*Effective 2026-05-04.*
+*Effective 2026-11-18.*
 
 ## 1. About this notice
 
@@ -24,6 +24,7 @@ The controller of personal data processed through the Service is Kfir Zvi, Israe
 - **Standard execution records.** Inputs, outputs, status, score, and timing of each standard run.
 - **Service logs.** IP address, user-agent, request path, and timestamps for security, debugging, and abuse prevention.
 - **Support correspondence.** Messages you send to our support, security, or privacy mailboxes.
+- **Website analytics.** On [gitgrit.dev](https://gitgrit.dev): pages viewed, clicks, referrer, campaign (UTM) tags, approximate country, and browser and device type, collected by PostHog in cookieless mode. No cookies are set and the IP address is not stored; visits are counted with a daily-rotating salted hash, so visitors can't be recognized across days.
 
 ## 4. How and why we use it
 
@@ -34,6 +35,7 @@ We process personal data for the following purposes and on the following legal b
 | Provide the Service (account creation, standard execution, badges, API, CLI). | Performance of a contract with you or your organization. |
 | Secure the Service (rate limiting, abuse detection, fraud prevention, audit logging). | Legitimate interests in keeping the Service available and trustworthy. |
 | Operate, maintain, and improve the Service (debugging, performance tuning, aggregate usage analysis). | Legitimate interests in operating and improving the Service. |
+| Understand how visitors find and use our website (aggregate website analytics). | Legitimate interests in understanding and improving our website. |
 | Respond to support, security, or privacy requests. | Performance of a contract; legitimate interests; legal obligation where applicable. |
 | Comply with law and respond to lawful requests. | Legal obligation. |
 
@@ -55,6 +57,7 @@ The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm,
 - **Service logs.** Thirty (30) days.
 - **Security audit logs.** Twelve (12) months for integrity and incident-investigation purposes.
 - **Support correspondence.** Twenty-four (24) months from the last message in the thread.
+- **Website analytics.** Twelve (12) months.
 
 ## 8. Backups
 
@@ -66,7 +69,7 @@ Subject to your jurisdiction's law, you have rights to: access your personal dat
 
 ## 10. Cookies
 
-The Service sets only cookies that are strictly necessary to operate it. See our [cookies notice](cookies.md) for the full list and lifetimes.
+The Service sets only cookies that are strictly necessary to operate it, and our website analytics sets none. See our [cookies notice](cookies.md) for the full list and lifetimes.
 
 ## 11. Security
 
