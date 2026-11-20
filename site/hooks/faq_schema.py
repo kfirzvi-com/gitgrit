@@ -1,10 +1,11 @@
-"""MkDocs hook: add FAQPage structured data to pages with a "## FAQ" section.
+"""MkDocs hook: add FAQPage structured data to pages with an FAQ section.
 
 Use case and compare pages end with an FAQ (### question, then answer
-paragraphs). This turns that section into schema.org FAQPage JSON-LD in the
-page head, so search engines and AI answer engines can read the questions and
-answers directly. The page text stays the single source: nothing to keep in
-sync by hand.
+paragraphs). The homepage has the same shape in its template: an
+`<h2 id="faq">` followed by `<h3>` questions. This turns that section into
+schema.org FAQPage JSON-LD in the page head, so search engines and AI answer
+engines can read the questions and answers directly. The page text stays the
+single source: nothing to keep in sync by hand.
 """
 
 import html
@@ -24,7 +25,8 @@ def _text(fragment):
 
 
 def on_post_page(output, page, config):
-    if not page.file.src_uri.startswith(SECTIONS):
+    src = page.file.src_uri
+    if src != "index.md" and not src.startswith(SECTIONS):
         return output
     faq = _FAQ.search(output)
     if not faq:

@@ -50,7 +50,8 @@ hooks:
   - hooks/whats_new.py   # generates whats-new.md from GitHub releases
   - hooks/cache_bust.py  # ?v=<hash> on extra_css so a deploy never pairs new HTML with cached CSS
   - hooks/social_cards.py  # palette-compresses share cards over 300 KB
-  - hooks/faq_schema.py    # FAQPage JSON-LD for use case and compare pages
+  - hooks/faq_schema.py    # FAQPage JSON-LD for the homepage, use cases, and compare pages
+  - hooks/home_schema.py   # Organization + SoftwareApplication JSON-LD on the homepage
 
 nav:
   # Home (index.md) is intentionally absent from the sidebar — it's reached

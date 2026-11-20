@@ -424,6 +424,34 @@
     .gg-step p b { color: var(--gg-primary); }
     @media (max-width: 800px) { .gg-steps { grid-template-columns: 1fr; } }
 
+    /* ── Homepage FAQ: short cards, left-aligned so the answers stay readable ── */
+    .gg-faq__list {
+      max-width: 44rem;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .gg-faq__item {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 16px;
+      padding: 1.15rem 1.35rem;
+      text-align: left;
+    }
+    .gg-faq__item h3 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+    .gg-faq__item p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.97rem;
+      line-height: 1.55;
+      margin: 0;
+    }
+    @media (max-width: 600px) {
+      .gg-faq__item { padding: 1rem; }
+      .gg-faq__item h3 { font-size: 1rem; }
+      .gg-faq__item p { font-size: 0.95rem; line-height: 1.5; }
+    }
+
     /* ── Display headings: light lead-in + heavy key words ── */
     .gg-sec__header h2 { font-size: 2.9rem; font-weight: 800; letter-spacing: -0.02em; }
     .gg-sec__header h2 .lite { font-weight: 300; }
@@ -589,7 +617,20 @@
       margin-bottom: 1.5rem;
     }
     .gg-hero h1 .lite { font-weight: 300; }
-    .gg-hero__sub { font-size: 1.3rem; max-width: 640px; margin: 0 auto 2rem; }
+    .gg-hero__sub { font-size: 1.3rem; max-width: 640px; margin: 0 auto 0.85rem; }
+    .gg-def {
+      font-family: var(--gg-font-sans);
+      font-size: 1.08rem;
+      font-weight: 500;
+      line-height: 1.55;
+      color: var(--gg-text);
+      max-width: 38rem;
+      margin: 0 auto 1.75rem;
+      text-wrap: balance;
+    }
+    @media (max-width: 800px) {
+      .gg-def { font-size: 1rem; line-height: 1.5; margin-bottom: 1.5rem; }
+    }
     @media (max-width: 800px) {
       .gg-hero { padding-top: 4.5rem; border-radius: 0 0 50% 50% / 0 0 36px 36px; }
       .gg-hero__bg { aspect-ratio: 1 / 1; margin-top: -1.5rem; object-position: center 60%; }
@@ -738,6 +779,7 @@
       <div class="gg-hero__inner">
         <h1><span class="lite">Engineering best practices can become</span> <em>everyday reality.</em></h1>
         <p class="gg-hero__sub">How a team builds belongs in <b>running code</b>, not in a few senior engineers' heads.</p>
+        <p class="gg-def">GitGrit is an open-source engineering standards platform: it turns your standards into code, checks every GitHub and GitLab repo on every push, and grades each one from A+ to F.</p>
         <div class="gg-hero__actions">
           <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Let's talk</a>
           <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
@@ -902,6 +944,35 @@
       </div>
     </section>
     </div>
+
+    <!-- FAQ -->
+    <section class="gg-sec gg-faq gg-reveal" aria-labelledby="faq">
+      <div class="gg-sec__header">
+        <h2 id="faq"><span class="lite">Common</span> questions</h2>
+      </div>
+      <div class="gg-faq__list">
+        <div class="gg-faq__item">
+          <h3>What is GitGrit?</h3>
+          <p>GitGrit is an open-source engineering standards platform. You write each standard as short, readable code (or pick ready-made packs), and GitGrit checks every GitHub and GitLab repository against them on every push, pull request and tag. Each repository gets a grade from A+ to F, with the exact reason when something fails.</p>
+        </div>
+        <div class="gg-faq__item">
+          <h3>How is GitGrit different from an AI code reviewer like CodeRabbit?</h3>
+          <p>An AI reviewer comments on one pull request at a time. GitGrit checks the whole repository against the same standards everywhere, including repositories nobody is changing, and shows every repository's grade on one screen. Many teams use both.</p>
+        </div>
+        <div class="gg-faq__item">
+          <h3>How is GitGrit different from Port, OpsLevel or Backstage scorecards?</h3>
+          <p>Developer portals grade services in a catalog you first have to build and maintain. GitGrit works straight from your repositories: connect GitHub or GitLab, pick standards, and see grades in minutes. Each check is code, so it gives the same answer every time.</p>
+        </div>
+        <div class="gg-faq__item">
+          <h3>Can AI coding agents use GitGrit?</h3>
+          <p>Yes. Agents read the same standards through GitGrit, and every change, human or AI, is checked against them.</p>
+        </div>
+        <div class="gg-faq__item">
+          <h3>Is GitGrit open source? Can I self-host it?</h3>
+          <p>Yes. GitGrit is MIT-licensed and can be self-hosted, including air-gapped.</p>
+        </div>
+      </div>
+    </section>
 
     <!-- CTA -->
     <section class="gg-cta gg-reveal">
