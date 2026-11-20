@@ -3,7 +3,7 @@ from datetime import date
 
 from django.test import SimpleTestCase
 
-from app.domain.usage import BillingMonth, Breakdown, DayUsage, ExecutionSlice, MonthUsage
+from app.domain.usage import BillingMonth, Breakdown, DayUsage, ExecutionSlice, MonthUsage, Share
 
 NOV = BillingMonth(2026, 11)
 
@@ -73,6 +73,20 @@ class MonthUsageTests(SimpleTestCase):
         self.assertEqual(month.daily_average(date(2026, 11, 10)), 30)
         self.assertEqual(month.daily_average(date(2026, 12, 1)), 10)
 
+    def test_run_time_adds_up_and_projects_at_its_pace(self):
+        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 4, 1, run_ms=120_000),
+                                 DayUsage(date(2026, 11, 2), 2, 1, run_ms=60_000)))
+
+        self.assertEqual(month.minutes, 3)
+        self.assertEqual(month.projected_minutes(date(2026, 11, 2)), 45)  # 3 min in 2 of 30 days
+        self.assertEqual(month.average_run_seconds, 30)
+
+    def test_the_average_run_ignores_days_never_timed(self):
+        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 100, 1),
+                                 DayUsage(date(2026, 11, 2), 2, 1, run_ms=20_000)))
+
+        self.assertEqual(month.average_run_seconds, 10)
+
     def test_running_totals_climb_through_the_month(self):
         self.assertEqual(self._month((1, 5, 1), (3, 2, 1)).running_totals()[:4], [5, 5, 7, 7])
 
@@ -85,15 +99,27 @@ class BreakdownTests(SimpleTestCase):
     def test_splits_by_project_biggest_first(self):
         breakdown = Breakdown([_slice("api", "push", 2), _slice("web", "push", 5), _slice("api", "manual", 1)])
 
-        self.assertEqual(breakdown.by_project(), [("acme/web", 5), ("acme/api", 3)])
+        self.assertEqual(breakdown.by_project(), [Share("acme/web", 5), Share("acme/api", 3)])
 
     def test_splits_by_trigger_biggest_first(self):
         breakdown = Breakdown([_slice("api", "push", 2), _slice("web", "push", 5), _slice("api", "manual", 1)])
 
-        self.assertEqual(breakdown.by_trigger(), [("push", 7), ("manual", 1)])
+        self.assertEqual(breakdown.by_trigger(), [Share("push", 7), Share("manual", 1)])
+
+    def test_run_time_adds_up_with_the_executions(self):
+        breakdown = Breakdown([ExecutionSlice("api", "acme/api", "push", 2, 90_000),
+                               ExecutionSlice("api", "acme/api", "manual", 1, 30_000)])
+
+        self.assertEqual(breakdown.by_project(), [Share("acme/api", 3, 120_000)])
+        self.assertEqual(breakdown.by_project()[0].minutes, 2)
+
+    def test_run_time_finishing_on_a_later_day_still_shows(self):
+        """A run queued before midnight can finish after it: time, no executions."""
+        self.assertEqual(Breakdown([ExecutionSlice("api", "acme/api", "push", 0, 5_000)]).by_trigger(),
+                         [Share("push", 0, 5_000)])
 
     def test_a_month_splits_across_its_days(self):
-        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 2, 1, (_slice("api", "push", 2),)),
-                                 DayUsage(date(2026, 11, 2), 3, 1, (_slice("api", "push", 3),))))
+        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 2, 1, slices=(_slice("api", "push", 2),)),
+                                 DayUsage(date(2026, 11, 2), 3, 1, slices=(_slice("api", "push", 3),))))
 
-        self.assertEqual(month.breakdown.by_project(), [("acme/api", 5)])
+        self.assertEqual(month.breakdown.by_project(), [Share("acme/api", 5)])

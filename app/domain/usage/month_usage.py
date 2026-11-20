@@ -29,6 +29,21 @@ class MonthUsage:
         return sum(d.executions for d in self.days)
 
     @property
+    def run_ms(self) -> int:
+        return sum(d.run_ms for d in self.days)
+
+    @property
+    def minutes(self) -> float:
+        return self.run_ms / 60_000
+
+    @property
+    def average_run_seconds(self) -> float:
+        """How long the month's runs took on average. Runs from before run
+        time was measured have none, so this reads only once time is in."""
+        timed = sum(d.executions for d in self.days if d.run_ms)
+        return self.run_ms / 1000 / timed if timed else 0.0
+
+    @property
     def peak_projects(self) -> int:
         return max((d.projects for d in self.days), default=0)
 
@@ -59,9 +74,16 @@ class MonthUsage:
     def projected_executions(self, today: date) -> int:
         """Where executions end the month at the pace so far. A past month
         projects what it counted; a month not started projects nothing."""
+        return round(self._projected(self.executions, today))
+
+    def projected_minutes(self, today: date) -> float:
+        """Where run minutes end the month at the pace so far."""
+        return self._projected(self.minutes, today)
+
+    def _projected(self, so_far: float, today: date) -> float:
         if today >= self.month.last_day:
-            return self.executions
+            return so_far
         if today < self.month.first_day:
             return 0
         elapsed = today.day  # today counts: its runs are already in
-        return round(self.executions * self.month.length / elapsed)
+        return so_far * self.month.length / elapsed

@@ -6,10 +6,12 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ExecutionSlice:
     """Some of a day's executions: those one project ran on one trigger
-    (a push, a pull request, a manual run, an upload). The project's name is
+    (a push, a pull request, a manual run, an upload), and the sandbox time
+    they took. The project's name is
     kept as it was, so usage stays readable after the project is deleted."""
 
     project_id: str
     project_name: str
     trigger: str
     executions: int
+    run_ms: int = 0

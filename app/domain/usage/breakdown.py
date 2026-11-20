@@ -1,32 +1,30 @@
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Iterable
 
 from app.domain.usage.execution_slice import ExecutionSlice
+from app.domain.usage.share import Share
 
 
 class Breakdown:
-    """Executions split two ways — by project and by trigger — biggest
-    first, from any set of ``ExecutionSlice``s (a day's, a month's)."""
+    """Usage split two ways — by project and by trigger — as ``Share``s,
+    most executions first, from any set of ``ExecutionSlice``s (a day's, a
+    month's)."""
 
     def __init__(self, slices: Iterable[ExecutionSlice]):
         self.slices = tuple(slices)
 
-    def by_project(self) -> list[tuple[str, int]]:
-        names: dict[str, str] = {}
-        counts: Counter = Counter()
-        for s in self.slices:
-            names[s.project_id] = s.project_name
-            counts[s.project_id] += s.executions
-        return [(names[pid], n) for pid, n in self._ranked(counts)]
+    def by_project(self) -> list[Share]:
+        names = {s.project_id: s.project_name for s in self.slices}
+        return self._ranked(names, lambda s: s.project_id)
 
-    def by_trigger(self) -> list[tuple[str, int]]:
-        counts: Counter = Counter()
-        for s in self.slices:
-            counts[s.trigger] += s.executions
-        return self._ranked(counts)
+    def by_trigger(self) -> list[Share]:
+        return self._ranked({s.trigger: s.trigger for s in self.slices}, lambda s: s.trigger)
 
-    @staticmethod
-    def _ranked(counts: Counter) -> list[tuple[str, int]]:
-        return sorted(((k, n) for k, n in counts.items() if n), key=lambda kv: (-kv[1], kv[0]))
+    def _ranked(self, names: dict, key) -> list[Share]:
+        totals: dict = {}
+        for s in self.slices:
+            runs, ms = totals.get(key(s), (0, 0))
+            totals[key(s)] = (runs + s.executions, ms + s.run_ms)
+        shares = [Share(names[k], runs, ms) for k, (runs, ms) in totals.items() if runs or ms]
+        return sorted(shares, key=lambda s: (-s.executions, -s.run_ms, s.name))

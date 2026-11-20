@@ -538,6 +538,8 @@ class WorkspaceUsageDay(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="usage_days")
     day = models.DateField()
     executions = models.PositiveIntegerField(default=0)
+    # Sandbox time the day's runs took, counted when each run finishes.
+    run_ms = models.PositiveBigIntegerField(default=0)
     peak_projects = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -553,7 +555,7 @@ class WorkspaceUsageDay(models.Model):
 
     @property
     def usage(self) -> DayUsage:
-        return DayUsage(self.day, self.executions, self.peak_projects)
+        return DayUsage(self.day, self.executions, self.peak_projects, self.run_ms)
 
 
 class ExecutionUsage(models.Model):
@@ -570,6 +572,7 @@ class ExecutionUsage(models.Model):
     project_name = models.CharField(max_length=255)
     trigger = models.CharField(max_length=50)
     executions = models.PositiveIntegerField(default=0)
+    run_ms = models.PositiveBigIntegerField(default=0)
 
     class Meta:
         db_table = "execution_usage"
@@ -584,7 +587,7 @@ class ExecutionUsage(models.Model):
 
     @property
     def slice(self) -> ExecutionSlice:
-        return ExecutionSlice(str(self.project_id), self.project_name, self.trigger, self.executions)
+        return ExecutionSlice(str(self.project_id), self.project_name, self.trigger, self.executions, self.run_ms)
 
 
 class Project(models.Model):
@@ -1484,6 +1487,9 @@ class StandardExecution(models.Model):
     # sandbox — author log() calls plus the LLM agentic trace. Shown on the
     # execution detail page to help debug why a standard failed.
     logs = models.JSONField(default=list, blank=True)
+    # How long the sandbox took on this run (wall time). Empty for runs that
+    # never reached the sandbox and for runs from before it was measured.
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
     triggered_by = models.CharField(max_length=255, blank=True, default="")
     triggered_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

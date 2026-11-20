@@ -14,6 +14,18 @@ TRIGGER_LABELS = {
 PROJECTS_SHOWN = 5
 
 
+def minutes_text(minutes: float) -> str:
+    """Run time as people read it: seconds under a minute, one decimal
+    under 100 minutes, whole minutes above."""
+    if minutes <= 0:
+        return "0 min"
+    if minutes < 1:
+        return f"{round(minutes * 60)}s"
+    if minutes < 100:
+        return f"{minutes:.1f} min"
+    return f"{round(minutes):,} min"
+
+
 def trigger_label(trigger: str) -> str:
     return TRIGGER_LABELS.get(trigger, trigger.replace("_", " ").capitalize())
 
@@ -44,10 +56,24 @@ class UsageSection:
         return round(100 * self.report.daily_average / self.max_day, 1)
 
     @property
+    def minutes(self) -> str:
+        return minutes_text(self.report.shown.minutes)
+
+    @property
+    def projected_minutes(self) -> str:
+        return minutes_text(self.report.projected_minutes)
+
+    @property
+    def average_run(self) -> str:
+        seconds = self.report.shown.average_run_seconds
+        return f"{seconds:.0f}s" if seconds < 60 else f"{seconds / 60:.1f} min"
+
+    @property
     def months(self):
-        """(month usage, width %, is shown) for each month, newest first."""
+        """(month usage, width %, is shown, minutes text) for each month, newest first."""
         return [
-            (m, round(100 * m.executions / self.max_month), m.month == self.report.shown.month)
+            (m, round(100 * m.executions / self.max_month), m.month == self.report.shown.month,
+             minutes_text(m.minutes) if m.run_ms else "—")
             for m in self.report.months
         ]
 
@@ -65,6 +91,7 @@ class UsageSection:
                 "label": f"{d.day:%a}, {d.day:%b} {d.day.day}",
                 "executions": d.executions,
                 "projects": d.projects,
+                "minutes": minutes_text(d.minutes) if d.run_ms else "",
                 "running": total,
                 "vs_average": None if future or not average else round(100 * (d.executions - average) / average),
                 "future": future,
@@ -78,6 +105,7 @@ class UsageSection:
                 "label": f"All of {month.month.label}",
                 "executions": month.executions,
                 "projects": self.report.peak_projects,
+                "minutes": minutes_text(month.minutes) if month.run_ms else "",
                 **self._split(month.breakdown),
             },
             "days": days,
@@ -86,8 +114,12 @@ class UsageSection:
     @staticmethod
     def _split(breakdown: Breakdown) -> dict:
         projects = breakdown.by_project()
+
+        def row(name, share):
+            return [name, share.executions, minutes_text(share.minutes) if share.run_ms else ""]
+
         return {
-            "by_trigger": [[trigger_label(t), n] for t, n in breakdown.by_trigger()],
-            "by_project": [[name, n] for name, n in projects[:PROJECTS_SHOWN]],
+            "by_trigger": [row(trigger_label(s.name), s) for s in breakdown.by_trigger()],
+            "by_project": [row(s.name, s) for s in projects[:PROJECTS_SHOWN]],
             "more_projects": max(len(projects) - PROJECTS_SHOWN, 0),
         }

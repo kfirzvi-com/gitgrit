@@ -47,7 +47,8 @@ class UsageReport:
         by_month: dict[BillingMonth, list[DayUsage]] = {m: [] for m in window}
         for row in rows:
             by_month[BillingMonth.of(row.day)].append(
-                DayUsage(row.day, row.executions, row.peak_projects, tuple(slices.get(row.day, ())))
+                DayUsage(row.day, row.executions, row.peak_projects, run_ms=row.run_ms,
+                         slices=tuple(slices.get(row.day, ())))
             )
         usages = tuple(MonthUsage(m, tuple(by_month[m])) for m in window)
         return cls(
@@ -71,6 +72,10 @@ class UsageReport:
     @property
     def projected_executions(self) -> int:
         return self.shown.projected_executions(self.today)
+
+    @property
+    def projected_minutes(self) -> float:
+        return self.shown.projected_minutes(self.today)
 
     @property
     def daily_average(self) -> float:

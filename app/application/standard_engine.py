@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from django.db.models import QuerySet
@@ -19,6 +20,7 @@ from app.domain.standard_criteria import applies, bare_ref, literal_ref  # noqa:
 from app.infrastructure import archives, upload_storage
 from app.infrastructure.sandbox.runner import SANDBOX_TMP, SandboxRunner
 from app.application.ai_usage import BudgetWatch, UsageRecorder
+from app.application.usage import UsageMeter
 from app.domain.llm_standard import asks_for_llm
 
 logger = logging.getLogger(__name__)
@@ -223,6 +225,18 @@ class StandardEngine:
                 return refused
         return None
 
+    @staticmethod
+    def _timed(execution: StandardExecution, run):
+        """Run the sandbox, noting how long it took on the execution and in
+        the workspace's usage — also when the run raises, since the sandbox
+        time was spent all the same."""
+        started = time.monotonic()
+        try:
+            return run()
+        finally:
+            execution.duration_ms = round((time.monotonic() - started) * 1000)
+            UsageMeter.record_run_time(execution.project, execution.event_type, execution.duration_ms)
+
     def run_execution(self, execution: StandardExecution, input_config: dict) -> dict:
         """Run one already-created ``StandardExecution`` and record its result.
 
@@ -256,9 +270,9 @@ class StandardEngine:
         if refused:
             result = {"passed": False, "score": 0, "message": refused, "details": {"error": True, "ai_budget": True}}
         elif not project.is_artifact:
-            result = self.runner.run(code, config)
+            result = self._timed(execution, lambda: self.runner.run(code, config))
         elif project_dir := self._commit_dir(project, read_at):
-            result = self.runner.run(code, config, project_dir=project_dir)
+            result = self._timed(execution, lambda: self.runner.run(code, config, project_dir=project_dir))
         else:
             branch = bare_ref(execution.ref) or project.default_branch
             message = f"No commit of {project.name} has been uploaded to {branch} yet."

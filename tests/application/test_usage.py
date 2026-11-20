@@ -100,6 +100,65 @@ class UsageMeterTests(TestCase):
         self.assertEqual(sorted(ExecutionUsage.objects.values_list("project_name", flat=True)), ["acme/api", "acme/web"])
 
 
+class RunTimeTests(TestCase):
+    def setUp(self):
+        self.tenant = baker.make("app.Tenant")
+        self.project = baker.make("app.Project", tenant=self.tenant, name="acme/api")
+
+    def test_run_time_adds_up_per_day_project_and_trigger(self):
+        UsageMeter.record_executions(self.project, 2, "push", on=TODAY)
+        UsageMeter.record_run_time(self.project, "push", 40_000, on=TODAY)
+        UsageMeter.record_run_time(self.project, "push", 20_000, on=TODAY)
+
+        self.assertEqual(_day(self.tenant, TODAY).run_ms, 60_000)
+        self.assertEqual(list(ExecutionUsage.objects.values_list("executions", "run_ms")), [(2, 60_000)])
+
+    def test_the_sandbox_run_is_timed_and_metered(self):
+        execution = self._execution()
+
+        with mock.patch("app.application.standard_engine.time.monotonic", side_effect=[10.0, 12.5]):
+            self._engine(return_value={"passed": True, "score": 100}).run_execution(execution, {})
+
+        execution.refresh_from_db()
+        self.assertEqual(execution.duration_ms, 2500)
+        self.assertEqual(_day(self.tenant).run_ms, 2500)
+        self.assertEqual(ExecutionUsage.objects.get().trigger, "pull_request")
+
+    def test_a_run_that_crashes_still_spent_its_time(self):
+        execution = self._execution()
+
+        with mock.patch("app.application.standard_engine.time.monotonic", side_effect=[10.0, 11.0]):
+            with self.assertRaises(RuntimeError):
+                self._engine(side_effect=RuntimeError("sandbox died")).run_execution(execution, {})
+
+        self.assertEqual(_day(self.tenant).run_ms, 1000)
+
+    def test_a_run_that_never_reaches_the_sandbox_takes_no_time(self):
+        """An artifact project with nothing uploaded fails before the sandbox."""
+        project = baker.make("app.Project", tenant=self.tenant, platform="artifact")
+        execution = self._execution(project=project)
+
+        self._engine(return_value={"passed": True}).run_execution(execution, {})
+
+        execution.refresh_from_db()
+        self.assertIsNone(execution.duration_ms)
+        self.assertEqual(WorkspaceUsageDay.objects.filter(tenant=self.tenant, run_ms__gt=0).count(), 0)
+
+    def _execution(self, project=None):
+        standard = baker.make("app.Standard", tenant=self.tenant, code="def check(ctx): pass")
+        return baker.make("app.StandardExecution", project=project or self.project, standard=standard,
+                          event_type="pull_request", status="running")
+
+    def _engine(self, **run):
+        from app.application.standard_engine import StandardEngine
+
+        patch = mock.patch("app.application.standard_engine.SandboxRunner")
+        runner = patch.start().return_value
+        self.addCleanup(patch.stop)
+        runner.run.configure_mock(**run)
+        return StandardEngine()
+
+
 class MeteringHooksTests(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
@@ -189,7 +248,7 @@ class UsageReportTests(TestCase):
         report = UsageReport.for_workspace(self.tenant, month=BillingMonth(2026, 10), today=TODAY)
 
         self.assertFalse(report.is_current)
-        self.assertEqual(report.shown.breakdown.by_project(), [("acme/api", 25)])
+        self.assertEqual([(s.name, s.executions) for s in report.shown.breakdown.by_project()], [("acme/api", 25)])
         self.assertEqual((report.newer, report.older), (BillingMonth(2026, 11), BillingMonth(2026, 9)))
 
     def test_a_month_out_of_reach_shows_the_current_one(self):
@@ -253,3 +312,10 @@ class UsageSectionPageTests(TestCase):
 
         self.assertIn(f'data-month="{last}"', body)
         self.assertNotIn("<html", body)
+
+
+class MinutesTextTests(TestCase):
+    def test_reads_run_time_the_way_people_do(self):
+        from app.presentation.usage_section import minutes_text
+
+        self.assertEqual([minutes_text(m) for m in (0, 0.5, 2.25, 1234.4)], ["0 min", "30s", "2.2 min", "1,234 min"])

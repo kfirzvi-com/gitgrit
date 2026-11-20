@@ -40,6 +40,22 @@ class UsageMeter:
         cls._safely(project.tenant_id, on, also=split, executions=F("executions") + count)
 
     @classmethod
+    def record_run_time(cls, project, trigger: str, run_ms: int, *, on: date | None = None) -> None:
+        """A run on ``project`` by ``trigger`` spent ``run_ms`` in the sandbox.
+        Counted on the day it finished: that is when the compute was used."""
+        if run_ms <= 0:
+            return
+
+        def split(day):
+            row, _ = ExecutionUsage.objects.get_or_create(
+                tenant_id=project.tenant_id, day=day, project_id=project.pk, trigger=trigger or "manual",
+                defaults={"project_name": project.name},
+            )
+            ExecutionUsage.objects.filter(pk=row.pk).update(run_ms=F("run_ms") + run_ms)
+
+        cls._safely(project.tenant_id, on, also=split, run_ms=F("run_ms") + run_ms)
+
+    @classmethod
     def record_projects(cls, tenant_id, *, on: date | None = None) -> None:
         """The workspace's project count may have grown: raise the day's peak."""
         cls._safely(tenant_id, on)
