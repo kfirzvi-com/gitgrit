@@ -2,6 +2,7 @@
 from datetime import date
 from importlib import import_module
 from unittest import mock
+from uuid import uuid4
 
 from django.apps import apps
 from django.test import TestCase, override_settings
@@ -11,7 +12,7 @@ from model_bakery import baker
 
 from app.application.standard_runs import enqueue_run
 from app.application.usage import UsageMeter, UsageReport
-from app.domain.models import StandardExecution, WorkspaceUsageDay
+from app.domain.models import ExecutionUsage, StandardExecution, WorkspaceUsageDay
 from app.domain.usage import BillingMonth
 from tests.support import defer_patch
 
@@ -26,34 +27,36 @@ def _day(tenant, day=None):
 class UsageMeterTests(TestCase):
     def setUp(self):
         self.tenant = baker.make("app.Tenant")
+        self.project = baker.make("app.Project", tenant=self.tenant, name="acme/api")
 
     def test_executions_add_up_within_a_day(self):
-        UsageMeter.record_executions(self.tenant.pk, 3, on=TODAY)
-        UsageMeter.record_executions(self.tenant.pk, 2, on=TODAY)
+        UsageMeter.record_executions(self.project, 3, "push", on=TODAY)
+        UsageMeter.record_executions(self.project, 2, "push", on=TODAY)
 
         self.assertEqual(_day(self.tenant, TODAY).executions, 5)
 
     def test_each_day_has_its_own_row(self):
-        UsageMeter.record_executions(self.tenant.pk, 3, on=date(2026, 11, 19))
-        UsageMeter.record_executions(self.tenant.pk, 2, on=TODAY)
+        UsageMeter.record_executions(self.project, 3, "push", on=date(2026, 11, 19))
+        UsageMeter.record_executions(self.project, 2, "push", on=TODAY)
 
         self.assertEqual(WorkspaceUsageDay.objects.filter(tenant=self.tenant).count(), 2)
 
     def test_nothing_queued_records_nothing(self):
-        UsageMeter.record_executions(self.tenant.pk, 0, on=TODAY)
+        WorkspaceUsageDay.objects.all().delete()
+        UsageMeter.record_executions(self.project, 0, "push", on=TODAY)
 
         self.assertFalse(WorkspaceUsageDay.objects.exists())
 
     def test_running_notes_the_projects_held(self):
-        baker.make("app.Project", tenant=self.tenant, _quantity=2)
+        baker.make("app.Project", tenant=self.tenant)
         WorkspaceUsageDay.objects.all().delete()
 
-        UsageMeter.record_executions(self.tenant.pk, 1, on=TODAY)
+        UsageMeter.record_executions(self.project, 1, "push", on=TODAY)
 
         self.assertEqual(_day(self.tenant, TODAY).peak_projects, 2)
 
     def test_the_project_peak_never_drops_within_a_day(self):
-        projects = baker.make("app.Project", tenant=self.tenant, _quantity=3)
+        projects = baker.make("app.Project", tenant=self.tenant, _quantity=2)
         UsageMeter.record_projects(self.tenant.pk, on=TODAY)
         projects[0].delete()
 
@@ -63,7 +66,7 @@ class UsageMeterTests(TestCase):
 
     def test_a_metering_failure_never_fails_the_work(self):
         with mock.patch.object(WorkspaceUsageDay.objects, "get_or_create", side_effect=RuntimeError("db")):
-            UsageMeter.record_executions(self.tenant.pk, 1, on=TODAY)  # no raise
+            UsageMeter.record_executions(self.project, 1, "push", on=TODAY)  # no raise
 
     def test_snapshot_notes_every_workspace(self):
         other = baker.make("app.Tenant")
@@ -71,7 +74,30 @@ class UsageMeterTests(TestCase):
 
         UsageMeter.snapshot_all(on=TODAY)
 
-        self.assertEqual((_day(self.tenant, TODAY).peak_projects, _day(other, TODAY).peak_projects), (0, 1))
+        self.assertEqual((_day(self.tenant, TODAY).peak_projects, _day(other, TODAY).peak_projects), (1, 1))
+
+    def test_executions_are_split_by_project_and_trigger(self):
+        other = baker.make("app.Project", tenant=self.tenant, name="acme/web")
+        UsageMeter.record_executions(self.project, 3, "push", on=TODAY)
+        UsageMeter.record_executions(self.project, 2, "push", on=TODAY)
+        UsageMeter.record_executions(self.project, 1, "manual", on=TODAY)
+        UsageMeter.record_executions(other, 4, "pull_request", on=TODAY)
+
+        split = sorted(ExecutionUsage.objects.values_list("project_name", "trigger", "executions"))
+
+        self.assertEqual(split, [("acme/api", "manual", 1), ("acme/api", "push", 5), ("acme/web", "pull_request", 4)])
+        self.assertEqual(_day(self.tenant, TODAY).executions, 10)
+
+    def test_the_split_outlives_its_projects(self):
+        """Deleted projects keep their own rows and their names."""
+        other = baker.make("app.Project", tenant=self.tenant, name="acme/web")
+        UsageMeter.record_executions(self.project, 1, "push", on=TODAY)
+        UsageMeter.record_executions(other, 1, "push", on=TODAY)
+
+        self.project.delete()
+        other.delete()
+
+        self.assertEqual(sorted(ExecutionUsage.objects.values_list("project_name", flat=True)), ["acme/api", "acme/web"])
 
 
 class MeteringHooksTests(TestCase):
@@ -91,6 +117,15 @@ class MeteringHooksTests(TestCase):
             enqueue_run(project, standards)
 
         self.assertEqual(_day(self.tenant).executions, 3)
+        self.assertEqual(list(ExecutionUsage.objects.values_list("trigger", "executions")), [("manual", 3)])
+
+    def test_webhook_runs_are_metered_under_their_event(self):
+        project = baker.make("app.Project", tenant=self.tenant)
+
+        with defer_patch():
+            enqueue_run(project, [baker.make("app.Standard", tenant=self.tenant)], event_type="pull_request")
+
+        self.assertEqual(ExecutionUsage.objects.get().trigger, "pull_request")
 
     def test_runs_that_never_queue_are_not_metered(self):
         """The rows and the job roll back together, and so does the count."""
@@ -127,10 +162,10 @@ class UsageReportTests(TestCase):
 
         report = UsageReport.for_workspace(self.tenant, today=TODAY)
 
-        self.assertEqual((report.current.month, report.current.executions), (BillingMonth(2026, 11), 100))
-        self.assertEqual([str(m.month) for m in report.history],
-                         ["2026-10", "2026-09", "2026-08", "2026-07", "2026-06"])
-        self.assertEqual((report.history[0].executions, report.history[0].peak_projects), (25, 1))
+        self.assertEqual((report.shown.month, report.shown.executions), (BillingMonth(2026, 11), 100))
+        self.assertEqual([str(m.month) for m in report.months],
+                         ["2026-11", "2026-10", "2026-09", "2026-08", "2026-07", "2026-06"])
+        self.assertEqual((report.months[1].executions, report.months[1].peak_projects), (25, 1))
 
     def test_other_workspaces_and_older_months_are_left_out(self):
         WorkspaceUsageDay.objects.create(tenant=baker.make("app.Tenant"), day=TODAY, executions=99)
@@ -138,13 +173,30 @@ class UsageReportTests(TestCase):
 
         report = UsageReport.for_workspace(self.tenant, today=TODAY)
 
-        self.assertEqual(report.current.executions + sum(m.executions for m in report.history), 0)
+        self.assertEqual(sum(m.executions for m in report.months), 0)
 
     def test_the_peak_includes_the_projects_held_now(self):
         baker.make("app.Project", tenant=self.tenant, _quantity=2)  # metered today, not on TODAY
         report = UsageReport.for_workspace(self.tenant, today=TODAY)
 
         self.assertEqual((report.projects_now, report.peak_projects), (2, 2))
+
+    def test_a_past_month_can_be_shown_with_its_split(self):
+        self._usage(date(2026, 10, 9), 25, 1)
+        ExecutionUsage.objects.create(tenant=self.tenant, day=date(2026, 10, 9), project_id=uuid4(),
+                                      project_name="acme/api", trigger="push", executions=25)
+
+        report = UsageReport.for_workspace(self.tenant, month=BillingMonth(2026, 10), today=TODAY)
+
+        self.assertFalse(report.is_current)
+        self.assertEqual(report.shown.breakdown.by_project(), [("acme/api", 25)])
+        self.assertEqual((report.newer, report.older), (BillingMonth(2026, 11), BillingMonth(2026, 9)))
+
+    def test_a_month_out_of_reach_shows_the_current_one(self):
+        report = UsageReport.for_workspace(self.tenant, month=BillingMonth(2025, 1), today=TODAY)
+
+        self.assertTrue(report.is_current)
+        self.assertIsNone(report.newer)
 
 
 class BackfillUsageTests(TestCase):
@@ -153,16 +205,17 @@ class BackfillUsageTests(TestCase):
 
     def test_backfills_runs_per_workspace_and_day(self):
         tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        for _ in range(3):
-            baker.make("app.StandardExecution", project=project)
+        project = baker.make("app.Project", tenant=tenant, name="acme/api")
+        for event in ("push", "push", "manual"):
+            baker.make("app.StandardExecution", project=project, event_type=event)
         WorkspaceUsageDay.objects.all().delete()
 
-        import_module("app.migrations.0057_workspace_usage_days").backfill_usage_days(apps, None)
+        import_module("app.migrations.0057_workspace_usage").backfill_usage(apps, None)
 
         row = WorkspaceUsageDay.objects.get(tenant=tenant)
         self.assertEqual((row.executions, row.peak_projects), (3, 1))
-        self.assertEqual(StandardExecution.objects.count(), 3)
+        self.assertEqual(sorted(ExecutionUsage.objects.values_list("trigger", "executions")),
+                         [("manual", 1), ("push", 2)])
 
 
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
@@ -171,8 +224,8 @@ class UsageSectionPageTests(TestCase):
         tenant = baker.make("app.Tenant")
         user = baker.make("app.User")
         baker.make("app.Membership", user=user, tenant=tenant, role="member")
-        baker.make("app.Project", tenant=tenant)
-        UsageMeter.record_executions(tenant.pk, 1234)
+        project = baker.make("app.Project", tenant=tenant, name="acme/api")
+        UsageMeter.record_executions(project, 1234, "push")
         self.client.force_login(user)
         session = self.client.session
         session["active_tenant_id"] = str(tenant.id)
@@ -183,3 +236,20 @@ class UsageSectionPageTests(TestCase):
         usage = body.split('id="section-usage"', 1)[1]
         self.assertIn("data-workspace-usage", usage)
         self.assertIn("1,234", usage)
+        self.assertIn('id="workspace-usage-data"', usage)  # what the hover and details read
+        self.assertIn("acme/api", usage)
+
+    def test_another_month_swaps_in_place(self):
+        tenant = baker.make("app.Tenant")
+        user = baker.make("app.User")
+        baker.make("app.Membership", user=user, tenant=tenant, role="member")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(tenant.id)
+        session.save()
+        last = BillingMonth.of(timezone.now().date()).previous()
+
+        body = self.client.get(reverse("workspace_usage"), {"month": str(last)}).content.decode()
+
+        self.assertIn(f'data-month="{last}"', body)
+        self.assertNotIn("<html", body)

@@ -14,7 +14,7 @@ from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCou
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
-from app.domain.usage import DayUsage
+from app.domain.usage import DayUsage, ExecutionSlice
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -554,6 +554,37 @@ class WorkspaceUsageDay(models.Model):
     @property
     def usage(self) -> DayUsage:
         return DayUsage(self.day, self.executions, self.peak_projects)
+
+
+class ExecutionUsage(models.Model):
+    """The executions one project ran on one trigger in one UTC day, inside
+    a workspace's ``WorkspaceUsageDay`` total (``usage.ExecutionSlice``).
+
+    The project is kept by id and name, not by foreign key: usage outlives
+    the project, and deleted projects must never collide on one row."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="execution_usage")
+    day = models.DateField()
+    project_id = models.UUIDField()
+    project_name = models.CharField(max_length=255)
+    trigger = models.CharField(max_length=50)
+    executions = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "execution_usage"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "day", "project_id", "trigger"], name="unique_execution_usage"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.day} {self.project_name} {self.trigger}: {self.executions}"
+
+    @property
+    def slice(self) -> ExecutionSlice:
+        return ExecutionSlice(str(self.project_id), self.project_name, self.trigger, self.executions)
 
 
 class Project(models.Model):

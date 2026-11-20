@@ -16,6 +16,16 @@ class BillingMonth:
     def of(cls, day: date) -> BillingMonth:
         return cls(day.year, day.month)
 
+    @classmethod
+    def parse(cls, text: str) -> BillingMonth | None:
+        """The month ``YYYY-MM`` names, or None when it names none."""
+        try:
+            year, month = (int(part) for part in (text or "").split("-"))
+            date(year, month, 1)
+        except ValueError:
+            return None
+        return cls(year, month)
+
     @property
     def first_day(self) -> date:
         return date(self.year, self.month, 1)

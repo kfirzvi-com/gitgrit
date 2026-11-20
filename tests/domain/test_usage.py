@@ -3,7 +3,7 @@ from datetime import date
 
 from django.test import SimpleTestCase
 
-from app.domain.usage import BillingMonth, DayUsage, MonthUsage
+from app.domain.usage import BillingMonth, Breakdown, DayUsage, ExecutionSlice, MonthUsage
 
 NOV = BillingMonth(2026, 11)
 
@@ -21,6 +21,10 @@ class BillingMonthTests(SimpleTestCase):
 
     def test_a_day_belongs_to_its_month(self):
         self.assertEqual(BillingMonth.of(date(2026, 11, 20)), NOV)
+
+    def test_parses_its_key(self):
+        self.assertEqual(BillingMonth.parse("2026-11"), NOV)
+        self.assertEqual([BillingMonth.parse(t) for t in ("", "2026-13", "nov")], [None, None, None])
 
     def test_reads_as_a_label_and_a_key(self):
         self.assertEqual((NOV.label, str(NOV)), ("November 2026", "2026-11"))
@@ -62,3 +66,34 @@ class MonthUsageTests(SimpleTestCase):
 
     def test_a_month_not_started_projects_nothing(self):
         self.assertEqual(MonthUsage(NOV).projected_executions(date(2026, 10, 30)), 0)
+
+    def test_the_daily_average_counts_the_days_so_far(self):
+        month = self._month((1, 100, 1), (10, 200, 1))
+
+        self.assertEqual(month.daily_average(date(2026, 11, 10)), 30)
+        self.assertEqual(month.daily_average(date(2026, 12, 1)), 10)
+
+    def test_running_totals_climb_through_the_month(self):
+        self.assertEqual(self._month((1, 5, 1), (3, 2, 1)).running_totals()[:4], [5, 5, 7, 7])
+
+
+def _slice(project, trigger, n):
+    return ExecutionSlice(project, f"acme/{project}", trigger, n)
+
+
+class BreakdownTests(SimpleTestCase):
+    def test_splits_by_project_biggest_first(self):
+        breakdown = Breakdown([_slice("api", "push", 2), _slice("web", "push", 5), _slice("api", "manual", 1)])
+
+        self.assertEqual(breakdown.by_project(), [("acme/web", 5), ("acme/api", 3)])
+
+    def test_splits_by_trigger_biggest_first(self):
+        breakdown = Breakdown([_slice("api", "push", 2), _slice("web", "push", 5), _slice("api", "manual", 1)])
+
+        self.assertEqual(breakdown.by_trigger(), [("push", 7), ("manual", 1)])
+
+    def test_a_month_splits_across_its_days(self):
+        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 2, 1, (_slice("api", "push", 2),)),
+                                 DayUsage(date(2026, 11, 2), 3, 1, (_slice("api", "push", 3),))))
+
+        self.assertEqual(month.breakdown.by_project(), [("acme/api", 5)])

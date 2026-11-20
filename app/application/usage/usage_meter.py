@@ -8,7 +8,7 @@ from django.db.models import F
 from django.db.models.functions import Greatest
 from django.utils import timezone
 
-from app.domain.models import Project, Tenant, WorkspaceUsageDay
+from app.domain.models import ExecutionUsage, Project, Tenant, WorkspaceUsageDay
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +21,23 @@ class UsageMeter:
     work goes on (inside the caller's transaction, through a savepoint)."""
 
     @classmethod
-    def record_executions(cls, tenant_id, count: int, *, on: date | None = None) -> None:
-        """``count`` standard runs were queued for the workspace. Also notes
-        how many projects it holds, so every active day has its peak."""
+    def record_executions(cls, project, count: int, trigger: str, *, on: date | None = None) -> None:
+        """``count`` standard runs were queued on ``project`` by ``trigger``
+        (the event type: push, pull_request, manual, upload). Also notes how
+        many projects the workspace holds, so every active day has its peak."""
         if count <= 0:
             return
-        cls._safely(tenant_id, on, executions=F("executions") + count)
+
+        def split(day):
+            row, _ = ExecutionUsage.objects.get_or_create(
+                tenant_id=project.tenant_id, day=day, project_id=project.pk, trigger=trigger or "manual",
+                defaults={"project_name": project.name},
+            )
+            ExecutionUsage.objects.filter(pk=row.pk).update(
+                executions=F("executions") + count, project_name=project.name
+            )
+
+        cls._safely(project.tenant_id, on, also=split, executions=F("executions") + count)
 
     @classmethod
     def record_projects(cls, tenant_id, *, on: date | None = None) -> None:
@@ -44,7 +55,7 @@ class UsageMeter:
         return len(tenant_ids)
 
     @classmethod
-    def _safely(cls, tenant_id, on: date | None, **updates) -> None:
+    def _safely(cls, tenant_id, on: date | None, also=None, **updates) -> None:
         day = on or timezone.now().date()
         try:
             with transaction.atomic():
@@ -53,5 +64,7 @@ class UsageMeter:
                 WorkspaceUsageDay.objects.filter(pk=row.pk).update(
                     peak_projects=Greatest(F("peak_projects"), projects), **updates
                 )
+                if also:
+                    also(day)
         except Exception:  # noqa: BLE001 — never lose the work over metering
             logger.exception("Could not meter usage for workspace %s on %s", tenant_id, day)

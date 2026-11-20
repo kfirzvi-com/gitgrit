@@ -1,42 +1,82 @@
 {% comment %}Workspace settings, Usage: the two meters plans will be priced on, projects and
 executions per month (UsageReport). Tracking only: no plan or limit is applied yet.
+Hovering a day shows its numbers; clicking pins it in the details below, which otherwise show the
+month. Another month swaps this partial in place (tenant_views.workspace_usage).
 Expects `usage` (UsageSection).{% endcomment %}
 {% with r=usage.report %}
-<div id="workspace-usage" class="space-y-5" data-workspace-usage>
+<div id="workspace-usage" class="space-y-5" data-workspace-usage data-month="{{ r.shown.month }}">
   <p class="text-sm opacity-70">
     What this workspace uses each calendar month (UTC). Projects count at their peak;
-    executions are every standard run queued, by webhook, schedule or by hand.
+    executions are every standard run queued, by webhook, upload or by hand.
   </p>
 
-  <div class="grid gap-4 sm:grid-cols-2">
+  <div class="flex items-center justify-between gap-3">
+    <button type="button" class="btn btn-ghost btn-sm" {% if not r.older %}disabled{% endif %}
+            {% if r.older %}hx-get="{% url 'workspace_usage' %}?month={{ r.older }}" hx-target="#workspace-usage" hx-swap="outerHTML"{% endif %}
+            aria-label="Previous month" data-usage-older>&lsaquo; {% if r.older %}{{ r.older.first_day|date:"M" }}{% endif %}</button>
+    <h3 class="font-semibold" data-usage-month-label>{{ r.shown.month.label }}{% if r.is_current %} <span class="badge badge-sm badge-primary badge-outline ml-1">so far</span>{% endif %}</h3>
+    <button type="button" class="btn btn-ghost btn-sm" {% if not r.newer %}disabled{% endif %}
+            {% if r.newer %}hx-get="{% url 'workspace_usage' %}?month={{ r.newer }}" hx-target="#workspace-usage" hx-swap="outerHTML"{% endif %}
+            aria-label="Next month" data-usage-newer>{% if r.newer %}{{ r.newer.first_day|date:"M" }}{% endif %} &rsaquo;</button>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-3">
     <div class="rounded-box border border-base-content/15 p-4" data-usage-projects>
-      <div class="text-xs uppercase tracking-wide opacity-60">Projects</div>
-      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.projects_now|floatformat:"0g" }}</div>
-      <div class="text-sm opacity-70 mt-1">Peak this month: <b class="text-base-content tabular-nums">{{ r.peak_projects|floatformat:"0g" }}</b></div>
+      <div class="text-xs uppercase tracking-wide opacity-60">{% if r.is_current %}Projects{% else %}Peak projects{% endif %}</div>
+      <div class="text-3xl font-bold tabular-nums mt-1">{% if r.is_current %}{{ r.projects_now|floatformat:"0g" }}{% else %}{{ r.peak_projects|floatformat:"0g" }}{% endif %}</div>
+      <div class="text-sm opacity-70 mt-1">{% if r.is_current %}Peak this month: <b class="text-base-content tabular-nums">{{ r.peak_projects|floatformat:"0g" }}</b>{% else %}Most held at once{% endif %}</div>
     </div>
     <div class="rounded-box border border-base-content/15 p-4" data-usage-executions>
-      <div class="text-xs uppercase tracking-wide opacity-60">Executions in {{ r.current.month.label }}</div>
-      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.current.executions|floatformat:"0g" }}</div>
-      <div class="text-sm opacity-70 mt-1">On pace for <b class="text-base-content tabular-nums">{{ r.projected_executions|floatformat:"0g" }}</b> by month end</div>
+      <div class="text-xs uppercase tracking-wide opacity-60">Executions</div>
+      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.shown.executions|floatformat:"0g" }}</div>
+      <div class="text-sm opacity-70 mt-1">{% if r.is_current %}On pace for <b class="text-base-content tabular-nums">{{ r.projected_executions|floatformat:"0g" }}</b> by month end{% else %}Whole month{% endif %}</div>
+    </div>
+    <div class="rounded-box border border-base-content/15 p-4" data-usage-average>
+      <div class="text-xs uppercase tracking-wide opacity-60">Daily average</div>
+      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.daily_average|floatformat:"0g" }}</div>
+      <div class="text-sm opacity-70 mt-1">Busiest day: <b class="text-base-content tabular-nums">{{ usage.max_day|floatformat:"0g" }}</b></div>
     </div>
   </div>
 
-  <div data-usage-daily>
+  <div data-usage-chart>
     <div class="flex items-baseline justify-between text-xs opacity-60 mb-1">
-      <span>Executions per day</span><span>busiest: {{ usage.max_day|floatformat:"0g" }}</span>
+      <span>Executions per day &middot; hover for details, click to pin</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 border-t-2 border-dashed border-warning"></span>daily average</span>
     </div>
-    <div class="flex items-end gap-px h-24 border-b border-base-content/20" role="img"
-         aria-label="Executions per day in {{ r.current.month.label }}">
-      {% for day, height, future in usage.bars %}
-        <div class="flex-1 h-full flex items-end" title="{{ day.day|date:'M j' }}: {{ day.executions|floatformat:"0g" }} execution{{ day.executions|pluralize }}, {{ day.projects }} project{{ day.projects|pluralize }}"
-             data-usage-day="{{ day.day|date:'Y-m-d' }}" data-executions="{{ day.executions }}">
-          <div class="w-full rounded-t-sm {% if future %}bg-base-content/5{% else %}bg-primary{% endif %}"
-               style="height: {% if day.executions %}max({{ height }}%, 2px){% else %}{% if future %}100%{% else %}0{% endif %}{% endif %}"></div>
-        </div>
-      {% endfor %}
+    <div class="relative">
+      <div class="flex items-end gap-px h-32 border-b border-base-content/20" role="group"
+           aria-label="Executions per day in {{ r.shown.month.label }}">
+        {% for i, day, height, future in usage.bars %}
+          <button type="button" class="group flex-1 h-full flex items-end focus:outline-none{% if future %} cursor-default{% endif %}"
+                  data-usage-day="{{ i }}" data-date="{{ day.day|date:'Y-m-d' }}" data-executions="{{ day.executions }}"
+                  aria-label="{{ day.day|date:'D, M j' }}: {{ day.executions }} execution{{ day.executions|pluralize }}"
+                  aria-pressed="false"{% if future %} disabled{% endif %}>
+            <span class="block w-full rounded-t-sm transition-opacity {% if future %}bg-base-content/5 h-full{% else %}bg-primary group-focus-visible:ring-2 group-focus-visible:ring-primary{% endif %}"
+                  data-bar{% if not future %} style="height: {% if day.executions %}max({{ height }}%, 2px){% else %}0{% endif %}"{% endif %}></span>
+          </button>
+        {% endfor %}
+      </div>
+      {% if r.daily_average %}
+        <div class="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-warning/80"
+             style="bottom: {{ usage.average_percent }}%" data-usage-average-line></div>
+      {% endif %}
+      <div class="pointer-events-none absolute z-10 hidden w-60 rounded-box bg-base-300 p-3 text-sm shadow-xl"
+           role="tooltip" data-usage-tooltip></div>
     </div>
     <div class="flex justify-between text-xs opacity-60 mt-1">
-      <span>{{ r.current.month.first_day|date:"M j" }}</span><span>{{ r.current.month.last_day|date:"M j" }}</span>
+      <span>{{ r.shown.month.first_day|date:"M j" }}</span><span>{{ r.shown.month.last_day|date:"M j" }}</span>
+    </div>
+  </div>
+
+  <div class="rounded-box border border-base-content/15 p-4" data-usage-details aria-live="polite">
+    <div class="flex items-baseline justify-between gap-3 mb-3">
+      <h4 class="font-semibold" data-details-title></h4>
+      <button type="button" class="btn btn-ghost btn-xs hidden" data-details-clear>Show whole month</button>
+    </div>
+    <div class="text-sm opacity-70 mb-3" data-details-summary></div>
+    <div class="grid gap-6 sm:grid-cols-2">
+      <div><div class="text-xs uppercase tracking-wide opacity-60 mb-2">By trigger</div><ul class="space-y-1.5" data-details-triggers></ul></div>
+      <div><div class="text-xs uppercase tracking-wide opacity-60 mb-2">By project</div><ul class="space-y-1.5" data-details-projects></ul></div>
     </div>
   </div>
 
@@ -44,17 +84,136 @@ Expects `usage` (UsageSection).{% endcomment %}
     <table class="table table-sm" data-usage-history>
       <thead><tr><th>Month</th><th class="text-right">Peak projects</th><th class="text-right">Executions</th><th class="w-1/3"></th></tr></thead>
       <tbody>
-        {% for month, width in usage.months %}
-          <tr data-usage-month="{{ month.month }}">
-            <td>{{ month.month.label }}</td>
+        {% for month, width, shown in usage.months %}
+          <tr class="cursor-pointer hover {% if shown %}bg-base-200 font-semibold{% endif %}" data-usage-month="{{ month.month }}"
+              hx-get="{% url 'workspace_usage' %}?month={{ month.month }}" hx-target="#workspace-usage" hx-swap="outerHTML"
+              title="Show {{ month.month.label }} day by day">
+            <td>{{ month.month.label }}{% if forloop.first %} <span class="opacity-60 font-normal">(so far)</span>{% endif %}</td>
             <td class="text-right tabular-nums">{{ month.peak_projects|floatformat:"0g" }}</td>
             <td class="text-right tabular-nums">{{ month.executions|floatformat:"0g" }}</td>
-            <td><div class="h-2 rounded-full bg-primary/60" style="width: {{ width }}%"></div></td>
+            <td><div class="h-2 rounded-full {% if shown %}bg-primary{% else %}bg-primary/50{% endif %}" style="width: {{ width }}%"></div></td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   <p class="text-xs opacity-60">Months before metering began count only the runs and projects still stored.</p>
+
+  {{ usage.chart|json_script:"workspace-usage-data" }}
+  <script>
+  (function () {
+    const root = document.getElementById("workspace-usage");
+    const data = JSON.parse(document.getElementById("workspace-usage-data").textContent);
+    const tooltip = root.querySelector("[data-usage-tooltip]");
+    const bars = Array.from(root.querySelectorAll("[data-usage-day]"));
+    const fmt = (n) => Number(n).toLocaleString("en-US");
+    let pinned = null;
+
+    function el(tag, cls, text) {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function rows(list, items, total, more) {
+      list.replaceChildren();
+      if (!items.length) { list.append(el("li", "opacity-60", "No executions")); return; }
+      for (const [name, n] of items) {
+        const li = el("li", "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5");
+        li.append(el("span", "truncate", name), el("span", "tabular-nums text-right", fmt(n)));
+        const track = el("div", "col-span-2 h-1.5 rounded-full bg-base-content/10");
+        const fill = el("div", "h-full rounded-full bg-primary");
+        fill.style.width = (total ? Math.max(2, Math.round(100 * n / total)) : 0) + "%";
+        track.append(fill);
+        li.append(track);
+        list.append(li);
+      }
+      if (more) list.append(el("li", "text-xs opacity-60", "and " + more + " more"));
+    }
+
+    function vsAverage(day) {
+      if (day.vs_average === null) return "";
+      if (day.vs_average === 0) return "about the daily average";
+      return Math.abs(day.vs_average) + "% " + (day.vs_average > 0 ? "above" : "below") + " the daily average";
+    }
+
+    function showDetails(day) {
+      const item = day || data.month;
+      root.querySelector("[data-details-title]").textContent = day ? day.label : item.label;
+      const summary = fmt(item.executions) + " execution" + (item.executions === 1 ? "" : "s") +
+        " · " + item.projects + " project" + (item.projects === 1 ? "" : "s") +
+        (day ? " held · " + fmt(day.running) + " so far this month" : " at peak");
+      root.querySelector("[data-details-summary]").textContent = summary;
+      rows(root.querySelector("[data-details-triggers]"), item.by_trigger, item.executions, 0);
+      rows(root.querySelector("[data-details-projects]"), item.by_project, item.executions, item.more_projects);
+      root.querySelector("[data-details-clear]").classList.toggle("hidden", !day);
+    }
+
+    function showTooltip(bar) {
+      const day = data.days[Number(bar.dataset.usageDay)];
+      tooltip.replaceChildren();
+      tooltip.append(el("div", "font-semibold", day.label + (day.today ? " (today)" : "")));
+      const big = el("div", "text-2xl font-bold tabular-nums mt-1", fmt(day.executions));
+      big.append(el("span", "text-sm font-normal opacity-70", " execution" + (day.executions === 1 ? "" : "s")));
+      tooltip.append(big);
+      const facts = el("ul", "mt-1 space-y-0.5 opacity-80");
+      for (const line of [vsAverage(day), day.projects + " project" + (day.projects === 1 ? "" : "s") + " held",
+                          fmt(day.running) + " executions month to date"]) {
+        if (line) facts.append(el("li", "", line));
+      }
+      tooltip.append(facts);
+      if (day.by_trigger.length) {
+        const split = el("div", "mt-2 pt-2 border-t border-base-content/10 space-y-0.5");
+        for (const [name, n] of day.by_trigger) {
+          const row = el("div", "flex justify-between gap-2");
+          row.append(el("span", "opacity-70", name), el("span", "tabular-nums", fmt(n)));
+          split.append(row);
+        }
+        if (day.by_project.length) {
+          const top = day.by_project[0];
+          split.append(el("div", "opacity-70 pt-1 truncate", "Most: " + top[0] + " (" + fmt(top[1]) + ")"));
+        }
+        tooltip.append(split);
+      }
+      tooltip.classList.remove("hidden");
+      const chart = tooltip.parentElement.getBoundingClientRect();
+      const box = bar.getBoundingClientRect();
+      const left = box.left - chart.left + box.width / 2 - tooltip.offsetWidth / 2;
+      tooltip.style.left = Math.max(0, Math.min(left, chart.width - tooltip.offsetWidth)) + "px";
+      tooltip.style.bottom = "calc(100% + 0.5rem)";
+      for (const other of bars) {
+        const fill = other.querySelector("[data-bar]");
+        fill.classList.toggle("opacity-40", other !== bar && other !== pinned);
+      }
+    }
+
+    function hideTooltip() {
+      tooltip.classList.add("hidden");
+      for (const other of bars) {
+        other.querySelector("[data-bar]").classList.toggle("opacity-40", pinned !== null && other !== pinned);
+      }
+    }
+
+    function pin(bar) {
+      pinned = pinned === bar ? null : bar;
+      for (const other of bars) other.setAttribute("aria-pressed", String(other === pinned));
+      showDetails(pinned ? data.days[Number(pinned.dataset.usageDay)] : null);
+      hideTooltip();
+    }
+
+    for (const bar of bars) {
+      if (bar.disabled) continue;
+      bar.addEventListener("mouseenter", () => showTooltip(bar));
+      bar.addEventListener("focus", () => showTooltip(bar));
+      bar.addEventListener("mouseleave", hideTooltip);
+      bar.addEventListener("blur", hideTooltip);
+      bar.addEventListener("click", () => pin(bar));
+    }
+    root.querySelector("[data-details-clear]").addEventListener("click", () => pinned && pin(pinned));
+    root.addEventListener("keydown", (e) => { if (e.key === "Escape" && pinned) pin(pinned); });
+    showDetails(null);
+  })();
+  </script>
 </div>
 {% endwith %}

@@ -236,7 +236,7 @@ def enqueue_run(
                     for standard in to_run
                 ]
             )
-            UsageMeter.record_executions(project.tenant_id, len(executions))
+            UsageMeter.record_executions(project, len(executions), event_type)
             run_standards.configure(lock=f"standards:{project.pk}").defer(
                 project_id=str(project.pk),
                 execution_ids=[str(e.pk) for e in executions],

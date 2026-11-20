@@ -24,6 +24,7 @@ from app.application.workspace_service import (
     delete_workspace,
 )
 from app.domain.score_representation import ScoreDisplay
+from app.domain.usage import BillingMonth
 from app.domain.workspace_roles import ROLE_LABELS, LastOwner, MembershipRuleError
 from app.domain.models import (
     LLMBudget,
@@ -709,6 +710,17 @@ def set_score_display(request):
     tenant.save(update_fields=["score_display", "updated_at"])
     response = render(request, "partials/score_display_setting.html", _score_display_context(tenant, True))
     return toast(response, f"Scores now show as {ScoreDisplay(choice).label.split(' (')[0].lower()}.")
+
+
+@login_required
+def workspace_usage(request):
+    """The Usage section for another month (``?month=YYYY-MM``), swapped in
+    place. Any member may read it, like the rest of the settings page."""
+    if not request.tenant:
+        return redirect("dashboard")
+    month = BillingMonth.parse(request.GET.get("month", ""))
+    report = UsageReport.for_workspace(request.tenant, month=month)
+    return render(request, "partials/workspace_usage.html", {"usage": UsageSection(report)})
 
 
 def _score_display_context(tenant, is_admin) -> dict:

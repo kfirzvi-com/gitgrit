@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from app.domain.usage.billing_month import BillingMonth
+from app.domain.usage.breakdown import Breakdown
 from app.domain.usage.day_usage import DayUsage
 
 
@@ -30,6 +31,25 @@ class MonthUsage:
     @property
     def peak_projects(self) -> int:
         return max((d.projects for d in self.days), default=0)
+
+    @property
+    def breakdown(self) -> Breakdown:
+        return Breakdown(s for d in self.days for s in d.slices)
+
+    def daily_average(self, today: date) -> float:
+        """Executions per day over the days the month has had so far."""
+        if today < self.month.first_day:
+            return 0.0
+        elapsed = self.month.length if today >= self.month.last_day else today.day
+        return self.executions / elapsed
+
+    def running_totals(self) -> list[int]:
+        """Executions from the 1st through each day of the month."""
+        totals, total = [], 0
+        for d in self.daily():
+            total += d.executions
+            totals.append(total)
+        return totals
 
     def daily(self) -> list[DayUsage]:
         """Every day of the month in order, empty days included."""
