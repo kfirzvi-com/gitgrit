@@ -2,6 +2,7 @@ from django.test import TestCase
 from model_bakery import baker
 
 from app import tasks
+from app.application.dependency_agent import DependencyInferenceUnavailable
 from app.domain.models import Project
 from tests.support import MonkeyPatchMixin
 
@@ -46,7 +47,31 @@ class InferProjectDependenciesTaskTests(MonkeyPatchMixin, TestCase):
         the task instead."""
         self.assertIsNone(tasks.infer_project_dependencies.retry_strategy)
 
+    def test_budget_refusal_tries_once_and_does_not_raise(self):
+        """A missing or exhausted AI budget is expected. One attempt, no pause,
+        the project records why, and the job returns so it is not an error."""
+        project = self._project()
+        refusal = DependencyInferenceUnavailable(
+            "No AI budget for Anthropic claude-haiku-4-5-20251001. "
+            "Only models with a budget can run."
+        )
+        calls = self._inference([refusal, RuntimeError("must not be attempted")])
+
+        with self.assertLogs("app.tasks", level="WARNING") as logs:
+            result = tasks.infer_project_dependencies.func(project_id=str(project.id))
+
+        self.assertIsNone(result)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(self.sleeps, [])
+        project.refresh_from_db()
+        self.assertEqual(project.deps_status, Project.DepsStatus.FAILED)
+        self.assertIn("No AI budget for Anthropic", project.deps_error)
+        self.assertEqual([record.levelname for record in logs.records], ["WARNING"])
+        self.assertIn(str(project.id), logs.records[0].getMessage())
+
     def test_failure_on_every_attempt_raises_after_the_last_one(self):
+        """A genuine error is still retried and, once the attempts are used,
+        raised so the job is recorded as failed."""
         project = self._project()
         calls = self._inference([RuntimeError("provider said no")] * tasks.INFERENCE_ATTEMPTS)
 

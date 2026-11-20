@@ -18,11 +18,20 @@ from app.infrastructure.topology.llm_inference import ROLE, LLMTopologyInference
 from app.infrastructure.topology.snapshots import snapshot_for_project
 
 
+class DependencyInferenceUnavailable(RuntimeError):
+    """The workspace cannot run dependency inference, and trying again will not
+    change that: no reasoning model is configured, or that model's AI budget
+    is missing or used up.
+
+    The worker records this on the project and finishes the job successfully.
+    """
+
+
 def llm_inference_for(tenant) -> LLMTopologyInference:
     """The workspace's configured reasoning model as a ``TopologyInference``."""
     cfg = resolve_llm_roles(tenant).get(ROLE)
     if not cfg:
-        raise RuntimeError(
+        raise DependencyInferenceUnavailable(
             f"No '{ROLE}' LLM role configured for this workspace — set it under "
             "Workspace Settings → LLM."
         )
@@ -67,7 +76,9 @@ def infer_and_store(
     """Analyze one project's repository and replace its components and edges.
 
     Sets the project's deps_status to OK on success; raises on failure (the
-    caller/task records the failure and the previous map is kept).
+    caller/task records the failure and the previous map is kept). A missing
+    reasoning role, or an AI budget that is missing or used up, raises
+    ``DependencyInferenceUnavailable``.
     """
     inference = inference or llm_inference_for(project.tenant)
     # The workspace's own model (its provider is known) is billed and gated by
@@ -76,7 +87,7 @@ def infer_and_store(
     if billed:
         refused = BudgetWatch.refusal(project.tenant, inference.provider_id, inference.model_name)
         if refused:
-            raise RuntimeError(refused)
+            raise DependencyInferenceUnavailable(refused)
     use_case = RefreshProjectTopology(
         inference=inference,
         snapshot_factory=(lambda p: snapshot) if snapshot is not None else snapshot_for_project,
