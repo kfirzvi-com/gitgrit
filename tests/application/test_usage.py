@@ -112,7 +112,7 @@ class RunTimeTests(TestCase):
         UsageMeter.record_run_time(self.project, "push", 40_000, on=TODAY)
         UsageMeter.record_run_time(self.project, "push", 20_000, on=TODAY)
 
-        self.assertEqual(_day(self.tenant, TODAY).run_ms, 60_000)
+        self.assertEqual((_day(self.tenant, TODAY).run_ms, _day(self.tenant, TODAY).timed_runs), (60_000, 2))
         self.assertEqual(list(ExecutionUsage.objects.values_list("executions", "run_ms")), [(2, 60_000)])
 
     def test_the_sandbox_run_is_timed_and_metered(self):
@@ -295,6 +295,19 @@ class BackfillUsageTests(TestCase):
                          [("manual", 1), ("push", 2)])
 
 
+class CountTimedRunsMigrationTests(TestCase):
+    def test_counts_the_runs_already_timed(self):
+        tenant = baker.make("app.Tenant")
+        project = baker.make("app.Project", tenant=tenant)
+        for ms in (10_000, 20_000, None):
+            baker.make("app.StandardExecution", project=project, duration_ms=ms)
+        WorkspaceUsageDay.objects.create(tenant=tenant, day=timezone.now().date(), executions=3, run_ms=30_000)
+
+        import_module("app.migrations.0059_usage_timed_runs").count_timed_runs(apps, None)
+
+        self.assertEqual(_day(tenant).timed_runs, 2)
+
+
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class UsageSectionPageTests(TestCase):
     def test_workspace_settings_shows_the_usage(self):
@@ -346,7 +359,8 @@ class UsageMetricsTests(TestCase):
         from app.presentation.usage_section import UsageSection
 
         tenant = baker.make("app.Tenant")
-        WorkspaceUsageDay.objects.create(tenant=tenant, day=date(2026, 11, 2), executions=40, run_ms=1_200_000)
+        WorkspaceUsageDay.objects.create(tenant=tenant, day=date(2026, 11, 2), executions=40, run_ms=1_200_000,
+                                         timed_runs=40)
 
         executions, run_time = UsageSection(UsageReport.for_workspace(tenant, today=TODAY)).metrics
 

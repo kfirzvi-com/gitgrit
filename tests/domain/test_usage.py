@@ -74,18 +74,19 @@ class MonthUsageTests(SimpleTestCase):
         self.assertEqual(month.daily_average(date(2026, 12, 1)), 10)
 
     def test_run_time_adds_up_and_projects_at_its_pace(self):
-        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 4, 1, run_ms=120_000),
-                                 DayUsage(date(2026, 11, 2), 2, 1, run_ms=60_000)))
+        month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 4, 1, run_ms=120_000, timed_runs=4),
+                                 DayUsage(date(2026, 11, 2), 2, 1, run_ms=60_000, timed_runs=2)))
 
         self.assertEqual(month.minutes, 3)
         self.assertEqual(month.projected_minutes(date(2026, 11, 2)), 45)  # 3 min in 2 of 30 days
         self.assertEqual(month.average_run_seconds, 30)
 
-    def test_the_average_run_ignores_days_never_timed(self):
+    def test_the_average_run_counts_only_timed_runs(self):
+        """The day timing began also has runs from before it: 7 runs, 5 timed."""
         month = MonthUsage(NOV, (DayUsage(date(2026, 11, 1), 100, 1),
-                                 DayUsage(date(2026, 11, 2), 2, 1, run_ms=20_000)))
+                                 DayUsage(date(2026, 11, 2), 7, 1, run_ms=75_000, timed_runs=5)))
 
-        self.assertEqual(month.average_run_seconds, 10)
+        self.assertEqual(month.average_run_seconds, 15)
 
     def test_running_totals_climb_through_the_month(self):
         self.assertEqual(self._month((1, 5, 1), (3, 2, 1)).running_totals()[:4], [5, 5, 7, 7])

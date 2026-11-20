@@ -53,7 +53,7 @@ class UsageMeter:
             )
             ExecutionUsage.objects.filter(pk=row.pk).update(run_ms=F("run_ms") + run_ms)
 
-        cls._safely(project.tenant_id, on, also=split, run_ms=F("run_ms") + run_ms)
+        cls._safely(project.tenant_id, on, also=split, run_ms=F("run_ms") + run_ms, timed_runs=F("timed_runs") + 1)
 
     @classmethod
     def record_projects(cls, tenant_id, *, on: date | None = None) -> None:

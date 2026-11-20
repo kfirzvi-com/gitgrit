@@ -17,6 +17,7 @@ class DayUsage:
     executions: int = 0
     projects: int = 0
     run_ms: int = 0
+    timed_runs: int = 0  # the runs ``run_ms`` covers
     slices: tuple[ExecutionSlice, ...] = field(default_factory=tuple)
 
     @property

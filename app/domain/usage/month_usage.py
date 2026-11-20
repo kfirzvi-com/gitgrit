@@ -38,9 +38,10 @@ class MonthUsage:
 
     @property
     def average_run_seconds(self) -> float:
-        """How long the month's runs took on average. Runs from before run
-        time was measured have none, so this reads only once time is in."""
-        timed = sum(d.executions for d in self.days if d.run_ms)
+        """How long the month's timed runs took on average. Only runs whose
+        time was measured count: runs from before timing began (even earlier
+        the same day) would otherwise pull it down."""
+        timed = sum(d.timed_runs for d in self.days)
         return self.run_ms / 1000 / timed if timed else 0.0
 
     @property

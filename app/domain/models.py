@@ -538,8 +538,10 @@ class WorkspaceUsageDay(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="usage_days")
     day = models.DateField()
     executions = models.PositiveIntegerField(default=0)
-    # Sandbox time the day's runs took, counted when each run finishes.
+    # Sandbox time the day's runs took, counted when each run finishes, and
+    # how many runs that time covers (runs from before timing began have none).
     run_ms = models.PositiveBigIntegerField(default=0)
+    timed_runs = models.PositiveIntegerField(default=0)
     peak_projects = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -555,7 +557,7 @@ class WorkspaceUsageDay(models.Model):
 
     @property
     def usage(self) -> DayUsage:
-        return DayUsage(self.day, self.executions, self.peak_projects, self.run_ms)
+        return DayUsage(self.day, self.executions, self.peak_projects, self.run_ms, self.timed_runs)
 
 
 class ExecutionUsage(models.Model):

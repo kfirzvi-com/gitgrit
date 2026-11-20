@@ -47,7 +47,7 @@ class UsageReport:
         by_month: dict[BillingMonth, list[DayUsage]] = {m: [] for m in window}
         for row in rows:
             by_month[BillingMonth.of(row.day)].append(
-                DayUsage(row.day, row.executions, row.peak_projects, run_ms=row.run_ms,
+                DayUsage(row.day, row.executions, row.peak_projects, run_ms=row.run_ms, timed_runs=row.timed_runs,
                          slices=tuple(slices.get(row.day, ())))
             )
         usages = tuple(MonthUsage(m, tuple(by_month[m])) for m in window)
