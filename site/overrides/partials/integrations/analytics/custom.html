@@ -9,6 +9,14 @@
     Needs "cookieless tracking" enabled in the PostHog project's Web analytics
     settings, or PostHog drops these events.
   - Production only: runs on gitgrit.dev, not staging or local mkdocs serve.
+    before_send is a second guard and drops every event unless the hostname
+    is still that host, so nothing is sent from localhost, 127.0.0.1,
+    staging, or www.
+  - Named events sit alongside autocapture (contact_clicked, app_clicked,
+    get_started_clicked, github_clicked). Mailto values are stored as
+    mailto: plus the subject, never the address. No localStorage,
+    sessionStorage, or cookies. navigation.instant is off, so one delegated
+    listener per full page load is enough.
   - EU cloud. The project key is a public, write-only browser key.
   - Loader stub: PostHog's official snippet (posthog.com/docs/libraries/js).
 #}
@@ -21,6 +29,53 @@
       defaults: "2026-08-30",
       cookieless_mode: "always",
       disable_session_recording: true,
+      // Defence in depth: never send from localhost, 127.0.0.1, staging or www.
+      before_send: function (event) {
+        return location.hostname === "{{ config.extra.analytics.host }}" ? event : null;
+      },
     });
+
+    (function () {
+      var UTM = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+      var params = new URLSearchParams(location.search);
+
+      function where(a) {
+        if (a.closest("header")) return "header";
+        if (a.closest("footer")) return "footer";
+        if (a.closest(".gg-hero")) return "hero";
+        if (a.closest(".md-content, article, main")) return "content";
+        return "other";
+      }
+
+      function classify(url) {
+        if (url.protocol === "mailto:") return "contact_clicked";
+        if (url.hostname === "app.gitgrit.dev") return "app_clicked";
+        if (url.hostname === "github.com" && url.pathname.indexOf("/kfirzvi-com/gitgrit") === 0) return "github_clicked";
+        if (url.hostname === location.hostname && /\/getting-started\/quickstart\/?$/.test(url.pathname)) return "get_started_clicked";
+        return null;
+      }
+
+      document.addEventListener("click", function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+        if (!a) return;
+        var url;
+        try { url = new URL(a.getAttribute("href"), location.href); } catch (e) { return; }
+        var name = classify(url);
+        if (!name) return;
+
+        var props = {
+          page_path: location.pathname,
+          cta_label: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+          cta_href: url.protocol === "mailto:"
+            ? "mailto:" + (url.searchParams.get("subject") ? "?subject=" + url.searchParams.get("subject") : "")
+            : url.origin + url.pathname,
+          cta_location: where(a),
+        };
+        UTM.forEach(function (k) { if (params.get(k)) props[k] = params.get(k); });
+
+        // sendBeacon so the event survives navigation to app.gitgrit.dev / github.com
+        posthog.capture(name, props, { transport: "sendBeacon" });
+      }, true);
+    })();
   }
 </script>
