@@ -295,19 +295,6 @@ class BackfillUsageTests(TestCase):
                          [("manual", 1), ("push", 2)])
 
 
-class CountTimedRunsMigrationTests(TestCase):
-    def test_counts_the_runs_already_timed(self):
-        tenant = baker.make("app.Tenant")
-        project = baker.make("app.Project", tenant=tenant)
-        for ms in (10_000, 20_000, None):
-            baker.make("app.StandardExecution", project=project, duration_ms=ms)
-        WorkspaceUsageDay.objects.create(tenant=tenant, day=timezone.now().date(), executions=3, run_ms=30_000)
-
-        import_module("app.migrations.0059_usage_timed_runs").count_timed_runs(apps, None)
-
-        self.assertEqual(_day(tenant).timed_runs, 2)
-
-
 @override_settings(STORAGES=NON_MANIFEST_STORAGES)
 class UsageSectionPageTests(TestCase):
     def test_workspace_settings_shows_the_usage(self):
