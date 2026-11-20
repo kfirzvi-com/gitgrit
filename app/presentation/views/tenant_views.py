@@ -17,6 +17,7 @@ from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefre
 from app.application import invitations, membership_service, project_management
 from app.application.errors import NotFoundError
 from app.application.llm_providers import LLMProviderError, LLMProviderService
+from app.application.usage import UsageReport
 from app.application.workspace_service import (
     can_delete_workspace,
     create_workspace,
@@ -38,6 +39,7 @@ from app.domain.models import (
 )
 from app.infrastructure.platform_client import get_platform_client
 from app.presentation.htmx import toast
+from app.presentation.usage_section import UsageSection
 from app.presentation.views.ai_budget_views import ai_budgets_context
 from app.workspace_access import (
     enter_support_view,
@@ -313,6 +315,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             context.update(ai_budgets_context(tenant, context["is_admin"]))
             context["tenant"] = self.request.tenant
             context["score_displays"] = list(ScoreDisplay)
+            context["usage"] = UsageSection(UsageReport.for_workspace(tenant))
             if context["is_admin"]:
                 context["workspace_tokens"] = APIToken.objects.filter(
                     kind=APIToken.Kind.WORKSPACE, tenant=tenant

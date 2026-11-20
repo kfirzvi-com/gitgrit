@@ -14,6 +14,7 @@ from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCou
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
+from app.domain.usage import DayUsage
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -524,6 +525,35 @@ class LLMBudget(models.Model):
         if self.announced_period != period_key or not self.announced_level:
             return BudgetLevel.OK
         return BudgetLevel(self.announced_level)
+
+
+class WorkspaceUsageDay(models.Model):
+    """One UTC day of a workspace's metered usage (``app.domain.usage``):
+    the standard runs it queued and the most projects it held that day.
+
+    A counter, not a view over ``StandardExecution``: runs are deleted with
+    their project, but the usage they were has already happened."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="usage_days")
+    day = models.DateField()
+    executions = models.PositiveIntegerField(default=0)
+    peak_projects = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "workspace_usage_days"
+        ordering = ["day"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "day"], name="unique_workspace_usage_day"),
+        ]
+
+    def __str__(self):
+        return f"{self.tenant_id} {self.day}: {self.executions} runs, {self.peak_projects} projects"
+
+    @property
+    def usage(self) -> DayUsage:
+        return DayUsage(self.day, self.executions, self.peak_projects)
 
 
 class Project(models.Model):

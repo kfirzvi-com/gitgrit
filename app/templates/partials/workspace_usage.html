@@ -1,0 +1,60 @@
+{% comment %}Workspace settings, Usage: the two meters plans will be priced on, projects and
+executions per month (UsageReport). Tracking only: no plan or limit is applied yet.
+Expects `usage` (UsageSection).{% endcomment %}
+{% with r=usage.report %}
+<div id="workspace-usage" class="space-y-5" data-workspace-usage>
+  <p class="text-sm opacity-70">
+    What this workspace uses each calendar month (UTC). Projects count at their peak;
+    executions are every standard run queued, by webhook, schedule or by hand.
+  </p>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="rounded-box border border-base-content/15 p-4" data-usage-projects>
+      <div class="text-xs uppercase tracking-wide opacity-60">Projects</div>
+      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.projects_now|floatformat:"0g" }}</div>
+      <div class="text-sm opacity-70 mt-1">Peak this month: <b class="text-base-content tabular-nums">{{ r.peak_projects|floatformat:"0g" }}</b></div>
+    </div>
+    <div class="rounded-box border border-base-content/15 p-4" data-usage-executions>
+      <div class="text-xs uppercase tracking-wide opacity-60">Executions in {{ r.current.month.label }}</div>
+      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.current.executions|floatformat:"0g" }}</div>
+      <div class="text-sm opacity-70 mt-1">On pace for <b class="text-base-content tabular-nums">{{ r.projected_executions|floatformat:"0g" }}</b> by month end</div>
+    </div>
+  </div>
+
+  <div data-usage-daily>
+    <div class="flex items-baseline justify-between text-xs opacity-60 mb-1">
+      <span>Executions per day</span><span>busiest: {{ usage.max_day|floatformat:"0g" }}</span>
+    </div>
+    <div class="flex items-end gap-px h-24 border-b border-base-content/20" role="img"
+         aria-label="Executions per day in {{ r.current.month.label }}">
+      {% for day, height, future in usage.bars %}
+        <div class="flex-1 h-full flex items-end" title="{{ day.day|date:'M j' }}: {{ day.executions|floatformat:"0g" }} execution{{ day.executions|pluralize }}, {{ day.projects }} project{{ day.projects|pluralize }}"
+             data-usage-day="{{ day.day|date:'Y-m-d' }}" data-executions="{{ day.executions }}">
+          <div class="w-full rounded-t-sm {% if future %}bg-base-content/5{% else %}bg-primary{% endif %}"
+               style="height: {% if day.executions %}max({{ height }}%, 2px){% else %}{% if future %}100%{% else %}0{% endif %}{% endif %}"></div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="flex justify-between text-xs opacity-60 mt-1">
+      <span>{{ r.current.month.first_day|date:"M j" }}</span><span>{{ r.current.month.last_day|date:"M j" }}</span>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table table-sm" data-usage-history>
+      <thead><tr><th>Month</th><th class="text-right">Peak projects</th><th class="text-right">Executions</th><th class="w-1/3"></th></tr></thead>
+      <tbody>
+        {% for month, width in usage.months %}
+          <tr data-usage-month="{{ month.month }}">
+            <td>{{ month.month.label }}</td>
+            <td class="text-right tabular-nums">{{ month.peak_projects|floatformat:"0g" }}</td>
+            <td class="text-right tabular-nums">{{ month.executions|floatformat:"0g" }}</td>
+            <td><div class="h-2 rounded-full bg-primary/60" style="width: {{ width }}%"></div></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs opacity-60">Months before metering began count only the runs and projects still stored.</p>
+</div>
+{% endwith %}

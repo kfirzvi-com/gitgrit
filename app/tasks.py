@@ -314,6 +314,18 @@ def expire_stale_standard_runs(timestamp: int) -> int:
     return expire_stale_runs()
 
 
+@app.periodic(cron="17 * * * *")
+@app.task(queue="graph", name="snapshot_workspace_usage", pass_context=False)
+@fresh_db_connection
+def snapshot_workspace_usage(timestamp: int) -> int:
+    """Note every workspace's project count for today (``UsageMeter``), so
+    days with no runs still count the projects held. Hourly rather than
+    daily: idempotent, and a worker down at midnight misses no day."""
+    from app.application.usage import UsageMeter
+
+    return UsageMeter.snapshot_all()
+
+
 @app.periodic(cron="*/2 * * * *")
 @app.task(queue="graph", name="recover_stalled_jobs", pass_context=False)
 async def recover_stalled_jobs(timestamp: int) -> int:

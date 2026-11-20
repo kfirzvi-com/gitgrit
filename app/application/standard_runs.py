@@ -27,6 +27,7 @@ from app.application.event_bus import publish
 from app.application.scoring import expected_standards, score_checks
 from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
 from app.application.standard_service import version_to_run
+from app.application.usage import UsageMeter
 from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsTimedOut
 from app.domain.identity import resolve_user
 from app.domain.models import CommitCheck, Project, ProjectStandard, Standard, StandardExecution
@@ -235,6 +236,7 @@ def enqueue_run(
                     for standard in to_run
                 ]
             )
+            UsageMeter.record_executions(project.tenant_id, len(executions))
             run_standards.configure(lock=f"standards:{project.pk}").defer(
                 project_id=str(project.pk),
                 execution_ids=[str(e.pk) for e in executions],
