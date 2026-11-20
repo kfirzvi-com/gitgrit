@@ -1,11 +1,11 @@
 ---
-title: "GitGrit vs CodeRabbit: code review vs standards"
-description: "CodeRabbit reviews each pull request. GitGrit grades the whole repository, including the ones nobody is changing. See where each fits, and why teams use both."
+title: "GitGrit vs CodeRabbit for AI code review"
+description: "CodeRabbit reviews each pull request with AI. GitGrit checks every repo against your standards on every push and grades it A+ to F. Compare, or use both."
 ---
 
 # GitGrit vs CodeRabbit
 
-*Last updated 2026-10-29.*
+*Last updated 2026-11-20.*
 
 **The short answer:** CodeRabbit is an AI code reviewer. It reviews each pull request with an LLM and dozens of linters, and leaves comments and summaries. GitGrit checks every repository against your engineering standards as code, on every push, and shows where each one stands. CodeRabbit helps review each change. GitGrit tells you whether your standards are met, everywhere.
 
@@ -44,6 +44,18 @@ In GitGrit, each standard is a short, readable piece of code that checks the rep
 They answer different questions. CodeRabbit asks "is this change good?" and helps the reviewer while the pull request is open. GitGrit asks "does every repository meet our standards?" and keeps the answer visible over time. AI reviewers suggest. GitGrit verifies.
 
 ## FAQ
+
+### Is GitGrit a CodeRabbit alternative?
+
+Not a drop-in one. If you want an AI reviewer that comments on each pull request, that's CodeRabbit's job, and GitGrit doesn't write line-by-line review comments. If you need to know whether every repository meets your engineering standards, including the ones nobody is changing, that's what GitGrit is built for. Many teams run both.
+
+### Which Git platforms does each one support?
+
+CodeRabbit supports GitHub, GitLab, Azure DevOps and Bitbucket. GitGrit supports GitHub and GitLab.
+
+### Can I self-host them?
+
+GitGrit is open source (MIT) and self-hostable, including air-gapped. CodeRabbit offers self-hosting on its Enterprise plan.
 
 ### Isn't an AI reviewer enough?
 A reviewer looks at changes. It doesn't tell you where every repository stands, or catch drift in repositories nobody is changing. GitGrit checks the whole repository, so standards like "every service has CI" or "dependencies are up to date" stay visible even when nobody opens a pull request.
