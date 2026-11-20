@@ -10,7 +10,9 @@ from django.urls import reverse
 from django.utils import timezone
 from model_bakery import baker
 
+from app.application.event_bus import publish
 from app.application.standard_runs import enqueue_run
+from app.domain.events import ProjectCreated
 from app.application.usage import UsageMeter, UsageReport
 from app.domain.models import ExecutionUsage, StandardExecution, WorkspaceUsageDay
 from app.domain.usage import BillingMonth
@@ -164,9 +166,24 @@ class MeteringHooksTests(TestCase):
         self.tenant = baker.make("app.Tenant")
 
     def test_a_new_project_raises_the_days_peak(self):
-        baker.make("app.Project", tenant=self.tenant, _quantity=2)
+        projects = baker.make("app.Project", tenant=self.tenant, _quantity=2)
+
+        publish(ProjectCreated(project_id=str(projects[1].pk), tenant_id=str(self.tenant.pk)))
 
         self.assertEqual(_day(self.tenant).peak_projects, 2)
+
+    def test_saving_a_project_alone_meters_nothing(self):
+        """Usage follows domain events, not model saves."""
+        baker.make("app.Project", tenant=self.tenant)
+
+        self.assertFalse(WorkspaceUsageDay.objects.filter(tenant=self.tenant).exists())
+
+    def test_a_new_artifact_project_is_metered(self):
+        from app.application.artifact_service import create_artifact_project
+
+        create_artifact_project(self.tenant, name="build", external_id="build-1")
+
+        self.assertEqual(_day(self.tenant).peak_projects, 1)
 
     def test_queued_runs_are_metered(self):
         project = baker.make("app.Project", tenant=self.tenant)
@@ -195,7 +212,8 @@ class MeteringHooksTests(TestCase):
             with self.assertRaises(RuntimeError):
                 enqueue_run(project, [standard])
 
-        self.assertEqual(_day(self.tenant).executions, 0)
+        self.assertFalse(WorkspaceUsageDay.objects.filter(tenant=self.tenant, executions__gt=0).exists())
+        self.assertFalse(ExecutionUsage.objects.exists())
 
     def test_usage_outlives_a_deleted_project(self):
         project = baker.make("app.Project", tenant=self.tenant)

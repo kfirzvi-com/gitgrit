@@ -8,7 +8,7 @@ from pathlib import Path
 
 from django.db.models import QuerySet
 
-from app.domain.events import DomainEvent
+from app.domain.events import DomainEvent, StandardRunTimed
 from app.domain.models import (
     AuthMethod,
     LLMRole,
@@ -20,7 +20,7 @@ from app.domain.standard_criteria import applies, bare_ref, literal_ref  # noqa:
 from app.infrastructure import archives, upload_storage
 from app.infrastructure.sandbox.runner import SANDBOX_TMP, SandboxRunner
 from app.application.ai_usage import BudgetWatch, UsageRecorder
-from app.application.usage import UsageMeter
+from app.application.event_bus import publish
 from app.domain.llm_standard import asks_for_llm
 
 logger = logging.getLogger(__name__)
@@ -227,15 +227,18 @@ class StandardEngine:
 
     @staticmethod
     def _timed(execution: StandardExecution, run):
-        """Run the sandbox, noting how long it took on the execution and in
-        the workspace's usage — also when the run raises, since the sandbox
-        time was spent all the same."""
+        """Run the sandbox, noting how long it took on the execution and
+        announcing it (``StandardRunTimed``) — also when the run raises,
+        since the sandbox time was spent all the same."""
         started = time.monotonic()
         try:
             return run()
         finally:
             execution.duration_ms = round((time.monotonic() - started) * 1000)
-            UsageMeter.record_run_time(execution.project, execution.event_type, execution.duration_ms)
+            publish(StandardRunTimed(
+                project_id=str(execution.project_id), tenant_id=str(execution.project.tenant_id),
+                trigger=execution.event_type, run_ms=execution.duration_ms,
+            ))
 
     def run_execution(self, execution: StandardExecution, input_config: dict) -> dict:
         """Run one already-created ``StandardExecution`` and record its result.

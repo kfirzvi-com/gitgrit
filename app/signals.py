@@ -7,7 +7,6 @@ from django.db.models.signals import post_delete, post_save, pre_delete, pre_sav
 from app.application import superuser_service
 from app.application.access import confirm_access_request_email
 from app.application.membership_service import roster_of
-from app.application.usage import UsageMeter
 from app.domain.models import ArtifactCommit, Component, Membership, Project, Tenant, User
 from app.infrastructure import upload_storage
 from app.domain.workspace_roles import OWNER
@@ -48,17 +47,8 @@ def delete_artifact_archive(sender, instance, **kwargs):
     transaction.on_commit(lambda: upload_storage.delete_archive(key))
 
 
-def meter_new_project(sender, instance, created, raw=False, **kwargs):
-    """A new project may raise the workspace's peak project count for the day
-    (``UsageMeter``). Every way a project is created passes through here."""
-    if not created or raw:
-        return
-    UsageMeter.record_projects(instance.tenant_id)
-
-
 user_logged_in.connect(reset_support_view)
 post_save.connect(create_root_component, sender=Project, dispatch_uid="project_root_component")
-post_save.connect(meter_new_project, sender=Project, dispatch_uid="project_usage_meter")
 post_delete.connect(delete_artifact_archive, sender=ArtifactCommit, dispatch_uid="artifact_commit_archive")
 
 

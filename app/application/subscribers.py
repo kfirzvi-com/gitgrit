@@ -38,6 +38,7 @@ from app.domain.events import (
     StandardsAttached,
     StandardSaved,
 )
+from app.application.usage import UsageSubscriber
 from app.tasks import infer_project_dependencies
 
 logger = logging.getLogger(__name__)
@@ -144,3 +145,4 @@ def register() -> None:
     subscribe(StandardSaved, _on_standard_changed)
     subscribe(StandardActivated, _on_standard_changed)
     notification_policies.register()
+    UsageSubscriber.register()

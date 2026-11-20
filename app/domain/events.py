@@ -212,3 +212,31 @@ class SuperuserRevoked:
 
     user_id: str
     revoked_by_user_id: str
+
+
+# --- Usage ---------------------------------------------------------------------
+# What a workspace uses, as it happens; the usage meter subscribes
+# (app.application.usage.UsageSubscriber).
+
+
+@dataclass(frozen=True)
+class StandardRunsQueued:
+    """``count`` standard runs were queued on a project, one execution each.
+    Published in the transaction that writes the runs, so it holds only if
+    they do."""
+
+    project_id: str
+    tenant_id: str
+    trigger: str  # the runs' event type: push, pull_request, manual, upload
+    count: int
+
+
+@dataclass(frozen=True)
+class StandardRunTimed:
+    """One standard run spent ``run_ms`` in the sandbox (also when the
+    sandbox failed partway: the time was spent all the same)."""
+
+    project_id: str
+    tenant_id: str
+    trigger: str
+    run_ms: int

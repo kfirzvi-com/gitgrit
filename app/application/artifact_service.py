@@ -21,6 +21,7 @@ from django.utils.text import slugify
 from app.application import stack_service
 from app.application.commit_checks import forget_platform_lists
 from app.application.errors import NotFoundError
+from app.application.event_bus import publish
 from app.application.standard_engine import StandardEngine
 from app.application.standard_runs import enqueue_run
 from app.domain.models import (
@@ -31,6 +32,7 @@ from app.domain.models import (
     Standard,
     ArtifactCommit,
 )
+from app.domain.events import ProjectCreated
 from app.domain.artifacts import (
     DEFAULT_LIMITS,
     TreeNode,
@@ -128,6 +130,7 @@ def create_artifact_project(
             ),
             created=False,
         )
+    publish(ProjectCreated(project_id=str(project.pk), tenant_id=str(tenant.pk)))
     return CreatedProject(project, created=True)
 
 
