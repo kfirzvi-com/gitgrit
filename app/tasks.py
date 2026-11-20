@@ -17,7 +17,9 @@ from procrastinate.contrib.django import app
 logger = logging.getLogger(__name__)
 
 # A worker silent for this long is presumed dead; its in-flight jobs are
-# reclaimed. Comfortably above the heartbeat interval to avoid false positives.
+# reclaimed. This is Procrastinate's database heartbeat (default every 10s),
+# not the CloudWatch liveness line (app/worker_heartbeat.py). Comfortably
+# above that database interval to avoid false positives.
 STALE_WORKER_SECONDS = 90
 
 
@@ -308,6 +310,11 @@ def expire_stale_standard_runs(timestamp: int) -> int:
     from before runs went to the background all leave executions RUNNING with
     no one to finish them — and a RUNNING row blocks re-running that standard
     and keeps the project page polling. See ``standard_runs.expire_stale_runs``.
+
+    Its success line also matches the CloudWatch WorkerHeartbeat filter, which
+    is how liveness used to be measured. The job waits on the single worker
+    slot, so a long standard run delays that line. Liveness is now the thread
+    in ``app.worker_heartbeat``; this job stays because it is the sweep.
     """
     from app.application.standard_runs import expire_stale_runs
 
