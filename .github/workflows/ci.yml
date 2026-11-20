@@ -97,3 +97,17 @@ jobs:
         env:
           GITGRIT_CHANNEL: dev
 
+  docs-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The snippet is exercised outside MkDocs. A full docs build also
+      # renders share cards and is not required for this check.
+      - name: Docs analytics events
+        run: node --test site/tests/analytics_events.test.mjs
+
