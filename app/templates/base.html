@@ -299,7 +299,7 @@
   {% include "components/navbar.html" %}
   {% if not hide_invitation_banner %}{% include "components/invitation_banner.html" %}{% endif %}
 
-  <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
+  <main class="flex-1 container mx-auto px-4 py-8 overflow-x-clip"
         style="visibility:hidden;">
     {% include "components/flash_messages.html" %}
     {% block content %}{% endblock %}
