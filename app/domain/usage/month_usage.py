@@ -53,10 +53,23 @@ class MonthUsage:
 
     def daily_average(self, today: date) -> float:
         """Executions per day over the days the month has had so far."""
+        return self._per_day(self.executions, today)
+
+    def daily_average_minutes(self, today: date) -> float:
+        """Run minutes per day over the days the month has had so far."""
+        return self._per_day(self.minutes, today)
+
+    def busiest_day(self, metric: str = "executions") -> DayUsage | None:
+        """The day with the most ``executions`` or ``run_ms``; None when the
+        month has none."""
+        top = max(self.days, key=lambda d: (getattr(d, metric), -d.day.toordinal()), default=None)
+        return top if top and getattr(top, metric) else None
+
+    def _per_day(self, total: float, today: date) -> float:
         if today < self.month.first_day:
             return 0.0
         elapsed = self.month.length if today >= self.month.last_day else today.day
-        return self.executions / elapsed
+        return total / elapsed
 
     def running_totals(self) -> list[int]:
         """Executions from the 1st through each day of the month."""

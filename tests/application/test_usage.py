@@ -319,3 +319,21 @@ class MinutesTextTests(TestCase):
         from app.presentation.usage_section import minutes_text
 
         self.assertEqual([minutes_text(m) for m in (0, 0.5, 2.25, 1234.4)], ["0 min", "30s", "2.2 min", "1,234 min"])
+
+
+class UsageMetricsTests(TestCase):
+    """Executions and run time each get their own card, every figure named."""
+
+    def test_each_meter_has_its_own_labeled_figures(self):
+        from app.presentation.usage_section import UsageSection
+
+        tenant = baker.make("app.Tenant")
+        WorkspaceUsageDay.objects.create(tenant=tenant, day=date(2026, 11, 2), executions=40, run_ms=1_200_000)
+
+        executions, run_time = UsageSection(UsageReport.for_workspace(tenant, today=TODAY)).metrics
+
+        self.assertEqual((executions.label, executions.total), ("Executions", "40"))
+        self.assertEqual((run_time.label, run_time.total), ("Run time", "20.0 min"))
+        self.assertIn(("Busiest day", "40 on Nov 2"), executions.figures)
+        self.assertIn(("Per run (avg)", "30s"), run_time.figures)
+        self.assertIn(("Per day (avg)", "1.0 min"), run_time.figures)  # 20 min over 20 days

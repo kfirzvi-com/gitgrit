@@ -1,71 +1,95 @@
-{% comment %}Workspace settings, Usage: the two meters plans will be priced on, projects and
-executions per month (UsageReport). Tracking only: no plan or limit is applied yet.
-Hovering a day shows its numbers; clicking pins it in the details below, which otherwise show the
-month. Another month swaps this partial in place (tenant_views.workspace_usage).
+{% comment %}Workspace settings, Usage: what plans will be priced on — projects and executions per
+month — and run time, the compute those executions took (UsageReport). Tracking only: no plan or
+limit is applied yet.
+
+Executions and run time are kept apart throughout: each has its own card and colour (UsageMetric),
+and the chart shows one at a time — the switch (or a click on a card) picks which. Hovering a day
+shows its numbers; clicking pins it in the details below, which otherwise show the month. Another
+month swaps this partial in place (tenant_views.workspace_usage).
 Expects `usage` (UsageSection).{% endcomment %}
 {% with r=usage.report %}
-<div id="workspace-usage" class="space-y-5" data-workspace-usage data-month="{{ r.shown.month }}">
+<div id="workspace-usage" class="space-y-5" data-workspace-usage data-month="{{ r.shown.month }}" data-metric="executions">
+  <style>
+    /* One colour per meter, so executions and run time never read alike. */
+    #workspace-usage { --usage-executions: var(--color-primary); --usage-run_time: #a78bfa; }
+    #workspace-usage .u-bg-executions { background-color: var(--usage-executions); }
+    #workspace-usage .u-bg-run_time { background-color: var(--usage-run_time); }
+    #workspace-usage .u-border-executions { border-color: var(--usage-executions); }
+    #workspace-usage .u-border-run_time { border-color: var(--usage-run_time); }
+    #workspace-usage .u-btn-executions { background-color: var(--usage-executions); border-color: var(--usage-executions); color: var(--color-base-100); }
+    #workspace-usage .u-btn-run_time { background-color: var(--usage-run_time); border-color: var(--usage-run_time); color: var(--color-base-100); }
+    #workspace-usage .u-fade { opacity: .6; }
+  </style>
   <p class="text-sm opacity-70">
-    What this workspace uses each calendar month (UTC). Projects count at their peak;
-    executions are every standard run queued, by webhook, upload or by hand.
+    What this workspace uses each calendar month (UTC).
+    <b class="text-base-content">Executions</b> are standard runs queued, by webhook, upload or by hand.
+    <b class="text-base-content">Run time</b> is how long those runs took in the sandbox.
   </p>
 
   <div class="flex items-center justify-between gap-3">
     <button type="button" class="btn btn-ghost btn-sm" {% if not r.older %}disabled{% endif %}
             {% if r.older %}hx-get="{% url 'workspace_usage' %}?month={{ r.older }}" hx-target="#workspace-usage" hx-swap="outerHTML"{% endif %}
             aria-label="Previous month" data-usage-older>&lsaquo; {% if r.older %}{{ r.older.first_day|date:"M" }}{% endif %}</button>
-    <h3 class="font-semibold" data-usage-month-label>{{ r.shown.month.label }}{% if r.is_current %} <span class="badge badge-sm badge-primary badge-outline ml-1">so far</span>{% endif %}</h3>
+    <h3 class="font-semibold" data-usage-month-label>{{ r.shown.month.label }}{% if r.is_current %} <span class="badge badge-sm badge-ghost ml-1">so far</span>{% endif %}</h3>
     <button type="button" class="btn btn-ghost btn-sm" {% if not r.newer %}disabled{% endif %}
             {% if r.newer %}hx-get="{% url 'workspace_usage' %}?month={{ r.newer }}" hx-target="#workspace-usage" hx-swap="outerHTML"{% endif %}
             aria-label="Next month" data-usage-newer>{% if r.newer %}{{ r.newer.first_day|date:"M" }}{% endif %} &rsaquo;</button>
   </div>
 
-  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)]">
     <div class="rounded-box border border-base-content/15 p-4" data-usage-projects>
       <div class="text-xs uppercase tracking-wide opacity-60">{% if r.is_current %}Projects{% else %}Peak projects{% endif %}</div>
       <div class="text-3xl font-bold tabular-nums mt-1">{% if r.is_current %}{{ r.projects_now|floatformat:"0g" }}{% else %}{{ r.peak_projects|floatformat:"0g" }}{% endif %}</div>
       <div class="text-sm opacity-70 mt-1">{% if r.is_current %}Peak this month: <b class="text-base-content tabular-nums">{{ r.peak_projects|floatformat:"0g" }}</b>{% else %}Most held at once{% endif %}</div>
     </div>
-    <div class="rounded-box border border-base-content/15 p-4" data-usage-executions>
-      <div class="text-xs uppercase tracking-wide opacity-60">Executions</div>
-      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.shown.executions|floatformat:"0g" }}</div>
-      <div class="text-sm opacity-70 mt-1">{% if r.is_current %}On pace for <b class="text-base-content tabular-nums">{{ r.projected_executions|floatformat:"0g" }}</b> by month end{% else %}Whole month{% endif %}</div>
-    </div>
-    <div class="rounded-box border border-base-content/15 p-4" data-usage-minutes>
-      <div class="text-xs uppercase tracking-wide opacity-60">Run time</div>
-      <div class="text-3xl font-bold tabular-nums mt-1">{{ usage.minutes }}</div>
-      <div class="text-sm opacity-70 mt-1">{% if r.shown.run_ms %}Avg <b class="text-base-content tabular-nums">{{ usage.average_run }}</b> per run{% if r.is_current %} &middot; pace <b class="text-base-content tabular-nums">{{ usage.projected_minutes }}</b>{% endif %}{% else %}Measured from now on{% endif %}</div>
-    </div>
-    <div class="rounded-box border border-base-content/15 p-4" data-usage-average>
-      <div class="text-xs uppercase tracking-wide opacity-60">Daily average</div>
-      <div class="text-3xl font-bold tabular-nums mt-1">{{ r.daily_average|floatformat:"0g" }}</div>
-      <div class="text-sm opacity-70 mt-1">Busiest day: <b class="text-base-content tabular-nums">{{ usage.max_day|floatformat:"0g" }}</b></div>
-    </div>
+    {% for m in usage.metrics %}
+      <button type="button" class="rounded-box border-2 p-4 text-left transition-colors {% if forloop.first %}u-border-{{ m.key }}{% else %}border-base-content/15 hover:border-base-content/40{% endif %}"
+              data-usage-metric-card="{{ m.key }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+              aria-label="Show {{ m.label|lower }} on the chart">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
+          <span class="inline-block w-2.5 h-2.5 rounded-full u-bg-{{ m.key }}"></span>{{ m.label }}
+          <span class="ml-auto normal-case tracking-normal opacity-60 text-[11px]" data-metric-hint>{% if forloop.first %}on chart{% else %}show on chart{% endif %}</span>
+        </div>
+        <div class="text-3xl font-bold tabular-nums mt-1">{{ m.total }}</div>
+        <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          {% for label, value in m.figures %}
+            <dt class="opacity-60">{{ label }}</dt><dd class="text-right tabular-nums">{{ value }}</dd>
+          {% endfor %}
+        </dl>
+        {% if m.note %}<p class="text-xs opacity-60 mt-2">{{ m.note }}</p>{% endif %}
+      </button>
+    {% endfor %}
   </div>
 
   <div data-usage-chart>
-    <div class="flex items-baseline justify-between text-xs opacity-60 mb-1">
-      <span>Executions per day &middot; hover for details, click to pin</span>
-      <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 border-t-2 border-dashed border-warning"></span>daily average</span>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div class="join" role="group" aria-label="Chart metric">
+        {% for m in usage.metrics %}
+          <button type="button" class="join-item btn btn-xs {% if forloop.first %}u-btn-{{ m.key }}{% else %}btn-ghost{% endif %}"
+                  data-usage-metric="{{ m.key }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">{{ m.label }}</button>
+        {% endfor %}
+      </div>
+      <span class="text-xs opacity-60">
+        <b class="text-base-content" data-chart-title>Executions per day</b> &middot; hover for details, click to pin
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-xs opacity-60"><span class="inline-block w-4 border-t-2 border-dashed border-warning"></span><span data-average-label>daily average: {{ r.daily_average|floatformat:"0g" }} executions</span></span>
     </div>
     <div class="relative">
       <div class="flex items-end gap-px h-32 border-b border-base-content/20" role="group"
-           aria-label="Executions per day in {{ r.shown.month.label }}">
+           aria-label="{{ r.shown.month.label }}, per day" data-chart-bars>
         {% for i, day, height, future in usage.bars %}
           <button type="button" class="group flex-1 h-full flex items-end focus:outline-none{% if future %} cursor-default{% endif %}"
-                  data-usage-day="{{ i }}" data-date="{{ day.day|date:'Y-m-d' }}" data-executions="{{ day.executions }}"
+                  data-usage-day="{{ i }}" data-date="{{ day.day|date:'Y-m-d' }}" data-executions="{{ day.executions }}" data-run-ms="{{ day.run_ms }}"
                   aria-label="{{ day.day|date:'D, M j' }}: {{ day.executions }} execution{{ day.executions|pluralize }}"
                   aria-pressed="false"{% if future %} disabled{% endif %}>
-            <span class="block w-full rounded-t-sm transition-opacity {% if future %}bg-base-content/5 h-full{% else %}bg-primary group-focus-visible:ring-2 group-focus-visible:ring-primary{% endif %}"
+            <span class="block w-full rounded-t-sm transition-all {% if future %}bg-base-content/5 h-full{% else %}u-bg-executions group-focus-visible:ring-2 group-focus-visible:ring-base-content{% endif %}"
                   data-bar{% if not future %} style="height: {% if day.executions %}max({{ height }}%, 2px){% else %}0{% endif %}"{% endif %}></span>
           </button>
         {% endfor %}
       </div>
-      {% if r.daily_average %}
-        <div class="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-warning/80"
-             style="bottom: {{ usage.average_percent }}%" data-usage-average-line></div>
-      {% endif %}
-      <div class="pointer-events-none absolute z-10 hidden w-60 rounded-box bg-base-300 p-3 text-sm shadow-xl"
+      <div class="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-warning/80{% if not r.daily_average %} hidden{% endif %}"
+           style="bottom: {{ usage.average_percent }}%" data-usage-average-line></div>
+      <div class="pointer-events-none absolute z-10 hidden w-64 rounded-box bg-base-300 p-3 text-sm shadow-xl"
            role="tooltip" data-usage-tooltip></div>
     </div>
     <div class="flex justify-between text-xs opacity-60 mt-1">
@@ -74,22 +98,35 @@ Expects `usage` (UsageSection).{% endcomment %}
   </div>
 
   <div class="rounded-box border border-base-content/15 p-4" data-usage-details aria-live="polite">
-    <div class="flex items-baseline justify-between gap-3 mb-3">
+    <div class="flex items-baseline justify-between gap-3 mb-1">
       <h4 class="font-semibold" data-details-title></h4>
       <button type="button" class="btn btn-ghost btn-xs hidden" data-details-clear>Show whole month</button>
     </div>
-    <div class="text-sm opacity-70 mb-3" data-details-summary></div>
+    <div class="flex flex-wrap gap-x-5 gap-y-1 text-sm mb-4" data-details-summary></div>
     <div class="grid gap-6 sm:grid-cols-2">
-      <div><div class="text-xs uppercase tracking-wide opacity-60 mb-2">By trigger</div><ul class="space-y-1.5" data-details-triggers></ul></div>
-      <div><div class="text-xs uppercase tracking-wide opacity-60 mb-2">By project</div><ul class="space-y-1.5" data-details-projects></ul></div>
+      {% for heading, key in usage.detail_lists %}
+        <div>
+          <div class="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-x-3 text-xs uppercase tracking-wide opacity-60 mb-2">
+            <span>{{ heading }}</span>
+            <span class="text-right inline-flex items-center justify-end gap-1"><span class="inline-block w-2 h-2 rounded-full u-bg-executions"></span>Executions</span>
+            <span class="text-right inline-flex items-center justify-end gap-1"><span class="inline-block w-2 h-2 rounded-full u-bg-run_time"></span>Run time</span>
+          </div>
+          <ul class="space-y-1.5" data-details-{{ key }}></ul>
+        </div>
+      {% endfor %}
     </div>
   </div>
 
   <div class="overflow-x-auto">
     <table class="table table-sm" data-usage-history>
-      <thead><tr><th>Month</th><th class="text-right">Peak projects</th><th class="text-right">Executions</th><th class="text-right">Run time</th><th class="w-1/4"></th></tr></thead>
+      <thead><tr>
+        <th>Month</th><th class="text-right">Peak projects</th>
+        <th class="text-right"><span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full u-bg-executions"></span>Executions</span></th>
+        <th class="text-right"><span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full u-bg-run_time"></span>Run time</span></th>
+        <th class="w-1/4"></th>
+      </tr></thead>
       <tbody>
-        {% for month, width, shown, minutes in usage.months %}
+        {% for month, width, shown, minutes, ms_width in usage.months %}
           <tr class="cursor-pointer hover {% if shown %}bg-base-200 font-semibold{% endif %}" data-usage-month="{{ month.month }}"
               hx-get="{% url 'workspace_usage' %}?month={{ month.month }}" hx-target="#workspace-usage" hx-swap="outerHTML"
               title="Show {{ month.month.label }} day by day">
@@ -97,13 +134,16 @@ Expects `usage` (UsageSection).{% endcomment %}
             <td class="text-right tabular-nums">{{ month.peak_projects|floatformat:"0g" }}</td>
             <td class="text-right tabular-nums">{{ month.executions|floatformat:"0g" }}</td>
             <td class="text-right tabular-nums">{{ minutes }}</td>
-            <td><div class="h-2 rounded-full {% if shown %}bg-primary{% else %}bg-primary/50{% endif %}" style="width: {{ width }}%"></div></td>
+            <td>
+              <div class="h-1.5 rounded-full u-bg-executions{% if not shown %} u-fade{% endif %}" style="width: {{ width }}%" title="Executions"></div>
+              <div class="h-1.5 rounded-full u-bg-run_time{% if not shown %} u-fade{% endif %} mt-1" style="width: {{ ms_width }}%" title="Run time"></div>
+            </td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <p class="text-xs opacity-60">Months before metering began count only the runs and projects still stored.</p>
+  <p class="text-xs opacity-60">Months before metering began count only the runs and projects still stored; run time is measured only from when its tracking began.</p>
 
   {{ usage.chart|json_script:"workspace-usage-data" }}
   <script>
@@ -113,6 +153,22 @@ Expects `usage` (UsageSection).{% endcomment %}
     const tooltip = root.querySelector("[data-usage-tooltip]");
     const bars = Array.from(root.querySelectorAll("[data-usage-day]"));
     const fmt = (n) => Number(n).toLocaleString("en-US");
+    const plural = (n, word) => fmt(n) + " " + word + (n === 1 ? "" : "s");
+    function minutes(ms) {
+      const m = ms / 60000;
+      if (m <= 0) return "0 min";
+      if (m < 1) return Math.round(m * 60) + "s";
+      if (m < 100) return m.toFixed(1) + " min";
+      return fmt(Math.round(m)) + " min";
+    }
+    // Each metric: what its numbers are called, how to read one, its colour.
+    const METRICS = {
+      executions: { label: "Executions", perDay: "Executions per day",
+                    value: (x) => x.executions, text: (n) => plural(n, "execution"), listIndex: 1 },
+      run_time:   { label: "Run time", perDay: "Run time per day",
+                    value: (x) => x.run_ms, text: minutes, listIndex: 2 },
+    };
+    let metric = "executions";
     let pinned = null;
 
     function el(tag, cls, text) {
@@ -122,16 +178,27 @@ Expects `usage` (UsageSection).{% endcomment %}
       return node;
     }
 
-    function rows(list, items, total, more) {
+    function fact(label, value, key) {
+      const span = el("span", "inline-flex items-center gap-1.5");
+      if (key) span.append(el("span", "inline-block w-2 h-2 rounded-full u-bg-" + key));
+      span.append(el("span", "opacity-60", label), el("span", "font-semibold tabular-nums", value));
+      return span;
+    }
+
+    function rows(list, items, more) {
+      const m = METRICS[metric];
+      const total = items.reduce((sum, item) => sum + item[m.listIndex], 0);
       list.replaceChildren();
       if (!items.length) { list.append(el("li", "opacity-60", "No executions")); return; }
-      for (const [name, n, minutes] of items) {
-        const li = el("li", "grid grid-cols-[minmax(0,1fr)_auto_4.5rem] items-center gap-x-3 gap-y-0.5");
-        li.append(el("span", "truncate", name), el("span", "tabular-nums text-right", fmt(n)),
-                  el("span", "tabular-nums text-right opacity-60", minutes || "—"));
+      for (const item of items) {
+        const [name, runs, , runTime] = item;
+        const li = el("li", "grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-center gap-x-3 gap-y-0.5");
+        li.append(el("span", "truncate", name),
+                  el("span", "tabular-nums text-right" + (metric === "executions" ? " font-semibold" : " opacity-70"), fmt(runs)),
+                  el("span", "tabular-nums text-right" + (metric === "run_time" ? " font-semibold" : " opacity-70"), runTime || "—"));
         const track = el("div", "col-span-3 h-1.5 rounded-full bg-base-content/10");
-        const fill = el("div", "h-full rounded-full bg-primary");
-        fill.style.width = (total ? Math.max(2, Math.round(100 * n / total)) : 0) + "%";
+        const fill = el("div", "h-full rounded-full u-bg-" + metric);
+        fill.style.width = (total ? Math.max(2, Math.round(100 * item[m.listIndex] / total)) : 0) + "%";
         track.append(fill);
         li.append(track);
         list.append(li);
@@ -139,76 +206,125 @@ Expects `usage` (UsageSection).{% endcomment %}
       if (more) list.append(el("li", "text-xs opacity-60", "and " + more + " more"));
     }
 
-    function vsAverage(day) {
-      if (day.vs_average === null) return "";
-      if (day.vs_average === 0) return "about the daily average";
-      return Math.abs(day.vs_average) + "% " + (day.vs_average > 0 ? "above" : "below") + " the daily average";
+    function vsAverage(day, key) {
+      const average = data.average[key === "executions" ? "executions" : "run_ms"];
+      const value = METRICS[key].value(day);
+      if (day.future || !average) return "";
+      const pct = Math.round(100 * (value - average) / average);
+      return pct === 0 ? "about the daily average" : Math.abs(pct) + "% " + (pct > 0 ? "above" : "below") + " the daily average";
     }
 
     function showDetails(day) {
       const item = day || data.month;
       root.querySelector("[data-details-title]").textContent = day ? day.label : item.label;
-      const summary = fmt(item.executions) + " execution" + (item.executions === 1 ? "" : "s") +
-        (item.minutes ? " · " + item.minutes + " run time" : "") +
-        " · " + item.projects + " project" + (item.projects === 1 ? "" : "s") +
-        (day ? " held · " + fmt(day.running) + " so far this month" : " at peak");
-      root.querySelector("[data-details-summary]").textContent = summary;
-      rows(root.querySelector("[data-details-triggers]"), item.by_trigger, item.executions, 0);
-      rows(root.querySelector("[data-details-projects]"), item.by_project, item.executions, item.more_projects);
+      const summary = root.querySelector("[data-details-summary]");
+      summary.replaceChildren(
+        fact("Executions", fmt(item.executions), "executions"),
+        fact("Run time", item.run_ms ? minutes(item.run_ms) : "—", "run_time"),
+        fact(day ? "Projects held" : "Peak projects", fmt(item.projects)),
+      );
+      if (day) summary.append(fact("Executions month to date", fmt(day.running)));
+      rows(root.querySelector("[data-details-triggers]"), item.by_trigger, 0);
+      rows(root.querySelector("[data-details-projects]"), item.by_project, item.more_projects);
       root.querySelector("[data-details-clear]").classList.toggle("hidden", !day);
+    }
+
+    function metricBlock(day, key, lead) {
+      const m = METRICS[key];
+      const block = el("div", lead ? "mt-1" : "mt-2 pt-2 border-t border-base-content/10");
+      const head = el("div", "flex items-center gap-1.5 text-xs uppercase tracking-wide opacity-70");
+      head.append(el("span", "inline-block w-2 h-2 rounded-full u-bg-" + key), el("span", "", m.label));
+      block.append(head);
+      const value = key === "run_time" && !day.run_ms ? "—" : (key === "run_time" ? minutes(day.run_ms) : fmt(day.executions));
+      block.append(el("div", (lead ? "text-2xl" : "text-lg") + " font-bold tabular-nums", value));
+      const comparison = vsAverage(day, key);
+      if (comparison) block.append(el("div", "text-xs opacity-70", comparison));
+      return block;
     }
 
     function showTooltip(bar) {
       const day = data.days[Number(bar.dataset.usageDay)];
-      tooltip.replaceChildren();
-      tooltip.append(el("div", "font-semibold", day.label + (day.today ? " (today)" : "")));
-      const big = el("div", "text-2xl font-bold tabular-nums mt-1", fmt(day.executions));
-      big.append(el("span", "text-sm font-normal opacity-70", " execution" + (day.executions === 1 ? "" : "s")));
-      tooltip.append(big);
-      const facts = el("ul", "mt-1 space-y-0.5 opacity-80");
-      for (const line of [vsAverage(day), day.minutes ? day.minutes + " run time" : "", day.projects + " project" + (day.projects === 1 ? "" : "s") + " held",
-                          fmt(day.running) + " executions month to date"]) {
-        if (line) facts.append(el("li", "", line));
-      }
-      tooltip.append(facts);
+      const other = metric === "executions" ? "run_time" : "executions";
+      tooltip.replaceChildren(el("div", "font-semibold", day.label + (day.today ? " (today)" : "")));
+      tooltip.append(metricBlock(day, metric, true), metricBlock(day, other, false));
       if (day.by_trigger.length) {
         const split = el("div", "mt-2 pt-2 border-t border-base-content/10 space-y-0.5");
-        for (const [name, n, minutes] of day.by_trigger) {
-          const row = el("div", "flex justify-between gap-2");
-          row.append(el("span", "opacity-70", name),
-                     el("span", "tabular-nums", fmt(n) + (minutes ? " · " + minutes : "")));
+        const header = el("div", "grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 text-[11px] uppercase opacity-60");
+        header.append(el("span", "", "By trigger"), el("span", "text-right", "Execs"), el("span", "text-right w-14", "Time"));
+        split.append(header);
+        for (const [name, runs, , runTime] of day.by_trigger) {
+          const row = el("div", "grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3");
+          row.append(el("span", "opacity-70 truncate", name), el("span", "tabular-nums text-right", fmt(runs)),
+                     el("span", "tabular-nums text-right w-14", runTime || "—"));
           split.append(row);
-        }
-        if (day.by_project.length) {
-          const top = day.by_project[0];
-          split.append(el("div", "opacity-70 pt-1 truncate", "Most: " + top[0] + " (" + fmt(top[1]) + ")"));
         }
         tooltip.append(split);
       }
+      tooltip.append(el("div", "mt-2 text-xs opacity-60",
+        day.projects + " project" + (day.projects === 1 ? "" : "s") + " held · " + fmt(day.running) + " executions month to date"));
       tooltip.classList.remove("hidden");
       const chart = tooltip.parentElement.getBoundingClientRect();
       const box = bar.getBoundingClientRect();
       const left = box.left - chart.left + box.width / 2 - tooltip.offsetWidth / 2;
       tooltip.style.left = Math.max(0, Math.min(left, chart.width - tooltip.offsetWidth)) + "px";
       tooltip.style.bottom = "calc(100% + 0.5rem)";
+      dim(bar);
+    }
+
+    function dim(hovered) {
       for (const other of bars) {
-        const fill = other.querySelector("[data-bar]");
-        fill.classList.toggle("opacity-40", other !== bar && other !== pinned);
+        const off = (hovered && other !== hovered && other !== pinned) || (!hovered && pinned && other !== pinned);
+        other.querySelector("[data-bar]").classList.toggle("opacity-40", Boolean(off));
       }
     }
 
-    function hideTooltip() {
-      tooltip.classList.add("hidden");
-      for (const other of bars) {
-        other.querySelector("[data-bar]").classList.toggle("opacity-40", pinned !== null && other !== pinned);
-      }
-    }
+    function hideTooltip() { tooltip.classList.add("hidden"); dim(null); }
 
     function pin(bar) {
       pinned = pinned === bar ? null : bar;
       for (const other of bars) other.setAttribute("aria-pressed", String(other === pinned));
       showDetails(pinned ? data.days[Number(pinned.dataset.usageDay)] : null);
       hideTooltip();
+    }
+
+    function setTone(node, active, key, on, off) {
+      for (const k of Object.keys(METRICS)) node.classList.remove(on + k);
+      node.classList.remove(...off.split(" "));
+      if (active) node.classList.add(on + key); else node.classList.add(...off.split(" "));
+      node.setAttribute("aria-pressed", String(active));
+    }
+
+    function draw(key) {
+      metric = key;
+      const m = METRICS[key];
+      root.dataset.metric = key;
+      const values = data.days.map(m.value);
+      const max = Math.max(1, ...values);
+      bars.forEach((bar, i) => {
+        if (bar.disabled) return;
+        const fill = bar.querySelector("[data-bar]");
+        fill.classList.remove(...Object.keys(METRICS).map((k) => "u-bg-" + k));
+        fill.classList.add("u-bg-" + key);
+        fill.style.height = values[i] ? "max(" + Math.round(100 * values[i] / max) + "%, 2px)" : "0";
+        const day = data.days[i];
+        bar.setAttribute("aria-label", day.label + ": " + (key === "run_time" ? minutes(day.run_ms) + " run time" : plural(day.executions, "execution")));
+      });
+      const average = data.average[key === "executions" ? "executions" : "run_ms"];
+      const line = root.querySelector("[data-usage-average-line]");
+      line.style.bottom = (100 * average / max) + "%";
+      line.classList.toggle("hidden", !average);
+      root.querySelector("[data-chart-title]").textContent = m.perDay;
+      root.querySelector("[data-average-label]").textContent =
+        "daily average: " + (key === "run_time" ? minutes(average) : plural(Math.round(average), "execution"));
+      for (const button of root.querySelectorAll("[data-usage-metric]")) {
+        setTone(button, button.dataset.usageMetric === key, key, "u-btn-", "btn-ghost");
+      }
+      for (const card of root.querySelectorAll("[data-usage-metric-card]")) {
+        const active = card.dataset.usageMetricCard === key;
+        setTone(card, active, key, "u-border-", "border-base-content/15 hover:border-base-content/40");
+        card.querySelector("[data-metric-hint]").textContent = active ? "on chart" : "show on chart";
+      }
+      showDetails(pinned ? data.days[Number(pinned.dataset.usageDay)] : null);
     }
 
     for (const bar of bars) {
@@ -219,9 +335,15 @@ Expects `usage` (UsageSection).{% endcomment %}
       bar.addEventListener("blur", hideTooltip);
       bar.addEventListener("click", () => pin(bar));
     }
+    for (const button of root.querySelectorAll("[data-usage-metric]")) {
+      button.addEventListener("click", () => draw(button.dataset.usageMetric));
+    }
+    for (const card of root.querySelectorAll("[data-usage-metric-card]")) {
+      card.addEventListener("click", () => draw(card.dataset.usageMetricCard));
+    }
     root.querySelector("[data-details-clear]").addEventListener("click", () => pinned && pin(pinned));
     root.addEventListener("keydown", (e) => { if (e.key === "Escape" && pinned) pin(pinned); });
-    showDetails(null);
+    draw(metric);
   })();
   </script>
 </div>

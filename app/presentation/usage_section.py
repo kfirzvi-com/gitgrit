@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.domain.usage import Breakdown
+from app.presentation.usage_metric import UsageMetric
 
 # How the triggers runs carry (their event type) read on the page.
 TRIGGER_LABELS = {
@@ -41,6 +42,7 @@ class UsageSection:
         self.days = report.shown.daily()
         self.max_day = max([d.executions for d in self.days] + [1])
         self.max_month = max([m.executions for m in report.months] + [1])
+        self.max_month_ms = max([m.run_ms for m in report.months] + [1])
 
     @property
     def bars(self):
@@ -52,28 +54,50 @@ class UsageSection:
 
     @property
     def average_percent(self) -> float:
-        """Where the daily-average line sits, as % of the chart's height."""
+        """Where the executions' daily-average line sits, as % of the chart's
+        height (the chart opens on executions)."""
         return round(100 * self.report.daily_average / self.max_day, 1)
 
-    @property
-    def minutes(self) -> str:
-        return minutes_text(self.report.shown.minutes)
+    # The details panel's two lists: (heading, data key the script fills).
+    detail_lists = (("By trigger", "triggers"), ("By project", "projects"))
 
     @property
-    def projected_minutes(self) -> str:
-        return minutes_text(self.report.projected_minutes)
-
-    @property
-    def average_run(self) -> str:
-        seconds = self.report.shown.average_run_seconds
-        return f"{seconds:.0f}s" if seconds < 60 else f"{seconds / 60:.1f} min"
+    def metrics(self) -> list[UsageMetric]:
+        """The executions card and the run-time card, in the chart's order."""
+        r, month = self.report, self.report.shown
+        pace = "Pace by month end" if r.is_current else "Whole month"
+        busiest = month.busiest_day("executions")
+        executions = UsageMetric(
+            key="executions", label="Executions", unit="executions",
+            total=f"{month.executions:,}",
+            figures=(
+                (pace, f"{r.projected_executions:,}"),
+                ("Per day (avg)", f"{round(r.daily_average):,}"),
+                ("Busiest day", f"{busiest.executions:,} on {busiest.day:%b} {busiest.day.day}" if busiest else "—"),
+            ),
+        )
+        slowest = month.busiest_day("run_ms")
+        seconds = month.average_run_seconds
+        run_time = UsageMetric(
+            key="run_time", label="Run time", unit="minutes",
+            total=minutes_text(month.minutes),
+            figures=(
+                (pace, minutes_text(r.projected_minutes)),
+                ("Per day (avg)", minutes_text(month.daily_average_minutes(r.today))),
+                ("Per run (avg)", (f"{seconds:.0f}s" if seconds < 60 else f"{seconds / 60:.1f} min") if seconds else "—"),
+                ("Busiest day", f"{minutes_text(slowest.minutes)} on {slowest.day:%b} {slowest.day.day}" if slowest else "—"),
+            ),
+            note="" if month.run_ms else "Measured from when run time tracking began.",
+        )
+        return [executions, run_time]
 
     @property
     def months(self):
-        """(month usage, width %, is shown, minutes text) for each month, newest first."""
+        """(month usage, executions width %, is shown, run-time text, run-time
+        width %) for each month, newest first."""
         return [
             (m, round(100 * m.executions / self.max_month), m.month == self.report.shown.month,
-             minutes_text(m.minutes) if m.run_ms else "—")
+             minutes_text(m.minutes) if m.run_ms else "—", round(100 * m.run_ms / self.max_month_ms))
             for m in self.report.months
         ]
 
@@ -91,19 +115,20 @@ class UsageSection:
                 "label": f"{d.day:%a}, {d.day:%b} {d.day.day}",
                 "executions": d.executions,
                 "projects": d.projects,
+                "run_ms": d.run_ms,
                 "minutes": minutes_text(d.minutes) if d.run_ms else "",
                 "running": total,
-                "vs_average": None if future or not average else round(100 * (d.executions - average) / average),
                 "future": future,
                 "today": d.day == self.report.today,
                 **self._split(d.breakdown),
             })
         month = self.report.shown
         return {
-            "average": round(average, 1),
+            "average": {"executions": average, "run_ms": month.daily_average_minutes(self.report.today) * 60_000},
             "month": {
                 "label": f"All of {month.month.label}",
                 "executions": month.executions,
+                "run_ms": month.run_ms,
                 "projects": self.report.peak_projects,
                 "minutes": minutes_text(month.minutes) if month.run_ms else "",
                 **self._split(month.breakdown),
@@ -116,7 +141,7 @@ class UsageSection:
         projects = breakdown.by_project()
 
         def row(name, share):
-            return [name, share.executions, minutes_text(share.minutes) if share.run_ms else ""]
+            return [name, share.executions, share.run_ms, minutes_text(share.minutes) if share.run_ms else ""]
 
         return {
             "by_trigger": [row(trigger_label(s.name), s) for s in breakdown.by_trigger()],
