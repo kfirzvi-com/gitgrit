@@ -25,6 +25,7 @@ SECTIONS = [
     "section-connections",
     "section-llm",
     "section-scores",
+    "section-usage",
     "section-api-tokens",
     "section-danger",
 ]

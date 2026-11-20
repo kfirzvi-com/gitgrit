@@ -17,12 +17,14 @@ from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefre
 from app.application import invitations, membership_service, project_management
 from app.application.errors import NotFoundError
 from app.application.llm_providers import LLMProviderError, LLMProviderService
+from app.application.usage import UsageReport
 from app.application.workspace_service import (
     can_delete_workspace,
     create_workspace,
     delete_workspace,
 )
 from app.domain.score_representation import ScoreDisplay
+from app.domain.usage import BillingMonth
 from app.domain.workspace_roles import ROLE_LABELS, LastOwner, MembershipRuleError
 from app.domain.models import (
     LLMBudget,
@@ -38,6 +40,7 @@ from app.domain.models import (
 )
 from app.infrastructure.platform_client import get_platform_client
 from app.presentation.htmx import toast
+from app.presentation.usage_section import UsageSection
 from app.presentation.views.ai_budget_views import ai_budgets_context
 from app.workspace_access import (
     enter_support_view,
@@ -313,6 +316,7 @@ class TenantSettingsView(LoginRequiredMixin, TemplateView):
             context.update(ai_budgets_context(tenant, context["is_admin"]))
             context["tenant"] = self.request.tenant
             context["score_displays"] = list(ScoreDisplay)
+            context["usage"] = UsageSection(UsageReport.for_workspace(tenant))
             if context["is_admin"]:
                 context["workspace_tokens"] = APIToken.objects.filter(
                     kind=APIToken.Kind.WORKSPACE, tenant=tenant
@@ -706,6 +710,17 @@ def set_score_display(request):
     tenant.save(update_fields=["score_display", "updated_at"])
     response = render(request, "partials/score_display_setting.html", _score_display_context(tenant, True))
     return toast(response, f"Scores now show as {ScoreDisplay(choice).label.split(' (')[0].lower()}.")
+
+
+@login_required
+def workspace_usage(request):
+    """The Usage section for another month (``?month=YYYY-MM``), swapped in
+    place. Any member may read it, like the rest of the settings page."""
+    if not request.tenant:
+        return redirect("dashboard")
+    month = BillingMonth.parse(request.GET.get("month", ""))
+    report = UsageReport.for_workspace(request.tenant, month=month)
+    return render(request, "partials/workspace_usage.html", {"usage": UsageSection(report)})
 
 
 def _score_display_context(tenant, is_admin) -> dict:
