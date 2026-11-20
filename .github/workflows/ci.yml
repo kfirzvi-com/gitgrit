@@ -106,8 +106,23 @@ jobs:
         with:
           node-version: "22"
 
-      # The snippet is exercised outside MkDocs. A full docs build also
-      # renders share cards and is not required for this check.
-      - name: Docs analytics events
-        run: node --test site/tests/analytics_events.test.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      # Share-card rendering (cairosvg) needs libcairo at mkdocs build time.
+      - name: System libraries for the docs build
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
+
+      # Analytics checks the snippet directly. Compare-page checks build the
+      # site with mkdocs and read the HTML, sitemap, and FAQ schema.
+      - name: Docs site tests
+        env:
+          # what's-new.md is generated from GitHub releases; the token lifts
+          # the anonymous rate limit so a busy runner doesn't fail the build.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node --test site/tests/*.test.mjs
 
