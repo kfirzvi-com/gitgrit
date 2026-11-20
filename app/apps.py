@@ -12,3 +12,9 @@ class AppConfig(AppConfig):
         from app.application import subscribers
 
         subscribers.register()
+
+        # The worker process only. Web and other management commands are not
+        # wrapped. See app.worker_heartbeat.install_worker_heartbeat.
+        from app.worker_heartbeat import install_worker_heartbeat
+
+        install_worker_heartbeat()

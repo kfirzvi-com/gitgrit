@@ -480,10 +480,13 @@ TEST_RUNNER = "gitgrit.test_runner.TeardownSafeTestRunner"
 # route it through a timestamped console handler.
 #
 # The Procrastinate worker logs every job's start and outcome, but successes
-# are INFO and were dropped. Emitting them gives the worker a heartbeat in the
-# worker log group: the periodic jobs report "ended with status: Success"
-# every few minutes, so their absence means the worker is down or wedged
-# (alarmed on in infra modules/monitoring).
+# are INFO and were dropped. Emitting them keeps those lines in the worker log
+# group. "ended with status: Error" is the WorkerJobErrors alarm. Liveness for
+# worker-heartbeat-missing is not a queued job: a thread in the worker process
+# logs the line that filter already matches (app/worker_heartbeat.py). The
+# periodic expire_stale_standard_runs success line still matches too; the
+# alarm only requires one such line per window.
+#
 # Public REST API (/api/v1/). Only the schema class is set globally so the
 # webhook receivers (also DRF views) keep DRF's defaults; auth is declared on
 # the API views themselves.
