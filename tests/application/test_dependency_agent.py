@@ -201,8 +201,9 @@ class DependencyAgentTests(MonkeyPatchMixin, TestCase):
         src = baker.make("app.Project", tenant=tenant, platform_connection=conn, full_path="org/web")
         self.monkeypatch.setattr(da, "resolve_llm_roles", lambda t: {})
 
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(da.DependencyInferenceUnavailable) as ctx:
             da.infer_and_store(src)
+        self.assertIn("No 'reasoning' LLM role configured", str(ctx.exception))
 
     # --- evidence gate -------------------------------------------------------
 

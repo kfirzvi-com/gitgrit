@@ -132,8 +132,10 @@ class StandardRunFinished:
 
 @dataclass(frozen=True)
 class DependencyInferenceFailed:
-    """Published by ``infer_project_dependencies`` once its in-process retries
-    are exhausted.
+    """Published by ``infer_project_dependencies`` when a run does not produce
+    a map: an unexpected failure once its in-process retries are exhausted, or
+    an expected stop that is not retried (no reasoning model, or that model's
+    AI budget is missing or used up).
 
     ``had_worked_before`` says whether this project had a map before this run,
     so listeners can stay quiet for workspaces where the graph has never

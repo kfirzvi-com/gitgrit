@@ -75,16 +75,26 @@ def infer_project_dependencies(project_id: str) -> None:
     per-project ``queueing_lock`` (coalesce) + ``lock`` (serialize) — see
     ``app.application.subscribers``.
 
-    Failures are retried here, in-process, up to ``INFERENCE_ATTEMPTS`` times.
-    No Procrastinate retry strategy is declared on purpose, so the job row
-    only ever moves ``doing`` → ``succeeded`` or ``doing`` → ``failed`` and
-    never back to ``todo``. After the last attempt the exception is raised so
-    Procrastinate records the job as ``failed``; the failure text lives on the
-    project (``deps_status`` / ``deps_error``).
+    Unexpected failures are retried here, in-process, up to
+    ``INFERENCE_ATTEMPTS`` times. No Procrastinate retry strategy is declared
+    on purpose, so the job row only ever moves ``doing`` → ``succeeded`` or
+    ``doing`` → ``failed`` and never back to ``todo``. After the last attempt
+    the exception is raised so Procrastinate records the job as ``failed``;
+    the failure text lives on the project (``deps_status`` / ``deps_error``).
+
+    A workspace that cannot run inference — no reasoning model, or that
+    model's AI budget is missing or used up — raises
+    ``DependencyInferenceUnavailable``. Retrying would fail the same way, so
+    the failure is recorded on the project, logged at warning, and the job
+    returns. Procrastinate records it ``succeeded``, and the worker logs
+    "ended with status: Success".
     """
     # Imported lazily so task registration doesn't pull in Django models at
     # import time (the worker imports this module early).
-    from app.application.dependency_agent import infer_and_store
+    from app.application.dependency_agent import (
+        DependencyInferenceUnavailable,
+        infer_and_store,
+    )
     from app.application.event_bus import publish
     from app.domain.events import DependencyInferenceFailed
     from app.domain.models import Project
@@ -99,9 +109,35 @@ def infer_project_dependencies(project_id: str) -> None:
     Project.objects.filter(pk=project_id).update(
         deps_status=Project.DepsStatus.RUNNING, deps_error=""
     )
+
+    def _record_failure(exc: BaseException) -> None:
+        message = str(exc)[:2000]
+        Project.objects.filter(pk=project_id).update(
+            deps_status=Project.DepsStatus.FAILED, deps_error=message
+        )
+        publish(
+            DependencyInferenceFailed(
+                project_id=str(project.pk),
+                tenant_id=str(project.tenant_id),
+                error=message,
+                had_worked_before=had_worked_before,
+                provider_status=getattr(exc, "status_code", None),
+            )
+        )
+
     for attempt in range(1, INFERENCE_ATTEMPTS + 1):
         try:
             infer_and_store(project)
+            return
+        except DependencyInferenceUnavailable as exc:
+            # Expected until someone configures a model or raises the budget.
+            # One attempt, no pause, and no re-raise: the job is not an error.
+            logger.warning(
+                "dependency inference unavailable for project %s: %s",
+                project_id,
+                exc,
+            )
+            _record_failure(exc)
             return
         except Exception as exc:
             logger.exception(
@@ -111,18 +147,7 @@ def infer_project_dependencies(project_id: str) -> None:
                 INFERENCE_ATTEMPTS,
             )
             if attempt == INFERENCE_ATTEMPTS:
-                Project.objects.filter(pk=project_id).update(
-                    deps_status=Project.DepsStatus.FAILED, deps_error=str(exc)[:2000]
-                )
-                publish(
-                    DependencyInferenceFailed(
-                        project_id=str(project.pk),
-                        tenant_id=str(project.tenant_id),
-                        error=str(exc)[:2000],
-                        had_worked_before=had_worked_before,
-                        provider_status=getattr(exc, "status_code", None),
-                    )
-                )
+                _record_failure(exc)
                 raise  # no retry strategy: Procrastinate marks the job failed
             _sleep(INFERENCE_RETRY_DELAY_SECONDS * attempt)
 
