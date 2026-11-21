@@ -105,8 +105,7 @@
       border-color: var(--gg-primary);
     }
     .gg-btn--primary:hover {
-      background: transparent;
-      color: var(--gg-primary);
+      filter: brightness(1.12);
       box-shadow: 0 0 20px var(--gg-primary-glow);
     }
     .gg-btn--ghost {
@@ -439,7 +438,32 @@
       padding: 1.15rem 1.35rem;
       text-align: left;
     }
-    .gg-faq__item h3 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+    /* Collapsed by default: the question is the toggle, a chevron turns when open.
+       Answers stay in the HTML (and the FAQPage JSON-LD) for search. */
+    .gg-faq__item summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      cursor: pointer;
+      list-style: none;
+    }
+    .gg-faq__item summary::-webkit-details-marker { display: none; }
+    .gg-faq__item summary::after {
+      content: '';
+      flex: none;
+      width: 0.55rem;
+      height: 0.55rem;
+      border-right: 2px solid var(--gg-primary);
+      border-bottom: 2px solid var(--gg-primary);
+      transform: rotate(45deg) translateY(-25%);
+      transition: transform 0.2s;
+    }
+    .gg-faq__item[open] summary::after { transform: rotate(225deg) translateY(-25%); }
+    .gg-faq__item summary:hover h3,
+    .gg-faq__item summary:focus-visible h3 { color: var(--gg-primary); }
+    .gg-faq__item h3 { font-size: 1.05rem; margin: 0; transition: color 0.2s; }
+    .gg-faq__item[open] h3 { margin-bottom: 0.6rem; }
     .gg-faq__item p {
       font-family: var(--gg-font-sans);
       font-size: 0.97rem;
@@ -781,7 +805,7 @@
         <p class="gg-def">GitGrit is an open-source engineering standards platform: it turns your standards into code, checks every GitHub and GitLab repo on every push, and grades each one from A+ to F.</p>
         <div class="gg-hero__actions">
           <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
-          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
       </div>
       <img class="gg-hero__bg" src="images/story/frame-1.webp" alt="Clark the badger working happily with two teammates at one table" width="1254" height="1254">
@@ -950,26 +974,26 @@
         <h2 id="faq"><span class="lite">Common</span> questions</h2>
       </div>
       <div class="gg-faq__list">
-        <div class="gg-faq__item">
-          <h3>What is GitGrit?</h3>
+        <details class="gg-faq__item">
+          <summary><h3>What is GitGrit?</h3></summary>
           <p>GitGrit is an open-source engineering standards platform. You write each standard as short, readable code (or pick ready-made packs), and GitGrit checks every GitHub and GitLab repository against them on every push, pull request and tag. Each repository gets a grade from A+ to F, with the exact reason when something fails.</p>
-        </div>
-        <div class="gg-faq__item">
-          <h3>How is GitGrit different from an AI code reviewer like CodeRabbit?</h3>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>How is GitGrit different from an AI code reviewer like CodeRabbit?</h3></summary>
           <p>An AI reviewer comments on one pull request at a time. GitGrit checks the whole repository against the same standards everywhere, including repositories nobody is changing, and shows every repository's grade on one screen. Many teams use both.</p>
-        </div>
-        <div class="gg-faq__item">
-          <h3>How is GitGrit different from Port, OpsLevel or Backstage scorecards?</h3>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>How is GitGrit different from Port, OpsLevel or Backstage scorecards?</h3></summary>
           <p>Developer portals grade services in a catalog you first have to build and maintain. GitGrit works straight from your repositories: connect GitHub or GitLab, pick standards, and see grades in minutes. Each check is code, so it gives the same answer every time.</p>
-        </div>
-        <div class="gg-faq__item">
-          <h3>Can AI coding agents use GitGrit?</h3>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>Can AI coding agents use GitGrit?</h3></summary>
           <p>Yes. Agents read the same standards through GitGrit, and every change, human or AI, is checked against them.</p>
-        </div>
-        <div class="gg-faq__item">
-          <h3>Is GitGrit open source? Can I self-host it?</h3>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>Is GitGrit open source? Can I self-host it?</h3></summary>
           <p>Yes. GitGrit is MIT-licensed and can be self-hosted, including air-gapped.</p>
-        </div>
+        </details>
       </div>
     </section>
 
@@ -982,7 +1006,7 @@
         <p>We'd love to hear <b>what you're facing</b>, and see together if we can help.</p>
         <div class="gg-cta__actions">
           <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
-          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
         </div>
       </div>

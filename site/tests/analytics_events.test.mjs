@@ -515,7 +515,7 @@ test("navigation.instant stays off and .gg-hero wraps the homepage CTAs", () => 
   assert.ok(hero, "homepage hero wrapper is <section class=\"gg-hero\">");
   assert.match(hero[0], /href="https:\/\/cal\.com\/gitgrit-demo\/30min" data-cal-link="gitgrit-demo\/30min"/);
   assert.match(hero[0], /Book a demo/);
-  assert.match(hero[0], /href="getting-started\/quickstart\/"/);
+  assert.match(hero[0], /href="https:\/\/app\.gitgrit\.dev" class="gg-btn gg-btn--ghost">Get started/);
   assert.match(hero[0], /Get started/);
 
   const footer = read(footerPath);
@@ -694,7 +694,7 @@ async function browse(docsUrl) {
           a.addEventListener("click", (event) => event.preventDefault(), true);
         });
         const hero = document.querySelector(".gg-hero");
-        const talk = [...hero.querySelectorAll("a")].find((a) => a.textContent.includes("Let's talk"));
+        const talk = [...hero.querySelectorAll("a")].find((a) => a.textContent.includes("Book a demo"));
         const start = [...hero.querySelectorAll("a")].find((a) => a.textContent.includes("Get started"));
         const signIn = [...document.querySelectorAll("footer a")].find((a) => a.textContent.trim() === "Sign in");
         talk.click();
@@ -714,7 +714,7 @@ async function browse(docsUrl) {
       called: true,
       hostname: "127.0.0.1",
       posthog: "undefined",
-      labels: ["Let's talk", "Get started →", "Sign in"],
+      labels: ["Book a demo", "Get started →", "Sign in"],
     });
     await new Promise((resolve) => setTimeout(resolve, 500));
     return requests;

@@ -445,8 +445,8 @@
 
 .md-header .gg-header__cta:hover,
 .md-header .gg-header__cta:focus-visible {
-  color: var(--gg-primary);
-  background: transparent;
+  color: var(--gg-bg-base);
+  filter: brightness(1.12);
   box-shadow: 0 0 20px var(--gg-primary-glow);
   outline: none;
 }
