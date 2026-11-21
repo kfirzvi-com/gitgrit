@@ -489,9 +489,24 @@
   .md-header__source {
     display: none;
   }
-  /* No room beside the centered wordmark; the homepage keeps its own buttons. */
+  /* Book a demo stays, compact, right of the search icon. */
   .gg-header__cta {
+    margin: 0 0.2rem 0 0.2rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+  }
+}
+/* Phones: the centered wordmark leaves room for "Demo" only. */
+@media screen and (max-width: 30em) {
+  .gg-header__cta-long {
     display: none;
+  }
+  .gg-header__cta {
+    text-transform: capitalize;
+  }
+  /* Keep the search icon clear of the centered wordmark. */
+  .md-header__button[for="__search"] {
+    margin-right: 0;
   }
 }
 /* Menu drawer header: the same one-line [logo] GitGrit wordmark as the bar,
