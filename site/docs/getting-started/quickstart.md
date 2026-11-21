@@ -82,11 +82,11 @@ Repeat for each repository you want to try.
 
 The standards start running as soon as the project is added. Within a minute the project page shows its health score:
 
-![A project's health score](../images/quickstart/10-project-score.jpg){ .gg-shot loading=lazy }
+![A project's health score](../images/app/project-overview.jpg){ .gg-shot loading=lazy }
 
 Open **Results** to see what passed, what failed, and why:
 
-![Results per standard](../images/quickstart/11-results.jpg){ .gg-shot loading=lazy }
+![Results per standard](../images/app/project-results.jpg){ .gg-shot loading=lazy }
 
 From now on every push re-runs the standards automatically. To run them on demand, click **Run on latest commit**.
 

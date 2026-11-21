@@ -50,7 +50,18 @@ GitGrit is not an AI code reviewer. AI reviewers such as CodeRabbit comment on o
 - [Quick Start](https://gitgrit.dev/getting-started/quickstart/): connect GitHub or GitLab, install a standards pack, see your first grade in about 10 minutes
 - [Writing Standards](https://gitgrit.dev/getting-started/standards/): standards are short Python functions, or an LLM check when a rule needs judgment
 - [Standard Marketplace](https://gitgrit.dev/features/marketplace/): ready-made packs (Repository Hygiene, Documentation Standards, Git Hygiene, Security Essentials, Agentic Standards, Node.js, Python, Docker)
+- [Adding Projects](https://gitgrit.dev/getting-started/projects/): connect a platform, add repositories, how the A+ to F grade is calculated
+- [Command Line](https://gitgrit.dev/getting-started/cli/): the \`gitgrit\` CLI, and a CI gate with \`gitgrit check --wait\`
 - [Self-hosting](https://gitgrit.dev/self-hosting/)
+
+## Features
+- [Dashboard](https://gitgrit.dev/features/dashboard/): workspace health, warning lights, the projects that need you, AI usage
+- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, bulk edit
+- [Stacks & the Stack Map](https://gitgrit.dev/features/stacks/): group projects into systems; an AI-built map of services, dependencies and infrastructure
+- [AI Standards & Budgets](https://gitgrit.dev/features/ai/): bring your own model (Anthropic, OpenAI, Bedrock, Vertex, Ollama…), LLM standards, per-model token budgets
+- [Notifications](https://gitgrit.dev/features/notifications/): who is told when standards fail, a project fails, a connection breaks or a budget runs low
+- [Usage](https://gitgrit.dev/features/usage/): executions and sandbox run time per month, trigger and project
+- [REST API & Tokens](https://gitgrit.dev/api/rest/): every endpoint, personal and workspace tokens
 
 ## Use cases
 - [Enforce engineering standards on every commit](https://gitgrit.dev/use-cases/enforce-engineering-standards/)
@@ -86,7 +97,18 @@ ${FAQ_PLAIN}
 - [Quick Start](https://gitgrit.dev/getting-started/quickstart/): connect GitHub or GitLab, install a standards pack, see your first grade in about 10 minutes
 - [Writing Standards](https://gitgrit.dev/getting-started/standards/): standards are short Python functions, or an LLM check when a rule needs judgment
 - [Standard Marketplace](https://gitgrit.dev/features/marketplace/): ready-made packs (Repository Hygiene, Documentation Standards, Git Hygiene, Security Essentials, Agentic Standards, Node.js, Python, Docker)
+- [Adding Projects](https://gitgrit.dev/getting-started/projects/): connect a platform, add repositories, how the A+ to F grade is calculated
+- [Command Line](https://gitgrit.dev/getting-started/cli/): the \`gitgrit\` CLI, and a CI gate with \`gitgrit check --wait\`
 - [Self-hosting](https://gitgrit.dev/self-hosting/)
+
+## Features
+- [Dashboard](https://gitgrit.dev/features/dashboard/): workspace health, warning lights, the projects that need you, AI usage
+- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, bulk edit
+- [Stacks & the Stack Map](https://gitgrit.dev/features/stacks/): group projects into systems; an AI-built map of services, dependencies and infrastructure
+- [AI Standards & Budgets](https://gitgrit.dev/features/ai/): bring your own model (Anthropic, OpenAI, Bedrock, Vertex, Ollama…), LLM standards, per-model token budgets
+- [Notifications](https://gitgrit.dev/features/notifications/): who is told when standards fail, a project fails, a connection breaks or a budget runs low
+- [Usage](https://gitgrit.dev/features/usage/): executions and sandbox run time per month, trigger and project
+- [REST API & Tokens](https://gitgrit.dev/api/rest/): every endpoint, personal and workspace tokens
 
 ## Use cases
 - [Enforce engineering standards on every commit](https://gitgrit.dev/use-cases/enforce-engineering-standards/)

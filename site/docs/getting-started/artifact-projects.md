@@ -10,6 +10,8 @@ package. Each upload is a **commit** of the project, and your standards check it
 the way they check a pushed commit: same results, same branch health, same
 history.
 
+![An artifact project: a release that failed its Required standard](../images/app/artifact-results.jpg){ .gg-shot loading=lazy }
+
 Use one when what you want to hold to your standards is the thing you ship
 rather than its source, or when the files never live in a repository GitGrit can
 reach (another team's builds, a vendor's deliverables, a platform that receives

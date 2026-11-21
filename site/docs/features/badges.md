@@ -24,10 +24,12 @@ The badge shows your project's [score](../getting-started/projects.md#the-score)
 
 ## Adding a badge
 
-1. Go to your project detail page in GitGrit
-2. Find the **Badge** card in the sidebar
-3. Copy the Markdown or HTML snippet
-4. Paste it in your repository's README
+1. Open the project in GitGrit.
+2. Click **Get your Badge** at the top.
+3. Copy the Markdown or HTML snippet.
+4. Paste it in your repository's README.
+
+![Get your Badge: Markdown and HTML snippets](../images/app/project-badge.jpg){ .gg-shot loading=lazy }
 
 ### Markdown
 

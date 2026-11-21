@@ -214,6 +214,10 @@ with GitLab (or Google/GitHub, if enabled) or with an email and password:
 Approving always puts the person in a workspace, an existing one or a new
 one named after their company, with a role. Rejecting keeps them out.
 
+![Access requests waiting in Admin](../images/app/admin-access-requests.jpg){ .gg-shot loading=lazy }
+
+Each request shows who the person is, what they told you (company, role, goals), whether they've confirmed their email, and when they signed up. Filter by **Pending**, **Approved**, **Rejected** or **All**.
+
 Someone who signs up with an email and password first gets a link to
 confirm the address. Their request reaches superusers (and the queue) only
 once they've followed it. Sign-ins through GitLab, Google or GitHub carry the

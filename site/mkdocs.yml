@@ -65,12 +65,18 @@ nav:
     - Artifact Projects: getting-started/artifact-projects.md
     - Writing Standards: getting-started/standards.md
   - Features:
+    - Dashboard: features/dashboard.md
+    - Search & Bulk Edit: features/search.md
+    - Stacks & the Stack Map: features/stacks.md
+    - AI Standards & Budgets: features/ai.md
+    - Notifications: features/notifications.md
     - Standard Marketplace: features/marketplace.md
-    - Compliance Badges: features/badges.md
     - Standard Versioning: features/versioning.md
-    - Analytics Dashboard: features/analytics.md
-  - Standard API:
-    - ProjectContext: api/project-context.md
+    - Compliance Badges: features/badges.md
+    - Usage: features/usage.md
+  - API:
+    - REST API & Tokens: api/rest.md
+    - ProjectContext (Standards): api/project-context.md
   - Self-Hosting:
     - Overview: self-hosting/index.md
     - Installation: self-hosting/installation.md
@@ -85,6 +91,7 @@ nav:
 #   - Use cases: the hub is linked from the header; five pages from the footer.
 not_in_nav: |
   /index.md
+  /features/analytics.md
   /whats-new.md
   /compare/*.md
   /use-cases/*.md

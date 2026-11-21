@@ -18,6 +18,8 @@ A workspace owner or admin connects GitHub or GitLab once, in **Workspace Settin
 
 From the terminal: `gitgrit connection app` or `gitgrit connection add`. See [Command Line](cli.md).
 
+![Git platform connections in Workspace Settings](../images/app/settings-connections.jpg){ .gg-shot loading=lazy }
+
 ## Add a repository
 
 1. Go to **Projects** → **Add Project** and pick the connection. Right after connecting, you land here on your own.
@@ -25,6 +27,12 @@ From the terminal: `gitgrit connection app` or `gitgrit connection add`. See [Co
 3. Optionally set a **Lifecycle** and an **Owner**.
 4. Under **Attach standards**, pick the standards to run and, if you like, their [importance](#importance). **None are attached by default.**
 5. Click **Add Project**.
+
+![Add Project: pick a connection, or an artifact project](../images/app/add-project.jpg){ .gg-shot loading=lazy }
+
+<video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/add-project.jpg" aria-label="Adding a repository: pick the connection, find the repo, attach standards">
+  <source src="../../videos/add_project.webm" type="video/webm">
+</video>
 
 GitGrit then:
 
@@ -52,11 +60,33 @@ A standard can limit which events and branches it runs on. See [Writing Standard
 
 ## The project page
 
+<video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/project-failed.jpg" aria-label="From the project list to a failed project: its grade, results and standards">
+  <source src="../../videos/project.webm" type="video/webm">
+</video>
+
+![A project's Overview: its grade and what it is based on](../images/app/project-overview.jpg){ .gg-shot loading=lazy }
+
 - **Overview**: the project's [score](#the-score) and how many standards passed, failed or errored
 - **Results**: each branch's score and its commits, each with its own score and every standard's message
 - **Standards**: attach and detach standards and set their [importance](#importance)
 - **Get your Badge**: an embeddable score badge for your README ([Compliance Badges](../features/badges.md))
 - **Edit**: lifecycle and owner. **Remove** deletes the project, its results and its webhook.
+
+The **Overview** shows the grade on the scale A+ to F, what it's based on (how many standards failed, errored and passed), when it last ran, and the project's details: platform, default branch, lifecycle, owner, webhook, languages, tags and [components](../features/stacks.md#components).
+
+When a Required standard fails, the Overview says which:
+
+![A failed project names the Required standard that failed it](../images/app/project-failed.jpg){ .gg-shot loading=lazy }
+
+The **Results** tab lists each branch's commits, newest first, each with its grade and every standard's result. Pick a branch at the top; **Run on latest commit** runs the standards again:
+
+![Results: a branch's commits and their checks](../images/app/project-results.jpg){ .gg-shot loading=lazy }
+
+Feature branches get their own grade, from their own newest commit, without touching the project's:
+
+![Results on a feature branch](../images/app/project-results-branch.jpg){ .gg-shot loading=lazy }
+
+Open any result for its full message, details and the run's log. For an [AI standard](../features/ai.md), the log shows each file the model read and the tokens it spent.
 
 ## Importance
 
@@ -69,6 +99,9 @@ Each attached standard has an **importance**: how much it matters to this projec
 | **Minor** | counts less toward this project's score |
 
 Importance belongs to the attached standard, not to the standard itself, so the same standard can be Required on one project and Minor on another. Every attached standard starts at Major; detaching it and attaching it again starts over at Major.
+
+
+![The Standards tab: attach standards and set their importance](../images/app/project-standards.jpg){ .gg-shot loading=lazy }
 
 Set it in the project's **Standards** tab: click a row's importance in the **Importance** column and pick one, or check several rows and use **Set importance**, then click **Save**. Required standards show a stop sign, and a line above the table counts them. **Any importance** filters the table to the attached standards of one importance.
 
@@ -108,6 +141,10 @@ GitGrit shows a commit's score, and so a branch's and a project's, as a letter. 
 | **—** | no score: a standard errored or never ran | No data |
 
 An **F** always means the project failed; a low average is a D.
+
+To show numbers (0 to 100) instead of letters, an owner or admin picks **Numbers** in **Workspace Settings → Scores**:
+
+![Workspace Settings → Scores: letters or numbers](../images/app/settings-scores.jpg){ .gg-shot loading=lazy }
 
 ### Health
 
