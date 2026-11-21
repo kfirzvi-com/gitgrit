@@ -26,7 +26,7 @@ def _text(fragment):
 
 def on_post_page(output, page, config):
     src = page.file.src_uri
-    if src != "index.md" and not src.startswith(SECTIONS):
+    if src not in ("index.md", "pricing.md") and not src.startswith(SECTIONS):
         return output
     faq = _FAQ.search(output)
     if not faq:

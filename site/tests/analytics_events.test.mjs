@@ -87,6 +87,16 @@ class El {
     return this.attrs.has(name) ? this.attrs.get(name) : null;
   }
 
+  get dataset() {
+    const data = {};
+    for (const [name, value] of this.attrs) {
+      if (name.startsWith("data-")) {
+        data[name.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
+      }
+    }
+    return data;
+  }
+
   append(child) {
     child.parentNode = this;
     this.childNodes.push(child);
@@ -124,13 +134,27 @@ function matches(el, selector) {
   return selector.split(",").some((part) => matchesOne(el, part.trim()));
 }
 
+// tag, .class and [attr] parts, compounded: a[href], .a.b[data-x], [data-plan]
 function matchesOne(el, selector) {
-  if (selector.startsWith(".")) return el.classes.has(selector.slice(1));
-  const match = /^([A-Za-z][\w-]*)(?:\[([A-Za-z][\w-]*)\])?$/.exec(selector);
-  if (!match) throw new Error(`unsupported selector ${selector}`);
-  if (el.tagName !== match[1].toUpperCase()) return false;
-  if (match[2] && !el.attrs.has(match[2])) return false;
+  const match = /^([A-Za-z][\w-]*)?((?:\.[\w-]+)*)((?:\[[A-Za-z][\w-]*\])*)$/.exec(selector);
+  if (!match || !selector) throw new Error(`unsupported selector ${selector}`);
+  if (match[1] && el.tagName !== match[1].toUpperCase()) return false;
+  for (const cls of match[2].split(".").filter(Boolean)) {
+    if (!el.classes.has(cls)) return false;
+  }
+  for (const attr of match[3].match(/[\w-]+/g) ?? []) {
+    if (!el.attrs.has(attr)) return false;
+  }
   return true;
+}
+
+function find(node, selector) {
+  if (node instanceof El && matches(node, selector)) return node;
+  for (const child of node.childNodes) {
+    const hit = find(child, selector);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 function collect(node, tag, out = []) {
@@ -153,12 +177,13 @@ function bomb(name) {
   );
 }
 
-function boot(script, loc) {
+function boot(script, loc, setup) {
   const listeners = [];
   const html = new El("html");
   const body = new El("body");
   html.append(body);
   body.append(new El("script"));
+  if (setup) setup(body);
 
   const document = {
     documentElement: html,
@@ -168,6 +193,13 @@ function boot(script, loc) {
     },
     getElementsByTagName(tag) {
       return collect(html, String(tag).toUpperCase());
+    },
+    readyState: "complete",
+    querySelector(selector) {
+      return find(html, selector);
+    },
+    getElementById() {
+      return null;
     },
     addEventListener(type, fn, capture) {
       listeners.push({ type, fn, capture });
@@ -263,10 +295,11 @@ function assertSnippet(script, { key }) {
   assert.equal(options.defaults, "2026-08-30");
   assert.equal(options.cookieless_mode, "always");
   assert.equal(options.disable_session_recording, true);
+  assert.equal(options.enable_heatmaps, true);
   assert.equal(typeof options.before_send, "function");
   assert.deepEqual(
     Object.keys(options).sort(),
-    ["api_host", "before_send", "cookieless_mode", "defaults", "disable_session_recording"],
+    ["api_host", "before_send", "cookieless_mode", "defaults", "disable_session_recording", "enable_heatmaps"],
   );
   assert.equal(options.autocapture, undefined);
 
@@ -526,6 +559,64 @@ test("navigation.instant stays off and .gg-hero wraps the homepage CTAs", () => 
 
 test("classify, where, and mailto redaction on the rendered snippet", () => {
   assertSnippet(render(sourceScript, config), config);
+});
+
+test("pricing page: CTA clicks carry plan, period and currency; toggles are captured", () => {
+  const els = {};
+  const page = boot(
+    render(sourceScript, config),
+    { hostname: "gitgrit.dev", pathname: "/pricing/", href: "https://gitgrit.dev/pricing/" },
+    (body) => {
+      const article = body.append(new El("article"));
+      article.setAttribute("class", "md-content");
+      const toggles = article.append(new El("div"));
+      els.annual = toggles.append(new El("button"));
+      els.annual.setAttribute("class", "gg-pr-toggle__btn is-active");
+      els.annual.setAttribute("data-period", "annual");
+      els.monthly = toggles.append(new El("button"));
+      els.monthly.setAttribute("class", "gg-pr-toggle__btn");
+      els.monthly.setAttribute("data-period", "monthly");
+      els.eur = toggles.append(new El("button"));
+      els.eur.setAttribute("class", "gg-pr-toggle__btn is-active");
+      els.eur.setAttribute("data-currency", "eur");
+      const grid = article.append(new El("div"));
+      grid.setAttribute("class", "gg-pr-grid");
+      const team = grid.append(new El("div"));
+      team.setAttribute("data-plan", "team");
+      els.trial = link(team, "https://app.gitgrit.dev", "Start 14-day trial");
+      els.docs = link(article, "/getting-started/quickstart/", "Quick Start");
+    },
+  );
+  // No IntersectionObserver in the sandbox: the CTA listener plus the toggle listener.
+  const clicks = page.listeners.filter((l) => l.type === "click");
+  assert.equal(clicks.length, 2);
+  const clickAll = (target) => clicks.forEach((l) => l.fn({ target }));
+
+  clickAll(els.trial);
+  clickAll(els.docs);
+  clickAll(els.monthly);
+  // JSON round trip: objects from the vm context have that context's prototypes.
+  const events = JSON.parse(JSON.stringify(captured(page.sandbox).map(([, name, props]) => [name, props])));
+  assert.deepEqual(events, [
+    ["app_clicked", {
+      page_path: "/pricing/",
+      cta_label: "Start 14-day trial",
+      cta_href: "https://app.gitgrit.dev/",
+      cta_location: "pricing_plan",
+      plan: "team",
+      billing_period: "annual",
+      currency: "eur",
+    }],
+    ["get_started_clicked", {
+      page_path: "/pricing/",
+      cta_label: "Quick Start",
+      cta_href: "https://gitgrit.dev/getting-started/quickstart/",
+      cta_location: "content",
+      billing_period: "annual",
+      currency: "eur",
+    }],
+    ["pricing_period_toggled", { period: "monthly", currency: "eur" }],
+  ]);
 });
 
 test("built HTML renders the production host and the same snippet", (t) => {
