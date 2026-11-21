@@ -72,19 +72,16 @@
     {% if config.extra.alternate %}
       {% include "partials/alternate.html" %}
     {% endif %}
-    {% if "material/search" in config.plugins %}
-      {% set search = config.plugins["material/search"] | attr("config") %}
-      {% if search.enabled %}
-        <label class="md-header__button md-icon" for="__search">
-          {% set icon = config.theme.icon.search or "material/magnify" %}
-          {% include ".icons/" ~ icon ~ ".svg" %}
-        </label>
-        {% include "partials/search.html" %}
-      {% endif %}
-    {% endif %}
+    {# No search in the bar (too crowded). The repo badge is a compact
+       GitHub icon + star count: Material's source component still fetches
+       the facts into .md-source__repository; custom.css hides version and
+       forks. #}
     {% if config.repo_url %}
-      <div class="md-header__source">
-        {% include "partials/source.html" %}
+      <div class="md-header__source gg-header__source">
+        <a href="{{ config.repo_url }}" class="md-source" data-md-component="source" aria-label="GitGrit on GitHub" title="GitGrit on GitHub">
+          <div class="md-source__icon md-icon">{% include ".icons/fontawesome/brands/github.svg" %}</div>
+          <div class="md-source__repository"></div>
+        </a>
       </div>
     {% endif %}
     {# BOOK A DEMO — rightmost in the bar; opens the Cal.com booking modal (partials/cal-embed.html). #}

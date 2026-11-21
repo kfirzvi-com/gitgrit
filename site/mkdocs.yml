@@ -20,8 +20,6 @@ theme:
     # top-level category in the sidebar is a collapsable click-target
     # rather than an always-open header.
     - navigation.top
-    - search.suggest
-    - search.highlight
     - content.code.copy
   icon:
     repo: fontawesome/brands/github
@@ -34,9 +32,9 @@ repo_name: kfirzvi-com/gitgrit
 watch:
   - overrides
 
-# Declaring plugins replaces MkDocs' default list, so search is listed too.
+# Declaring plugins replaces MkDocs' default list. Search is left out on
+# purpose: the header has no search field.
 plugins:
-  - search
   # Share cards (og:image / twitter:image) for every page, rendered at build
   # time from the page's own title and description with our layouts in
   # layouts/. The landing page picks its own layout in its front matter.

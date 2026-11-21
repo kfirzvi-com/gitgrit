@@ -161,13 +161,6 @@
   border: 1px solid var(--gg-border);
 }
 
-/* ── Search ── */
-.md-search__input {
-  background: var(--gg-surface) !important;
-  border: 1px solid var(--gg-border);
-  border-radius: var(--gg-radius-sm);
-}
-
 /* ── Footer ── */
 .md-footer {
   border-top: 1px solid var(--gg-border);
@@ -345,7 +338,7 @@
 }
 
 /* ── Header wordmark + "Docs" link ──
-   Layout: [logo SVG][GitGrit][Docs] ........... [search][repo]
+   Layout: [logo SVG][GitGrit][links] ........... [repo][demo]
    Replaces the navigation.tabs row (disabled in mkdocs.yml). See
    overrides/partials/header.html. */
 
@@ -402,7 +395,7 @@
   align-items: center;
   gap: 0.25rem;
   margin-left: 0.5rem;
-  margin-right: auto;  /* pushes search + repo to the far right */
+  margin-right: auto;  /* pushes the repo badge to the far right */
 }
 
 .gg-header__link {
@@ -424,6 +417,42 @@
   color: var(--gg-primary);
   background-color: var(--gg-surface);
   outline: none;
+}
+
+/* Repo badge: GitHub icon + star count only (overrides/partials/header.html). */
+.md-header__source.gg-header__source {
+  width: auto;
+  margin-left: 0.5rem;
+}
+.gg-header__source .md-source {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  transition: color 0.15s, background-color 0.15s;
+}
+.gg-header__source .md-source:hover,
+.gg-header__source .md-source:focus-visible {
+  color: var(--gg-primary);
+  background-color: var(--gg-surface);
+}
+.gg-header__source .md-source__icon,
+.gg-header__source .md-source__icon svg {
+  margin: 0;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.gg-header__source .md-source__repository {
+  max-width: none;
+  margin-left: 0.4rem;
+}
+.gg-header__source .md-source__facts {
+  margin: 0;
+  font-size: 0.75rem;
+}
+.gg-header__source .md-source__fact--version,
+.gg-header__source .md-source__fact--forks {
+  display: none;
 }
 
 /* Book a demo, rightmost in the bar after the repo badge. Same look as the homepage primary button. */
@@ -453,7 +482,7 @@
 
 /* ── Mobile header ──
    Below 76.25em Material shows the menu button (the drawer holds the nav)
-   and hides the logo button. There: [menu] ... [logo GitGrit] ... [search]
+   and hides the logo button. There: [menu] ... [logo GitGrit] ... [demo]
    — the wordmark, with its own logo copy, centered on the bar; Docs and
    What's New are left to the drawer and the footer. */
 .gg-header__wordmark-logo {
@@ -481,17 +510,14 @@
   .gg-header__links {
     display: none;
   }
-  .md-header__button[for="__search"] {
-    margin-left: auto;
-  }
   /* The repo badge would sit under the centered wordmark; the drawer
      shows it already. */
   .md-header__source {
     display: none;
   }
-  /* Book a demo stays, compact, right of the search icon. */
+  /* Book a demo stays, compact, at the right edge. */
   .gg-header__cta {
-    margin: 0 0.2rem 0 0.2rem;
+    margin: 0 0.2rem 0 auto;
     padding: 0.3rem 0.6rem;
     font-size: 0.7rem;
   }
@@ -503,10 +529,6 @@
   }
   .gg-header__cta {
     text-transform: capitalize;
-  }
-  /* Keep the search icon clear of the centered wordmark. */
-  .md-header__button[for="__search"] {
-    margin-right: 0;
   }
 }
 /* Menu drawer header: the same one-line [logo] GitGrit wordmark as the bar,
@@ -537,12 +559,6 @@
   .md-nav__source {
     display: block;
     border-bottom: 1px solid var(--gg-border);
-  }
-}
-/* Tablets: Material swaps the search button for the full search field. */
-@media screen and (min-width: 60em) and (max-width: 76.234375em) {
-  .md-search {
-    margin-left: auto;
   }
 }
 
