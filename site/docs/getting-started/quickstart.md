@@ -69,7 +69,7 @@ Go to **Projects** → **Add Project**, pick your connection, and click **Select
 
 ![Pick a repository](../images/quickstart/08-pick-repo.jpg){ .gg-shot loading=lazy }
 
-Under **Attach standards**, click **Select all**, then **Add Project**.
+Under **Attach standards**, check the box in the table's header to select every standard shown, click **Attach**, then **Add Project**. To attach only some, filter first (for example `label:documentation`) or switch each one on in the **Attached** column.
 
 ![Attach standards](../images/quickstart/09-attach-standards.jpg){ .gg-shot loading=lazy }
 
@@ -82,11 +82,11 @@ Repeat for each repository you want to try.
 
 The standards start running as soon as the project is added. Within a minute the project page shows its health score:
 
-![A project's health score](../images/quickstart/10-project-score.jpg){ .gg-shot loading=lazy }
+![A project's health score](../images/app/project-overview.jpg){ .gg-shot loading=lazy }
 
 Open **Results** to see what passed, what failed, and why:
 
-![Results per standard](../images/quickstart/11-results.jpg){ .gg-shot loading=lazy }
+![Results per standard](../images/app/project-results.jpg){ .gg-shot loading=lazy }
 
 From now on every push re-runs the standards automatically. To run them on demand, click **Run on latest commit**.
 
