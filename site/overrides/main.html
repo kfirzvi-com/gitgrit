@@ -28,7 +28,7 @@
     `hide: navigation` for this: it sets [hidden], which the Tailwind runtime
     forces to display:none !important, so the drawer could never open.
   #}
-  {% if page and page.url.startswith('use-cases/') %}
+  {% if page and (page.url.startswith('use-cases/') or page.url == 'pricing/') %}
   <style>
     @media screen and (min-width: 76.25em) {
       .md-sidebar--primary { display: none; }

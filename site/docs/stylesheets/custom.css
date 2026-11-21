@@ -820,3 +820,177 @@
   height: 1.15rem;
   fill: currentColor;
 }
+
+/* ── Pricing (docs/pricing.md) ─────────────────────────────────────────
+ * Reuses the use case hero and card language: 16px radius, surface cards,
+ * primary glow on the featured plan. The toggle swaps each element's text
+ * for its data-monthly / data-annual value (inline script in pricing.md). */
+.md-typeset .gg-pr-toggle {
+  display: flex;
+  width: fit-content;
+  margin: -1.5rem auto 2.5rem;
+  padding: 0.25rem;
+  gap: 0.25rem;
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 999px;
+  background: var(--gg-surface);
+}
+.md-typeset .gg-pr-toggle__btn {
+  font-family: var(--gg-font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  color: var(--gg-text-dim);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.md-typeset .gg-pr-toggle__btn.is-active {
+  background: var(--gg-primary);
+  color: var(--gg-bg-base);
+}
+.md-typeset .gg-pr-toggle__save {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 0.35rem;
+  color: var(--gg-secondary);
+}
+.md-typeset .gg-pr-toggle__btn.is-active .gg-pr-toggle__save { color: inherit; }
+
+.md-typeset .gg-pr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  align-items: stretch;
+}
+@media (max-width: 60em) {
+  .md-typeset .gg-pr-grid { grid-template-columns: 1fr; max-width: 28rem; margin: 0 auto; }
+}
+
+.md-typeset .gg-pr-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 16px;
+  padding: 1.75rem;
+}
+.md-typeset .gg-pr-card--featured {
+  border-color: var(--gg-primary);
+  box-shadow: 0 0 40px var(--gg-primary-glow);
+  background: linear-gradient(160deg, oklch(63% 0.158 200 / 0.12), var(--gg-surface) 60%);
+}
+.md-typeset .gg-pr-card__badge {
+  position: absolute;
+  top: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.2rem 0.8rem;
+  border-radius: 999px;
+  background: var(--gg-primary);
+  color: var(--gg-bg-base);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.md-typeset .gg-pr-card__name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gg-text);
+  margin: 0 0 0.4rem;
+}
+.md-typeset .gg-pr-card__name .headerlink { display: none; }
+.md-typeset .gg-pr-card__for {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--gg-text-dim);
+  margin: 0 0 1.25rem;
+  min-height: 3em;
+}
+.md-typeset .gg-pr-card__price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+}
+.md-typeset .gg-pr-card__amount {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--gg-text);
+  line-height: 1;
+}
+.md-typeset .gg-pr-card__per {
+  font-size: 0.9rem;
+  color: var(--gg-text-dim);
+}
+.md-typeset .gg-pr-card__note {
+  font-size: 0.8rem;
+  color: var(--gg-text-dimmer);
+  margin: 0.4rem 0 1.25rem;
+}
+.md-typeset .gg-pr-card__btn {
+  display: block;
+  text-align: center;
+  font-family: var(--gg-font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.7rem 1.2rem;
+  border-radius: 6px;
+  border: 1px solid var(--gg-primary);
+  background: var(--gg-primary);
+  color: var(--gg-bg-base) !important;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.md-typeset .gg-pr-card__btn:hover { box-shadow: 0 0 20px var(--gg-primary-glow); }
+.md-typeset .gg-pr-card__btn--ghost {
+  background: transparent;
+  color: var(--gg-primary) !important;
+}
+.md-typeset .gg-pr-card__btn--ghost:hover { background: var(--gg-primary-glow); }
+.md-typeset .gg-pr-card__list {
+  list-style: none;
+  margin: 1.5rem 0 0 !important;
+  padding: 0;
+}
+.md-typeset .gg-pr-card__list li {
+  position: relative;
+  margin: 0 0 0.6rem !important;
+  padding-left: 1.5rem;
+  font-size: 0.93rem;
+  line-height: 1.45;
+  color: var(--site-text-body, var(--gg-text));
+}
+.md-typeset .gg-pr-card__list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+  color: var(--gg-success);
+}
+
+.md-typeset .gg-pr-enterprise {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin: 1.25rem 0 3.5rem;
+  padding: 1.75rem;
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 16px;
+}
+.md-typeset .gg-pr-enterprise__text { flex: 1; }
+.md-typeset .gg-pr-enterprise__text p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--site-text-body, var(--gg-text));
+}
+.md-typeset .gg-pr-enterprise .gg-pr-card__btn { flex: none; min-width: 11rem; }
+@media (max-width: 60em) {
+  .md-typeset .gg-pr-enterprise { flex-direction: column; align-items: stretch; gap: 1.25rem; max-width: 28rem; margin-left: auto; margin-right: auto; }
+}

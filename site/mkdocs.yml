@@ -84,6 +84,7 @@ nav:
 
 # Pages reachable outside the sidebar nav:
 #   - Home (index.md): the logo links to it.
+#   - Pricing: linked from the header and footer.
 #   - Legal pages: linked from the footer and product surfaces (OAuth
 #     consent, app footer).
 #   - Compare pages: linked from the footer.
@@ -91,6 +92,7 @@ nav:
 #   - Use cases: the hub is linked from the header; five pages from the footer.
 not_in_nav: |
   /index.md
+  /pricing.md
   /features/analytics.md
   /whats-new.md
   /compare/*.md
