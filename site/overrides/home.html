@@ -586,7 +586,7 @@
     .gg-hero {
       position: relative;
       max-width: none;
-      padding: 7rem 0 0;
+      padding: 3.5rem 0 0;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -600,7 +600,7 @@
       width: 100%;
       aspect-ratio: 16 / 7;
       max-height: 72vh;
-      margin-top: 0.5rem;
+      margin-top: -5rem;  /* starts behind the buttons; the top of the image is masked out */
       object-fit: cover;
       object-position: center 50%;
       -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 35%);
@@ -610,11 +610,11 @@
     @keyframes gg-hero-zoom { from { transform: scale(1.1); } to { transform: scale(1); } }
     @media (prefers-reduced-motion: reduce) { .gg-hero__bg { animation: none; } }
     .gg-hero h1 {
-      font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+      font-size: clamp(2.5rem, 5.5vw, 4rem);
       line-height: 1.05;
       font-weight: 800;
       letter-spacing: -0.03em;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
     .gg-hero h1 .lite { font-weight: 300; }
     .gg-hero__sub { font-size: 1.3rem; max-width: 640px; margin: 0 auto 0.85rem; }
@@ -632,8 +632,8 @@
       .gg-def { font-size: 1rem; line-height: 1.5; margin-bottom: 1.5rem; }
     }
     @media (max-width: 800px) {
-      .gg-hero { padding-top: 4.5rem; border-radius: 0 0 50% 50% / 0 0 36px 36px; }
-      .gg-hero__bg { aspect-ratio: 1 / 1; margin-top: -1.5rem; object-position: center 60%; }
+      .gg-hero { padding-top: 2.5rem; border-radius: 0 0 50% 50% / 0 0 36px 36px; }
+      .gg-hero__bg { aspect-ratio: 1 / 1; margin-top: -3rem; object-position: center 60%; }
       .gg-hero__sub { font-size: 1.1rem; }
     }
 
@@ -778,7 +778,6 @@
     <section class="gg-hero">
       <div class="gg-hero__inner">
         <h1><span class="lite">Engineering best practices can become</span> <em>everyday reality.</em></h1>
-        <p class="gg-hero__sub">How a team builds belongs in <b>running code</b>, not in a few senior engineers' heads.</p>
         <p class="gg-def">GitGrit is an open-source engineering standards platform: it turns your standards into code, checks every GitHub and GitLab repo on every push, and grades each one from A+ to F.</p>
         <div class="gg-hero__actions">
           <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
