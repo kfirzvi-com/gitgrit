@@ -395,7 +395,83 @@
   align-items: center;
   gap: 0.25rem;
   margin-left: 0.5rem;
-  margin-right: auto;  /* pushes the repo badge to the far right */
+}
+/* Docs + What's New: pushed to the right, next to the repo badge. */
+.gg-header__links--right {
+  margin-left: auto;
+}
+
+/* Use cases dropdown: opens on hover and on keyboard focus. The dropdown's
+   top padding bridges the gap so the pointer can travel into it. */
+.gg-header__menu {
+  position: relative;
+}
+.gg-header__caret {
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.1rem;
+  fill: currentColor;
+  transition: transform 0.15s;
+}
+.gg-header__menu:hover .gg-header__caret,
+.gg-header__menu:focus-within .gg-header__caret {
+  transform: rotate(180deg);
+}
+.gg-header__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  padding-top: 0.4rem;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+}
+.gg-header__menu:hover .gg-header__dropdown,
+.gg-header__menu:focus-within .gg-header__dropdown {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+.gg-header__dropdown ul {
+  min-width: 17rem;
+  margin: 0;
+  padding: 0.4rem;
+  list-style: none;
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 10px;
+  box-shadow: var(--gg-shadow-card);
+}
+.gg-header__dropdown a {
+  display: block;
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  font-family: var(--gg-font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--gg-text);
+}
+.gg-header__dropdown a:hover,
+.gg-header__dropdown a:focus-visible {
+  color: var(--gg-primary);
+  background: var(--gg-surface-2);
+  outline: none;
+}
+.gg-header__dropdown-all {
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--gg-bg-300);
+}
+.gg-header__dropdown-all a {
+  color: var(--gg-text-dim);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gg-header__caret,
+  .gg-header__dropdown { transition: none; }
 }
 
 .gg-header__link {
@@ -419,36 +495,67 @@
   outline: none;
 }
 
-/* Repo badge: GitHub icon + star count only (overrides/partials/header.html). */
+/* Repo badge: GitHub icon + star count only (overrides/partials/header.html).
+   Material positions the name with negative margins and a text-top fact
+   icon; a flex row centres icon, star and count on one line instead. */
 .md-header__source.gg-header__source {
   width: auto;
-  margin-left: 0.5rem;
+  margin-left: 0.25rem;
 }
 .gg-header__source .md-source {
   display: flex;
   align-items: center;
-  padding: 0.3rem 0.5rem;
-  border-radius: 4px;
-  transition: color 0.15s, background-color 0.15s;
+  gap: 0.4rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 999px;
+  color: var(--gg-text);
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
 .gg-header__source .md-source:hover,
 .gg-header__source .md-source:focus-visible {
+  opacity: 1;
   color: var(--gg-primary);
+  border-color: var(--gg-primary);
   background-color: var(--gg-surface);
 }
-.gg-header__source .md-source__icon,
+.gg-header__source .md-source__icon {
+  display: flex;
+  width: 1rem;
+  height: 1rem;
+}
 .gg-header__source .md-source__icon svg {
   margin: 0;
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1rem;
+  height: 1rem;
 }
 .gg-header__source .md-source__repository {
+  display: flex;
   max-width: none;
-  margin-left: 0.4rem;
+  margin: 0;
+  padding: 0;
+}
+.gg-header__source .md-source__repository:empty {
+  display: none;
 }
 .gg-header__source .md-source__facts {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 1;
+}
+.gg-header__source .md-source__fact {
+  display: flex;
+  align-items: center;
+}
+.gg-header__source .md-source__fact::before {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin: 0 0.25rem 0 0;
+  vertical-align: middle;
+  color: var(--gg-warning);
 }
 .gg-header__source .md-source__fact--version,
 .gg-header__source .md-source__fact--forks {
@@ -841,10 +948,16 @@
  * Reuses the use case hero and card language: 16px radius, surface cards,
  * primary glow on the featured plan. The toggle swaps each element's text
  * for its data-monthly / data-annual value (inline script in pricing.md). */
+.md-typeset .gg-pr-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: -1.5rem auto 2.5rem;
+}
 .md-typeset .gg-pr-toggle {
   display: flex;
   width: fit-content;
-  margin: -1.5rem auto 2.5rem;
   padding: 0.25rem;
   gap: 0.25rem;
   border: 1px solid var(--gg-bg-300);
