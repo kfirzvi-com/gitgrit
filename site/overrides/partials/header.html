@@ -58,22 +58,29 @@
        Pricing. Right, before the repo badge: Docs and What's New. #}
     <div class="gg-header__links">
       <div class="gg-header__menu">
-        <a href="{{ 'use-cases/' | url }}" class="gg-header__link" aria-haspopup="true">
-          Use cases
-          <svg class="gg-header__caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
-        </a>
+        <a href="{{ 'use-cases/' | url }}" class="gg-header__link" aria-haspopup="true">Use cases</a>
         <div class="gg-header__dropdown">
-          <ul>
-            <li><a href="{{ 'use-cases/engineering-visibility/' | url }}">Engineering visibility</a></li>
-            <li><a href="{{ 'use-cases/engineering-governance/' | url }}">Engineering governance</a></li>
-            <li><a href="{{ 'use-cases/engineering-standardization/' | url }}">Engineering standardization</a></li>
-            <li><a href="{{ 'use-cases/enforce-engineering-standards/' | url }}">Enforce engineering standards</a></li>
-            <li><a href="{{ 'use-cases/ai-coding-standards/' | url }}">AI coding standards</a></li>
-            <li><a href="{{ 'use-cases/end-of-life-runtimes/' | url }}">End-of-life Node.js and Python</a></li>
-            <li><a href="{{ 'use-cases/security-fix-everywhere/' | url }}">Track a security fix everywhere</a></li>
-            <li><a href="{{ 'use-cases/outside-developers/' | url }}">Contractors and outsourced teams</a></li>
-            <li class="gg-header__dropdown-all"><a href="{{ 'use-cases/' | url }}">All use cases →</a></li>
-          </ul>
+          <div class="gg-header__dropdown-panel">
+          <div class="gg-header__dropdown-col">
+            <p class="gg-header__dropdown-heading">What GitGrit does</p>
+            <ul>
+              <li><a href="{{ 'use-cases/engineering-visibility/' | url }}"><span class="gg-header__dropdown-title">Know where every repository stands</span><span class="gg-header__dropdown-desc">Visibility without chasing people</span></a></li>
+              <li><a href="{{ 'use-cases/engineering-governance/' | url }}"><span class="gg-header__dropdown-title">Set the rules in one place</span><span class="gg-header__dropdown-desc">Governance as policy as code</span></a></li>
+              <li><a href="{{ 'use-cases/engineering-standardization/' | url }}"><span class="gg-header__dropdown-title">One bar for every team</span><span class="gg-header__dropdown-desc">Standardize how every repo builds</span></a></li>
+              <li><a href="{{ 'use-cases/enforce-engineering-standards/' | url }}"><span class="gg-header__dropdown-title">Catch it on the commit</span><span class="gg-header__dropdown-desc">Enforce standards on every push</span></a></li>
+            </ul>
+          </div>
+          <div class="gg-header__dropdown-col">
+            <p class="gg-header__dropdown-heading">When teams reach for it</p>
+            <ul>
+              <li><a href="{{ 'use-cases/ai-coding-standards/' | url }}"><span class="gg-header__dropdown-title">AI coding standards</span><span class="gg-header__dropdown-desc">Human and AI changes, same standards</span></a></li>
+              <li><a href="{{ 'use-cases/end-of-life-runtimes/' | url }}"><span class="gg-header__dropdown-title">End-of-life Node.js and Python</span><span class="gg-header__dropdown-desc">Find old runtimes before you must</span></a></li>
+              <li><a href="{{ 'use-cases/security-fix-everywhere/' | url }}"><span class="gg-header__dropdown-title">Track a security fix everywhere</span><span class="gg-header__dropdown-desc">Every affected repo, until it's clean</span></a></li>
+              <li><a href="{{ 'use-cases/outside-developers/' | url }}"><span class="gg-header__dropdown-title">Contractors and outsourced teams</span><span class="gg-header__dropdown-desc">Outside developers, same bar</span></a></li>
+            </ul>
+          </div>
+            <a class="gg-header__dropdown-all" href="{{ 'use-cases/' | url }}">All use cases →</a>
+          </div>
         </div>
       </div>
       <a href="{{ 'pricing/' | url }}" class="gg-header__link">Pricing</a>
