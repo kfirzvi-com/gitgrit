@@ -399,10 +399,24 @@ function assertSnippet(script, { key }) {
   fire(page.listeners, appDeep);
   assert.equal(captured(page.sandbox).at(-1)[2].cta_href, "https://app.gitgrit.dev/projects/1/");
 
+  const demoHeader = link(header, "https://cal.com/gitgrit-demo/30min", "Book a demo");
+  const demoHero = link(hero, "https://cal.com/gitgrit-demo/30min?month=2026-12", "Book a demo");
+  fire(page.listeners, demoHeader);
+  fire(page.listeners, demoHero);
+  assert.deepEqual(
+    captured(page.sandbox).slice(-2).map((entry) => [entry[1], entry[2].cta_location, entry[2].cta_href, entry[2].cta_label]),
+    [
+      ["demo_clicked", "header", "https://cal.com/gitgrit-demo/30min", "Book a demo"],
+      ["demo_clicked", "hero", "https://cal.com/gitgrit-demo/30min", "Book a demo"],
+    ],
+  );
+
   const ignored = [
     ["https://github.com/kfirzvi-com/other", "Other repo"],
     ["https://example.com/kfirzvi-com/gitgrit", "Mirror"],
     ["https://app.gitgrit.dev.evil.example/", "Lookalike"],
+    ["https://cal.com/someone-else/30min", "Other booking page"],
+    ["https://cal.com.evil.example/gitgrit-demo/30min", "Booking lookalike"],
     ["https://staging.gitgrit.dev/getting-started/quickstart/", "Staging quickstart"],
     ["/getting-started/quickstart/install/", "Deeper quickstart"],
     ["/features/analytics/", "Analytics"],
@@ -499,9 +513,9 @@ test("navigation.instant stays off and .gg-hero wraps the homepage CTAs", () => 
   const home = read(homePath);
   const hero = home.match(/<section class="gg-hero">[\s\S]*?<\/section>/);
   assert.ok(hero, "homepage hero wrapper is <section class=\"gg-hero\">");
-  assert.match(hero[0], new RegExp(`mailto:${ADDRESS.replace(".", "\\.")}\\?subject=GitGrit`));
-  assert.match(hero[0], /Let's talk/);
-  assert.match(hero[0], /href="getting-started\/quickstart\/"/);
+  assert.match(hero[0], /href="https:\/\/cal\.com\/gitgrit-demo\/30min" data-cal-link="gitgrit-demo\/30min"/);
+  assert.match(hero[0], /Book a demo/);
+  assert.match(hero[0], /href="https:\/\/app\.gitgrit\.dev" class="gg-btn gg-btn--ghost">Get started/);
   assert.match(hero[0], /Get started/);
 
   const footer = read(footerPath);
@@ -533,8 +547,8 @@ test("built HTML renders the production host and the same snippet", (t) => {
     assert.doesNotMatch(script, /@praktical\.dev|localStorage|sessionStorage/);
     assert.match(html, /<section class="gg-hero">|Sign in|Quick Start/);
     if (file === builtHome) {
-      assert.match(html, /<section class="gg-hero">[\s\S]*Let's talk[\s\S]*Get started/);
-      assert.match(html, new RegExp(`href="mailto:${ADDRESS.replace(".", "\\.")}\\?subject=GitGrit"`));
+      assert.match(html, /<section class="gg-hero">[\s\S]*Book a demo[\s\S]*Get started/);
+      assert.match(html, /href="https:\/\/cal\.com\/gitgrit-demo\/30min"/);
       assert.match(html, /href="https:\/\/app\.gitgrit\.dev"/);
       assertSnippet(script, config);
     } else {
@@ -680,7 +694,7 @@ async function browse(docsUrl) {
           a.addEventListener("click", (event) => event.preventDefault(), true);
         });
         const hero = document.querySelector(".gg-hero");
-        const talk = [...hero.querySelectorAll("a")].find((a) => a.textContent.includes("Let's talk"));
+        const talk = [...hero.querySelectorAll("a")].find((a) => a.textContent.includes("Book a demo"));
         const start = [...hero.querySelectorAll("a")].find((a) => a.textContent.includes("Get started"));
         const signIn = [...document.querySelectorAll("footer a")].find((a) => a.textContent.trim() === "Sign in");
         talk.click();
@@ -700,7 +714,7 @@ async function browse(docsUrl) {
       called: true,
       hostname: "127.0.0.1",
       posthog: "undefined",
-      labels: ["Let's talk", "Get started →", "Sign in"],
+      labels: ["Book a demo", "Get started →", "Sign in"],
     });
     await new Promise((resolve) => setTimeout(resolve, 500));
     return requests;

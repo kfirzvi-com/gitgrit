@@ -239,7 +239,7 @@ test("homepage shows the definition and FAQ, with matching FAQPage schema", () =
 
   const faq = html.match(/<section class="gg-sec gg-faq[\s\S]*?<\/section>/);
   assert.ok(faq, "visible FAQ section missing");
-  const visible = [...faq[0].matchAll(/<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g)].map((match) => [
+  const visible = [...faq[0].matchAll(/<summary><h3>([\s\S]*?)<\/h3><\/summary>\s*<p>([\s\S]*?)<\/p>/g)].map((match) => [
     textOf(match[1]),
     textOf(match[2]),
   ]);

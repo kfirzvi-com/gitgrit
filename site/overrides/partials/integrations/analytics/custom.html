@@ -13,7 +13,8 @@
     is still that host, so nothing is sent from localhost, 127.0.0.1,
     staging, or www.
   - Named events sit alongside autocapture (contact_clicked, app_clicked,
-    get_started_clicked, github_clicked). Mailto values are stored as
+    get_started_clicked, github_clicked, demo_clicked). demo_booked fires from
+    the Cal.com embed (partials/cal-embed.html) when a booking completes. Mailto values are stored as
     mailto: plus the subject, never the address. No localStorage,
     sessionStorage, or cookies. navigation.instant is off, so one delegated
     listener per full page load is enough.
@@ -50,6 +51,7 @@
       function classify(url) {
         if (url.protocol === "mailto:") return "contact_clicked";
         if (url.hostname === "app.gitgrit.dev") return "app_clicked";
+        if (url.hostname === "cal.com" && url.pathname.indexOf("/gitgrit-demo/") === 0) return "demo_clicked";
         if (url.hostname === "github.com" && url.pathname.indexOf("/kfirzvi-com/gitgrit") === 0) return "github_clicked";
         if (url.hostname === location.hostname && /\/getting-started\/quickstart\/?$/.test(url.pathname)) return "get_started_clicked";
         return null;
