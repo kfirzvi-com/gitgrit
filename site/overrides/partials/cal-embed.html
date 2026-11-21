@@ -15,6 +15,17 @@
     hideEventTypeDetails: false,
     layout: "month_view"
   });
+  // Funnel end: a booking completed in the modal. demo_clicked (the opening click) is captured
+  // by the analytics partial. window.posthog exists only on production (see analytics/custom.html),
+  // and no attendee details are sent: never the name or email someone typed into Cal.
+  Cal.ns["30min"]("on", {
+    action: "bookingSuccessfulV2",
+    callback: function () {
+      if (window.posthog && window.posthog.capture) {
+        window.posthog.capture("demo_booked", { page_path: location.pathname });
+      }
+    }
+  });
   // Cal opens the modal from its own click listener but leaves the link's default
   // navigation alone, so stop it here (delegated: this runs before the body exists).
   document.addEventListener("click", function (e) {
