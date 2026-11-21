@@ -14,6 +14,8 @@ The Projects, Stacks, Standards and Marketplace lists all work the same way: a *
 
 Type in the box, or pick from the menu buttons under it (**Health**, **Stack**, **Owner**…). The list filters as you type, and the count above it says how many rows match: *"4 of 11 projects"*.
 
+![Filtering projects](../images/app/projects-filter.jpg){ .gg-shot loading=lazy }
+
 The syntax is GitHub's:
 
 | You type | It means |

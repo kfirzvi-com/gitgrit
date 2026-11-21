@@ -9,6 +9,10 @@ A project is what GitGrit checks against your standards. Each belongs to a works
 - **Repositories**: on GitHub or GitLab, coming in through one of the workspace's git platform connections and checked on their webhook events (this page).
 - **[Artifact projects](artifact-projects.md)**: builds you upload as archives, checked on each upload.
 
+The **Projects** list shows every project with its grade, stacks, owner, lifecycle, platform and when it was last checked. [Filter, sort, group and bulk edit](../features/search.md) it like every list.
+
+![The Projects list](../images/app/projects-list.jpg){ .gg-shot loading=lazy }
+
 ## Connect a platform first
 
 A workspace owner or admin connects GitHub or GitLab once, in **Workspace Settings** → **Git Platform Connections**:

@@ -6,6 +6,10 @@ description: "Write your own standards as policy as code: Python functions that 
 
 Standards are Python functions that evaluate a repository and return a compliance result. Start from the [marketplace](../features/marketplace.md), or write your own: **Standards** → **New Standard**.
 
+**Standards** lists the workspace's standards with their labels, events, how many projects each is attached to, how many of those pass and fail, and whether it's enabled:
+
+![The Standards list](../images/app/standards-list.jpg){ .gg-shot loading=lazy }
+
 <video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/standard-detail.jpg" aria-label="A team standard: its code, version history and editor">
   <source src="../../videos/standard.webm" type="video/webm">
 </video>

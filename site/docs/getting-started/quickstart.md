@@ -69,7 +69,7 @@ Go to **Projects** → **Add Project**, pick your connection, and click **Select
 
 ![Pick a repository](../images/quickstart/08-pick-repo.jpg){ .gg-shot loading=lazy }
 
-Under **Attach standards**, click **Select all**, then **Add Project**.
+Under **Attach standards**, check the box in the table's header to select every standard shown, click **Attach**, then **Add Project**. To attach only some, filter first (for example `label:documentation`) or switch each one on in the **Attached** column.
 
 ![Attach standards](../images/quickstart/09-attach-standards.jpg){ .gg-shot loading=lazy }
 
