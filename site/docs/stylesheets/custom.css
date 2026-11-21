@@ -426,6 +426,31 @@
   outline: none;
 }
 
+/* Book a demo, next to the repo badge. Same look as the homepage primary button. */
+.gg-header__cta {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.5rem;
+  padding: 0.35rem 0.9rem;
+  white-space: nowrap;
+  font-family: var(--gg-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gg-bg-base);
+  background: var(--gg-primary);
+  border: 1.5px solid var(--gg-primary);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.md-header .gg-header__cta:hover,
+.md-header .gg-header__cta:focus-visible {
+  color: var(--gg-primary);
+  background: transparent;
+  box-shadow: 0 0 20px var(--gg-primary-glow);
+  outline: none;
+}
+
 /* ── Mobile header ──
    Below 76.25em Material shows the menu button (the drawer holds the nav)
    and hides the logo button. There: [menu] ... [logo GitGrit] ... [search]
@@ -462,6 +487,10 @@
   /* The repo badge would sit under the centered wordmark; the drawer
      shows it already. */
   .md-header__source {
+    display: none;
+  }
+  /* No room beside the centered wordmark; the homepage keeps its own buttons. */
+  .gg-header__cta {
     display: none;
   }
 }

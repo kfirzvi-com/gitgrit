@@ -81,6 +81,8 @@
         {% include "partials/search.html" %}
       {% endif %}
     {% endif %}
+    {# BOOK A DEMO — opens the Cal.com booking modal (partials/cal-embed.html). #}
+    <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-header__cta">Book a demo</a>
     {% if config.repo_url %}
       <div class="md-header__source">
         {% include "partials/source.html" %}

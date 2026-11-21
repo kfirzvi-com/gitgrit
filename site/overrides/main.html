@@ -19,6 +19,8 @@
   <script>tailwind = { config: { corePlugins: { preflight: false } } }</script>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
+  {% include "partials/cal-embed.html" %}
+
   {#
     Use case pages stand apart from the docs: no docs sidebar on desktop.
     Below 76.25em that sidebar is the menu drawer (overrides/partials/nav.html
