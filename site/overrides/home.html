@@ -781,7 +781,7 @@
         <p class="gg-hero__sub">How a team builds belongs in <b>running code</b>, not in a few senior engineers' heads.</p>
         <p class="gg-def">GitGrit is an open-source engineering standards platform: it turns your standards into code, checks every GitHub and GitLab repo on every push, and grades each one from A+ to F.</p>
         <div class="gg-hero__actions">
-          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Let's talk</a>
+          <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
           <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
       </div>
@@ -982,7 +982,7 @@
         <h2><span class="lite">More code.</span><br><span class="lite">Faster speed.</span><br><em>Same standards.</em></h2>
         <p>We'd love to hear <b>what you're facing</b>, and see together if we can help.</p>
         <div class="gg-cta__actions">
-          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Talk to us</a>
+          <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
           <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
         </div>
@@ -992,6 +992,26 @@
   </div>
 
 
+
+  <!-- Book a demo: Cal.com element-click embed. Any element with data-cal-link opens the booking modal;
+       its href is the plain booking page, the fallback when the embed script can't load. -->
+  <script type="text/javascript">
+    (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+    Cal("init", "30min", { origin: "https://app.cal.com" });
+    Cal.config = Cal.config || {};
+    Cal.config.forwardQueryParams = true;
+    Cal.ns["30min"]("ui", {
+      theme: "dark",
+      cssVarsPerTheme: { dark: { "cal-brand": "#06b6d4" } },  // GitGrit --gg-primary
+      hideEventTypeDetails: false,
+      layout: "month_view"
+    });
+    // Cal opens the modal from its own delegated click listener but leaves the link's default
+    // navigation alone, so stop it here. Without JS the href still reaches the booking page.
+    document.querySelectorAll("[data-cal-link]").forEach(function (el) {
+      el.addEventListener("click", function (e) { e.preventDefault(); });
+    });
+  </script>
 
   <script>
     (function () {
