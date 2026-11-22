@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -16,7 +17,17 @@ from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
 from app.domain.usage import DayUsage, ExecutionSlice
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
+from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
 from app.infrastructure.model_fields import EncryptedCharField
+
+
+def validate_time_zone(value: str) -> None:
+    """Only a known time zone name is saved, whoever writes it (forms,
+    admin, full_clean); empty means not chosen yet."""
+    try:
+        UserTimeZone.parse(value)
+    except UnknownTimeZone as error:
+        raise ValidationError(str(error)) from error
 
 
 class User(AbstractUser):
@@ -28,9 +39,28 @@ class User(AbstractUser):
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     superuser_granted_at = models.DateTimeField(null=True, blank=True)
+    # The IANA name of the user's time zone; empty until they choose
+    # (app.domain.user_time_zone). The database default keeps inserts from
+    # branches without this field working on a shared database.
+    time_zone = models.CharField(
+        max_length=64, blank=True, default="", db_default="", validators=[validate_time_zone]
+    )
+    # When the user was asked for their time zone (once); empty until then.
+    time_zone_asked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "users"
+
+    @property
+    def user_time_zone(self) -> UserTimeZone:
+        """The time zone to write times in for this user (UTC until they
+        choose one)."""
+        return UserTimeZone.of(self.time_zone)
+
+    @property
+    def should_be_asked_time_zone(self) -> bool:
+        """Whether to ask the user for their time zone (once, rule 6)."""
+        return UserTimeZone.should_ask(self.time_zone, self.time_zone_asked_at is not None)
 
 
 class Tenant(models.Model):

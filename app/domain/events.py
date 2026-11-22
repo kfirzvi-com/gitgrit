@@ -240,3 +240,21 @@ class StandardRunTimed:
     tenant_id: str
     trigger: str
     run_ms: int
+
+
+# --- A user's own account ---------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TimeZoneAsked:
+    """A user who hadn't chosen a time zone was shown the time zone question
+    (once)."""
+
+    user_id: str
+
+
+@dataclass(frozen=True)
+class TimeZoneChosen:
+    """A user chose their time zone."""
+
+    user_id: str
