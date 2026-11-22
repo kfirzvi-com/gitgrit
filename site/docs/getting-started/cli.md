@@ -162,7 +162,7 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit llm provider edit` / `remove` / `test` / `refresh <provider>` | Change, remove, check a key, or find its models again |
 | `gitgrit llm role list` | Which provider and model does which work, and whether it has a budget |
 | `gitgrit llm role set <role> <model>` / `clear <role>` | Point a role at a model, or clear it (owners and admins) |
-| `gitgrit api <path>` | Call any endpoint of the [public API](https://app.gitgrit.dev/api/v1/docs/) |
+| `gitgrit api <path>` | Call any endpoint of the [public API](../api/rest.md) |
 
 Standards can be named (`"README Exists"`) or given by id. Add `--json` to any command for the raw API response, and `--help` for all its options.
 

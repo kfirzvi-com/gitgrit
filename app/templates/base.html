@@ -303,7 +303,7 @@
     <script src="{% static 'app/time-zone-question.js' %}"></script>
   {% endif %}
 
-  <main class="flex-1 container mx-auto px-4 py-8 overflow-x-hidden"
+  <main class="flex-1 container mx-auto px-4 py-8 overflow-x-clip"
         style="visibility:hidden;">
     {% include "components/flash_messages.html" %}
     {% block content %}{% endblock %}

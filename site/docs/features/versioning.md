@@ -22,6 +22,8 @@ Each version stores: code, description, criteria, test cases, labels, the user w
 
 On any standard detail page, scroll down to the **Version History** table. You'll see:
 
+![A standard's version history](../images/app/standard-versions.jpg){ .gg-shot loading=lazy }
+
 | Column | Description |
 |--------|-------------|
 | Version | Link to the version detail page |

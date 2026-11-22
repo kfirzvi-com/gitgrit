@@ -18,4 +18,34 @@
   #}
   <script>tailwind = { config: { corePlugins: { preflight: false } } }</script>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  {% include "partials/cal-embed.html" %}
+
+  {#
+    Use case pages stand apart from the docs: no docs sidebar on desktop.
+    Below 76.25em that sidebar is the menu drawer (overrides/partials/nav.html
+    gives these pages the marketing menu), so it has to stay. Never use
+    `hide: navigation` for this: it sets [hidden], which the Tailwind runtime
+    forces to display:none !important, so the drawer could never open.
+  #}
+  {% if page and (page.url.startswith('use-cases/') or page.url == 'pricing/') %}
+  <style>
+    @media screen and (min-width: 76.25em) {
+      .md-sidebar--primary { display: none; }
+    }
+  </style>
+  {% endif %}
+{% endblock %}
+
+{#
+  Use case pages (not the hub) start with a link back to the hub. They have
+  no docs sidebar, so this is the way back on every screen size.
+#}
+{% block content %}
+  {% if page and page.url.startswith('use-cases/') and page.url != 'use-cases/' %}
+  <a href="{{ 'use-cases/' | url }}" class="gg-uc-back">
+    <span aria-hidden="true">←</span> All use cases
+  </a>
+  {% endif %}
+  {{ super() }}
 {% endblock %}

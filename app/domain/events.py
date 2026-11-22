@@ -132,8 +132,10 @@ class StandardRunFinished:
 
 @dataclass(frozen=True)
 class DependencyInferenceFailed:
-    """Published by ``infer_project_dependencies`` once its in-process retries
-    are exhausted.
+    """Published by ``infer_project_dependencies`` when a run does not produce
+    a map: an unexpected failure once its in-process retries are exhausted, or
+    an expected stop that is not retried (no reasoning model, or that model's
+    AI budget is missing or used up).
 
     ``had_worked_before`` says whether this project had a map before this run,
     so listeners can stay quiet for workspaces where the graph has never
@@ -210,6 +212,34 @@ class SuperuserRevoked:
 
     user_id: str
     revoked_by_user_id: str
+
+
+# --- Usage ---------------------------------------------------------------------
+# What a workspace uses, as it happens; the usage meter subscribes
+# (app.application.usage.UsageSubscriber).
+
+
+@dataclass(frozen=True)
+class StandardRunsQueued:
+    """``count`` standard runs were queued on a project, one execution each.
+    Published in the transaction that writes the runs, so it holds only if
+    they do."""
+
+    project_id: str
+    tenant_id: str
+    trigger: str  # the runs' event type: push, pull_request, manual, upload
+    count: int
+
+
+@dataclass(frozen=True)
+class StandardRunTimed:
+    """One standard run spent ``run_ms`` in the sandbox (also when the
+    sandbox failed partway: the time was spent all the same)."""
+
+    project_id: str
+    tenant_id: str
+    trigger: str
+    run_ms: int
 
 
 # --- A user's own account ---------------------------------------------------

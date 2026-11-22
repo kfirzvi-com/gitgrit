@@ -164,13 +164,26 @@ class StopAtLimitTests(UsageTests):
         engine._runner.run.assert_called_once()
         self.assertEqual(execution.status, "passed")
 
-    def test_the_dependency_map_is_held_back_too(self):
+    def _infer(self):
         from app.application.dependency_agent import infer_and_store
         from app.infrastructure.topology.llm_inference import LLMTopologyInference
 
         inference = LLMTopologyInference({"model": "anthropic/haiku", "provider_id": str(self.provider.pk), "model_name": "haiku"})
-        with self.assertRaisesMessage(RuntimeError, "AI budget used up"):
-            infer_and_store(baker.make("app.Project", tenant=self.tenant), inference=inference, snapshot=mock.Mock())
+        infer_and_store(baker.make("app.Project", tenant=self.tenant), inference=inference, snapshot=mock.Mock())
+
+    def test_the_dependency_map_is_held_back_too(self):
+        from app.application.dependency_agent import DependencyInferenceUnavailable
+
+        with self.assertRaisesMessage(DependencyInferenceUnavailable, "AI budget used up"):
+            self._infer()
+
+    def test_a_map_with_no_budget_is_held_back_too(self):
+        from app.application.dependency_agent import DependencyInferenceUnavailable
+
+        LLMBudget.objects.all().delete()
+
+        with self.assertRaisesMessage(DependencyInferenceUnavailable, "No AI budget"):
+            self._infer()
 
 
 class MapBillingTests(UsageTests):

@@ -90,6 +90,7 @@ from app.presentation.views.tenant_views import (
     revoke_invitation,
     set_llm_role,
     set_score_display,
+    workspace_usage,
     switch_tenant,
     test_connection,
     test_llm_provider,
@@ -287,6 +288,7 @@ urlpatterns = [
     ),
     path("tenants/llm/roles/<str:role_name>/set/", set_llm_role, name="set_llm_role"),
     path("tenants/scores/display/", set_score_display, name="set_score_display"),
+    path("tenants/settings/usage/", workspace_usage, name="workspace_usage"),
     # Projects
     path("projects/", ProjectListView.as_view(), name="project_list"),
     path("projects/bulk/", bulk_edit_projects, name="bulk_edit_projects"),

@@ -24,6 +24,8 @@ A workspace always has at least one owner. Its last owner can't step down, be re
 
 Everything is under **Workspace Settings → Members & Permissions**:
 
+![Members & Permissions, with pending invitations](../images/app/settings-members.jpg){ .gg-shot loading=lazy }
+
 - **Invite** anyone by email, with a role. We email them a link; they join once they accept it. Nobody is added to a workspace without accepting. Someone new to GitGrit creates their account from the link, and the invitation lets them straight in, with no access request. Someone who already has an account also sees the invitation in the app. Invitations last two weeks; pending ones are listed under the members, where you can resend or withdraw them.
 - **Change a role** from the dropdown in their row. GitGrit asks you to confirm and explains what the new role can do.
 - **Remove** someone, or **Leave** the workspace yourself.

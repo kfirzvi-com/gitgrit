@@ -318,7 +318,9 @@ class InJobFailureScenarioTests(FailureScenarioBase):
         self.project.refresh_from_db()
         self.assertEqual(self.project.deps_status, Project.DepsStatus.RUNNING)
 
-    def test_8_no_reasoning_role_fails_fast_with_the_real_agent(self):
+    def test_8_no_reasoning_role_is_recorded_without_failing_the_job(self):
+        """No reasoning model is expected. One attempt, the project records
+        why, and the job ends succeeded so the worker does not log an error."""
         self.assertEqual(LLMRole.objects.filter(tenant=self.tenant).count(), 0)
         doing = self._insert_doing()
         worker = worker_module.Worker(
@@ -333,11 +335,23 @@ class InJobFailureScenarioTests(FailureScenarioBase):
             app=procrastinate_app, worker_name="test-worker", worker_queues=[QUEUE],
             job=job, start_timestamp=time.time(), abort_reason=lambda: None,
         )
-        with patch("app.tasks._sleep") as sleep:
+        with (
+            patch("app.tasks._sleep") as sleep,
+            self.assertLogs("procrastinate.worker", level="INFO") as worker_logs,
+        ):
             asyncio.run(worker._process_job(context))  # real infer_and_store
 
-        self.assertEqual(sleep.call_count, tasks.INFERENCE_ATTEMPTS - 1)
-        self.assertEqual(_job(doing)["status"], "failed")
+        self.assertEqual(sleep.call_count, 0)
+        self.assertEqual(_job(doing)["status"], "succeeded")
+        self.assertIn("succeeded", _event_types(doing))
+        self.assertNotIn("failed", _event_types(doing))
+        outcome = [
+            record.getMessage()
+            for record in worker_logs.records
+            if "ended with status:" in record.getMessage()
+        ]
+        self.assertEqual(len(outcome), 1)
+        self.assertIn("ended with status: Success", outcome[0])
         self.assert_invariants(doing)
         self.assertEqual(self.project.deps_status, Project.DepsStatus.FAILED)
         self.assertIn("No 'reasoning' LLM role configured", self.project.deps_error)

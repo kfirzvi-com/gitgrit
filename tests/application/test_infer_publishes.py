@@ -9,6 +9,7 @@ from model_bakery import baker
 
 from app import tasks
 from app.application import event_bus, subscribers
+from app.application.dependency_agent import DependencyInferenceUnavailable
 from app.domain.events import DependencyInferenceFailed
 from tests.support import MonkeyPatchMixin
 
@@ -39,6 +40,25 @@ class InferPublishesTests(MonkeyPatchMixin, TestCase):
             return outcome
 
         self.monkeypatch.setattr("app.application.dependency_agent.infer_and_store", fake)
+
+    def test_a_budget_refusal_publishes_once_and_does_not_raise(self):
+        project = self._project(deps_analyzed_at=timezone.now())
+        reason = "AI budget used up: Anthropic haiku (weekly budget)."
+        self._inference([DependencyInferenceUnavailable(reason)])
+
+        tasks.infer_project_dependencies.func(project_id=str(project.id))
+
+        self.assertEqual(
+            self.events,
+            [
+                DependencyInferenceFailed(
+                    project_id=str(project.id),
+                    tenant_id=str(project.tenant_id),
+                    error=reason,
+                    had_worked_before=True,
+                )
+            ],
+        )
 
     def test_exhausted_retries_publish_once_for_a_project_that_had_a_map(self):
         project = self._project(deps_analyzed_at=timezone.now())

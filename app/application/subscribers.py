@@ -12,7 +12,7 @@ derivation and FK cascade handle them.
 
 Coverage-change runs: when the set of runnable standards effectively applying
 to a project grows or changes — standards attached, a standard saved, a
-standard activated — the delta is *queued* to run in the background (same
+standard activated — every attached standard is *queued* to run in the background (same
 execution model as the Run button): RUNNING executions are created in the
 publisher's request and the ``run_standards`` job fills them in. Handlers
 return a summary dict so publish sites can flash feedback; the bus swallows
@@ -38,6 +38,7 @@ from app.domain.events import (
     StandardsAttached,
     StandardSaved,
 )
+from app.application.usage import UsageSubscriber
 from app.tasks import infer_project_dependencies
 
 logger = logging.getLogger(__name__)
@@ -73,10 +74,14 @@ def _on_project_event(event) -> None:
     _enqueue_dependency_refresh(event.project_id)
 
 
-def _queue_on_project(project, standards, triggered_by) -> dict | None:
-    """Queue the runnable subset of ``standards`` on ``project``; the enqueue
-    summary, or None when nothing is eligible."""
-    return enqueue_manual_run(project, standards, triggered_by=triggered_by)
+def _queue_on_project(project, triggered_by) -> dict | None:
+    """Queue every runnable standard attached to ``project``, like Run All; the
+    enqueue summary, or None when nothing is eligible.
+
+    Not only the standard that changed: the new check expects a result of
+    every attached standard, and one it did not run counts as "not run",
+    which leaves the commit, and so the project, with no score."""
+    return enqueue_manual_run(project, project.standards.all(), triggered_by=triggered_by)
 
 
 def _summarize(per_project: list[dict]) -> dict | None:
@@ -100,17 +105,14 @@ def _summarize(per_project: list[dict]) -> dict | None:
 
 
 def _on_standards_attached(event: StandardsAttached) -> dict | None:
-    from app.domain.models import Project, Standard
+    from app.domain.models import Project
 
     project = Project.objects.filter(
         pk=event.project_id, tenant_id=event.tenant_id
     ).first()
     if project is None:
         return None
-    standards = list(
-        Standard.objects.filter(pk__in=event.standard_ids, tenant_id=event.tenant_id)
-    )
-    counts = _queue_on_project(project, standards, triggered_by="attached")
+    counts = _queue_on_project(project, triggered_by="attached")
     return _summarize([counts] if counts else [])
 
 
@@ -130,7 +132,7 @@ def _on_standard_changed(event: StandardSaved | StandardActivated) -> dict | Non
     per_project = [
         counts
         for project in standard.projects.all()
-        if (counts := _queue_on_project(project, [standard], triggered_by=triggered_by))
+        if (counts := _queue_on_project(project, triggered_by=triggered_by))
     ]
     return _summarize(per_project)
 
@@ -144,3 +146,4 @@ def register() -> None:
     subscribe(StandardSaved, _on_standard_changed)
     subscribe(StandardActivated, _on_standard_changed)
     notification_policies.register()
+    UsageSubscriber.register()

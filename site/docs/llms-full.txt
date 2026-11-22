@@ -1,0 +1,61 @@
+# GitGrit
+
+> GitGrit is an open-source (MIT) engineering standards platform. It turns your engineering standards into code, checks every GitHub and GitLab repository on every push, pull request and tag, and grades each repository from A+ to F with the exact reason when something fails. It can be self-hosted, including air-gapped.
+
+GitGrit is not an AI code reviewer. AI reviewers such as CodeRabbit comment on one pull request at a time. GitGrit checks the whole repository against the same standards everywhere, including repositories nobody is changing, and shows every repository's grade on one screen.
+
+## FAQ
+
+### What is GitGrit?
+
+GitGrit is an open-source engineering standards platform. You write each standard as short, readable code (or pick ready-made packs), and GitGrit checks every GitHub and GitLab repository against them on every push, pull request and tag. Each repository gets a grade from A+ to F, with the exact reason when something fails.
+
+### How is GitGrit different from an AI code reviewer like CodeRabbit?
+
+An AI reviewer comments on one pull request at a time. GitGrit checks the whole repository against the same standards everywhere, including repositories nobody is changing, and shows every repository's grade on one screen. Many teams use both.
+
+### How is GitGrit different from Port, OpsLevel or Backstage scorecards?
+
+Developer portals grade services in a catalog you first have to build and maintain. GitGrit works straight from your repositories: connect GitHub or GitLab, pick standards, and see grades in minutes. Each check is code, so it gives the same answer every time.
+
+### Can AI coding agents use GitGrit?
+
+Yes. Agents read the same standards through GitGrit, and every change, human or AI, is checked against them.
+
+### Is GitGrit open source? Can I self-host it?
+
+Yes. GitGrit is MIT-licensed and can be self-hosted, including air-gapped.
+
+## Start here
+- [Quick Start](https://gitgrit.dev/getting-started/quickstart/): connect GitHub or GitLab, install a standards pack, see your first grade in about 10 minutes
+- [Writing Standards](https://gitgrit.dev/getting-started/standards/): standards are short Python functions, or an LLM check when a rule needs judgment
+- [Standard Marketplace](https://gitgrit.dev/features/marketplace/): ready-made packs (Repository Hygiene, Documentation Standards, Git Hygiene, Security Essentials, Agentic Standards, Node.js, Python, Docker)
+- [Adding Projects](https://gitgrit.dev/getting-started/projects/): connect a platform, add repositories, how the A+ to F grade is calculated
+- [Command Line](https://gitgrit.dev/getting-started/cli/): the `gitgrit` CLI, and a CI gate with `gitgrit check --wait`
+- [Self-hosting](https://gitgrit.dev/self-hosting/)
+
+## Features
+- [Dashboard](https://gitgrit.dev/features/dashboard/): workspace health, warning lights, the projects that need you, AI usage
+- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, bulk edit
+- [Stacks & the Stack Map](https://gitgrit.dev/features/stacks/): group projects into systems; an AI-built map of services, dependencies and infrastructure
+- [AI Standards & Budgets](https://gitgrit.dev/features/ai/): bring your own model (Anthropic, OpenAI, Bedrock, Vertex, Ollama…), LLM standards, per-model token budgets
+- [Notifications](https://gitgrit.dev/features/notifications/): who is told when standards fail, a project fails, a connection breaks or a budget runs low
+- [Usage](https://gitgrit.dev/features/usage/): executions and sandbox run time per month, trigger and project
+- [REST API & Tokens](https://gitgrit.dev/api/rest/): every endpoint, personal and workspace tokens
+
+## Use cases
+- [Enforce engineering standards on every commit](https://gitgrit.dev/use-cases/enforce-engineering-standards/)
+- [AI coding standards](https://gitgrit.dev/use-cases/ai-coding-standards/)
+- [Engineering governance](https://gitgrit.dev/use-cases/engineering-governance/)
+- [Engineering visibility](https://gitgrit.dev/use-cases/engineering-visibility/)
+
+## Compare
+- [GitGrit vs CodeRabbit](https://gitgrit.dev/compare/gitgrit-vs-coderabbit/)
+- [GitGrit vs Port](https://gitgrit.dev/compare/gitgrit-vs-port/)
+- [GitGrit vs OpsLevel](https://gitgrit.dev/compare/gitgrit-vs-opslevel/)
+- [GitGrit vs Pandorian](https://gitgrit.dev/compare/gitgrit-vs-pandorian/)
+- [GitGrit vs Baz](https://gitgrit.dev/compare/gitgrit-vs-baz/)
+
+## Optional
+- Source code is MIT-licensed. The repository is linked from the site footer.
+- [What's New](https://gitgrit.dev/whats-new/)

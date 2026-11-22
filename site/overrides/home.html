@@ -5,6 +5,10 @@
 #}
 {% extends "main.html" %}
 
+{% block htmltitle %}
+  <title>{{ page.meta.title }}</title>
+{% endblock %}
+
 {% block tabs %}
   {{ super() }}
 
@@ -101,8 +105,7 @@
       border-color: var(--gg-primary);
     }
     .gg-btn--primary:hover {
-      background: transparent;
-      color: var(--gg-primary);
+      filter: brightness(1.12);
       box-shadow: 0 0 20px var(--gg-primary-glow);
     }
     .gg-btn--ghost {
@@ -420,6 +423,59 @@
     .gg-step p b { color: var(--gg-primary); }
     @media (max-width: 800px) { .gg-steps { grid-template-columns: 1fr; } }
 
+    /* ── Homepage FAQ: short cards, left-aligned so the answers stay readable ── */
+    .gg-faq__list {
+      max-width: 44rem;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .gg-faq__item {
+      background: var(--gg-surface);
+      border: 1px solid var(--gg-bg-300);
+      border-radius: 16px;
+      padding: 1.15rem 1.35rem;
+      text-align: left;
+    }
+    /* Collapsed by default: the question is the toggle, a chevron turns when open.
+       Answers stay in the HTML (and the FAQPage JSON-LD) for search. */
+    .gg-faq__item summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      cursor: pointer;
+      list-style: none;
+    }
+    .gg-faq__item summary::-webkit-details-marker { display: none; }
+    .gg-faq__item summary::after {
+      content: '';
+      flex: none;
+      width: 0.55rem;
+      height: 0.55rem;
+      border-right: 2px solid var(--gg-primary);
+      border-bottom: 2px solid var(--gg-primary);
+      transform: rotate(45deg) translateY(-25%);
+      transition: transform 0.2s;
+    }
+    .gg-faq__item[open] summary::after { transform: rotate(225deg) translateY(-25%); }
+    .gg-faq__item summary:hover h3,
+    .gg-faq__item summary:focus-visible h3 { color: var(--gg-primary); }
+    .gg-faq__item h3 { font-size: 1.05rem; margin: 0; transition: color 0.2s; }
+    .gg-faq__item[open] h3 { margin-bottom: 0.6rem; }
+    .gg-faq__item p {
+      font-family: var(--gg-font-sans);
+      font-size: 0.97rem;
+      line-height: 1.55;
+      margin: 0;
+    }
+    @media (max-width: 600px) {
+      .gg-faq__item { padding: 1rem; }
+      .gg-faq__item h3 { font-size: 1rem; }
+      .gg-faq__item p { font-size: 0.95rem; line-height: 1.5; }
+    }
+
     /* ── Display headings: light lead-in + heavy key words ── */
     .gg-sec__header h2 { font-size: 2.9rem; font-weight: 800; letter-spacing: -0.02em; }
     .gg-sec__header h2 .lite { font-weight: 300; }
@@ -554,7 +610,7 @@
     .gg-hero {
       position: relative;
       max-width: none;
-      padding: 7rem 0 0;
+      padding: 3.5rem 0 0;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -568,7 +624,7 @@
       width: 100%;
       aspect-ratio: 16 / 7;
       max-height: 72vh;
-      margin-top: 0.5rem;
+      margin-top: -5rem;  /* starts behind the buttons; the top of the image is masked out */
       object-fit: cover;
       object-position: center 50%;
       -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 35%);
@@ -578,17 +634,30 @@
     @keyframes gg-hero-zoom { from { transform: scale(1.1); } to { transform: scale(1); } }
     @media (prefers-reduced-motion: reduce) { .gg-hero__bg { animation: none; } }
     .gg-hero h1 {
-      font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+      font-size: clamp(2.5rem, 5.5vw, 4rem);
       line-height: 1.05;
       font-weight: 800;
       letter-spacing: -0.03em;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
     .gg-hero h1 .lite { font-weight: 300; }
-    .gg-hero__sub { font-size: 1.3rem; max-width: 640px; margin: 0 auto 2rem; }
+    .gg-hero__sub { font-size: 1.3rem; max-width: 640px; margin: 0 auto 0.85rem; }
+    .gg-def {
+      font-family: var(--gg-font-sans);
+      font-size: 1.08rem;
+      font-weight: 500;
+      line-height: 1.55;
+      color: var(--gg-text);
+      max-width: 38rem;
+      margin: 0 auto 1.75rem;
+      text-wrap: balance;
+    }
     @media (max-width: 800px) {
-      .gg-hero { padding-top: 4.5rem; border-radius: 0 0 50% 50% / 0 0 36px 36px; }
-      .gg-hero__bg { aspect-ratio: 1 / 1; margin-top: -1.5rem; object-position: center 60%; }
+      .gg-def { font-size: 1rem; line-height: 1.5; margin-bottom: 1.5rem; }
+    }
+    @media (max-width: 800px) {
+      .gg-hero { padding-top: 2.5rem; border-radius: 0 0 50% 50% / 0 0 36px 36px; }
+      .gg-hero__bg { aspect-ratio: 1 / 1; margin-top: -3rem; object-position: center 60%; }
       .gg-hero__sub { font-size: 1.1rem; }
     }
 
@@ -733,10 +802,10 @@
     <section class="gg-hero">
       <div class="gg-hero__inner">
         <h1><span class="lite">Engineering best practices can become</span> <em>everyday reality.</em></h1>
-        <p class="gg-hero__sub">How a team builds belongs in <b>running code</b>, not in a few senior engineers' heads.</p>
+        <p class="gg-def">GitGrit is an open-source engineering standards platform: it turns your standards into code, checks every GitHub and GitLab repo on every push, and grades each one from A+ to F.</p>
         <div class="gg-hero__actions">
-          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Let's talk</a>
-          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
+          <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
       </div>
       <img class="gg-hero__bg" src="images/story/frame-1.webp" alt="Clark the badger working happily with two teammates at one table" width="1254" height="1254">
@@ -899,6 +968,35 @@
     </section>
     </div>
 
+    <!-- FAQ -->
+    <section class="gg-sec gg-faq gg-reveal" aria-labelledby="faq">
+      <div class="gg-sec__header">
+        <h2 id="faq"><span class="lite">Common</span> questions</h2>
+      </div>
+      <div class="gg-faq__list">
+        <details class="gg-faq__item">
+          <summary><h3>What is GitGrit?</h3></summary>
+          <p>GitGrit is an open-source engineering standards platform. You write each standard as short, readable code (or pick ready-made packs), and GitGrit checks every GitHub and GitLab repository against them on every push, pull request and tag. Each repository gets a grade from A+ to F, with the exact reason when something fails.</p>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>How is GitGrit different from an AI code reviewer like CodeRabbit?</h3></summary>
+          <p>An AI reviewer comments on one pull request at a time. GitGrit checks the whole repository against the same standards everywhere, including repositories nobody is changing, and shows every repository's grade on one screen. Many teams use both.</p>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>How is GitGrit different from Port, OpsLevel or Backstage scorecards?</h3></summary>
+          <p>Developer portals grade services in a catalog you first have to build and maintain. GitGrit works straight from your repositories: connect GitHub or GitLab, pick standards, and see grades in minutes. Each check is code, so it gives the same answer every time.</p>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>Can AI coding agents use GitGrit?</h3></summary>
+          <p>Yes. Agents read the same standards through GitGrit, and every change, human or AI, is checked against them.</p>
+        </details>
+        <details class="gg-faq__item">
+          <summary><h3>Is GitGrit open source? Can I self-host it?</h3></summary>
+          <p>Yes. GitGrit is MIT-licensed and can be self-hosted, including air-gapped.</p>
+        </details>
+      </div>
+    </section>
+
     <!-- CTA -->
     <section class="gg-cta gg-reveal">
       <div class="gg-cta__box gg-row">
@@ -907,8 +1005,8 @@
         <h2><span class="lite">More code.</span><br><span class="lite">Faster speed.</span><br><em>Same standards.</em></h2>
         <p>We'd love to hear <b>what you're facing</b>, and see together if we can help.</p>
         <div class="gg-cta__actions">
-          <a href="mailto:kfir@praktical.dev?subject=GitGrit" class="gg-btn gg-btn--primary">Talk to us</a>
-          <a href="getting-started/quickstart/" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
+          <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-btn gg-btn--primary">Book a demo</a>
+          <a href="https://app.gitgrit.dev" class="gg-btn gg-btn--ghost">Get started &rarr;</a>
         </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 {#-
   Custom GitGrit footer.
-  Replaces Material for MkDocs' single-line meta footer with a 4-column
-  layout (brand, product, docs, legal) plus a thin copyright base bar.
+  Replaces Material for MkDocs' single-line meta footer with a column
+  layout (brand, product, docs, use cases, compare, legal) plus a thin copyright base bar.
   Tailwind utilities are available via main.html (Preflight disabled).
   Visual tokens (--gg-*) come from tokens.css.
 -#}
@@ -34,9 +34,12 @@
         <h6>Product</h6>
         <ul>
           <li><a href="https://app.gitgrit.dev">Sign in</a></li>
+          <li><a href="{{ 'pricing/' | url }}">Pricing</a></li>
           <li><a href="{{ 'features/marketplace/' | url }}">Marketplace</a></li>
           <li><a href="{{ 'features/badges/' | url }}">Compliance Badges</a></li>
-          <li><a href="{{ 'features/analytics/' | url }}">Analytics</a></li>
+          <li><a href="{{ 'features/dashboard/' | url }}">Dashboard</a></li>
+          <li><a href="{{ 'features/stacks/' | url }}">Stacks</a></li>
+          <li><a href="{{ 'features/ai/' | url }}">AI Standards</a></li>
         </ul>
       </div>
 
@@ -45,9 +48,22 @@
         <ul>
           <li><a href="{{ 'getting-started/quickstart/' | url }}">Quick Start</a></li>
           <li><a href="{{ 'getting-started/standards/' | url }}">Writing Standards</a></li>
+          <li><a href="{{ 'api/rest/' | url }}">REST API</a></li>
           <li><a href="{{ 'api/project-context/' | url }}">Standard API</a></li>
           <li><a href="{{ 'whats-new/' | url }}">What's New</a></li>
           <li><a href="https://github.com/kfirzvi-com/gitgrit" target="_blank" rel="noopener">GitHub</a></li>
+        </ul>
+      </div>
+
+      <div class="gg-footer__col">
+        <h6>Use cases</h6>
+        <ul>
+          <li><a href="{{ 'use-cases/engineering-visibility/' | url }}">Engineering visibility</a></li>
+          <li><a href="{{ 'use-cases/engineering-governance/' | url }}">Engineering governance</a></li>
+          <li><a href="{{ 'use-cases/engineering-standardization/' | url }}">Standardization</a></li>
+          <li><a href="{{ 'use-cases/enforce-engineering-standards/' | url }}">Enforce standards</a></li>
+          <li><a href="{{ 'use-cases/ai-coding-standards/' | url }}">AI coding standards</a></li>
+          <li><a href="{{ 'use-cases/' | url }}">All use cases →</a></li>
         </ul>
       </div>
 
@@ -59,6 +75,9 @@
           <li><a href="{{ 'compare/gitgrit-vs-pandorian/' | url }}">GitGrit vs Pandorian</a></li>
           <li><a href="{{ 'compare/gitgrit-vs-baz/' | url }}">GitGrit vs Baz</a></li>
           <li><a href="{{ 'compare/gitgrit-vs-coderabbit/' | url }}">GitGrit vs CodeRabbit</a></li>
+          <li><a href="{{ 'compare/gitgrit-vs-openssf-scorecard/' | url }}">GitGrit vs OpenSSF Scorecard</a></li>
+          <li><a href="{{ 'compare/gitgrit-vs-cortex/' | url }}">GitGrit vs Cortex</a></li>
+          <li><a href="{{ 'compare/gitgrit-vs-backstage-scorecards/' | url }}">GitGrit vs Backstage scorecards</a></li>
         </ul>
       </div>
 

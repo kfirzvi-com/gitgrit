@@ -97,3 +97,36 @@ jobs:
         env:
           GITGRIT_CHANNEL: dev
 
+  docs-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      # Share-card rendering (cairosvg) needs libcairo at mkdocs build time.
+      - name: System libraries for the docs build
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
+
+      # One build, then every docs test. Compare-page tests also build, so the
+      # files run one at a time and that rebuild cannot wipe the homepage HTML
+      # out from under another file. what's-new.md is generated from GitHub
+      # releases; the token lifts the anonymous rate limit.
+      - name: Docs site tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUIRE_BUILT_HTML: "1"
+        run: |
+          uv sync --project site --locked
+          uv run --project site mkdocs build -f site/mkdocs.yml -d build
+          node --test --test-concurrency=1 site/tests/*.test.mjs
+

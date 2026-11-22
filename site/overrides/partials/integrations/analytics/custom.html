@@ -1,0 +1,157 @@
+{#
+  PostHog web analytics, cookieless (Material's "custom" analytics provider,
+  enabled by extra.analytics in mkdocs.yml).
+
+  - cookieless_mode "always": nothing is stored in the browser and no cookie
+    is set. PostHog counts visitors with a server-side hash of IP + user agent
+    and a salt that rotates daily, so visitors can't be followed across days.
+    No consent banner needed (see legal/cookies.md). Never call identify().
+    Needs "cookieless tracking" enabled in the PostHog project's Web analytics
+    settings, or PostHog drops these events.
+  - Production only: runs on gitgrit.dev, not staging or local mkdocs serve.
+    before_send is a second guard and drops every event unless the hostname
+    is still that host, so nothing is sent from localhost, 127.0.0.1,
+    staging, or www.
+  - Named events sit alongside autocapture (contact_clicked, app_clicked,
+    get_started_clicked, github_clicked, demo_clicked). demo_booked fires from
+    the Cal.com embed (partials/cal-embed.html) when a booking completes.
+  - Pricing page (docs/pricing.md): every CTA click above also carries `plan`
+    (free / team / business / enterprise, from data-plan), `billing_period`
+    (monthly / annual) and `currency` (usd / eur; European time zones start
+    on eur). Plus pricing_period_toggled {period}, pricing_currency_toggled
+    {currency}, and pricing_section_viewed {section} once per section per page
+    load: plans, enterprise, faq, and each FAQ question (faq:<id>). Scroll
+    depth and time on page come from PostHog's $pageleave; heatmaps show
+    where people click and hover. Mailto values are stored as
+    mailto: plus the subject, never the address. No localStorage,
+    sessionStorage, or cookies. navigation.instant is off, so one delegated
+    listener per full page load is enough.
+  - EU cloud. The project key is a public, write-only browser key.
+  - Loader stub: PostHog's official snippet (posthog.com/docs/libraries/js).
+#}
+<script>
+  function __md_analytics() {
+    if (location.hostname !== "{{ config.extra.analytics.host }}") return;
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],Object.defineProperty(u,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e}}),Object.defineProperty(u.people,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(){return u.toString(1)+".people (stub)"}}),o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init("{{ config.extra.analytics.key }}", {
+      api_host: "https://eu.i.posthog.com",
+      defaults: "2026-08-30",
+      cookieless_mode: "always",
+      disable_session_recording: true,
+      enable_heatmaps: true,
+      // Defence in depth: never send from localhost, 127.0.0.1, staging or www.
+      before_send: function (event) {
+        return location.hostname === "{{ config.extra.analytics.host }}" ? event : null;
+      },
+    });
+
+    (function () {
+      var UTM = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+      var params = new URLSearchParams(location.search);
+
+      function where(a) {
+        if (a.closest("[data-plan]")) return "pricing_plan";
+        if (a.closest("header")) return "header";
+        if (a.closest("footer")) return "footer";
+        if (a.closest(".gg-hero")) return "hero";
+        if (a.closest(".md-content, article, main")) return "content";
+        return "other";
+      }
+
+      // Pricing page: the monthly / annual and USD / EUR switches currently selected.
+      function billingPeriod() {
+        var on = document.querySelector(".gg-pr-toggle__btn.is-active[data-period]");
+        return on ? on.dataset.period : null;
+      }
+      function currency() {
+        var on = document.querySelector(".gg-pr-toggle__btn.is-active[data-currency]");
+        return on ? on.dataset.currency : null;
+      }
+
+      function classify(url) {
+        if (url.protocol === "mailto:") return "contact_clicked";
+        if (url.hostname === "app.gitgrit.dev") return "app_clicked";
+        if (url.hostname === "cal.com" && url.pathname.indexOf("/gitgrit-demo/") === 0) return "demo_clicked";
+        if (url.hostname === "github.com" && url.pathname.indexOf("/kfirzvi-com/gitgrit") === 0) return "github_clicked";
+        if (url.hostname === location.hostname && /\/getting-started\/quickstart\/?$/.test(url.pathname)) return "get_started_clicked";
+        return null;
+      }
+
+      document.addEventListener("click", function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+        if (!a) return;
+        var url;
+        try { url = new URL(a.getAttribute("href"), location.href); } catch (e) { return; }
+        var name = classify(url);
+        if (!name) return;
+
+        var props = {
+          page_path: location.pathname,
+          cta_label: (a.getAttribute("aria-label") || a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+          cta_href: url.protocol === "mailto:"
+            ? "mailto:" + (url.searchParams.get("subject") ? "?subject=" + url.searchParams.get("subject") : "")
+            : url.origin + url.pathname,
+          cta_location: where(a),
+        };
+        var plan = a.closest("[data-plan]");
+        if (plan) props.plan = plan.dataset.plan;
+        if (billingPeriod()) props.billing_period = billingPeriod();
+        if (currency()) props.currency = currency();
+        UTM.forEach(function (k) { if (params.get(k)) props[k] = params.get(k); });
+
+        // sendBeacon so the event survives navigation to app.gitgrit.dev / github.com
+        posthog.capture(name, props, { transport: "sendBeacon" });
+      }, true);
+
+      // ── Pricing page ── (this script runs in <head>, so wait for the body)
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", trackPricing);
+      } else {
+        trackPricing();
+      }
+
+      function trackPricing() {
+        if (!document.querySelector(".gg-pr-grid")) return;
+
+        document.addEventListener("click", function (ev) {
+          var btn = ev.target && ev.target.closest ? ev.target.closest(".gg-pr-toggle__btn") : null;
+          if (!btn) return;
+          if (btn.dataset.period) posthog.capture("pricing_period_toggled", { period: btn.dataset.period, currency: currency() });
+          if (btn.dataset.currency) posthog.capture("pricing_currency_toggled", { currency: btn.dataset.currency, billing_period: billingPeriod() });
+        }, true);
+
+        if (!("IntersectionObserver" in window)) return;
+        var sections = [
+          [".gg-pr-grid", "plans"],
+          [".gg-pr-enterprise", "enterprise"],
+          ["#faq", "faq"],
+        ];
+        var targets = [];
+        sections.forEach(function (s) {
+          var el = document.querySelector(s[0]);
+          if (el) targets.push([el, s[1]]);
+        });
+        // Each FAQ question: the h3s after the FAQ heading.
+        var faq = document.getElementById("faq");
+        for (var el = faq && faq.nextElementSibling; el && el.tagName !== "H2"; el = el.nextElementSibling) {
+          if (el.tagName === "H3" && el.id) targets.push([el, "faq:" + el.id]);
+        }
+        var seen = {};
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (!e.isIntersecting) return;
+            var section = e.target.dataset.ggSection;
+            if (seen[section]) return;
+            seen[section] = true;
+            observer.unobserve(e.target);
+            posthog.capture("pricing_section_viewed", { section: section, billing_period: billingPeriod(), currency: currency() });
+          });
+        }, { rootMargin: "0px 0px -25% 0px" });  // counts once its top reaches the upper 75% of the viewport
+        targets.forEach(function (t) {
+          t[0].dataset.ggSection = t[1];
+          observer.observe(t[0]);
+        });
+      }
+    })();
+  }
+</script>

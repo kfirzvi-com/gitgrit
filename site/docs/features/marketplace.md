@@ -10,6 +10,8 @@ The marketplace provides pre-built standard templates that you can install into 
 
 Go to **Marketplace** from the navigation bar. You'll see:
 
+![The Standard Marketplace](../images/app/marketplace.jpg){ .gg-shot loading=lazy }
+
 - **Packs** — curated bundles of related standards (e.g., "Repository Hygiene", "Security Essentials")
 - **Individual standards** — browse all available standards with labels, author, and version info
 

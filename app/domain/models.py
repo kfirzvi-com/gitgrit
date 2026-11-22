@@ -15,6 +15,7 @@ from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCou
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
+from app.domain.usage import DayUsage, ExecutionSlice
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
 from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
 from app.infrastructure.model_fields import EncryptedCharField
@@ -554,6 +555,71 @@ class LLMBudget(models.Model):
         if self.announced_period != period_key or not self.announced_level:
             return BudgetLevel.OK
         return BudgetLevel(self.announced_level)
+
+
+class WorkspaceUsageDay(models.Model):
+    """One UTC day of a workspace's metered usage (``app.domain.usage``):
+    the standard runs it queued and the most projects it held that day.
+
+    A counter, not a view over ``StandardExecution``: runs are deleted with
+    their project, but the usage they were has already happened."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="usage_days")
+    day = models.DateField()
+    executions = models.PositiveIntegerField(default=0)
+    # Sandbox time the day's runs took, counted when each run finishes, and
+    # how many runs that time covers (runs from before timing began have none).
+    run_ms = models.PositiveBigIntegerField(default=0)
+    timed_runs = models.PositiveIntegerField(default=0)
+    peak_projects = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "workspace_usage_days"
+        ordering = ["day"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "day"], name="unique_workspace_usage_day"),
+        ]
+
+    def __str__(self):
+        return f"{self.tenant_id} {self.day}: {self.executions} runs, {self.peak_projects} projects"
+
+    @property
+    def usage(self) -> DayUsage:
+        return DayUsage(self.day, self.executions, self.peak_projects, self.run_ms, self.timed_runs)
+
+
+class ExecutionUsage(models.Model):
+    """The executions one project ran on one trigger in one UTC day, inside
+    a workspace's ``WorkspaceUsageDay`` total (``usage.ExecutionSlice``).
+
+    The project is kept by id and name, not by foreign key: usage outlives
+    the project, and deleted projects must never collide on one row."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="execution_usage")
+    day = models.DateField()
+    project_id = models.UUIDField()
+    project_name = models.CharField(max_length=255)
+    trigger = models.CharField(max_length=50)
+    executions = models.PositiveIntegerField(default=0)
+    run_ms = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        db_table = "execution_usage"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "day", "project_id", "trigger"], name="unique_execution_usage"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.day} {self.project_name} {self.trigger}: {self.executions}"
+
+    @property
+    def slice(self) -> ExecutionSlice:
+        return ExecutionSlice(str(self.project_id), self.project_name, self.trigger, self.executions, self.run_ms)
 
 
 class Project(models.Model):
@@ -1453,6 +1519,9 @@ class StandardExecution(models.Model):
     # sandbox — author log() calls plus the LLM agentic trace. Shown on the
     # execution detail page to help debug why a standard failed.
     logs = models.JSONField(default=list, blank=True)
+    # How long the sandbox took on this run (wall time). Empty for runs that
+    # never reached the sandbox and for runs from before it was measured.
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
     triggered_by = models.CharField(max_length=255, blank=True, default="")
     triggered_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -249,8 +249,9 @@ class TestAddProjectPersistsStandards(TestCase):
 
 @pytest.mark.django_db
 class TestAttachTriggersRuns(TestCase):
-    """Attachment is a coverage change: the newly attached, runnable delta is
-    queued (job defer mocked — trigger wiring under test)."""
+    """Attachment is a coverage change: every attached, runnable standard is
+    queued, so the new check can score the commit (job defer mocked — trigger
+    wiring under test)."""
 
     def _post(self, project, standards):
         with defer_patch() as configure:
@@ -262,7 +263,7 @@ class TestAttachTriggersRuns(TestCase):
         self.resp = resp
         return configure
 
-    def test_only_newly_attached_runnable_standards_run(self):
+    def test_attaching_runs_every_attached_runnable_standard(self):
         _, tenant = _login_member(self.client)
         project = _project(tenant)
         already = _standard(tenant)
@@ -272,7 +273,7 @@ class TestAttachTriggersRuns(TestCase):
 
         configure = self._post(project, [already, new_runnable, new_draft])
 
-        assert [r.standard_id for r in running_executions(project)] == [new_runnable.pk]
+        assert {r.standard_id for r in running_executions(project)} == {already.pk, new_runnable.pk}
         configure.assert_called_once_with(lock=f"standards:{project.pk}")
         assert any("Queued" in m for m in _flashes(self.resp))
 
