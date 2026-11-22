@@ -117,6 +117,15 @@ jobs:
       - name: System libraries for the docs build
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
 
+      # The share-card fonts come from Google Fonts at build time; a bad
+      # download fails the build ("OSError: unknown file format"). Keep them
+      # between runs; a new layout or plugin version fetches them again.
+      - name: Cache share-card fonts
+        uses: actions/cache@v4
+        with:
+          path: site/.cache/plugin/social/fonts
+          key: docs-fonts-${{ hashFiles('site/layouts/*.yml', 'site/uv.lock') }}
+
       # One build, then every docs test. Compare-page tests also build, so the
       # files run one at a time and that rebuild cannot wipe the homepage HTML
       # out from under another file. what's-new.md is generated from GitHub
