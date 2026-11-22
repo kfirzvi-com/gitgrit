@@ -10,7 +10,7 @@ import pytest
 from django.test import TestCase
 from model_bakery import baker
 
-from app.application import subscribers
+from app.application import scoring, subscribers
 from app.domain.events import StandardActivated, StandardsAttached, StandardSaved
 from app.domain.models import StandardExecution
 from tests.support import defer_patch, running_executions
@@ -37,6 +37,7 @@ class StandardsAttachedTests(TestCase):
         baker.make("app.Standard", tenant=self.tenant, enabled=True, draft=True)
         baker.make("app.Standard", tenant=self.tenant, enabled=False, draft=False)
         standards = list(self.tenant.standards.all())
+        self.project.standards.add(*standards)
 
         with defer_patch() as configure:
             summary = subscribers._on_standards_attached(
@@ -53,12 +54,35 @@ class StandardsAttachedTests(TestCase):
         assert summary["queued"] == 1
         assert summary["projects"] == 1
 
+    def test_attaching_one_standard_runs_every_attached_standard_so_the_commit_gets_a_score(self):
+        # The new check expects every attached standard; running only the new
+        # one left the others "not run" and the project score in error.
+        existing = baker.make("app.Standard", tenant=self.tenant)
+        new = baker.make("app.Standard", tenant=self.tenant)
+        self.project.standards.add(existing, new)
+
+        with defer_patch():
+            subscribers._on_standards_attached(_attached_event(self.project, [new]))
+
+        rows = list(running_executions(self.project))
+        assert {r.standard_id for r in rows} == {existing.pk, new.pk}
+        check = rows[0].commit_check
+        assert {r.commit_check_id for r in rows} == {check.pk}
+
+        check.commit_sha = "abc123"
+        check.save(update_fields=["commit_sha"])
+        running_executions(self.project).update(status=StandardExecution.Status.PASSED, score=80)
+        commit_score = scoring.score_check(check)
+        assert commit_score.value == 80
+        assert commit_score.reason == ""
+
     def test_criteria_language_mismatch_is_filtered(self):
         self.project.languages = ["python"]
         self.project.save(update_fields=["languages"])
         mismatched = baker.make(
             "app.Standard", tenant=self.tenant, criteria={"languages": ["go"]}
         )
+        self.project.standards.add(mismatched)
 
         with defer_patch() as configure:
             summary = subscribers._on_standards_attached(
@@ -80,6 +104,7 @@ class StandardsAttachedTests(TestCase):
 
     def test_summary_message_reports_the_queued_count(self):
         standards = baker.make("app.Standard", tenant=self.tenant, _quantity=3)
+        self.project.standards.add(*standards)
 
         with defer_patch():
             summary = subscribers._on_standards_attached(
@@ -99,6 +124,7 @@ class StandardsAttachedTests(TestCase):
 
     def test_standards_already_running_are_reported_not_requeued(self):
         busy = baker.make("app.Standard", tenant=self.tenant)
+        self.project.standards.add(busy)
         baker.make(
             "app.StandardExecution",
             project=self.project,
