@@ -52,6 +52,7 @@ from app.presentation.views.project_views import (
     add_suggested_projects,
     run_project_standards,
 )
+from app.presentation.views.schedule_views import schedule_preview
 from app.presentation.views.artifact_views import (
     add_artifact_project,
     commit_download,
@@ -336,6 +337,7 @@ urlpatterns = [
         project_standards,
         name="project_standards",
     ),
+    path("schedules/preview/", schedule_preview, name="schedule_preview"),
     path(
         "projects/<uuid:pk>/history/",
         project_history,

@@ -28,8 +28,8 @@ VALUE_SEPARATOR = "|"
 
 
 @register.simple_tag
-def standard_picker_filter_search(standards):
-    return StandardPickerFilterSearch.for_standards(standards)
+def standard_picker_filter_search(standards, with_runs=False):
+    return StandardPickerFilterSearch.for_standards(standards, with_runs=with_runs)
 
 
 @register.simple_tag

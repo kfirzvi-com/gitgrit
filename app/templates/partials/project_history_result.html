@@ -11,6 +11,7 @@ column.{% endcomment %}{% load score_tags time_tags %}
       <span class="text-sm font-medium truncate">{{ ex.standard_name }}</span>
       {% include "partials/project_history_version.html" %}
       {% include "partials/importance_run_chip.html" %}
+      {% if ex.carried %}<span class="text-xs opacity-50 shrink-0 whitespace-nowrap" title="Not run in this run: its newest result on the branch counts, from {{ ex.created_at|date:'j M Y, H:i' }} UTC" data-carried>· carried from {% if ex.event_type == "schedule" %}scheduled{% else %}{{ ex.event_type|default:"an earlier" }}{% endif %} run</span>{% endif %}
       {% if ex.standard is None or ex.standard.archived_at %}<span class="text-xs opacity-50">· deleted</span>{% elif ex.still_attached == False %}<span class="text-xs opacity-50">· no longer attached</span>{% endif %}
     </span>
     {% if ex.message %}<span class="block text-xs opacity-50 truncate" title="{{ ex.message }}">{{ ex.message }}</span>{% endif %}
