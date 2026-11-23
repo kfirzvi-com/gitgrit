@@ -28,9 +28,10 @@ From the terminal: `gitgrit connection app` or `gitgrit connection add`. See [Co
 
 1. Go to **Projects** → **Add Project** and pick the connection. Right after connecting, you land here on your own.
 2. Search for the repository and click **Select**.
-3. Optionally set a **Lifecycle** and an **Owner**.
-4. Under **Attach standards**, pick the standards to run and, if you like, their [importance](#importance). **None are attached by default.**
-5. Click **Add Project**.
+3. For a monorepo, set the **Root path** of the app or service, e.g. `apps/web` ([Monorepos](monorepos.md)). Leave it empty for the whole repository.
+4. Optionally set a **Lifecycle** and an **Owner**.
+5. Under **Attach standards**, pick the standards to run and, if you like, their [importance](#importance). **None are attached by default.**
+6. Click **Add Project**.
 
 ![Add Project: pick a connection, or an artifact project](../images/app/add-project.jpg){ .gg-shot loading=lazy }
 
@@ -76,7 +77,7 @@ A standard can limit which events and branches it runs on. See [Writing Standard
 - **Get your Badge**: an embeddable score badge for your README ([Compliance Badges](../features/badges.md))
 - **Edit**: lifecycle and owner. **Remove** deletes the project, its results and its webhook.
 
-The **Overview** shows the grade on the scale A+ to F, what it's based on (how many standards failed, errored and passed), when it last ran, and the project's details: platform, default branch, lifecycle, owner, webhook, languages, tags and [components](../features/stacks.md#components).
+The **Overview** shows the grade on the scale A+ to F, what it's based on (how many standards failed, errored and passed), when it last ran, and the project's details: platform, default branch, lifecycle, owner, webhook, languages, tags, stacks and, for a monorepo, the other projects in the repository and the [suggested projects](monorepos.md#suggested-projects).
 
 When a Required standard fails, the Overview says which:
 

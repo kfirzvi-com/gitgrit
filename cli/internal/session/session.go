@@ -250,11 +250,13 @@ type Project struct {
 	ID       uuid.UUID
 	Name     string
 	FullPath string
+	RootPath string // where the project starts in its repository ("" = all of it)
 	Default  string // default branch
 }
 
 // Project picks the project: --project (id or org/repo), else the git repo
-// in the current directory (its origin remote).
+// in the current directory (its origin remote). In a monorepo the project
+// rooted at the deepest directory containing the current one wins.
 func (s *Session) Project(ctx context.Context, ws Workspace, flag string) (Project, error) {
 	if id, err := uuid.Parse(flag); err == nil {
 		return Project{ID: id, Name: flag}, nil
@@ -271,6 +273,9 @@ func (s *Session) Project(ctx context.Context, ws Workspace, flag string) (Proje
 		params.WebUrl = &safe
 		if path != "" {
 			params.RepoFullPath = &path
+		}
+		if prefix := gitctx.Prefix(); prefix != "" {
+			params.Path = &prefix
 		}
 	}
 	resp, err := s.API.ResolveProjectWithResponse(ctx, ws.ID, params)
@@ -291,7 +296,7 @@ func (s *Session) Project(ctx context.Context, ws Workspace, flag string) (Proje
 		return Project{}, err
 	}
 	p := resp.JSON200
-	return Project{ID: p.Id, Name: p.Name, FullPath: p.FullPath, Default: p.DefaultBranch}, nil
+	return Project{ID: p.Id, Name: p.Name, FullPath: p.FullPath, RootPath: p.RootPath, Default: p.DefaultBranch}, nil
 }
 
 func nameOr(ws Workspace) string {

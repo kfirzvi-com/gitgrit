@@ -9,7 +9,7 @@ Some rules can't be checked by reading a file name: *"a new engineer can run thi
 AI is used for two things:
 
 - **LLM standards**: standards whose `evaluate` asks a model for a verdict
-- **The dependency map**: inferring each project's components and dependencies for the [stack map](stacks.md#the-stack-map)
+- **The dependency map**: inferring each project's dependencies for the [stack map](stacks.md#the-stack-map)
 
 <video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/settings-llm.jpg" aria-label="LLM providers, roles and budgets in settings, then AI usage on the dashboard">
   <source src="../../videos/ai.webm" type="video/webm">

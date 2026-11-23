@@ -179,8 +179,14 @@ class ProjectService:
         tenant: Tenant,
         repo_full_path: str | None = None,
         web_url: str | None = None,
+        path: str | None = None,
     ) -> dict:
         """Map a local git remote to a GitGrit project.
+
+        A repository can hold several projects at different root paths (a
+        monorepo). ``path`` is where the caller stands, relative to the
+        repository root: the project whose root path is the longest prefix of
+        it wins; without it, the whole-repository project does.
 
         Returns the project dict (with ``matched_by``) on hit, or
         ``{"error": "no_match", "candidates": [...]}`` on miss — up to 5
@@ -193,14 +199,14 @@ class ProjectService:
         repo_full_path = _normalize_full_path(repo_full_path)
 
         if repo_full_path:
-            project = Project.objects.filter(
-                tenant=tenant, full_path=repo_full_path
-            ).first()
+            project = _innermost(
+                Project.objects.filter(tenant=tenant, full_path=repo_full_path), path
+            )
             if project:
                 return {**self.serialize(project), "matched_by": "full_path"}
 
         if web_url:
-            project = Project.objects.filter(tenant=tenant, web_url=web_url).first()
+            project = _innermost(Project.objects.filter(tenant=tenant, web_url=web_url), path)
             if project:
                 return {**self.serialize(project), "matched_by": "web_url"}
 
@@ -224,12 +230,28 @@ class ProjectService:
             "platform": p.platform,
             "external_id": p.external_id,
             "full_path": p.full_path,
+            "root_path": p.root_path,
             "web_url": p.web_url,
             "default_branch": p.default_branch,
             "lifecycle": p.lifecycle,
             "languages": p.languages,
             "tags": p.tags,
         }
+
+
+def _innermost(projects, path: str | None) -> Project | None:
+    """Of one repository's ``projects``, the one ``path`` (repository-relative,
+    where the caller stands) lies in: the longest matching root path. Without
+    a path, the whole-repository project, else the first."""
+    candidates = list(projects)
+    if not candidates:
+        return None
+    if path is None or not path.strip("/ ."):
+        return next((p for p in candidates if not p.root_path), candidates[0])
+    inside = [p for p in candidates if p.location.contains(path)]
+    if not inside:
+        return next((p for p in candidates if not p.root_path), candidates[0])
+    return max(inside, key=lambda p: len(p.root_path))
 
 
 class SandboxService:

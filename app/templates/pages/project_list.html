@@ -126,7 +126,7 @@
                     data-filter-platform="{{ project.platform }}"
                     data-filter-language="{{ row.language_values }}"
                     data-filter-name="{{ project.name|lower }}"
-                    data-filter-path="{{ project.full_path|lower }}"
+                    data-filter-path="{{ project.repository_label|lower }}"
                     data-sort-name="{{ project.name|lower }}"
                     data-sort-score="{{ row.sort_score }}"
                     data-sort-health="{{ row.sort_health }}"
@@ -142,7 +142,7 @@
                   <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
                   <td class="max-w-sm">
                     <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
-                    <p class="text-xs opacity-60 truncate">{{ project.full_path }}</p>
+                    <p class="text-xs opacity-60 truncate font-mono">{{ project.repository_label }}</p>
                   </td>
                   <td class="text-center" data-project-score>
                     <span class="text-2xl">{% if row.head.outcome == "checking" or row.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=row.head size="sm" %}{% else %}{% score row.score_value failed=row.score.failed %}{% endif %}</span>

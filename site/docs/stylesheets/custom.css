@@ -1146,3 +1146,99 @@
 @media (max-width: 60em) {
   .md-typeset .gg-pr-enterprise { flex-direction: column; align-items: stretch; gap: 1.25rem; max-width: 28rem; margin-left: auto; margin-right: auto; }
 }
+
+
+/* ── Pricing FAQ: the homepage FAQ (overrides/home.html), card for card ──
+   Collapsed by default: the question is the toggle, a chevron turns when
+   open. Answers stay in the HTML, so the FAQPage JSON-LD hook still reads
+   them. Scoped under .gg-faq to outrank Material's admonition styling of
+   every <details>. */
+.md-typeset .gg-faq {
+  padding: 3rem 0 2rem;
+}
+.md-typeset .gg-faq .gg-faq__header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+.md-typeset .gg-faq .gg-faq__header h2 {
+  font-family: var(--gg-font-sans);
+  font-size: 2.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--gg-text);
+  margin: 0 0 0.5rem;
+  padding: 0;
+  border: 0;
+}
+.md-typeset .gg-faq .gg-faq__header h2 .lite { font-weight: 300; }
+.md-typeset .gg-faq .gg-faq__header h2 .headerlink { display: none; }
+.md-typeset .gg-faq .gg-faq__list {
+  max-width: 44rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.md-typeset .gg-faq details.gg-faq__item {
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-bg-300);
+  border-radius: 16px;
+  box-shadow: none;
+  font-size: inherit;
+  padding: 1.15rem 1.35rem;
+  margin: 0;
+  overflow: visible;
+  text-align: left;
+}
+.md-typeset .gg-faq .gg-faq__item > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  font-weight: inherit;
+}
+.md-typeset .gg-faq .gg-faq__item > summary::-webkit-details-marker { display: none; }
+.md-typeset .gg-faq .gg-faq__item > summary::before { display: none; }
+.md-typeset .gg-faq .gg-faq__item > summary::after {
+  content: '';
+  position: static;
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  background: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  border-right: 2px solid var(--gg-primary);
+  border-bottom: 2px solid var(--gg-primary);
+  transform: rotate(45deg) translateY(-25%);
+  transition: transform 0.2s;
+}
+.md-typeset .gg-faq .gg-faq__item[open] > summary::after { transform: rotate(225deg) translateY(-25%); }
+.md-typeset .gg-faq .gg-faq__item > summary:hover h3,
+.md-typeset .gg-faq .gg-faq__item > summary:focus-visible h3 { color: var(--gg-primary); }
+.md-typeset .gg-faq .gg-faq__item h3 {
+  font-size: 1.05rem;
+  margin: 0;
+  transition: color 0.2s;
+}
+.md-typeset .gg-faq .gg-faq__item[open] h3 { margin-bottom: 0.6rem; }
+.md-typeset .gg-faq .gg-faq__item h3 .headerlink { display: none; }
+.md-typeset .gg-faq .gg-faq__item p {
+  font-family: var(--gg-font-sans);
+  font-size: 0.97rem;
+  line-height: 1.55;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .md-typeset .gg-faq .gg-faq__header h2 { font-size: 2rem; }
+  .md-typeset .gg-faq details.gg-faq__item { padding: 1rem; }
+  .md-typeset .gg-faq .gg-faq__item h3 { font-size: 1rem; }
+  .md-typeset .gg-faq .gg-faq__item p { font-size: 0.95rem; line-height: 1.5; }
+}

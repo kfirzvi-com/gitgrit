@@ -24,6 +24,14 @@ class DomainEvent:
     commit_sha: str = ""
     # When that commit was made (ISO 8601), when the payload says.
     committed_at: str = ""
+    # Repository paths the event changed, when the payload lists them
+    # completely; None when it doesn't (then ``base_sha`` lets the platform's
+    # compare API tell). A project inside a monorepo runs only when its root
+    # path is among them.
+    changed_paths: tuple[str, ...] | None = None
+    # What the change is relative to: a push's previous head, a pull
+    # request's base commit. Empty when there is none (a new branch).
+    base_sha: str = ""
 
 
 # --- Workspace domain events -------------------------------------------------
@@ -54,19 +62,14 @@ class ProjectDeleted:
 
 
 @dataclass(frozen=True)
-class ComponentAddedToStack:
-    """A component joined a stack. Carries ``project_id`` because dependency
-    inference runs per repository, not per component."""
-
-    component_id: str
+class ProjectAddedToStack:
     project_id: str
     stack_id: str
     tenant_id: str
 
 
 @dataclass(frozen=True)
-class ComponentRemovedFromStack:
-    component_id: str
+class ProjectRemovedFromStack:
     project_id: str
     stack_id: str
     tenant_id: str

@@ -56,7 +56,7 @@ The **AI usage** tab shows the tokens your workspace spent on AI, for today, thi
 ![AI usage on the dashboard](../images/app/dashboard-ai-usage.jpg){ .gg-shot loading=lazy }
 
 - **By provider & model**: input and output tokens per model (models are priced apart, so they're counted apart), calls, and each model's budget beside it.
-- **By category**: what the tokens were spent on: **Dependency map** (inferring each project's components and dependencies) or **LLM standards**.
+- **By category**: what the tokens were spent on: **Dependency map** (inferring each project's dependencies and suggested projects) or **LLM standards**.
 - **LLM standards**: each AI-powered standard's tokens, so a standard that uses far more than the others stands out.
 
 See [AI Standards & Budgets](ai.md).

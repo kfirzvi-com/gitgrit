@@ -765,32 +765,6 @@ type CommitUploadResult struct {
 	Queued  int    `json:"queued"`
 }
 
-// Component defines model for Component.
-type Component struct {
-	Id   openapi_types.UUID `json:"id"`
-	Name string             `json:"name"`
-
-	// Path Where it lives in the repository; "" for the root component.
-	Path    string           `json:"path"`
-	Project ComponentProject `json:"project"`
-
-	// Stacks Stacks it belongs to.
-	Stacks []ProjectRef `json:"stacks"`
-}
-
-// ComponentIdsRequest defines model for ComponentIdsRequest.
-type ComponentIdsRequest struct {
-	ComponentIds []openapi_types.UUID `json:"component_ids"`
-}
-
-// ComponentProject defines model for ComponentProject.
-type ComponentProject struct {
-	// FullPath org/repo; empty for an artifact project.
-	FullPath string             `json:"full_path"`
-	Id       openapi_types.UUID `json:"id"`
-	Name     string             `json:"name"`
-}
-
 // Connection defines model for Connection.
 type Connection struct {
 	// AccountLogin GitHub App connections: the org or user.
@@ -1195,7 +1169,10 @@ type Project struct {
 	Name       string             `json:"name"`
 
 	// Platform github, gitlab, or artifact.
-	Platform string   `json:"platform"`
+	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string   `json:"root_path"`
 	Tags     []string `json:"tags"`
 	WebUrl   string   `json:"web_url"`
 }
@@ -1217,6 +1194,9 @@ type ProjectCreateRequest struct {
 
 	// Repository `repository` only (required): the repository's path (`org/repo`) or platform id.
 	Repository *string `json:"repository,omitempty"`
+
+	// RootPath `repository` only: the directory the project lives in (a monorepo app or service, e.g. `apps/web`). Standards and checks run from there. Empty for the whole repository.
+	RootPath *string `json:"root_path,omitempty"`
 
 	// Stack `artifact` only: the stack to put it in, found by name or created.
 	Stack *string `json:"stack,omitempty"`
@@ -1248,6 +1228,9 @@ type ProjectCreated struct {
 
 	// Platform github, gitlab, or artifact.
 	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string `json:"root_path"`
 
 	// Runs The first run, when standards were attached.
 	Runs *RunsSummary `json:"runs"`
@@ -1284,6 +1267,9 @@ type ProjectDetail struct {
 	// Platform github, gitlab, or artifact.
 	Platform string `json:"platform"`
 
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string `json:"root_path"`
+
 	// Standards Every attached standard, runnable or not.
 	Standards []AttachedStandard `json:"standards"`
 	Tags      []string           `json:"tags"`
@@ -1316,6 +1302,11 @@ type ProjectHealth struct {
 
 	// ScoreDisplay A score as the app shows it, so API clients can show it the same way.
 	ScoreDisplay ScoreDisplay `json:"score_display"`
+}
+
+// ProjectIdsRequest defines model for ProjectIdsRequest.
+type ProjectIdsRequest struct {
+	ProjectIds []openapi_types.UUID `json:"project_ids"`
 }
 
 // ProjectNotFound defines model for ProjectNotFound.
@@ -1397,6 +1388,10 @@ type ProviderUsage struct {
 
 // Repository defines model for Repository.
 type Repository struct {
+	// AddedPaths Root paths it is already a project at (empty string = the whole repository).
+	AddedPaths []string `json:"added_paths"`
+
+	// AlreadyAdded The whole repository is already a project.
 	AlreadyAdded  bool    `json:"already_added"`
 	DefaultBranch *string `json:"default_branch"`
 	Description   *string `json:"description"`
@@ -1424,7 +1419,10 @@ type ResolvedProject struct {
 	Name      string        `json:"name"`
 
 	// Platform github, gitlab, or artifact.
-	Platform string   `json:"platform"`
+	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string   `json:"root_path"`
 	Tags     []string `json:"tags"`
 	WebUrl   string   `json:"web_url"`
 }
@@ -1481,31 +1479,6 @@ type ScoredCommitRef struct {
 	Sha         string     `json:"sha"`
 }
 
-// StackComponent defines model for StackComponent.
-type StackComponent struct {
-	Grade       *ScoreDisplay      `json:"grade"`
-	Id          openapi_types.UUID `json:"id"`
-	LastChecked *time.Time         `json:"last_checked"`
-	Name        string             `json:"name"`
-	Path        string             `json:"path"`
-	Project     ProjectRef         `json:"project"`
-
-	// Tone Its repository's health.
-	//
-	// * `healthy` - healthy
-	// * `needs_attention` - needs_attention
-	// * `failed` - failed
-	// * `unknown` - unknown
-	Tone LevelEnum `json:"tone"`
-	Why  string    `json:"why"`
-}
-
-// StackComponentsChange defines model for StackComponentsChange.
-type StackComponentsChange struct {
-	// Added Newly added; ones already in the stack are skipped.
-	Added int `json:"added"`
-}
-
 // StackCreateRequest defines model for StackCreateRequest.
 type StackCreateRequest struct {
 	Description *string `json:"description,omitempty"`
@@ -1514,8 +1487,6 @@ type StackCreateRequest struct {
 
 // StackDetail defines model for StackDetail.
 type StackDetail struct {
-	// Components Worst first.
-	Components     []StackComponent   `json:"components"`
 	Description    string             `json:"description"`
 	Failed         int                `json:"failed"`
 	Healthy        int                `json:"healthy"`
@@ -1525,7 +1496,38 @@ type StackDetail struct {
 	Name           string             `json:"name"`
 	NeedsAttention int                `json:"needs_attention"`
 	ProjectCount   int                `json:"project_count"`
-	StandardCount  int                `json:"standard_count"`
+
+	// Projects Worst first.
+	Projects      []StackProject `json:"projects"`
+	StandardCount int            `json:"standard_count"`
+}
+
+// StackProject defines model for StackProject.
+type StackProject struct {
+	// FullPath org/repo; empty for an artifact project.
+	FullPath    string             `json:"full_path"`
+	Grade       *ScoreDisplay      `json:"grade"`
+	Id          openapi_types.UUID `json:"id"`
+	LastChecked *time.Time         `json:"last_checked"`
+	Name        string             `json:"name"`
+
+	// RootPath Where it starts in its repository; empty for the whole repository.
+	RootPath string `json:"root_path"`
+
+	// Tone Its health.
+	//
+	// * `healthy` - healthy
+	// * `needs_attention` - needs_attention
+	// * `failed` - failed
+	// * `unknown` - unknown
+	Tone LevelEnum `json:"tone"`
+	Why  string    `json:"why"`
+}
+
+// StackProjectsChange defines model for StackProjectsChange.
+type StackProjectsChange struct {
+	// Added Newly added; ones already in the stack are skipped.
+	Added int `json:"added"`
 }
 
 // StackRefresh defines model for StackRefresh.
@@ -1771,12 +1773,6 @@ type GetAiUsageParams struct {
 // GetAiUsageParamsPeriod defines parameters for GetAiUsage.
 type GetAiUsageParamsPeriod string
 
-// ListComponentsParams defines parameters for ListComponents.
-type ListComponentsParams struct {
-	// ProjectId Only this project's.
-	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
-}
-
 // ListRepositoriesParams defines parameters for ListRepositories.
 type ListRepositoriesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
@@ -1790,6 +1786,7 @@ type SetLlmRoleParamsRole string
 
 // ResolveProjectParams defines parameters for ResolveProject.
 type ResolveProjectParams struct {
+	Path         *string `form:"path,omitempty" json:"path,omitempty"`
 	RepoFullPath *string `form:"repo_full_path,omitempty" json:"repo_full_path,omitempty"`
 	WebUrl       *string `form:"web_url,omitempty" json:"web_url,omitempty"`
 }
@@ -1847,8 +1844,8 @@ type CreateStackJSONRequestBody = StackCreateRequest
 // UpdateStackJSONRequestBody defines body for UpdateStack for application/json ContentType.
 type UpdateStackJSONRequestBody = PatchedStackUpdateRequest
 
-// AddStackComponentsJSONRequestBody defines body for AddStackComponents for application/json ContentType.
-type AddStackComponentsJSONRequestBody = ComponentIdsRequest
+// AddStackProjectsJSONRequestBody defines body for AddStackProjects for application/json ContentType.
+type AddStackProjectsJSONRequestBody = ProjectIdsRequest
 
 // CreateStandardJSONRequestBody defines body for CreateStandard for application/json ContentType.
 type CreateStandardJSONRequestBody = StandardCreateRequest
@@ -2019,9 +2016,6 @@ type ClientInterface interface {
 	// GetAiUsage request
 	GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListComponents request
-	ListComponents(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListConnections request
 	ListConnections(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2164,13 +2158,13 @@ type ClientInterface interface {
 
 	UpdateStack(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AddStackComponentsWithBody request with any body
-	AddStackComponentsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// AddStackProjectsWithBody request with any body
+	AddStackProjectsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AddStackComponents(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AddStackProjects(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackProjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RemoveStackComponent request
-	RemoveStackComponent(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RemoveStackProject request
+	RemoveStackProject(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RefreshStackMap request
 	RefreshStackMap(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2304,18 +2298,6 @@ func (c *Client) ListAiModels(ctx context.Context, workspaceId openapi_types.UUI
 
 func (c *Client) GetAiUsage(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAiUsageRequest(c.Server, workspaceId, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListComponents(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListComponentsRequest(c.Server, workspaceId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2938,8 +2920,8 @@ func (c *Client) UpdateStack(ctx context.Context, workspaceId openapi_types.UUID
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddStackComponentsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddStackComponentsRequestWithBody(c.Server, workspaceId, stackId, contentType, body)
+func (c *Client) AddStackProjectsWithBody(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddStackProjectsRequestWithBody(c.Server, workspaceId, stackId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2950,8 +2932,8 @@ func (c *Client) AddStackComponentsWithBody(ctx context.Context, workspaceId ope
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddStackComponents(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddStackComponentsRequest(c.Server, workspaceId, stackId, body)
+func (c *Client) AddStackProjects(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackProjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddStackProjectsRequest(c.Server, workspaceId, stackId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2962,8 +2944,8 @@ func (c *Client) AddStackComponents(ctx context.Context, workspaceId openapi_typ
 	return c.Client.Do(req)
 }
 
-func (c *Client) RemoveStackComponent(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemoveStackComponentRequest(c.Server, workspaceId, stackId, componentId)
+func (c *Client) RemoveStackProject(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveStackProjectRequest(c.Server, workspaceId, stackId, projectId)
 	if err != nil {
 		return nil, err
 	}
@@ -3393,67 +3375,6 @@ func NewGetAiUsageRequest(server string, workspaceId openapi_types.UUID, params 
 		if params.Period != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "period", *params.Period, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewListComponentsRequest generates requests for ListComponents
-func NewListComponentsRequest(server string, workspaceId openapi_types.UUID, params *ListComponentsParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspace_id", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/components/", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.ProjectId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -4360,6 +4281,18 @@ func NewResolveProjectRequest(server string, workspaceId openapi_types.UUID, par
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
 
 		if params.RepoFullPath != nil {
 
@@ -5331,19 +5264,19 @@ func NewUpdateStackRequestWithBody(server string, workspaceId openapi_types.UUID
 	return req, nil
 }
 
-// NewAddStackComponentsRequest calls the generic AddStackComponents builder with application/json body
-func NewAddStackComponentsRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody) (*http.Request, error) {
+// NewAddStackProjectsRequest calls the generic AddStackProjects builder with application/json body
+func NewAddStackProjectsRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackProjectsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAddStackComponentsRequestWithBody(server, workspaceId, stackId, "application/json", bodyReader)
+	return NewAddStackProjectsRequestWithBody(server, workspaceId, stackId, "application/json", bodyReader)
 }
 
-// NewAddStackComponentsRequestWithBody generates requests for AddStackComponents with any type of body
-func NewAddStackComponentsRequestWithBody(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewAddStackProjectsRequestWithBody generates requests for AddStackProjects with any type of body
+func NewAddStackProjectsRequestWithBody(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5365,7 +5298,7 @@ func NewAddStackComponentsRequestWithBody(server string, workspaceId openapi_typ
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/components/", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/projects/", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5385,8 +5318,8 @@ func NewAddStackComponentsRequestWithBody(server string, workspaceId openapi_typ
 	return req, nil
 }
 
-// NewRemoveStackComponentRequest generates requests for RemoveStackComponent
-func NewRemoveStackComponentRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID) (*http.Request, error) {
+// NewRemoveStackProjectRequest generates requests for RemoveStackProject
+func NewRemoveStackProjectRequest(server string, workspaceId openapi_types.UUID, stackId openapi_types.UUID, projectId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5405,7 +5338,7 @@ func NewRemoveStackComponentRequest(server string, workspaceId openapi_types.UUI
 
 	var pathParam2 string
 
-	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "component_id", componentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
 	if err != nil {
 		return nil, err
 	}
@@ -5415,7 +5348,7 @@ func NewRemoveStackComponentRequest(server string, workspaceId openapi_types.UUI
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/components/%s/", pathParam0, pathParam1, pathParam2)
+	operationPath := fmt.Sprintf("/api/v1/workspaces/%s/stacks/%s/projects/%s/", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5888,9 +5821,6 @@ type ClientWithResponsesInterface interface {
 	// GetAiUsageWithResponse request
 	GetAiUsageWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *GetAiUsageParams, reqEditors ...RequestEditorFn) (*GetAiUsageResponse, error)
 
-	// ListComponentsWithResponse request
-	ListComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error)
-
 	// ListConnectionsWithResponse request
 	ListConnectionsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListConnectionsResponse, error)
 
@@ -6033,13 +5963,13 @@ type ClientWithResponsesInterface interface {
 
 	UpdateStackWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body UpdateStackJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStackResponse, error)
 
-	// AddStackComponentsWithBodyWithResponse request with any body
-	AddStackComponentsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error)
+	// AddStackProjectsWithBodyWithResponse request with any body
+	AddStackProjectsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackProjectsResponse, error)
 
-	AddStackComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error)
+	AddStackProjectsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackProjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackProjectsResponse, error)
 
-	// RemoveStackComponentWithResponse request
-	RemoveStackComponentWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackComponentResponse, error)
+	// RemoveStackProjectWithResponse request
+	RemoveStackProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackProjectResponse, error)
 
 	// RefreshStackMapWithResponse request
 	RefreshStackMapWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RefreshStackMapResponse, error)
@@ -6278,36 +6208,6 @@ func (r GetAiUsageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetAiUsageResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListComponentsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]Component
-}
-
-// Status returns HTTPResponse.Status
-func (r ListComponentsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListComponentsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListComponentsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7512,14 +7412,14 @@ func (r UpdateStackResponse) ContentType() string {
 	return ""
 }
 
-type AddStackComponentsResponse struct {
+type AddStackProjectsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *StackComponentsChange
+	JSON200      *StackProjectsChange
 }
 
 // Status returns HTTPResponse.Status
-func (r AddStackComponentsResponse) Status() string {
+func (r AddStackProjectsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7527,7 +7427,7 @@ func (r AddStackComponentsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r AddStackComponentsResponse) StatusCode() int {
+func (r AddStackProjectsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7535,20 +7435,20 @@ func (r AddStackComponentsResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r AddStackComponentsResponse) ContentType() string {
+func (r AddStackProjectsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type RemoveStackComponentResponse struct {
+type RemoveStackProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 }
 
 // Status returns HTTPResponse.Status
-func (r RemoveStackComponentResponse) Status() string {
+func (r RemoveStackProjectResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7556,7 +7456,7 @@ func (r RemoveStackComponentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RemoveStackComponentResponse) StatusCode() int {
+func (r RemoveStackProjectResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7564,7 +7464,7 @@ func (r RemoveStackComponentResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RemoveStackComponentResponse) ContentType() string {
+func (r RemoveStackProjectResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7917,15 +7817,6 @@ func (c *ClientWithResponses) GetAiUsageWithResponse(ctx context.Context, worksp
 		return nil, err
 	}
 	return ParseGetAiUsageResponse(rsp)
-}
-
-// ListComponentsWithResponse request returning *ListComponentsResponse
-func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error) {
-	rsp, err := c.ListComponents(ctx, workspaceId, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListComponentsResponse(rsp)
 }
 
 // ListConnectionsWithResponse request returning *ListConnectionsResponse
@@ -8376,30 +8267,30 @@ func (c *ClientWithResponses) UpdateStackWithResponse(ctx context.Context, works
 	return ParseUpdateStackResponse(rsp)
 }
 
-// AddStackComponentsWithBodyWithResponse request with arbitrary body returning *AddStackComponentsResponse
-func (c *ClientWithResponses) AddStackComponentsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error) {
-	rsp, err := c.AddStackComponentsWithBody(ctx, workspaceId, stackId, contentType, body, reqEditors...)
+// AddStackProjectsWithBodyWithResponse request with arbitrary body returning *AddStackProjectsResponse
+func (c *ClientWithResponses) AddStackProjectsWithBodyWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddStackProjectsResponse, error) {
+	rsp, err := c.AddStackProjectsWithBody(ctx, workspaceId, stackId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAddStackComponentsResponse(rsp)
+	return ParseAddStackProjectsResponse(rsp)
 }
 
-func (c *ClientWithResponses) AddStackComponentsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackComponentsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackComponentsResponse, error) {
-	rsp, err := c.AddStackComponents(ctx, workspaceId, stackId, body, reqEditors...)
+func (c *ClientWithResponses) AddStackProjectsWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, body AddStackProjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*AddStackProjectsResponse, error) {
+	rsp, err := c.AddStackProjects(ctx, workspaceId, stackId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAddStackComponentsResponse(rsp)
+	return ParseAddStackProjectsResponse(rsp)
 }
 
-// RemoveStackComponentWithResponse request returning *RemoveStackComponentResponse
-func (c *ClientWithResponses) RemoveStackComponentWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, componentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackComponentResponse, error) {
-	rsp, err := c.RemoveStackComponent(ctx, workspaceId, stackId, componentId, reqEditors...)
+// RemoveStackProjectWithResponse request returning *RemoveStackProjectResponse
+func (c *ClientWithResponses) RemoveStackProjectWithResponse(ctx context.Context, workspaceId openapi_types.UUID, stackId openapi_types.UUID, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveStackProjectResponse, error) {
+	rsp, err := c.RemoveStackProject(ctx, workspaceId, stackId, projectId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRemoveStackComponentResponse(rsp)
+	return ParseRemoveStackProjectResponse(rsp)
 }
 
 // RefreshStackMapWithResponse request returning *RefreshStackMapResponse
@@ -8669,32 +8560,6 @@ func ParseGetAiUsageResponse(rsp *http.Response) (*GetAiUsageResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AIUsage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListComponentsResponse parses an HTTP response from a ListComponentsWithResponse call
-func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListComponentsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []Component
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9719,22 +9584,22 @@ func ParseUpdateStackResponse(rsp *http.Response) (*UpdateStackResponse, error) 
 	return response, nil
 }
 
-// ParseAddStackComponentsResponse parses an HTTP response from a AddStackComponentsWithResponse call
-func ParseAddStackComponentsResponse(rsp *http.Response) (*AddStackComponentsResponse, error) {
+// ParseAddStackProjectsResponse parses an HTTP response from a AddStackProjectsWithResponse call
+func ParseAddStackProjectsResponse(rsp *http.Response) (*AddStackProjectsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &AddStackComponentsResponse{
+	response := &AddStackProjectsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest StackComponentsChange
+		var dest StackProjectsChange
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9745,15 +9610,15 @@ func ParseAddStackComponentsResponse(rsp *http.Response) (*AddStackComponentsRes
 	return response, nil
 }
 
-// ParseRemoveStackComponentResponse parses an HTTP response from a RemoveStackComponentWithResponse call
-func ParseRemoveStackComponentResponse(rsp *http.Response) (*RemoveStackComponentResponse, error) {
+// ParseRemoveStackProjectResponse parses an HTTP response from a RemoveStackProjectWithResponse call
+func ParseRemoveStackProjectResponse(rsp *http.Response) (*RemoveStackProjectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RemoveStackComponentResponse{
+	response := &RemoveStackProjectResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

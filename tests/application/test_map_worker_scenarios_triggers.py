@@ -33,7 +33,7 @@ from procrastinate.job_context import JobContext
 from app.application import subscribers
 from app.application.event_bus import publish
 from app.application.architecture.refresh import InferenceSummary
-from app.domain.events import ComponentAddedToStack, ProjectCreated, RepositoryPushed
+from app.domain.events import ProjectAddedToStack, ProjectCreated, RepositoryPushed
 from app.domain.models import Project
 from tests.application.test_job_zombie_invariants import (
     QUEUE,
@@ -111,10 +111,8 @@ class _Scenario(CleanProcrastinateTables, TransactionTestCase):
         return cls(project_id=str(project.id), tenant_id=str(self.tenant.id), **extra)
 
     def _stack_event(self, project, stack):
-        """What ``stack_service.add_component_to_stack`` publishes for the
-        project's root component."""
-        return ComponentAddedToStack(
-            component_id=str(project.root_component.id),
+        """What ``stack_service.add_project_to_stack`` publishes."""
+        return ProjectAddedToStack(
             project_id=str(project.id),
             stack_id=str(stack.id),
             tenant_id=str(self.tenant.id),
@@ -299,7 +297,7 @@ class TriggerScenarios(_Scenario):
         def ok_result(project):
             _ok(project)
             return InferenceSummary(
-                components=1, internal=0, infrastructure=0, providers=0, consumers=0, files_read=1
+                internal=0, infrastructure=0, providers=0, consumers=0, files_read=1
             )
 
         with patch(INFER, side_effect=ok_result), patch(SLEEP):

@@ -42,12 +42,14 @@ from app.presentation.views.project_views import (
     ProjectListView,
     add_project_search,
     add_project_select,
+    root_path_options,
     delete_project,
     project_commit_check,
     project_history,
     run_on_branch,
     project_standards,
     retry_webhook,
+    add_suggested_projects,
     run_project_standards,
 )
 from app.presentation.views.artifact_views import (
@@ -66,8 +68,8 @@ from app.presentation.views.stack_views import (
     delete_stack,
     edit_stack,
     refresh_stack,
-    remove_component_from_stack,
-    stack_components,
+    remove_project_from_stack,
+    stack_projects,
 )
 from app.presentation.views.tenant_views import (
     CreateTenantView,
@@ -299,6 +301,11 @@ urlpatterns = [
         add_project_search,
         name="add_project_search",
     ),
+    path(
+        "projects/add/<uuid:connection_id>/root-paths/",
+        root_path_options,
+        name="root_path_options",
+    ),
     path("projects/<uuid:pk>/", ProjectDetailView.as_view(), name="project_detail"),
     path("projects/<uuid:pk>/edit/", EditProjectView.as_view(), name="edit_project"),
     path(
@@ -345,6 +352,11 @@ urlpatterns = [
         retry_webhook,
         name="retry_webhook",
     ),
+    path(
+        "projects/<uuid:pk>/suggested-projects/add/",
+        add_suggested_projects,
+        name="add_suggested_projects",
+    ),
     # Stacks
     path("stacks/", StackListView.as_view(), name="stack_list"),
     path("stacks/new/", CreateStackView.as_view(), name="create_stack"),
@@ -352,11 +364,11 @@ urlpatterns = [
     path("stacks/<uuid:pk>/refresh/", refresh_stack, name="refresh_stack"),
     path("stacks/<uuid:pk>/delete/", delete_stack, name="delete_stack"),
     path("stacks/<uuid:pk>/edit/", edit_stack, name="edit_stack"),
-    path("stacks/<uuid:pk>/components/", stack_components, name="stack_components"),
+    path("stacks/<uuid:pk>/projects/", stack_projects, name="stack_projects"),
     path(
-        "stacks/<uuid:stack_pk>/components/<uuid:component_pk>/remove/",
-        remove_component_from_stack,
-        name="remove_component_from_stack",
+        "stacks/<uuid:stack_pk>/projects/<uuid:project_pk>/remove/",
+        remove_project_from_stack,
+        name="remove_project_from_stack",
     ),
     # Standards
     path("standards/", StandardListView.as_view(), name="standard_list"),

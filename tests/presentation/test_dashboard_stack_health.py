@@ -20,10 +20,7 @@ class DashboardStackHealthTests(TestCase):
     def _stack(self, name, *projects):
         stack = baker.make("app.Stack", tenant=self.tenant, name=name)
         for project in projects:
-            stack.components.add(
-                project.components.first()
-                or baker.make("app.Component", tenant=self.tenant, project=project)
-            )
+            stack.projects.add(project)
         return stack
 
     def test_stacks_are_listed_worst_first_with_their_own_counts(self):
@@ -96,7 +93,7 @@ class DashboardCockpitTests(TestCase):
 
     def test_stack_map_links_each_stack(self):
         stack = baker.make("app.Stack", tenant=self.tenant, name="Payments")
-        stack.components.add(self.project.components.first() or baker.make("app.Component", tenant=self.tenant, project=self.project))
+        stack.projects.add(self.project)
 
         response = self.client.get(reverse("dashboard"))
 

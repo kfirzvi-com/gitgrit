@@ -75,9 +75,13 @@ def forget_platform_lists(projects) -> None:
 
 def resolve_head_commit(project, branch: str) -> dict:
     """``branch``'s latest commit as ``{sha, date}``, or {} when the platform
-    cannot say (unreachable, no such branch)."""
+    cannot say (unreachable, no such branch). For a project inside a
+    monorepo, the latest commit that touched its directory: the one its
+    commit list starts with."""
     try:
-        return _client(project).head_commit(project.external_id, project.full_path, branch) or {}
+        return _client(project).head_commit(
+            project.external_id, project.full_path, branch, path=project.root_path
+        ) or {}
     except Exception:
         logger.warning("Could not resolve the head of %s on %s", branch, project.name, exc_info=True)
         return {}
@@ -289,13 +293,15 @@ def branches(project) -> list[str]:
 def branch_commits(project, branch: str, page: int = 1) -> tuple[list[CommitRow], bool]:
     """One page of ``branch``'s commits, newest first, each with the results
     of the standards GitGrit ran on it; and whether there are older commits.
+    A project inside a monorepo lists only the commits touching its directory.
     Falls back to the commits GitGrit checked on the branch when the platform
     cannot be reached."""
     try:
         listed = _cached(
             project, f"commits:{page}:{branch}",
             lambda: _client(project).list_commits(
-                project.external_id, project.full_path, branch, page=page, per_page=COMMITS_PER_PAGE
+                project.external_id, project.full_path, branch, page=page, per_page=COMMITS_PER_PAGE,
+                path=project.root_path,
             ),
         )
         rows = [

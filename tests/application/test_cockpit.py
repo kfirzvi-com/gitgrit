@@ -53,8 +53,7 @@ class CockpitTests(TestCase):
     def test_rows_carry_their_projects_stacks(self):
         api = self._project("api")
         stack = baker.make("app.Stack", tenant=self.tenant, name="Orders")
-        component = api.components.first() or baker.make("app.Component", tenant=self.tenant, project=api)
-        stack.components.add(component)
+        stack.projects.add(api)
 
         [row] = Cockpit.for_workspace(self.tenant).rows
 

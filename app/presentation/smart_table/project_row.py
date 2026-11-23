@@ -19,7 +19,7 @@ HEALTH_ORDER = (ScoreTone.FAILED, ScoreTone.NEEDS_ATTENTION, ScoreTone.HEALTHY)
 class ProjectRow:
     """A project as the Projects table shows it: its newest commit on the
     default branch (``head``, a ``CheckRunRecord``, ``None`` when never
-    checked), the score it got, and the stacks its components are in.
+    checked), the score it got, and the stacks it is in.
 
     Its health is the count it goes in when projects are counted
     (``ProjectHealthCounts``): a project with no grade needs attention."""
@@ -31,15 +31,14 @@ class ProjectRow:
     @classmethod
     def for_projects(cls, projects) -> list["ProjectRow"]:
         """A row per project, every head read at once. ``projects`` should
-        prefetch ``components__stacks``."""
+        prefetch ``stacks``."""
         projects = list(projects)
         heads = scoring.project_heads(projects)
         return [cls(project=p, head=heads.get(p.pk), stacks=cls._stacks_of(p)) for p in projects]
 
     @staticmethod
     def _stacks_of(project) -> tuple:
-        stacks = {s.pk: s for c in project.components.all() for s in c.stacks.all()}
-        return tuple(sorted(stacks.values(), key=lambda s: s.name.lower()))
+        return tuple(sorted(project.stacks.all(), key=lambda s: s.name.lower()))
 
     @property
     def score(self):

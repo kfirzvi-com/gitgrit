@@ -57,17 +57,25 @@ class PlatformClient(ABC):
         return []
 
     def list_commits(
-        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20,
+        path: str = "",
     ) -> list[dict]:
         """One page of a branch's commits, newest first, each as
         ``{sha, message, author, date, url}`` (date is an ISO 8601 string).
-        Override per platform."""
+        With ``path``, only commits touching that directory (a project inside
+        a monorepo). Override per platform."""
         return []
 
-    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
-        """A branch's latest commit as ``{sha, date}`` (date is ISO 8601).
-        Override per platform."""
+    def head_commit(self, external_id: str, full_path: str, branch: str, path: str = "") -> dict:
+        """A branch's latest commit as ``{sha, date}`` (date is ISO 8601);
+        with ``path``, its latest commit touching that directory. Override per
+        platform."""
         return {}
+
+    def changed_files(self, external_id: str, full_path: str, base: str, head: str) -> list[str] | None:
+        """The paths that differ between two commits, or None when the
+        platform can't list them all. Override per platform."""
+        return None
 
 
 class GitHubClient(PlatformClient):
@@ -228,12 +236,16 @@ class GitHubClient(PlatformClient):
         return names
 
     def list_commits(
-        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20,
+        path: str = "",
     ) -> list[dict]:
+        params = {"sha": branch, "page": page, "per_page": per_page}
+        if path:
+            params["path"] = path
         resp = requests.get(
             f"{self.base_url}/repos/{full_path}/commits",
             headers=self._headers,
-            params={"sha": branch, "page": page, "per_page": per_page},
+            params=params,
             timeout=10,
         )
         resp.raise_for_status()
@@ -252,7 +264,10 @@ class GitHubClient(PlatformClient):
             )
         return commits
 
-    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+    def head_commit(self, external_id: str, full_path: str, branch: str, path: str = "") -> dict:
+        if path:
+            latest = self.list_commits(external_id, full_path, branch, per_page=1, path=path)
+            return {"sha": latest[0]["sha"], "date": latest[0]["date"]} if latest else {}
         resp = requests.get(
             f"{self.base_url}/repos/{full_path}/commits/{quote(branch, safe='')}",
             headers=self._headers,
@@ -262,6 +277,28 @@ class GitHubClient(PlatformClient):
         data = resp.json()
         author = (data.get("commit") or {}).get("author") or {}
         return {"sha": data.get("sha", ""), "date": author.get("date", "")}
+
+    # The compare API lists at most this many files; a diff that big is
+    # reported as unknown rather than partially.
+    MAX_COMPARED_FILES = 300
+
+    def changed_files(self, external_id: str, full_path: str, base: str, head: str) -> list[str] | None:
+        resp = requests.get(
+            f"{self.base_url}/repos/{full_path}/compare/{base}...{head}",
+            headers=self._headers,
+            params={"per_page": 1},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        files = resp.json().get("files")
+        if files is None or len(files) >= self.MAX_COMPARED_FILES:
+            return None
+        paths = set()
+        for f in files:
+            paths.add(f["filename"])
+            if f.get("previous_filename"):
+                paths.add(f["previous_filename"])
+        return sorted(paths)
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         # Need full_name (owner/repo) — look up from external_id
@@ -367,6 +404,31 @@ class GitLabClient(PlatformClient):
         resp.raise_for_status()
         return resp.json().get("topics", [])
 
+    # 100 files a page: a repository of up to 20,000 files is listed whole.
+    MAX_TREE_PAGES = 200
+
+    def get_tree(self, full_path: str, ref: str = "") -> list[str]:
+        """Every file path in the repository (blobs only), for a project
+        rooted inside a monorepo: its languages and the root-path
+        suggestions. GitLab reads the default branch when no ref is given."""
+        params = {"recursive": "true", "per_page": 100}
+        if ref:
+            params["ref"] = ref
+        files: list[str] = []
+        for page in range(1, self.MAX_TREE_PAGES + 1):
+            resp = requests.get(
+                f"{self._api_base}/projects/{quote(full_path, safe='')}/repository/tree",
+                headers=self._headers,
+                params={**params, "page": page},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            batch = resp.json()
+            files += [item["path"] for item in batch if item.get("type") == "blob"]
+            if len(batch) < 100:
+                break
+        return files
+
     def list_branches(self, external_id: str, full_path: str) -> list[str]:
         names: list[str] = []
         for page in range(1, 11):
@@ -384,12 +446,16 @@ class GitLabClient(PlatformClient):
         return names
 
     def list_commits(
-        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20,
+        path: str = "",
     ) -> list[dict]:
+        params = {"ref_name": branch, "page": page, "per_page": per_page}
+        if path:
+            params["path"] = path
         resp = requests.get(
             f"{self._api_base}/projects/{external_id}/repository/commits",
             headers=self._headers,
-            params={"ref_name": branch, "page": page, "per_page": per_page},
+            params=params,
             timeout=10,
         )
         resp.raise_for_status()
@@ -404,7 +470,10 @@ class GitLabClient(PlatformClient):
             for c in resp.json()
         ]
 
-    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+    def head_commit(self, external_id: str, full_path: str, branch: str, path: str = "") -> dict:
+        if path:
+            latest = self.list_commits(external_id, full_path, branch, per_page=1, path=path)
+            return {"sha": latest[0]["sha"], "date": latest[0]["date"]} if latest else {}
         resp = requests.get(
             f"{self._api_base}/projects/{external_id}/repository/branches/{quote(branch, safe='')}",
             headers=self._headers,
@@ -413,6 +482,22 @@ class GitLabClient(PlatformClient):
         resp.raise_for_status()
         commit = resp.json().get("commit") or {}
         return {"sha": commit.get("id", ""), "date": commit.get("committed_date", "")}
+
+    def changed_files(self, external_id: str, full_path: str, base: str, head: str) -> list[str] | None:
+        resp = requests.get(
+            f"{self._api_base}/projects/{external_id}/repository/compare",
+            headers=self._headers,
+            params={"from": base, "to": head},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("compare_timeout") or data.get("diffs") is None:
+            return None
+        paths = set()
+        for d in data["diffs"]:
+            paths.update(p for p in (d.get("new_path"), d.get("old_path")) if p)
+        return sorted(paths)
 
     def create_webhook(self, external_id: str, target_url: str, secret: str) -> str:
         resp = requests.post(
@@ -467,7 +552,8 @@ class ArtifactClient(PlatformClient):
         return sorted(set(self._commits(external_id).values_list("branch", flat=True)))
 
     def list_commits(
-        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20
+        self, external_id: str, full_path: str, branch: str, page: int = 1, per_page: int = 20,
+        path: str = "",
     ) -> list[dict]:
         start = (page - 1) * per_page
         commits = self._commits(external_id).filter(branch=branch)[start : start + per_page]
@@ -482,7 +568,7 @@ class ArtifactClient(PlatformClient):
             for c in commits
         ]
 
-    def head_commit(self, external_id: str, full_path: str, branch: str) -> dict:
+    def head_commit(self, external_id: str, full_path: str, branch: str, path: str = "") -> dict:
         commit = self._commits(external_id).filter(branch=branch).first()
         return {"sha": commit.sha, "date": commit.created_at.isoformat()} if commit else {}
 

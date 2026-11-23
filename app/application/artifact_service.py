@@ -86,8 +86,7 @@ def create_artifact_project(
 ) -> CreatedProject:
     """Find or create the artifact project the caller knows as ``external_id``.
 
-    A new project gets its root component in ``stack`` (found by name, or
-    created) and the standards named by ``standard_ids`` (none by default, as
+    A new project joins ``stack`` (found by name, or created) and the standards named by ``standard_ids`` (none by default, as
     for a repository). An existing project is returned as it is, so the call
     is safe to repeat.
     """

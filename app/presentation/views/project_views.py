@@ -12,6 +12,8 @@ from django.utils.dateparse import parse_datetime
 
 from app.presentation.bulk_edit_answer import BulkEditAnswer
 from app.application.project_bulk_edit import ProjectBulkEdit
+from app.application.project_suggestions import ProjectSuggestions
+from app.presentation.htmx import toast
 from app.application import commit_checks, project_management
 from app.application.errors import NotFoundError
 from app.application.commit_checks import (
@@ -97,7 +99,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
         return (
             Project.objects.filter(tenant=tenant)
             .select_related("platform_connection")
-            .prefetch_related("components__stacks")
+            .prefetch_related("stacks")
         )
 
     def get_context_data(self, **kwargs):
@@ -357,15 +359,16 @@ def add_project_search(request, connection_id):
                 request.user,
                 connection,
                 repo,
+                root_path=request.POST.get("root_path", ""),
                 lifecycle=request.POST.get("lifecycle", Project.Lifecycle.DEVELOPMENT),
                 owner=request.POST.get("owner", ""),
                 stack_ids=request.POST.getlist("stacks"),
                 standard_ids=request.POST.getlist("standards"),
                 importances=_posted_importances(request.POST),
             )
-        except project_management.AlreadyAdded:
-            messages.warning(request, f'"{repo["name"]}" is already added to this workspace.')
-            return redirect("project_list")
+        except project_management.AlreadyAdded as exc:
+            messages.warning(request, str(exc))
+            return redirect("project_detail", pk=exc.project.pk)
         except ValueError as exc:
             messages.error(request, str(exc))
             return redirect("add_project_search", connection_id=connection_id)
@@ -392,6 +395,25 @@ def add_project_search(request, connection_id):
             "existing_owners": _existing_owners(tenant),
             **_picker_context(tenant),
         },
+    )
+
+
+@login_required
+def root_path_options(request, connection_id):
+    """The directories a project of the chosen repository could be rooted
+    at, for the add-project form's root-path autocomplete (JSON)."""
+    tenant = request.tenant
+    connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
+    repo = {
+        "external_id": request.GET.get("external_id", ""),
+        "full_path": request.GET.get("full_path", ""),
+        "default_branch": request.GET.get("default_branch", ""),
+    }
+    if not repo["full_path"]:
+        return JsonResponse({"options": []})
+    options = project_management.root_path_options(tenant, connection, repo)
+    return JsonResponse(
+        {"options": [{"path": o.path, "manifests": list(o.manifests)} for o in options]}
     )
 
 
@@ -608,6 +630,32 @@ def retry_webhook(request, pk):
         messages.error(request, "Webhook registration failed. Check your connection token.")
 
     return redirect("project_detail", pk=project.pk)
+
+
+@login_required
+@require_POST
+def add_suggested_projects(request, pk):
+    """Add one suggested project (``path``) or, without one, every open
+    suggestion of this whole-repository project. Answers HTMX with the
+    repository section swapped in place."""
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("project_list")
+    project = get_object_or_404(Project.objects.select_related("platform_connection"), pk=pk, tenant=tenant)
+    path = request.POST.get("path")
+    result = ProjectSuggestions(project, request.user).add([path] if path else None)
+    if result.added:
+        names = ", ".join(p.name for p in result.added)
+        text = f"Added {names}." if len(result.added) <= 3 else f"Added {len(result.added)} projects."
+        level = "success"
+    else:
+        text, level = "Nothing to add: those are projects already.", "info"
+    if not request.headers.get("HX-Request"):
+        getattr(messages, level)(request, text)
+        return redirect("project_detail", pk=project.pk)
+    response = render(request, "partials/project_repository.html", {"project": project})
+    return toast(response, text, level)
 
 
 @login_required

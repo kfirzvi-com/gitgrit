@@ -61,7 +61,7 @@ class TestProjectHealthCounts(TestCase):
         tenant = baker.make("app.Tenant")
         stack = baker.make("app.Stack", tenant=tenant)
         for project in (self._project_scored(tenant, None, failed=True), self._project_scored(tenant, 95)):
-            project.root_component.stacks.add(stack)
+            project.stacks.add(stack)
 
         [node] = workspace_graph(tenant)["stacks"]
 

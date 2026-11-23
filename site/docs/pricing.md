@@ -9,7 +9,7 @@ hide:
 
 <p class="gg-uc-eyebrow">Pricing</p>
 
-# Pay for repositories, not seats
+# Pay for projects, not seats
 
 Start free. Grow into a plan when your team does. **Every plan includes unlimited developers and unlimited standards.**
 
@@ -30,7 +30,7 @@ Start free. Grow into a plan when your team does. **Every plan includes unlimite
 
   <div class="gg-pr-card" data-plan="free">
     <h3 class="gg-pr-card__name">Free</h3>
-    <p class="gg-pr-card__for">For individuals trying GitGrit on their own repositories.</p>
+    <p class="gg-pr-card__for">For individuals trying GitGrit on their own projects.</p>
     <p class="gg-pr-card__price"><span class="gg-pr-card__amount" data-price="free">$0</span><span class="gg-pr-card__per">forever</span></p>
     <p class="gg-pr-card__note">&nbsp;</p>
     <a href="https://app.gitgrit.dev" class="gg-pr-card__btn gg-pr-card__btn--ghost">Start free</a>
@@ -91,31 +91,37 @@ Start free. Grow into a plan when your team does. **Every plan includes unlimite
   <a href="https://cal.com/gitgrit-demo/30min" data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min" data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}' class="gg-pr-card__btn gg-pr-card__btn--ghost">Talk to us</a>
 </div>
 
-## FAQ
-
-### What counts as a project?
-
-A project is one repository (or one [artifact project](getting-started/artifact-projects.md)) that GitGrit checks. Archived projects don't count.
-
-### What counts as a standard execution?
-
-One standard run against one commit. A push to a project with 10 standards attached is 10 executions. Pushes, pull requests, tags and manual runs all count the same way. You can see your usage any time in **Workspace settings → Usage**.
-
-### Why not per developer?
-
-Your standards apply to your code, not to how many people write it. Add your whole team, contractors and outsourced partners without watching a seat count.
-
-### What happens when I reach a limit?
-
-We email the workspace admins at 80%. At 100%, new executions pause until the next month starts or you upgrade. Nothing is deleted, and your existing results stay visible.
-
-### Which currency am I billed in?
-
-US dollars or euros, whichever you choose at checkout. Euro prices are set in euros, not converted at the daily rate.
-
-### Can I change plans later?
-
-Yes. Upgrade or downgrade any time from your workspace settings. Upgrades apply right away.
+<section class="gg-faq" aria-labelledby="faq">
+<div class="gg-faq__header">
+  <h2 id="faq"><span class="lite">Common</span> questions</h2>
+</div>
+<div class="gg-faq__list">
+  <details class="gg-faq__item">
+    <summary><h3>What counts as a project?</h3></summary>
+    <p>A project is one repository, one directory of a <a href="../getting-started/monorepos/">monorepo</a> added as its own project, or one <a href="../getting-started/artifact-projects/">artifact project</a> that GitGrit checks. A monorepo with a web app and two services added separately is three projects. Archived projects don't count.</p>
+  </details>
+  <details class="gg-faq__item">
+    <summary><h3>What counts as a standard execution?</h3></summary>
+    <p>One standard run against one commit. A push to a project with 10 standards attached is 10 executions. Pushes, pull requests, tags and manual runs all count the same way. In a monorepo, a push only runs the projects whose directories it changed. You can see your usage any time in <strong>Workspace settings → Usage</strong>.</p>
+  </details>
+  <details class="gg-faq__item">
+    <summary><h3>Why not per developer?</h3></summary>
+    <p>Your standards apply to your code, not to how many people write it. Add your whole team, contractors and outsourced partners without watching a seat count.</p>
+  </details>
+  <details class="gg-faq__item">
+    <summary><h3>What happens when I reach a limit?</h3></summary>
+    <p>We email the workspace admins at 80%. At 100%, new executions pause until the next month starts or you upgrade. Nothing is deleted, and your existing results stay visible.</p>
+  </details>
+  <details class="gg-faq__item">
+    <summary><h3>Which currency am I billed in?</h3></summary>
+    <p>US dollars or euros, whichever you choose at checkout. Euro prices are set in euros, not converted at the daily rate.</p>
+  </details>
+  <details class="gg-faq__item">
+    <summary><h3>Can I change plans later?</h3></summary>
+    <p>Yes. Upgrade or downgrade any time from your workspace settings. Upgrades apply right away.</p>
+  </details>
+</div>
+</section>
 
 <script>
   (function () {

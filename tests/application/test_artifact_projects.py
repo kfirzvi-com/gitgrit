@@ -50,7 +50,7 @@ class CreateUploadProjectTests(TestCase):
         self.assertTrue(result.created)
         self.assertTrue(project.is_artifact)
         self.assertEqual(project.platform_connection.platform, Platform.ARTIFACT)
-        self.assertEqual(project.root_component.stacks.get().name, "Acme Web")
+        self.assertEqual(project.stacks.get().name, "Acme Web")
 
     def test_creating_again_returns_the_same_project(self):
         first = artifact_service.create_artifact_project(self.tenant, name="A", external_id="g1")
@@ -67,7 +67,7 @@ class CreateUploadProjectTests(TestCase):
         artifact_service.create_artifact_project(self.tenant, name="B", external_id="g2", stack="Web Team")
 
         self.assertEqual(self.tenant.stacks.filter(name="Web Team").count(), 1)
-        self.assertEqual(self.tenant.stacks.get().components.count(), 2)
+        self.assertEqual(self.tenant.stacks.get().projects.count(), 2)
 
     def test_by_default_it_gets_no_standards_like_a_repository(self):
         _push_standard(self.tenant)

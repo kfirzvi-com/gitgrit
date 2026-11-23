@@ -56,14 +56,6 @@ class Fixture(TestCase):
         self._commit(OLD, now - timedelta(days=1), Status.PASSED)
         self.newest = self._commit(NEW, now, Status.ERROR)
 
-    def _component(self):
-        """The project's own component (every project has one at its root)."""
-        component = self.project.components.first() or baker.make(
-            "app.Component", tenant=self.tenant, project=self.project, name="api"
-        )
-        component.name = "api"
-        component.save()
-        return component
 
     def _standard(self, name):
         standard = baker.make("app.Standard", tenant=self.tenant, name=name, enabled=True, draft=False, criteria={})
@@ -86,7 +78,7 @@ class Fixture(TestCase):
 
     def _dashboard(self):
         # The dashboard shows the workspace counts and each stack's.
-        baker.make("app.Stack", tenant=self.tenant, name="Core").components.add(self._component())
+        baker.make("app.Stack", tenant=self.tenant, name="Core").projects.add(self.project)
         return self.client.get(reverse("dashboard")).content.decode()
 
 
@@ -153,15 +145,15 @@ class MapTests(Fixture):
     def setUp(self):
         super().setUp()
         self.stack = baker.make("app.Stack", tenant=self.tenant, name="Core")
-        self.stack.components.add(self._component())
+        self.stack.projects.add(self.project)
 
     def test_the_stack_node_names_the_project_with_no_score_and_why(self):
         [node] = [n for n in workspace_graph(self.tenant)["stacks"] if n["name"] == "Core"]
 
         assert "Backend — No score on commit 2222222: Lint errored." in node["issues"]
 
-    def test_the_component_node_says_why(self):
-        [node] = [n for n in stack_graph(self.stack)["components"] if n["name"] == "api"]
+    def test_the_project_node_says_why(self):
+        [node] = [n for n in stack_graph(self.stack)["projects"] if n["name"] == self.project.name]
 
         assert node["issues"] == ["No score on commit 2222222: Lint errored."]
         assert node["no_score"] == "No score on commit 2222222: Lint errored."

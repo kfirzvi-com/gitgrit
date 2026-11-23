@@ -19,6 +19,11 @@ func git(args ...string) string {
 // OriginURL is `git remote get-url origin`, or "" outside a repo.
 func OriginURL() string { return git("remote", "get-url", "origin") }
 
+// Prefix is where the current directory sits inside the repository
+// ("apps/web", "" at the root or outside a repo), so the CLI can pick the
+// project rooted there in a monorepo.
+func Prefix() string { return strings.TrimSuffix(git("rev-parse", "--show-prefix"), "/") }
+
 // CurrentBranch is the checked-out branch, or "" when detached or outside a repo.
 func CurrentBranch() string {
 	b := git("rev-parse", "--abbrev-ref", "HEAD")

@@ -12,8 +12,6 @@ from app.domain.models import Project, Stack, Standard
 class ProjectBulkEdit:
     """Changes many of a workspace's projects at once.
 
-    A stack holds components, not projects: adding a project to a stack adds
-    its root component; removing it takes out every one of its components.
     Attaching a standard queues it to run on each project, as attaching it
     to one does."""
 
@@ -27,7 +25,7 @@ class ProjectBulkEdit:
 
     def projects(self, ids) -> list[Project]:
         try:
-            return list(Project.objects.filter(tenant=self.tenant, pk__in=list(ids)).prefetch_related("components"))
+            return list(Project.objects.filter(tenant=self.tenant, pk__in=list(ids)).prefetch_related("stacks"))
         except (ValidationError, ValueError):
             raise NotFoundError("Unknown project.")
 
@@ -69,11 +67,7 @@ class ProjectBulkEdit:
         stack = self._stack(stack_id)
         result = self._result(f'Added to "{stack.name}":')
         for project in projects:
-            root = next((c for c in project.components.all() if c.path == ""), None)
-            if root is None:
-                result.skip("no root component (add its components on the stack's page)")
-                continue
-            if stack_service.add_component_to_stack(tenant=self.tenant, stack=stack, component=root):
+            if stack_service.add_project_to_stack(tenant=self.tenant, stack=stack, project=project):
                 result.changed += 1
             else:
                 result.unchanged += 1
@@ -83,11 +77,7 @@ class ProjectBulkEdit:
         stack = self._stack(stack_id)
         result = self._result(f'Removed from "{stack.name}":')
         for project in projects:
-            removed = [
-                stack_service.remove_component_from_stack(tenant=self.tenant, stack=stack, component=c)
-                for c in project.components.all()
-            ]
-            if any(removed):
+            if stack_service.remove_project_from_stack(tenant=self.tenant, stack=stack, project=project):
                 result.changed += 1
             else:
                 result.unchanged += 1

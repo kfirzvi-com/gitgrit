@@ -103,14 +103,10 @@ class ProjectHealthCounts:
 
     @classmethod
     def for_stacks(cls, stacks) -> dict:
-        """Each stack's projects counted, as {stack pk: counts}. A project
-        with several components in a stack counts once; every project's
-        score is read once. ``stacks`` should prefetch
-        ``components__project``."""
-        projects_by_stack = {
-            stack.pk: list({c.project_id: c.project for c in stack.components.all()}.values())
-            for stack in stacks
-        }
+        """Each stack's projects counted, as {stack pk: counts}; every
+        project's score is read once. ``stacks`` should prefetch
+        ``projects``."""
+        projects_by_stack = {stack.pk: list(stack.projects.all()) for stack in stacks}
         scores = scoring.project_scores({p for ps in projects_by_stack.values() for p in ps})
         return {pk: cls.of(projects, scores) for pk, projects in projects_by_stack.items()}
 

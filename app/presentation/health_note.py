@@ -12,7 +12,7 @@ class HealthNote:
     names what failed; one with no score says what is missing; one never
     checked says so; a graded one below A names the standards pulling it
     down, when known. Used where a list shows many projects' health at once
-    (a stack's components, the dashboard)."""
+    (a stack's projects, the dashboard)."""
 
     @staticmethod
     def text(score, below_par=()) -> str:

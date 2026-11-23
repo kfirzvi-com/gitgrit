@@ -31,7 +31,7 @@ import app.application.notifications.notification_policies as notification_polic
 from app.application.event_bus import subscribe
 from app.application.standard_runs import enqueue_manual_run, queue_summary_message
 from app.domain.events import (
-    ComponentAddedToStack,
+    ProjectAddedToStack,
     ProjectCreated,
     RepositoryPushed,
     StandardActivated,
@@ -140,7 +140,7 @@ def _on_standard_changed(event: StandardSaved | StandardActivated) -> dict | Non
 def register() -> None:
     """Register subscribers. Called once from AppConfig.ready()."""
     subscribe(ProjectCreated, _on_project_event)
-    subscribe(ComponentAddedToStack, _on_project_event)
+    subscribe(ProjectAddedToStack, _on_project_event)
     subscribe(RepositoryPushed, _on_project_event)
     subscribe(StandardsAttached, _on_standards_attached)
     subscribe(StandardSaved, _on_standard_changed)

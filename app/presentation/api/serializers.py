@@ -79,6 +79,10 @@ class ProjectSerializer(serializers.Serializer):
         help_text="The platform's id for the repository; for an artifact project, the caller's own."
     )
     full_path = serializers.CharField()
+    root_path = serializers.CharField(
+        allow_blank=True,
+        help_text="Where the project starts inside its repository; empty for the whole repository.",
+    )
     web_url = serializers.CharField()
     default_branch = serializers.CharField()
     lifecycle = serializers.CharField()
@@ -413,7 +417,11 @@ class RepositorySerializer(serializers.Serializer):
     web_url = serializers.CharField()
     default_branch = serializers.CharField(allow_null=True)
     description = serializers.CharField(allow_null=True, allow_blank=True)
-    already_added = serializers.BooleanField()
+    already_added = serializers.BooleanField(help_text="The whole repository is already a project.")
+    added_paths = serializers.ListField(
+        child=serializers.CharField(allow_blank=True),
+        help_text="Root paths it is already a project at (empty string = the whole repository).",
+    )
 
 
 class ProjectCreateSerializer(serializers.Serializer):
@@ -431,6 +439,11 @@ class ProjectCreateSerializer(serializers.Serializer):
     connection_id = serializers.UUIDField(
         required=False,
         help_text="`repository` only: which connection reaches it. Optional when only one connection can.",
+    )
+    root_path = serializers.CharField(
+        required=False, allow_blank=True, default="",
+        help_text="`repository` only: the directory the project lives in (a monorepo app or "
+        "service, e.g. `apps/web`). Standards and checks run from there. Empty for the whole repository.",
     )
     lifecycle = serializers.CharField(required=False, default="development")
     owner = serializers.CharField(required=False, allow_blank=True, default="")

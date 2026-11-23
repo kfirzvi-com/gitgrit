@@ -8,11 +8,14 @@ The model is non-deterministic, so this is a scored comparison (precision /
 recall per section), not an exact assertion. Run on demand when touching the
 prompts or swapping the inference adapter; it is not part of the CI suite.
 
+The golden file describes the whole repository (``units`` + edges keyed by
+``source_path``); the project is scored against its own slice of it.
+
 Sections and their keys:
-  components      component path
-  internal        (source path, resolved target ref)
-  externals       (source path, canonical name, direction)
-  infrastructure  (source path, kind)
+  suggestions     suggested project path (whole-repository projects only)
+  internal        resolved target ref
+  externals       (canonical name, direction)
+  infrastructure  kind
 """
 from __future__ import annotations
 
@@ -21,24 +24,26 @@ import json
 from django.core.management.base import BaseCommand, CommandError
 
 from app.application.architecture.ports import InferenceContext
-from app.application.architecture.refresh import workspace_roster
+from app.application.architecture.refresh import excluded_paths, workspace_roster
 from app.domain.architecture.naming import canonical_key
 from app.domain.architecture.resolve import RosterEntry, resolve_topology
-from app.domain.architecture.topology import RepositoryTopology
+from app.domain.architecture.topology import ProjectTopology
 from app.domain.models import Project
 
+SECTIONS = ("suggestions", "internal", "externals", "infrastructure")
 
-def _keys(topology: RepositoryTopology, roster, full_path: str) -> dict[str, set]:
-    resolved = resolve_topology(topology, roster, this_repo=full_path)
+
+def _keys(topology: ProjectTopology, roster, project: Project) -> dict[str, set]:
+    resolved = resolve_topology(topology, roster, this_repo=project.full_path, this_path=project.root_path)
     return {
-        "components": {c.path for c in topology.components},
-        "internal": {(r.source_path, r.target.ref) for r in resolved.internal},
-        "externals": {(e.source_path, canonical_key(e.name), e.direction) for e in resolved.externals},
-        "infrastructure": {(i.source_path, i.kind) for i in resolved.infrastructure},
+        "suggestions": {s.path for s in topology.suggestions},
+        "internal": {r.target.ref for r in resolved.internal},
+        "externals": {(canonical_key(e.name), e.direction) for e in resolved.externals},
+        "infrastructure": {i.kind for i in resolved.infrastructure},
     }
 
 
-def _expand(topology: RepositoryTopology, full_path: str) -> RepositoryTopology:
+def _expand(topology: ProjectTopology, full_path: str) -> ProjectTopology:
     from dataclasses import replace
 
     return replace(
@@ -51,7 +56,7 @@ def _expand(topology: RepositoryTopology, full_path: str) -> RepositoryTopology:
 
 def score(inferred: dict[str, set], golden: dict[str, set]) -> list[dict]:
     rows = []
-    for section in ("components", "internal", "externals", "infrastructure"):
+    for section in SECTIONS:
         got, want = inferred[section], golden[section]
         hit = got & want
         precision = len(hit) / len(got) if got else (1.0 if not want else 0.0)
@@ -102,6 +107,9 @@ class Command(BaseCommand):
         context = InferenceContext(
             project_name=project.name,
             full_path=project.full_path,
+            root_path=project.root_path,
+            excluded_paths=excluded_paths(project),
+            discover=not project.root_path,
             roster=roster,
             log=lambda m: self.stderr.write(f"  · {m}"),
         )
@@ -111,15 +119,20 @@ class Command(BaseCommand):
                 json.dump(inferred.to_dict(), fh, indent=2)
 
         with open(opts["golden"], encoding="utf-8") as fh:
-            golden = _expand(RepositoryTopology.from_dict(json.load(fh)), project.full_path)
+            repository = json.load(fh)
+        golden = _expand(ProjectTopology.of_repository(repository, project.root_path), project.full_path)
 
-        # Both sides resolve against the same roster: the workspace plus the
-        # golden's own components as siblings (what a stored run would see).
+        # Both sides resolve against the same roster: the workspace plus every
+        # unit of the golden repository as a project (as if all were added).
+        units = repository.get("units") or repository.get("components") or []
+        known = {(e.full_path, e.path) for e in roster}
         siblings = tuple(
-            RosterEntry(full_path=project.full_path, path=c.path, name=c.name) for c in golden.components
+            RosterEntry(full_path=project.full_path, path=u["path"], name=u.get("name", u["path"]))
+            for u in units
+            if (project.full_path, u["path"]) not in known and u["path"] != project.root_path
         )
         full_roster = roster + siblings
-        rows = score(_keys(inferred, full_roster, project.full_path), _keys(golden, full_roster, project.full_path))
+        rows = score(_keys(inferred, full_roster, project), _keys(golden, full_roster, project))
 
         self.stdout.write(f"\n{'section':<15}{'exp':>5}{'got':>5}{'hit':>5}{'prec':>7}{'rec':>7}")
         for r in rows:

@@ -11,9 +11,8 @@ SEPARATOR = "|"
 
 @dataclass
 class StackRow:
-    """A stack as the Stacks table shows it: its projects (each once, however
-    many of its components are in the stack), counted by health, and the
-    owners of those projects. A stack never gets one grade of its own."""
+    """A stack as the Stacks table shows it: its projects, counted by health,
+    and the owners of those projects. A stack never gets one grade of its own."""
 
     stack: Stack
     projects: tuple
@@ -22,22 +21,18 @@ class StackRow:
     @classmethod
     def for_stacks(cls, stacks) -> list["StackRow"]:
         """A row per stack, every project's score read once. ``stacks``
-        should prefetch ``components__project``."""
+        should prefetch ``projects``."""
         stacks = list(stacks)
         health = ProjectHealthCounts.for_stacks(stacks)
         rows = []
         for stack in stacks:
-            projects = {c.project_id: c.project for c in stack.components.all()}.values()
+            projects = stack.projects.all()
             rows.append(cls(
                 stack=stack,
                 projects=tuple(sorted(projects, key=lambda p: p.name.lower())),
                 health=health[stack.pk],
             ))
         return rows
-
-    @property
-    def component_count(self) -> int:
-        return len(self.stack.components.all())
 
     @property
     def owners(self) -> tuple[str, ...]:

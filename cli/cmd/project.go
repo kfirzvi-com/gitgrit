@@ -56,6 +56,7 @@ func newProjectCmd() *cobra.Command {
 				return err
 			}
 			params.RepoFullPath = &p.FullPath
+			params.Path = &p.RootPath
 			if p.FullPath == "" { // --project was an id
 				fmt.Fprintln(cmd.OutOrStdout(), p.ID)
 				return nil
@@ -70,7 +71,7 @@ func newProjectCmd() *cobra.Command {
 			return emit(cmd.OutOrStdout(), resp.Body, func() {
 				r := resp.JSON200
 				fmt.Fprintf(cmd.OutOrStdout(), "%s (%s)\n  id: %s\n  default branch: %s\n  url: %s\n",
-					r.FullPath, r.Platform, r.Id, r.DefaultBranch, r.WebUrl)
+					projectLabel(r.FullPath, r.RootPath), r.Platform, r.Id, r.DefaultBranch, r.WebUrl)
 			})
 		},
 	}
@@ -80,7 +81,7 @@ func newProjectCmd() *cobra.Command {
 }
 
 func projectAdd() *cobra.Command {
-	var connection, lifecycle, owner string
+	var connection, lifecycle, owner, rootPath string
 	var standards []string
 	var allStandards bool
 	var artifact artifactFlags
@@ -89,6 +90,9 @@ func projectAdd() *cobra.Command {
 		Short: "Add a repository as a project (default: this repository), or an artifact project",
 		Long: "Add a repository as a project. Without an argument, adds the git repository\n" +
 			"in the current directory (its origin remote).\n\n" +
+			"In a monorepo, add one project per app or service with --path: standards\n" +
+			"and checks then run from that directory, and a push only runs the projects\n" +
+			"whose directories it changed.\n\n" +
 			"No standards are attached unless you pass --standard or --all-standards;\n" +
 			"attached standards run once right away, then on every push.\n\n" +
 			"With --artifact, create an artifact project instead: one whose commits are\n" +
@@ -96,6 +100,7 @@ func projectAdd() *cobra.Command {
 			"same --external-id returns the existing project; without --standard it gets\n" +
 			"every published standard that runs on uploads.",
 		Example: "  gitgrit project add acme/api --all-standards\n" +
+			"  gitgrit project add acme/shop --path apps/web\n" +
 			"  gitgrit project add --standard \"README Exists\" --standard \"License File\"\n" +
 			"  gitgrit project add --artifact --name Storefront --stack \"Web Team\"",
 		Args: cobra.MaximumNArgs(1),
@@ -122,7 +127,7 @@ func projectAdd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			body := api.ProjectCreateRequest{Repository: &repo, Lifecycle: &lifecycle, Owner: &owner}
+			body := api.ProjectCreateRequest{Repository: &repo, Lifecycle: &lifecycle, Owner: &owner, RootPath: &rootPath}
 			if connection != "" {
 				c, err := connectionFor(cmd, t, connection)
 				if err != nil {
@@ -144,15 +149,19 @@ func projectAdd() *cobra.Command {
 			}
 			return emit(cmd.OutOrStdout(), resp.Body, func() {
 				p, w := resp.JSON201, cmd.OutOrStdout()
-				fmt.Fprintf(w, "Added %s (%s).\n", p.FullPath, p.Id)
+				fmt.Fprintf(w, "Added %s (%s).\n", projectLabel(p.FullPath, p.RootPath), p.Id)
+				ref := p.FullPath
+				if p.RootPath != "" {
+					ref = p.Id.String()
+				}
 				if p.Webhook == api.Missing {
 					fmt.Fprintln(w, "Warning: the webhook couldn't be registered, so pushes won't trigger checks. Retry from the project page.")
 				}
 				if p.Runs != nil {
 					fmt.Fprintln(w, p.Runs.Message)
-					fmt.Fprintln(w, "Then: gitgrit health --project "+p.FullPath)
+					fmt.Fprintln(w, "Then: gitgrit health --project "+ref)
 				} else if len(p.Standards) == 0 {
-					fmt.Fprintln(w, "No standards attached, so nothing will run. Attach some: gitgrit project attach --project "+p.FullPath+" <standard>…")
+					fmt.Fprintln(w, "No standards attached, so nothing will run. Attach some: gitgrit project attach --project "+ref+" <standard>…")
 				}
 			})
 		},
@@ -161,6 +170,7 @@ func projectAdd() *cobra.Command {
 	f.StringVarP(&connection, "connection", "c", "", "connection id or name (default: the one that reaches the repository)")
 	f.StringVar(&lifecycle, "lifecycle", "development", "development, staging, production, maintenance, deprecated or archived")
 	f.StringVar(&owner, "owner", "", "owning team or person")
+	f.StringVar(&rootPath, "path", "", "directory inside the repository the project lives in (monorepo), e.g. apps/web")
 	f.StringArrayVarP(&standards, "standard", "s", nil, "standard to attach, by name or id (repeatable)")
 	f.BoolVar(&allStandards, "all-standards", false, "attach every enabled standard in the workspace")
 	cmd.MarkFlagsMutuallyExclusive("standard", "all-standards")
@@ -355,4 +365,12 @@ func printAttached(cmd *cobra.Command, standards []api.AttachedStandard, runs *a
 	if runs != nil {
 		fmt.Fprintln(w, runs.Message)
 	}
+}
+
+// projectLabel is "org/repo", or "org/repo / apps/web" for a project inside a repository.
+func projectLabel(fullPath, rootPath string) string {
+	if rootPath == "" {
+		return fullPath
+	}
+	return fullPath + " / " + rootPath
 }

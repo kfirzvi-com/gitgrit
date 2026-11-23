@@ -11,8 +11,9 @@ Pure Python (no Django): the vocabulary every layer shares.
 
 *Executions* are standard runs a workspace queued (webhooks, schedules,
 manual runs): they proxy compute. *Run time* is how long the sandbox took
-on them: the compute itself, tracked to check executions against it. *Projects* are the repositories and
-artifact projects the workspace holds: the scope the buyer feels. Plans and
+on them: the compute itself, tracked to check executions against it. *Projects* are the repositories (or
+monorepo directories added as projects of their own) and artifact projects
+the workspace holds: the scope the buyer feels. Plans and
 their limits are not decided yet, so nothing here knows about them.
 """
 from app.domain.usage.billing_month import BillingMonth

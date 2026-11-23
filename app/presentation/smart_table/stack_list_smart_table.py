@@ -7,7 +7,7 @@ from app.presentation.smart_table.sort_option import SortOption
 
 class StackListSmartTable:
     """The Stacks page's table: sorted by name, its projects counted by
-    health, how many projects or components it has; grouped by the owners of
+    health, how many projects it has; grouped by the owners of
     its projects (a stack with projects of two owners shows under both)."""
 
     @classmethod
@@ -20,7 +20,6 @@ class StackListSmartTable:
                 SortOption("healthy", "Healthy projects", numeric=True, descending=True),
                 SortOption("share", "Share healthy", numeric=True, descending=True),
                 SortOption("projects", "Projects", numeric=True, descending=True),
-                SortOption("components", "Components", numeric=True, descending=True),
             ),
             groups=(
                 GroupOption("owner", "Owner", empty_label="No owner"),

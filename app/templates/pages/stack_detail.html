@@ -83,65 +83,65 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-{% comment %}Details after the overview: the components, worst first, for lookup; then the
+{% comment %}Details after the overview: the projects, worst first, for lookup; then the
 map, for tracing how they connect.{% endcomment %}
 <div class="space-y-6">
-  <section class="card bg-base-100 shadow-xl" data-stack-components>
+  <section class="card bg-base-100 shadow-xl" data-stack-projects>
     <div class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="section-label">
-          Components{% if stack_components %} <span class="font-normal opacity-60">({{ stack_components|length }})</span>{% endif %}
+          Projects{% if stack_projects %} <span class="font-normal opacity-60">({{ stack_projects|length }})</span>{% endif %}
         </h2>
         <button type="button" class="btn btn-ghost btn-xs"
-                hx-get="{% url 'stack_components' stack.pk %}"
-                hx-target="#components-modal-body"
+                hx-get="{% url 'stack_projects' stack.pk %}"
+                hx-target="#projects-modal-body"
                 hx-swap="innerHTML"
-                onclick="document.getElementById('components-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading components...&lt;/p&gt;'; document.getElementById('components_modal').showModal()">
+                onclick="document.getElementById('projects-modal-body').innerHTML = '&lt;p class=&quot;text-sm opacity-70&quot;&gt;Loading projects...&lt;/p&gt;'; document.getElementById('projects_modal').showModal()">
           Manage
         </button>
       </div>
 
-      {% if stack_components %}
+      {% if stack_projects %}
         <div class="overflow-x-auto">
           <table class="table">
             <thead>
               <tr>
-                <th>Component</th>
+                <th>Project</th>
                 <th>Health</th>
                 <th class="text-right">Last checked</th>
               </tr>
             </thead>
             <tbody>
-              {% for component in stack_components %}
-                <tr data-component-row data-tone="{{ component.tone }}">
+              {% for project in stack_projects %}
+                <tr data-project-row data-tone="{{ project.tone }}">
                   <td class="align-top">
-                    <span class="font-medium">{{ component.name }}</span>
-                    <span class="block text-xs opacity-70">
-                      {% if component.project.name != component.name %}<a href="{% url 'project_detail' component.project.pk %}" class="link link-hover">{{ component.project.name }}</a>{% if component.path %} &middot; {% endif %}{% endif %}{% if component.path %}<span class="font-mono">{{ component.path }}</span>{% endif %}
-                    </span>
+                    <a href="{% url 'project_detail' project.pk %}" class="font-medium link link-hover">{{ project.name }}</a>
+                    {% if project.root_path %}
+                      <span class="block text-xs opacity-70">{{ project.full_path }} &middot; <span class="font-mono">{{ project.root_path }}</span></span>
+                    {% endif %}
                   </td>
                   <td class="align-top">
-                    <a href="{% url 'project_detail' component.project.pk %}" class="inline-flex items-start gap-2 hover:underline" title="{{ component.tone.label }}">
-                      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ component.tone }}" aria-hidden="true"></span>
+                    <a href="{% url 'project_detail' project.pk %}" class="inline-flex items-start gap-2 hover:underline" title="{{ project.tone.label }}">
+                      <span class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 gg-tone-bg-{{ project.tone }}" aria-hidden="true"></span>
                       <span>
-                        {% if component.score and component.score.outcome != "no_score" %}{% score component.score.value failed=component.score.failed size="sm" %} {% endif %}
-                        <span class="{% if component.health_note %}text-sm{% else %}sr-only{% endif %}">{% if component.health_note %}{{ component.health_note }}{% else %}{{ component.tone.label }}{% endif %}</span>
+                        {% if project.score and project.score.outcome != "no_score" %}{% score project.score.value failed=project.score.failed size="sm" %} {% endif %}
+                        <span class="{% if project.health_note %}text-sm{% else %}sr-only{% endif %}">{% if project.health_note %}{{ project.health_note }}{% else %}{{ project.tone.label }}{% endif %}</span>
                       </span>
                     </a>
                   </td>
-                  <td class="align-top text-right text-sm opacity-70 whitespace-nowrap">{% if component.score %}<span title="{{ component.score.created_at }}">{{ component.score.created_at|timesince }} ago</span>{% else %}&mdash;{% endif %}</td>
+                  <td class="align-top text-right text-sm opacity-70 whitespace-nowrap">{% if project.score %}<span title="{{ project.score.created_at }}">{{ project.score.created_at|timesince }} ago</span>{% else %}&mdash;{% endif %}</td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <p class="text-sm opacity-70">No components in this stack yet. Use "Manage" to add the services, apps and libraries this stack is made of.</p>
+        <p class="text-sm opacity-70">No projects in this stack yet. Use "Manage" to add the services, apps and libraries this stack is made of.</p>
       {% endif %}
     </div>
   </section>
 
-  {% if stack_components %}
+  {% if stack_projects %}
     <section class="card bg-base-100 shadow-xl" data-stack-map>
       <div class="card-body p-2 sm:p-3">
         <h2 class="section-label px-1">Map</h2>
@@ -151,17 +151,17 @@ map, for tracing how they connect.{% endcomment %}
   {% endif %}
 </div>
 
-<dialog id="components_modal" class="modal">
+<dialog id="projects_modal" class="modal">
   <div class="modal-box max-w-4xl">
-    <h3 class="font-bold text-lg mb-2">Manage components</h3>
-    <div id="components-modal-body">
-      <p class="text-sm opacity-70">Loading components...</p>
+    <h3 class="font-bold text-lg mb-2">Manage projects</h3>
+    <div id="projects-modal-body">
+      <p class="text-sm opacity-70">Loading projects...</p>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-{% if stack_components %}
+{% if stack_projects %}
   <script id="stack-architecture-data" type="application/json">{{ architecture_data|safe }}</script>
 
   <script src="{% static 'app/vendor/react.production.min.js' %}"></script>

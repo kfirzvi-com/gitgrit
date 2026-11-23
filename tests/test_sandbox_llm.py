@@ -135,6 +135,8 @@ class SandboxLLMTests(SimpleTestCase):
             "get_file_last_commit_date",
             "get_file_size",
             "read_file_lines",
+            "get_repository_file_content",
+            "list_repository_files",
         }
         assert set(dispatch) == set(by_name)
         # Description comes from the method docstring; params from type hints.

@@ -1,5 +1,5 @@
 {
-  "components": [
+  "units": [
     {
       "path": "apps/web-storefront",
       "name": "web-storefront",

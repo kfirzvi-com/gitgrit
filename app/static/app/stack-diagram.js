@@ -1,17 +1,17 @@
 /* Per-stack architecture diagram (read-only).
  *
- * Core: the components inside this stack (the deployable units of its
- * repositories), with component-to-component edges. A component of a monorepo
- * carries a repository chip and its directory path. Around the periphery,
- * boundary nodes show the stack's relationships that cross its edge:
- *   - consumers (top)    — workspace components in other stacks that depend
- *                          on one of ours → our component is public-facing.
- *   - consuming (bottom) — workspace components (other stacks) we depend on.
+ * Core: the projects inside this stack, with project-to-project edges. A
+ * project inside a monorepo carries a repository chip and its directory path.
+ * Around the periphery, boundary nodes show the stack's relationships that
+ * cross its edge:
+ *   - consumers (top)    — workspace projects in other stacks that depend
+ *                          on one of ours → our project is public-facing.
+ *   - consuming (bottom) — workspace projects (other stacks) we depend on.
  *   - third-party (bottom) — external apps we depend on.
  *
- * Grouping a repository's components in a box (React Flow parentId + a
- * compound dagre layout) is a possible later step; today a repository's
- * components usually sit in different stacks, so a chip says enough.
+ * Grouping a monorepo's projects in a box (React Flow parentId + a compound
+ * dagre layout) is a possible later step; today a monorepo's projects usually
+ * sit in different stacks, so a chip says enough.
  *
  * Edges are coloured by kind and explained by an on-canvas legend. Built on
  * window.GitGritFlow (flow-common.js).
@@ -33,7 +33,7 @@
   var RF = window.ReactFlow;
   var h = React.createElement;
   var data = GF.readData("stack-architecture-data") || {
-    components: [],
+    projects: [],
     consumers: [],
     consuming: [],
     thirdparties: [],
@@ -44,8 +44,8 @@
 
   var EDGE_COLOR = GF.EDGE_COLOR;
 
-  // --- Node components -------------------------------------------------------
-  function ComponentNode(props) {
+  // --- Node types ------------------------------------------------------------
+  function ProjectNode(props) {
     var d = props.data;
     var techs = d.technologies || [];
     var hp = GF.healthProps(d.score_shade || d.health);
@@ -56,8 +56,8 @@
       d.monorepo
         ? h(
             "div",
-            { className: "gg-stack-node__repo", title: "Repository: " + d.project_name },
-            d.project_name
+            { className: "gg-stack-node__repo", title: "Repository: " + d.repository },
+            d.repository
           )
         : null,
       h(
@@ -122,7 +122,7 @@
   }
 
   var nodeTypes = {
-    component: ComponentNode,
+    project: ProjectNode,
     consumer: GF.boundaryNode("is-consumer"),
     consuming: GF.boundaryNode("is-consuming"),
     thirdparty: GF.boundaryNode("is-thirdparty"),
@@ -135,16 +135,16 @@
   // --- Layout ----------------------------------------------------------------
   // One hierarchical (top-down) pass over every node. Because all edges mean
   // "depends on" (consumer → project → dependency), dagre naturally banks
-  // consumers at the top, the stack's components in the middle, and the things
+  // consumers at the top, the stack's projects in the middle, and the things
   // we depend on (workspace + third-party) at the bottom — and orders nodes
   // within each rank to minimise crossings.
-  var COMPONENT = { w: 240, h: 150 };
+  var PROJECT = { w: 240, h: 150 };
   var BOUNDARY = { w: 190, h: 64 };
 
   var allNodes = []
     .concat(
-      data.components.map(function (c) {
-        return { id: c.id, type: "component", data: c, w: COMPONENT.w, h: COMPONENT.h };
+      data.projects.map(function (p) {
+        return { id: p.id, type: "project", data: p, w: PROJECT.w, h: PROJECT.h };
       })
     )
     .concat(

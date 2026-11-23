@@ -90,7 +90,7 @@
 </dialog>
 
 {# Three tabs, picked by the URL hash so links can open one: #overview (and   #}
-{# #components), #results (and #compliance, where notifications link) and     #}
+{# #repository), #results (and #compliance, where notifications link) and     #}
 {# #standards. Results and Standards load their content when first opened     #}
 {# (the script sends their loaders "tab-open").                               #}
 <div class="tabs tabs-box bg-transparent p-0 gap-1" role="tablist" data-project-tabs>
@@ -135,7 +135,7 @@
 
 <script>
   (function () {
-    var byHash = {overview: "overview", components: "overview", results: "results", compliance: "results", standards: "standards"};
+    var byHash = {overview: "overview", repository: "overview", results: "results", compliance: "results", standards: "standards"};
     var tabs = document.querySelectorAll("[data-project-tabs] input[data-tab]");
     // A tab's panel is the element right after its radio input.
     function load(tab) {

@@ -48,4 +48,27 @@ class GitLabParser(BaseWebhookParser):
                 (c.get("timestamp", "") for c in payload.get("commits") or [] if c.get("id") == payload.get("checkout_sha")),
                 "",
             ),
+            changed_paths=_pushed_paths(payload) if event_type == "push" else None,
+            base_sha=_real_sha(payload.get("before"))
+            or (attributes.get("diff_refs") or {}).get("base_sha", ""),
         )
+
+
+def _real_sha(sha: str | None) -> str:
+    return "" if not sha or sha == DELETED_SHA else sha
+
+
+def _pushed_paths(payload: dict) -> tuple[str, ...] | None:
+    """Every path a push's commits added, changed or removed, or None when the
+    payload can't say for sure: a new branch, or more commits than it lists
+    (GitLab lists 20; ``total_commits_count`` says how many there were)."""
+    commits = payload.get("commits")
+    if not isinstance(commits, list) or payload.get("before") == DELETED_SHA:
+        return None
+    if (payload.get("total_commits_count") or len(commits)) > len(commits):
+        return None
+    paths: set[str] = set()
+    for commit in commits:
+        for key in ("added", "modified", "removed"):
+            paths.update(commit.get(key) or [])
+    return tuple(sorted(paths))

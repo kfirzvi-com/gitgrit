@@ -4,7 +4,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
@@ -12,7 +11,7 @@ from django.views.generic import CreateView, DetailView, ListView
 from app.application import stack_service
 from app.application.stack_health import StackHealth
 from app.application.dependency_agent import refresh_stack_map
-from app.domain.models import Component, Stack
+from app.domain.models import Project, Stack
 from app.presentation.smart_table import StackRow
 from app.presentation.architecture import stack_graph
 from app.presentation.health_note import HealthNote
@@ -27,9 +26,7 @@ class StackListView(LoginRequiredMixin, ListView):
         if not tenant:
             return Stack.objects.none()
         return (
-            Stack.objects.filter(tenant=tenant)
-            .annotate(component_count=Count("components"))
-            .prefetch_related("components__project")
+            Stack.objects.filter(tenant=tenant).prefetch_related("projects")
         )
 
     def get_context_data(self, **kwargs):
@@ -76,14 +73,14 @@ class StackDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         stack = self.object
         view = StackHealth.of(stack)
-        components = []
-        for row in view.components:
-            component = row.component
-            component.tone, component.score = row.tone, row.score
-            component.health_note = HealthNote.text(row.score)
-            components.append(component)
+        projects = []
+        for row in view.projects:
+            project = row.project
+            project.tone, project.score = row.tone, row.score
+            project.health_note = HealthNote.text(row.score)
+            projects.append(project)
         context.update(
-            stack_components=components,
+            stack_projects=projects,
             project_count=view.project_count,
             standard_count=view.standard_count,
             stack_health=view.health,
@@ -154,8 +151,8 @@ def edit_stack(request, pk):
 
 
 @login_required
-def stack_components(request, pk):
-    """Manage which workspace components belong to a stack.
+def stack_projects(request, pk):
+    """Manage which workspace projects belong to a stack.
 
     GET returns the searchable picker partial (for the HTMX modal on the
     stack page); POST replaces the membership set and redirects back.
@@ -168,16 +165,14 @@ def stack_components(request, pk):
     stack = get_object_or_404(Stack, pk=pk, tenant=tenant)
 
     if request.method == "POST":
-        component_ids = request.POST.getlist("components")
-        components = list(Component.objects.filter(pk__in=component_ids, tenant=tenant))
-        added, removed = stack_service.set_stack_components(
-            tenant=tenant, stack=stack, components=components
-        )
+        project_ids = request.POST.getlist("projects")
+        projects = list(Project.objects.filter(pk__in=project_ids, tenant=tenant))
+        added, removed = stack_service.set_stack_projects(tenant=tenant, stack=stack, projects=projects)
         parts = []
         if added:
-            parts.append(f"{added} component{'' if added == 1 else 's'} added")
+            parts.append(f"{added} project{'' if added == 1 else 's'} added")
         if removed:
-            parts.append(f"{removed} component{'' if removed == 1 else 's'} removed")
+            parts.append(f"{removed} project{'' if removed == 1 else 's'} removed")
         if parts:
             messages.success(request, f'{" and ".join(parts)} in "{stack.name}".')
         return redirect("stack_detail", pk=pk)
@@ -187,16 +182,12 @@ def stack_components(request, pk):
 
     return render(
         request,
-        "partials/stack_components_form.html",
+        "partials/stack_projects_form.html",
         {
             "stack": stack,
-            "workspace_components": Component.objects.filter(tenant=tenant)
-            .select_related("project")
-            .order_by("project__name", "path"),
-            "member_component_ids": set(
-                Component.objects.filter(tenant=tenant, stacks=stack).values_list(
-                    "pk", flat=True
-                )
+            "workspace_projects": Project.objects.filter(tenant=tenant).order_by("name"),
+            "member_project_ids": set(
+                Project.objects.filter(tenant=tenant, stacks=stack).values_list("pk", flat=True)
             ),
         },
     )
@@ -204,16 +195,14 @@ def stack_components(request, pk):
 
 @login_required
 @require_POST
-def remove_component_from_stack(request, stack_pk, component_pk):
+def remove_project_from_stack(request, stack_pk, project_pk):
     tenant = request.tenant
     if not tenant:
         messages.error(request, "No active workspace.")
         return redirect("stack_list")
 
     stack = get_object_or_404(Stack, pk=stack_pk, tenant=tenant)
-    component = get_object_or_404(
-        Component.objects.select_related("project"), pk=component_pk, tenant=tenant
-    )
-    stack_service.remove_component_from_stack(tenant=tenant, stack=stack, component=component)
-    messages.success(request, f'Removed "{component.name}" from "{stack.name}".')
+    project = get_object_or_404(Project, pk=project_pk, tenant=tenant)
+    stack_service.remove_project_from_stack(tenant=tenant, stack=stack, project=project)
+    messages.success(request, f'Removed "{project.name}" from "{stack.name}".')
     return redirect("stack_detail", pk=stack_pk)

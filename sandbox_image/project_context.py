@@ -43,19 +43,25 @@ def tool(method):
 
 
 class ProjectContext:
-    def __init__(self, provider: BaseProvider) -> None:
+    """What a standard sees of a project. Paths are relative to the project's
+    root: the repository root, or the project's directory when it lives inside
+    a monorepo. ``get_repository_file_content`` / ``list_repository_files``
+    reach the whole repository (e.g. a workspace lockfile at its root)."""
+
+    def __init__(self, provider: BaseProvider, repository: BaseProvider | None = None) -> None:
         self._provider = provider
+        self._repository = repository or provider
 
     @tool
     def get_file_content(
-        self, path: Annotated[str, "Repository-relative file path."]
+        self, path: Annotated[str, "File path relative to the project root."]
     ) -> str | None:
         """Read the full contents of a file. Returns null if the file does not exist."""
         return self._provider.get_file_content(path)
 
     @tool
     def get_file_size(
-        self, path: Annotated[str, "Repository-relative file path."]
+        self, path: Annotated[str, "File path relative to the project root."]
     ) -> int | None:
         """Return a file's size in bytes, or null if it does not exist or the size is unknown."""
         return self._provider.get_file_size(path)
@@ -63,7 +69,7 @@ class ProjectContext:
     @tool
     def read_file_lines(
         self,
-        path: Annotated[str, "Repository-relative file path."],
+        path: Annotated[str, "File path relative to the project root."],
         start: Annotated[int, "First line to return, counting from 1."] = 1,
         count: Annotated[int, "Most lines to return; fewer come back when they are long."] = 100,
     ) -> dict | None:
@@ -91,8 +97,20 @@ class ProjectContext:
 
     @tool
     def list_files(self) -> list[str]:
-        """List every file path in the repository."""
+        """List every file path in the project (relative to the project root)."""
         return self._provider.list_files()
+
+    @tool
+    def get_repository_file_content(
+        self, path: Annotated[str, "File path relative to the repository root."]
+    ) -> str | None:
+        """Read a file anywhere in the repository, outside the project's own directory too (for a project inside a monorepo, e.g. a lockfile or CI config at the repository root). Returns null if the file does not exist."""
+        return self._repository.get_file_content(path)
+
+    @tool
+    def list_repository_files(self) -> list[str]:
+        """List every file path in the whole repository (relative to the repository root). Same as list_files unless the project lives inside a monorepo."""
+        return self._repository.list_files()
 
     @tool
     def get_languages(self) -> dict[str, float]:
@@ -101,7 +119,7 @@ class ProjectContext:
 
     @tool
     def get_metadata(self) -> dict:
-        """Return repository metadata (name, description, default branch, topics, etc.)."""
+        """Return repository metadata (name, description, default branch, topics, etc.); root_path when the project lives inside a monorepo."""
         return self._provider.get_metadata()
 
     @tool
@@ -126,7 +144,7 @@ class ProjectContext:
 
     @tool
     def get_file_last_commit_date(
-        self, path: Annotated[str, "Repository-relative file path."]
+        self, path: Annotated[str, "File path relative to the project root."]
     ) -> str | None:
         """Return the ISO 8601 date of the last commit that touched a file, or null if unknown."""
         return self._provider.get_file_last_commit_date(path)

@@ -1,17 +1,18 @@
-"""Pure rules for an inferred repository topology: path normalisation, the
-single-component→root rule, and the evidence gate."""
+"""Pure rules for an inferred project topology: which discovered units are
+worth suggesting as projects, path normalisation, a project's slice of a
+whole-repository description, and the evidence gate."""
 from django.test import SimpleTestCase
 
 from app.domain.architecture.topology import (
-    ComponentDecl,
     Evidence,
-    RepositoryTopology,
+    InternalDependency,
+    ProjectTopology,
     UngroundedTopology,
     check_evidence,
     clean_path,
     clean_technologies,
-    normalise_components,
 )
+from app.domain.projects import SuggestedProject
 
 TREE = [
     "README.md",
@@ -23,49 +24,51 @@ TREE = [
 ]
 
 
-class NormaliseComponentsTests(SimpleTestCase):
-    def test_no_components_means_the_root(self):
-        out = normalise_components([], TREE, "mono")
-        self.assertEqual(out, (ComponentDecl(path="", name="mono"),))
+class SuggestionsFromDiscoveryTests(SimpleTestCase):
+    def test_nothing_found_suggests_nothing(self):
+        self.assertEqual(SuggestedProject.from_discovery([], TREE), ())
 
-    def test_a_single_sub_component_is_forced_to_the_root(self):
-        out = normalise_components([ComponentDecl("src", "src")], ["src/main.py"], "web")
-        self.assertEqual([(c.path, c.name) for c in out], [("", "web")])
+    def test_a_single_unit_is_the_repository_itself(self):
+        out = SuggestedProject.from_discovery([SuggestedProject("src", "src")], ["src/main.py"])
+        self.assertEqual(out, ())
 
     def test_paths_are_cleaned_and_unknown_directories_dropped(self):
-        out = normalise_components(
+        out = SuggestedProject.from_discovery(
             [
-                ComponentDecl("./apps/api-gateway/", "api-gateway", kind="service"),
-                ComponentDecl("apps/does-not-exist", "ghost"),
-                ComponentDecl("services/auth-service", "", kind="weird"),
+                SuggestedProject("./apps/api-gateway/", "api-gateway", kind="service"),
+                SuggestedProject("apps/does-not-exist", "ghost"),
+                SuggestedProject("services/auth-service", "", kind="weird"),
+                SuggestedProject("../escape", "x"),
             ],
             TREE,
-            "mono",
         )
         self.assertEqual(
-            [(c.path, c.name, c.kind) for c in out],
+            [(s.path, s.name, s.kind) for s in out],
             [
                 ("apps/api-gateway", "api-gateway", "service"),
                 ("services/auth-service", "auth-service", "other"),  # name fallback, kind fallback
             ],
         )
 
-    def test_duplicates_collapse_and_root_sorts_first(self):
-        out = normalise_components(
+    def test_the_root_is_never_suggested_and_duplicates_collapse(self):
+        out = SuggestedProject.from_discovery(
             [
-                ComponentDecl("packages/shared-lib", "shared-lib"),
-                ComponentDecl("", "whatever the model said"),
-                ComponentDecl("packages/shared-lib", "dup"),
+                SuggestedProject("packages/shared-lib", "shared-lib"),
+                SuggestedProject("", "whatever the model said"),
+                SuggestedProject("packages/shared-lib", "dup"),
             ],
             TREE,
-            "mono",
         )
-        self.assertEqual([(c.path, c.name) for c in out], [("", "mono"), ("packages/shared-lib", "shared-lib")])
+        self.assertEqual([(s.path, s.name) for s in out], [("packages/shared-lib", "shared-lib")])
 
-    def test_component_count_is_capped(self):
+    def test_suggestions_are_capped(self):
         tree = [f"svc{i}/main.go" for i in range(40)]
-        decls = [ComponentDecl(f"svc{i}", f"svc{i}") for i in range(40)]
-        self.assertEqual(len(normalise_components(decls, tree, "mono", limit=25)), 25)
+        found = [SuggestedProject(f"svc{i}", f"svc{i}") for i in range(40)]
+        self.assertEqual(len(SuggestedProject.from_discovery(found, tree, limit=25)), 25)
+
+    def test_open_suggestions_leave_out_paths_already_added(self):
+        found = [SuggestedProject("apps/web", "web"), SuggestedProject("services/api", "api")]
+        self.assertEqual([s.path for s in SuggestedProject.still_open(found, ["apps/web"])], ["services/api"])
 
     def test_technologies_are_deduped_and_capped(self):
         self.assertEqual(clean_technologies(["Go", "go", " Next.js ", ""]), ("Go", "Next.js"))
@@ -75,6 +78,31 @@ class NormaliseComponentsTests(SimpleTestCase):
         for raw in ("", ".", "./", "/", " / "):
             self.assertEqual(clean_path(raw), "")
         self.assertEqual(clean_path("./apps\\web/"), "apps/web")
+
+
+class RepositorySliceTests(SimpleTestCase):
+    REPO = {
+        "units": [
+            {"path": "apps/web", "name": "web", "kind": "frontend", "technologies": ["React"]},
+            {"path": "services/api", "name": "api", "kind": "service"},
+        ],
+        "internal": [
+            {"source_path": "apps/web", "target_ref": "{repo}#services/api", "label": "REST"},
+            {"source_path": "", "target_ref": "acme/other"},
+        ],
+        "externals": [{"source_path": "services/api", "name": "Stripe"}],
+    }
+
+    def test_a_rooted_project_gets_its_units_edges_and_tech(self):
+        web = ProjectTopology.of_repository(self.REPO, "apps/web")
+        self.assertEqual(web.technologies, ("React",))
+        self.assertEqual(web.internal, (InternalDependency("{repo}#services/api", "REST"),))
+        self.assertEqual(web.suggestions, ())
+
+    def test_the_whole_repository_project_gets_every_unit_as_a_suggestion(self):
+        root = ProjectTopology.of_repository(self.REPO, "")
+        self.assertEqual([s.path for s in root.suggestions], ["apps/web", "services/api"])
+        self.assertEqual(root.internal, (InternalDependency("acme/other"),))
 
 
 class EvidenceGateTests(SimpleTestCase):
@@ -95,14 +123,15 @@ class EvidenceGateTests(SimpleTestCase):
 
 class TopologyCodecTests(SimpleTestCase):
     def test_dict_round_trip(self):
-        topo = RepositoryTopology(
-            components=(ComponentDecl("", "web", technologies=("Go",)),),
+        topo = ProjectTopology(
+            technologies=("Go",),
+            suggestions=(SuggestedProject("apps/web", "web", technologies=("React",)),),
             evidence=Evidence(tree_size=3, files_read=("go.mod",)),
         )
-        self.assertEqual(RepositoryTopology.from_dict(topo.to_dict()), topo)
+        self.assertEqual(ProjectTopology.from_dict(topo.to_dict()), topo)
 
     def test_from_dict_tolerates_missing_sections(self):
-        topo = RepositoryTopology.from_dict({"components": [{"path": "", "name": "web"}]})
-        self.assertEqual(topo.components[0].name, "web")
+        topo = ProjectTopology.from_dict({"technologies": ["Go"]})
+        self.assertEqual(topo.technologies, ("Go",))
         self.assertEqual(topo.internal, ())
         self.assertIsNone(topo.evidence.tree_size)

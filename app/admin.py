@@ -14,8 +14,7 @@ from app.domain.models import (
     Standard,
     StandardExecution,
     Project,
-    Component,
-    ComponentStack,
+    ProjectStack,
     Stack,
     Tenant,
     User,
@@ -91,7 +90,7 @@ class LLMRoleAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["name", "tenant", "platform", "lifecycle", "owner", "full_path", "created_at"]
+    list_display = ["name", "tenant", "platform", "lifecycle", "owner", "full_path", "root_path", "created_at"]
     list_filter = ["platform", "lifecycle", "tenant"]
     search_fields = ["name", "full_path", "owner"]
 
@@ -103,18 +102,11 @@ class StackAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
-@admin.register(Component)
-class ComponentAdmin(admin.ModelAdmin):
-    list_display = ("name", "project", "path", "kind", "tenant", "created_at")
-    list_filter = ("kind", "tenant")
-    search_fields = ("name", "path", "project__name", "project__full_path")
-
-
-@admin.register(ComponentStack)
-class ComponentStackAdmin(admin.ModelAdmin):
-    list_display = ("component", "stack", "created_at")
+@admin.register(ProjectStack)
+class ProjectStackAdmin(admin.ModelAdmin):
+    list_display = ("project", "stack", "created_at")
     list_filter = ("stack",)
-    search_fields = ("component__name", "component__project__name", "stack__name")
+    search_fields = ("project__name", "project__full_path", "stack__name")
 
 
 @admin.register(Standard)
