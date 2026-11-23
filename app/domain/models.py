@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.domain import importance as importance_domain
+from app.domain import schedules
 from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCount, UsageCategory
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
@@ -874,6 +875,15 @@ class ProjectStandard(models.Model):
         choices=importance_domain.choices(),
         default=importance_domain.DEFAULT.value,
     )
+    # What runs it (``app.domain.schedules``): every matching change, a cron
+    # schedule, or both. Empty ``schedule`` runs on changes only. The
+    # database defaults keep inserts from branches without these fields
+    # working on a shared database.
+    runs_on_changes = models.BooleanField(default=True, db_default=True)
+    schedule = models.CharField(max_length=100, blank=True, default="", db_default="")
+    schedule_time_zone = models.CharField(max_length=64, blank=True, default="", db_default="")
+    # When the scheduler next runs it; empty without a schedule.
+    next_scheduled_run_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -886,10 +896,49 @@ class ProjectStandard(models.Model):
                 condition=models.Q(importance__in=[i.value for i in importance_domain.Importance]),
                 name="project_standard_importance_known",
             ),
+            # Something must run it besides a person: changes, or a schedule.
+            models.CheckConstraint(
+                condition=models.Q(runs_on_changes=True) | ~models.Q(schedule=""),
+                name="project_standard_runs_on_something",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["next_scheduled_run_at"], name="idx_project_standard_due"),
         ]
 
     def __str__(self):
         return f"{self.project} — {self.standard}"
+
+    @property
+    def standard_schedule(self) -> schedules.StandardSchedule:
+        """What runs it, as the domain reads it."""
+        trigger = schedules.RunTrigger.of(self.runs_on_changes, bool(self.schedule))
+        if not trigger.on_schedule:
+            return schedules.StandardSchedule(trigger)
+        return schedules.StandardSchedule(
+            trigger, schedules.CronSchedule(self.schedule, self.schedule_time_zone or "UTC")
+        )
+
+    @property
+    def runs_only_on_schedule(self) -> bool:
+        return not self.runs_on_changes and bool(self.schedule)
+
+    def apply_schedule(self, schedule: schedules.StandardSchedule, now) -> bool:
+        """Take ``schedule``; when its time changed, it is next due at its
+        first time after ``now`` (rule 4). Returns whether anything changed;
+        the caller saves."""
+        before = (self.runs_on_changes, self.schedule, self.schedule_time_zone)
+        self.runs_on_changes = schedule.runs_on_changes
+        self.schedule = schedule.expression
+        self.schedule_time_zone = schedule.time_zone
+        after = (self.runs_on_changes, self.schedule, self.schedule_time_zone)
+        if after[1:] != before[1:] or (self.schedule and self.next_scheduled_run_at is None):
+            self.next_scheduled_run_at = schedule.next_run_after(now)
+        return after != before
+
+    def advance_schedule(self, now) -> None:
+        """It ran (or was due) at ``now``: due next at its next time after."""
+        self.next_scheduled_run_at = self.standard_schedule.next_run_after(now)
 
     @classmethod
     def set_importances(cls, project, importances: dict) -> None:
@@ -1455,6 +1504,12 @@ class CommitCheck(models.Model):
     # they stood when this check was queued: attached, enabled, not a draft,
     # matching the commit (``app.application.scoring``). Standard ids.
     expected_standard_ids = models.JSONField(default=list, blank=True)
+    # The expected standards this check does not run but takes the newest
+    # finished result of from the branch, from before it was queued: a
+    # standard that runs only on a schedule, in a check of a change; the
+    # standards not due, in a scheduled check (``app.domain.schedules``,
+    # rule 5). Standard ids.
+    carried_standard_ids = models.JSONField(default=list, blank=True, db_default=[])
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

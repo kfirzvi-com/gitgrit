@@ -25,15 +25,19 @@ from django.utils.dateparse import parse_datetime
 from app.application.commit_checks import forget_platform_lists
 from app.application.changed_paths import ChangedPaths
 from app.application.event_bus import publish
-from app.application.scoring import expected_standards, score_checks
+from app.application.scoring import branch_head, expected_standards, score_checks
 from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
 from app.application.standard_service import version_to_run
 from app.domain.events import DomainEvent, RepositoryPushed, StandardRunsQueued, StandardRunsTimedOut
+from app.domain import scoring
 from app.domain.identity import resolve_user
 from app.domain.models import CommitCheck, Project, ProjectStandard, Standard, StandardExecution
 from app.tasks import run_standards
 
 logger = logging.getLogger(__name__)
+
+# The event type of a scheduled run, on its check and executions.
+SCHEDULE_EVENT = "schedule"
 
 
 # --- Stale runs ----------------------------------------------------------------
@@ -141,6 +145,7 @@ def enqueue_run(
     committed_at=None,
     skip_running: bool = True,
     expected=None,
+    plan: scoring.CheckPlan | None = None,
 ) -> dict | None:
     """Queue ``standards`` to run on ``project`` in the background.
 
@@ -158,7 +163,9 @@ def enqueue_run(
     to be scored: ``expected`` (a webhook event's matching standards) or,
     without it, the standards that apply to the check's branch
     (``app.application.scoring.expected_standards``). Each execution records
-    its standard's importance on the project.
+    its standard's importance on the project. A ``plan``
+    (``scoring.CheckPlan``) says it instead, with the standards the check
+    carries from earlier runs rather than running them.
 
     With ``skip_running`` (manual and coverage-change runs), standards that
     already have an in-flight execution on this project are left alone and
@@ -210,10 +217,13 @@ def enqueue_run(
                     triggered_by=triggered_by,
                     triggered_by_user=user,
                     expected_standard_ids=(
-                        [str(s.pk) for s in expected]
+                        list(plan.expected)
+                        if plan is not None
+                        else [str(s.pk) for s in expected]
                         if expected is not None
                         else expected_standards(project, branch)
                     ),
+                    carried_standard_ids=list(plan.carried) if plan is not None else [],
                 )
             importances = dict(
                 ProjectStandard.objects.filter(project=project).values_list("standard_id", "importance")
@@ -360,6 +370,14 @@ def enqueue_for_event(
             )
             continue
 
+        # A standard that runs only on its schedule never runs on a change;
+        # on the default branch its newest result is carried instead.
+        plan = change_plan(project, standards, event.ref or "")
+        standards = [s for s in standards if str(s.pk) in plan.run]
+        if not standards:
+            logger.info("Only scheduled standards matched %s on project=%s", event.event_type, project.name)
+            continue
+
         logger.info(
             "Queueing %d standard(s) for project '%s' (event=%s)",
             len(standards),
@@ -379,9 +397,67 @@ def enqueue_for_event(
             commit_sha=event.commit_sha,
             committed_at=parse_datetime(event.committed_at) if event.committed_at else None,
             skip_running=False,
-            expected=standards,
+            plan=plan,
         )
         if summary:
             queued.extend(summary["executions"])
 
     return queued
+
+
+def _scheduled_only_ids(project: Project) -> set[str]:
+    return {
+        str(i)
+        for i in ProjectStandard.objects.filter(project=project, runs_on_changes=False)
+        .exclude(schedule="")
+        .values_list("standard_id", flat=True)
+    }
+
+
+def change_plan(project: Project, matching, ref: str) -> scoring.CheckPlan:
+    """What a check of a change on ``ref`` runs and carries of the
+    ``matching`` standards (``scoring.CheckPlan.for_change``)."""
+    scheduled_only = _scheduled_only_ids(project)
+    return scoring.CheckPlan.for_change(
+        [
+            scoring.AttachedStandard(
+                standard_id=str(s.pk),
+                enabled=s.enabled,
+                draft=s.draft,
+                matches_criteria=True,
+                scheduled_only=str(s.pk) in scheduled_only,
+            )
+            for s in matching
+        ],
+        on_default_branch=_branch(project, ref) == project.default_branch,
+    )
+
+
+def enqueue_scheduled_run(project: Project, due) -> dict | None:
+    """Queue the ``due`` standards' scheduled run on the project's default
+    branch, at its newest commit: one check that runs them and carries the
+    rest of the branch's current score (``scoring.CheckPlan.for_schedule``),
+    so the project score moves with them even without a push. Only the due
+    standards that apply to the default branch run. None when none does."""
+    if project.is_artifact and not project.artifact_commits.exists():
+        return None
+    branch = project.default_branch
+    due_ids = {s.pk for s in due}
+    standards = [s for s in StandardEngine().standards_for_branch(project, branch) if s.pk in due_ids]
+    if not standards:
+        return None
+    head = branch_head(project, branch)
+    plan = scoring.CheckPlan.for_schedule(
+        due=[str(s.pk) for s in standards],
+        current=head.check.expected_standard_ids if head else [],
+        applying=expected_standards(project, branch),
+    )
+    return enqueue_run(
+        project,
+        standards,
+        event_type=SCHEDULE_EVENT,
+        triggered_by="schedule",
+        ref="",
+        skip_running=False,
+        plan=plan,
+    )

@@ -18,6 +18,7 @@ from django.core.exceptions import ValidationError
 from app.application import stack_service
 from app.application.errors import NotFoundError
 from app.application.event_bus import publish
+from app.application.schedules import AttachmentSchedules
 from app.domain import importance
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.projects import InvalidRootPath, RootPath
@@ -357,22 +358,31 @@ def delete_project(tenant: Tenant, user: User | None, project_id) -> str:
 # --- attached standards ------------------------------------------------------
 
 
-def set_project_standards(project: Project, standard_ids, importances=None) -> dict:
+def set_project_standards(
+    project: Project, standard_ids, importances=None, schedules=None, time_zone: str = "UTC"
+) -> dict:
     """Make exactly ``standard_ids`` the project's attached standards.
 
     ``importances`` (standard id -> importance) sets the importance of those
     attached standards; attached standards it leaves out keep theirs.
+    ``schedules`` (standard id -> (trigger, cron text)) sets what runs them
+    the same way, read in ``time_zone`` (``AttachmentSchedules``).
     Newly attached runnable standards are queued to run. Returns
-    ``{"standards", "runs"}``.
+    ``{"standards", "runs"}``. Raises ``UnknownImportance`` or
+    ``InvalidSchedule`` before anything is written.
     """
     if importances is not None:
         importances = parse_importances(importances)
+    schedule_setting = AttachmentSchedules(project, time_zone)
+    parsed_schedules = schedule_setting.parse(schedules) if schedules else {}
     standards = _workspace_standards(project.tenant, standard_ids)
     previously = set(project.standards.values_list("pk", flat=True))
     # set() is a delta: attached standards that stay keep their row and importance.
     project.standards.set(standards)
     if importances:
         ProjectStandard.set_importances(project, importances)
+    if parsed_schedules:
+        schedule_setting.apply(parsed_schedules)
     return {"standards": standards, "runs": run_newly_attached(project, standards, previously)}
 
 

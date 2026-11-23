@@ -14,6 +14,9 @@ class AttachedStandard:
     # ``standard_criteria.applies``, which knows nothing of the standard's
     # lifecycle.
     matches_criteria: bool
+    # It runs only on its schedule, never on a change
+    # (``app.domain.schedules``, rule 5).
+    scheduled_only: bool = False
 
     @property
     def runs_on_commit(self) -> bool:
