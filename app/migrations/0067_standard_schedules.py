@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app', '0059_commit_score_ordered_by_run_time'),
+        ('app', '0066_drop_components'),
     ]
 
     operations = [
