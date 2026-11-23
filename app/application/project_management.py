@@ -20,6 +20,8 @@ from app.application.errors import NotFoundError
 from app.application.event_bus import publish
 from app.domain import importance
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
+from app.domain.projects import InvalidRootPath, RootPath
+from app.domain.projects.languages import languages_in
 from app.domain.models import (
     AuthMethod,
     Platform,
@@ -43,10 +45,12 @@ class PlatformError(Exception):
 
 
 class AlreadyAdded(ValueError):
-    """The repository is already a project in this workspace."""
+    """The repository (at that root path) is already a project in this workspace."""
 
     def __init__(self, project: Project):
-        super().__init__(f'"{project.full_path or project.name}" is already a project in this workspace.')
+        super().__init__(
+            f'"{project.repository_label or project.name}" is already a project in this workspace.'
+        )
         self.project = project
 
 
@@ -113,19 +117,24 @@ def search_repositories(
     tenant: Tenant, connection: PlatformConnection, query: str = "", limit: int = SEARCH_LIMIT
 ) -> list[dict]:
     """Repositories reachable through ``connection`` whose path matches
-    ``query``, each marked ``already_added`` when it's a project here."""
+    ``query``. Each lists ``added_paths``, the root paths it is already a
+    project at here (``""`` = the whole repository), and is marked
+    ``already_added`` when the whole repository is one. A repository with
+    projects at some paths can still be added at another."""
     try:
         results = get_platform_client(connection).search_projects(query.strip())
     except Exception as exc:
         logger.exception("Failed to search repositories on connection %s", connection.pk)
         raise PlatformError("Couldn't search the git platform. Check the connection.") from exc
-    added = set(
-        Project.objects.filter(tenant=tenant, platform_connection=connection).values_list(
-            "external_id", flat=True
-        )
-    )
+    added: dict[str, list[str]] = {}
+    for external_id, root_path in Project.objects.filter(
+        tenant=tenant, platform_connection=connection
+    ).values_list("external_id", "root_path"):
+        added.setdefault(external_id, []).append(root_path)
     for r in results:
-        r["already_added"] = r["external_id"] in added
+        paths = sorted(added.get(str(r["external_id"]), []))
+        r["added_paths"] = paths
+        r["already_added"] = "" in paths
     return results[:limit]
 
 
@@ -160,13 +169,17 @@ def add_project(
     connection: PlatformConnection,
     repo: dict,
     *,
+    root_path: str = "",
     lifecycle: str = Project.Lifecycle.DEVELOPMENT,
     owner: str = "",
     stack_ids=(),
     standard_ids=(),
     importances=None,
 ) -> AddedProject:
-    """Make ``repo`` (a result of ``search_repositories``) a project.
+    """Make ``repo`` (a result of ``search_repositories``) a project, rooted
+    at ``root_path`` inside it ("" = the whole repository; a monorepo holds
+    one project per app or service). Raises ``InvalidRootPath`` on a path
+    that leaves the repository.
 
     Attaches the given workspace standards and stacks, reads the repository's
     languages and topics, registers a webhook when the connection needs one
@@ -174,8 +187,14 @@ def add_project(
     attached runnable standards to run once. ``importances`` (standard id
     -> importance) sets those attached standards' importance.
     """
+    location = RootPath.parse(root_path)
+    if location.value and connection.platform == Platform.ARTIFACT:
+        raise InvalidRootPath("An artifact project always covers its whole upload.")
     existing = Project.objects.filter(
-        tenant=tenant, platform_connection=connection, external_id=str(repo["external_id"])
+        tenant=tenant,
+        platform_connection=connection,
+        external_id=str(repo["external_id"]),
+        root_path=location.value,
     ).first()
     if existing:
         raise AlreadyAdded(existing)
@@ -191,8 +210,9 @@ def add_project(
         platform_connection=connection,
         platform=connection.platform,
         external_id=str(repo["external_id"]),
-        name=repo["name"],
+        name=project_name(repo["name"], location),
         full_path=repo.get("full_path", ""),
+        root_path=location.value,
         web_url=repo.get("web_url", ""),
         default_branch=repo.get("default_branch") or "main",
         description=repo.get("description") or "",
@@ -224,9 +244,32 @@ def add_project(
     return AddedProject(project=project, webhook_ok=webhook_ok, runs=runs)
 
 
+def project_name(repo_name: str, location: RootPath) -> str:
+    """A new project's name: the repository's, then its root path inside it
+    (``shop/apps/web``), so projects sharing a repository stay apart."""
+    return f"{repo_name}/{location.value}" if location.value else repo_name
+
+
+def _repository_siblings(project: Project):
+    """The other projects on the same repository through the same connection."""
+    return Project.objects.filter(
+        platform_connection=project.platform_connection, external_id=project.external_id
+    ).exclude(pk=project.pk)
+
+
 def register_webhook(project: Project) -> bool:
-    """(Re)register the per-repository webhook. False when the platform refused."""
+    """(Re)register the per-repository webhook. False when the platform refused.
+
+    A repository has one webhook however many projects sit in it: a project
+    added next to others shares their hook (every delivery is routed to all
+    the repository's projects), so a push is never delivered twice."""
     connection = project.platform_connection
+    shared = _repository_siblings(project).exclude(webhook_id="").first()
+    if shared and not project.webhook_id:
+        project.webhook_id = shared.webhook_id
+        project.webhook_secret = shared.webhook_secret
+        project.save(update_fields=["webhook_id", "webhook_secret"])
+        return True
     try:
         client = get_platform_client(connection)
         if project.webhook_id:
@@ -239,6 +282,10 @@ def register_webhook(project: Project) -> bool:
         project.webhook_id = client.create_webhook(project.external_id, target_url, secret)
         project.webhook_secret = secret
         project.save(update_fields=["webhook_id", "webhook_secret"])
+        # Re-registering replaced the hook its siblings shared.
+        _repository_siblings(project).exclude(webhook_id="").update(
+            webhook_id=project.webhook_id, webhook_secret=secret
+        )
         return True
     except Exception:
         logger.exception("Failed to register webhook for project %s", project.name)
@@ -264,10 +311,12 @@ def update_project(tenant: Tenant, project_id, *, lifecycle: str | None = None, 
 
 
 def delete_project(tenant: Tenant, user: User | None, project_id) -> str:
-    """Remove the project and its webhook (best effort). Returns its name."""
+    """Remove the project, and its webhook (best effort) unless another
+    project on the same repository still uses it. Returns its name."""
     project = get_project(tenant, project_id)
     name = project.name
-    if project.webhook_id:
+    hook_shared = _repository_siblings(project).filter(webhook_id=project.webhook_id).exists()
+    if project.webhook_id and not hook_shared:
         try:
             get_platform_client(project.platform_connection).delete_webhook(
                 project.external_id, project.webhook_id
@@ -386,8 +435,19 @@ def _workspace_standards(tenant: Tenant, standard_ids) -> list[Standard]:
 def _fetch_metadata(project: Project) -> None:
     try:
         client = get_platform_client(project.platform_connection)
-        project.languages = client.get_languages(project.external_id, full_path=project.full_path)
+        project.languages = _languages(client, project)
         project.tags = client.get_topics(project.external_id, full_path=project.full_path)
         project.save(update_fields=["languages", "tags"])
     except Exception:
         logger.exception("Failed to fetch metadata for project %s", project.name)
+
+
+def _languages(client, project: Project) -> list[str]:
+    """The platform's languages for a whole-repository project; counted from
+    the files under the root path for one inside a repository (the platforms
+    only report languages per repository)."""
+    if not project.root_path:
+        return client.get_languages(project.external_id, full_path=project.full_path)
+    location = project.location
+    files = [p for p in client.get_tree(project.full_path, project.default_branch) if location.contains(p)]
+    return languages_in(files)

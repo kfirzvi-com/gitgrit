@@ -70,6 +70,19 @@
         <input type="hidden" name="description" id="field-description">
 
         <div class="form-control">
+          <label class="label"><span class="label-text">Root path</span></label>
+          <input type="text" name="root_path" id="field-root-path" placeholder="/ (whole repository)"
+                 class="input input-bordered w-full font-mono" autocomplete="off" />
+          <label class="label">
+            <span class="label-text-alt opacity-70">
+              For a monorepo, the directory this project lives in, e.g. <code>apps/web</code>.
+              Standards and checks run from there. Leave empty for the whole repository.
+            </span>
+          </label>
+          <p id="root-path-taken" class="text-xs text-warning hidden"></p>
+        </div>
+
+        <div class="form-control">
           <label class="label"><span class="label-text">Owner</span></label>
           <input type="text" name="owner" placeholder="Owner (optional)"
                  class="input input-bordered w-full"
@@ -136,6 +149,13 @@ function selectProject(data) {
   document.getElementById('field-web-url').value = data.web_url;
   document.getElementById('field-default-branch').value = data.default_branch;
   document.getElementById('field-description').value = data.description;
+  const taken = document.getElementById('root-path-taken');
+  const added = data.added_paths || [];
+  taken.textContent = added.length
+    ? 'Already a project at: ' + added.map(p => p || '/ (whole repository)').join(', ')
+    : '';
+  taken.classList.toggle('hidden', !added.length);
+  document.getElementById('field-root-path').value = '';
   document.getElementById('selected-project-info').innerHTML =
     '<div class="alert">' +
     '<span><strong>' + data.name + '</strong> — ' + data.full_path + '</span>' +

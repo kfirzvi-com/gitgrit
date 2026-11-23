@@ -196,12 +196,15 @@ class ProjectResolveView(WorkspaceAPIView):
         summary="Resolve a git remote to a project",
         description=(
             "Pass `repo_full_path` (e.g. `acme/backend`) and/or `web_url` — raw "
-            "`git remote get-url origin` output is accepted. A miss returns 404 "
-            "with up to 5 close candidates."
+            "`git remote get-url origin` output is accepted. A repository can hold "
+            "several projects at different root paths (a monorepo): pass `path`, where "
+            "you stand relative to the repository root, and the innermost project wins. "
+            "A miss returns 404 with up to 5 close candidates."
         ),
         parameters=[
             OpenApiParameter("repo_full_path", str, required=False),
             OpenApiParameter("web_url", str, required=False),
+            OpenApiParameter("path", str, required=False),
         ],
         responses={200: s.ResolvedProjectSerializer, 404: s.ProjectNotFoundSerializer},
     )
@@ -210,6 +213,7 @@ class ProjectResolveView(WorkspaceAPIView):
             self.tenant,
             request.query_params.get("repo_full_path"),
             request.query_params.get("web_url"),
+            request.query_params.get("path"),
         )
         if "error" in result:
             return Response(

@@ -357,15 +357,16 @@ def add_project_search(request, connection_id):
                 request.user,
                 connection,
                 repo,
+                root_path=request.POST.get("root_path", ""),
                 lifecycle=request.POST.get("lifecycle", Project.Lifecycle.DEVELOPMENT),
                 owner=request.POST.get("owner", ""),
                 stack_ids=request.POST.getlist("stacks"),
                 standard_ids=request.POST.getlist("standards"),
                 importances=_posted_importances(request.POST),
             )
-        except project_management.AlreadyAdded:
-            messages.warning(request, f'"{repo["name"]}" is already added to this workspace.')
-            return redirect("project_list")
+        except project_management.AlreadyAdded as exc:
+            messages.warning(request, str(exc))
+            return redirect("project_detail", pk=exc.project.pk)
         except ValueError as exc:
             messages.error(request, str(exc))
             return redirect("add_project_search", connection_id=connection_id)

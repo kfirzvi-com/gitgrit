@@ -1,28 +1,26 @@
 {% load project_tags %}
 {% if results %}
   {% for r in results %}
-    {% if r.already_added %}
-      <div class="flex items-center justify-between p-3 rounded-lg bg-base-200 opacity-50">
-        <div class="min-w-0 flex-1">
-          <p class="font-medium truncate">{{ r.name }}</p>
-          <p class="text-sm opacity-70 truncate">{{ r.full_path }}</p>
-        </div>
-        <span class="badge badge-sm shrink-0 ml-2">Already added</span>
+    {# A repository with projects already in it can still be added at another root path (a monorepo). #}
+    <button type="button"
+            class="flex items-center justify-between p-3 rounded-lg bg-base-200 hover:bg-base-300 cursor-pointer w-full text-left transition-colors"
+            onclick='selectProject({% to_json r %})'>
+      <div class="min-w-0 flex-1">
+        <p class="font-medium truncate">{{ r.name }}</p>
+        <p class="text-sm opacity-70 truncate">{{ r.full_path }}</p>
+        {% if r.description %}
+          <p class="text-xs opacity-50 mt-1 truncate">{{ r.description }}</p>
+        {% endif %}
+        {% if r.added_paths %}
+          <p class="flex flex-wrap gap-1 mt-1">
+            {% for path in r.added_paths %}
+              <span class="badge badge-ghost badge-xs font-mono">{{ path|default:"/ (whole repository)" }}</span>
+            {% endfor %}
+          </p>
+        {% endif %}
       </div>
-    {% else %}
-      <button type="button"
-              class="flex items-center justify-between p-3 rounded-lg bg-base-200 hover:bg-base-300 cursor-pointer w-full text-left transition-colors"
-              onclick='selectProject({% to_json r %})'>
-        <div class="min-w-0 flex-1">
-          <p class="font-medium truncate">{{ r.name }}</p>
-          <p class="text-sm opacity-70 truncate">{{ r.full_path }}</p>
-          {% if r.description %}
-            <p class="text-xs opacity-50 mt-1 truncate">{{ r.description }}</p>
-          {% endif %}
-        </div>
-        <span class="btn btn-ghost btn-xs shrink-0 ml-2">Select</span>
-      </button>
-    {% endif %}
+      <span class="btn btn-ghost btn-xs shrink-0 ml-2">{% if r.added_paths %}Add another{% else %}Select{% endif %}</span>
+    </button>
   {% endfor %}
 {% else %}
   <p class="text-sm opacity-70">No repositories found.</p>
