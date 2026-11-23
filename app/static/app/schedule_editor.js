@@ -426,7 +426,9 @@
     });
     this.applyButton.addEventListener('click', function () { self.apply(); });
     this.dialog.addEventListener('click', function (e) {
-      if (!e.target.closest('[data-cron-field]')) self.closeMenus();
+      // A ticked value redraws its menu, so the button clicked is gone by
+      // now: that is a click inside the menu, not outside it.
+      if (e.target.isConnected && !e.target.closest('[data-cron-field]')) self.closeMenus();
     });
     this.dialog.addEventListener('close', function () { self.closeMenus(); self.hideSuggestions(); });
   };

@@ -63,6 +63,13 @@
 .gg-cron-field-words { max-width: 100%; overflow: hidden; font-size: 0.75rem; opacity: 0.65; text-overflow: ellipsis; white-space: nowrap; }
 
 .gg-cron-menu { width: 17rem; max-height: none; }
+/* Menus of the fields on the right open leftwards, inside the dialog. */
+@media (min-width: 640px) {
+  [data-cron-fields] > :nth-child(n+4) .gg-cron-menu { left: auto; right: 0; }
+}
+@media (max-width: 639px) {
+  [data-cron-fields] > :nth-child(even) .gg-cron-menu { left: auto; right: 0; }
+}
 .gg-cron-pills { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 6px 6px; }
 .gg-cron-pill {
   padding: 2px 10px;
