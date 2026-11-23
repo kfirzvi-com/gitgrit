@@ -3,13 +3,16 @@
  * suggestions (filter_search.css).
  *
  *   .gg-schedule-chip[data-trigger]  a row's chip: quiet on changes, turquoise on a schedule
+ *   .gg-schedule-zone                the chip's time zone, beside its words
  *   .gg-trigger-option               one of the three "what runs it" cards
  *   .gg-cron-field                   a cron field's menu button: label, value, words
  *   .gg-cron-values                  a field menu's grid of values to tick
  *   .gg-cron-reading                 the schedule in words and its next times
  */
-.gg-schedule-chip { max-width: 16rem; }
-.gg-schedule-chip [data-schedule-label] { overflow: hidden; text-overflow: ellipsis; }
+.gg-schedule-chip { max-width: 20rem; }
+.gg-schedule-chip [data-schedule-label] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The schedule's time zone ("Madrid"): never cut, after the words. */
+.gg-schedule-zone { flex-shrink: 0; font-size: 0.75em; opacity: 0.75; white-space: nowrap; }
 .gg-schedule-chip[data-trigger="changes"] { color: var(--gg-text-dim); }
 .gg-schedule-chip[data-trigger="schedule"],
 .gg-schedule-chip[data-trigger="both"] {

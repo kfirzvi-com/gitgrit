@@ -7,6 +7,8 @@ Rules:
    out into it. Anything else is refused, so a typo never becomes "never".
 2. A schedule is read in a time zone (an IANA name, UTC by default): "every
    day at 09:00" in Asia/Jerusalem is 09:00 there, daylight saving included.
+   The zone belongs to the schedule, not to whoever reads it: the team sees
+   one schedule, "06:00 in Madrid", whatever their own zones.
 3. An attached standard runs on every change, on its schedule, or both
    (``RunTrigger``). Running on a schedule needs a schedule.
 4. A scheduled run runs on the project's default branch, at its newest

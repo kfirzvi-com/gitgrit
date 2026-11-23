@@ -6,6 +6,11 @@
 // server reads the result back in words with its next times
 // (schedule_preview), so nobody has to guess what a "*" means.
 //
+// The schedule's time zone is picked here and belongs to the schedule: every
+// teammate reads its times in it. A row with no schedule starts in the zone
+// on the viewer's profile, else their browser's; the reading adds the
+// viewer's own times when their zone is another.
+//
 // Opened for one row (its chip) or the selected rows (the bulk "Runs"
 // action); Apply writes each row's trigger-/schedule-/schedule_tz- fields and
 // its chip. The table's Save saves them.
@@ -17,6 +22,19 @@
   var DEFAULT_CRON = '0 9 * * *';
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  function browserZone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+  }
+
+  // A zone by its place, as the chip names it (app.presentation.TimeZoneLabel).
+  function zoneLabel(zone) { return zone ? zone.split('/').pop().replace(/_/g, ' ') : ''; }
+
+  function zoneNames() {
+    var names = [];
+    try { names = Intl.supportedValuesOf('timeZone'); } catch (e) { names = []; }
+    return names.indexOf('UTC') >= 0 ? names : ['UTC'].concat(names);
+  }
   function range(a, b) { var out = []; for (var i = a; i <= b; i++) out.push(i); return out; }
 
   // The five fields, in cron order: what each accepts, its menu, and what the
@@ -138,6 +156,7 @@
     this.caretField = dialog.querySelector('[data-cron-caret-field]');
     this.fieldsBox = dialog.querySelector('[data-cron-fields]');
     this.applyButton = dialog.querySelector('[data-schedule-apply]');
+    this.tzInput = dialog.querySelector('[data-cron-tz-input]');
     this.rows = [];
     this.timeZone = 'UTC';
     this.valid = false;
@@ -348,12 +367,13 @@
   // The server reads the schedule: in words, its next times, or the error.
   Editor.prototype.preview = function () {
     var self = this, cron = this.input.value.trim();
-    var url = this.dialog.dataset.previewUrl + '?cron=' + encodeURIComponent(cron) + '&tz=' + encodeURIComponent(this.timeZone);
-    var asked = cron;
+    var url = this.dialog.dataset.previewUrl + '?cron=' + encodeURIComponent(cron) + '&tz=' + encodeURIComponent(this.timeZone)
+      + '&viewer_tz=' + encodeURIComponent(browserZone());
+    var asked = cron + '|' + this.timeZone;
     fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (self.input.value.trim() !== asked) return; // typed on since
+        if (self.input.value.trim() + '|' + self.timeZone !== asked) return; // typed on since
         self.lastPreview = data;
         self.valid = !!data.valid;
         var q = function (s) { return self.dialog.querySelector(s); };
@@ -363,6 +383,11 @@
         q('[data-cron-text]').classList.toggle('opacity-50', !data.valid);
         q('[data-cron-next-line]').classList.toggle('invisible', !data.valid);
         q('[data-cron-next]').textContent = data.valid ? data.next_runs.join(' · ') : '';
+        var theirs = data.valid && data.viewer_next_runs && data.viewer_next_runs.length;
+        q('[data-cron-viewer-line]').classList.toggle('hidden', !theirs);
+        q('[data-cron-viewer-tz]').textContent = theirs ? data.viewer_time_zone : '';
+        q('[data-cron-viewer-next]').textContent = theirs ? data.viewer_next_runs.join(' · ') : '';
+        if (data.valid) q('[data-cron-tz]').textContent = data.time_zone;
         q('[data-cron-warning]').textContent = data.warning || '';
         q('[data-cron-warning]').classList.toggle('hidden', !data.warning);
         self.syncApply();
@@ -387,6 +412,12 @@
       });
     });
     this.input.addEventListener('blur', function () { self.hideSuggestions(); self.syncFields(); });
+    // Another zone: the server reads the schedule in it (and refuses one it
+    // does not know).
+    this.tzInput.addEventListener('input', function () {
+      self.timeZone = self.tzInput.value.trim();
+      self.changed();
+    });
     this.input.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowDown') { e.preventDefault(); self.moveActive(1); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); self.moveActive(-1); }
@@ -438,7 +469,16 @@
     var first = rows[0];
     var trigger = first.querySelector('[data-trigger-field]').value || 'changes';
     var cron = first.querySelector('[data-schedule-field]').value;
-    this.timeZone = first.querySelector('[data-schedule-tz-field]').value || 'UTC';
+    this.timeZone = first.querySelector('[data-schedule-tz-field]').value || browserZone() || 'UTC';
+    var options = this.dialog.querySelector('[data-cron-tz-options]');
+    if (!options.children.length) {
+      zoneNames().forEach(function (zone) {
+        var o = document.createElement('option');
+        o.value = zone;
+        options.appendChild(o);
+      });
+    }
+    this.tzInput.value = this.timeZone;
     this.dialog.querySelector('[data-schedule-for]').textContent = forText;
     this.dialog.querySelector('[data-cron-tz]').textContent = this.timeZone;
     this.dialog.querySelector('[data-trigger-choice][value="' + trigger + '"]').checked = true;
@@ -459,7 +499,7 @@
     if (trigger !== 'changes') {
       label = trigger === 'both' ? 'Changes + ' + data.text.charAt(0).toLowerCase() + data.text.slice(1) : data.text;
     }
-    var timeZone = this.timeZone;
+    var timeZone = (data.time_zone || this.timeZone);
     this.rows.forEach(function (row) {
       row.querySelector('[data-trigger-field]').value = trigger;
       row.querySelector('[data-schedule-field]').value = cron;
@@ -467,6 +507,9 @@
       var chip = row.querySelector('[data-schedule]');
       chip.dataset.trigger = trigger;
       chip.querySelector('[data-schedule-label]').textContent = label;
+      var zone = chip.querySelector('[data-schedule-zone]');
+      zone.textContent = cron ? zoneLabel(timeZone) : '';
+      zone.classList.toggle('hidden', !cron);
       chip.title = cron ? cron + ' (' + timeZone + ')' : 'Runs on each matching push and pull request';
       row.dataset.filterRuns = trigger;
     });

@@ -86,7 +86,9 @@ def _picker_context(tenant, project=None, user=None) -> dict:
         ProjectStandard.objects.filter(project=project) if project else ProjectStandard.objects.none()
     )
     by_standard = {a.standard_id: a for a in attachments}
-    viewer_time_zone = user.user_time_zone.name if user and user.is_authenticated else "UTC"
+    # A new schedule starts in the zone on the viewer's profile, when they
+    # set one; else the editor starts from their browser's.
+    viewer_time_zone = (user.time_zone or "") if user and user.is_authenticated else ""
     standards = list(
         Standard.objects.filter(tenant=tenant).prefetch_related("labels").order_by("ordinal", "name")
     )
