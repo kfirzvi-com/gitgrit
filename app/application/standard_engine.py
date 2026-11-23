@@ -194,6 +194,8 @@ class StandardEngine:
             "platform": project.platform,
             "project_id": project.external_id,
             "full_path": project.full_path,
+            # A project inside a monorepo reads its files from here.
+            "root_path": project.root_path,
             "ref": bare_ref(ref),
         }
         # An artifact project's files are mounted into the sandbox (see

@@ -5,6 +5,16 @@ from providers.github import GitHubProvider
 from providers.gitlab import GitLabProvider
 from providers.mock import MockProvider
 from providers.artifact import ArtifactProvider
+from providers.rooted import RootedProvider
+
+
+def create_project_provider(root_path: str = "", **kwargs) -> tuple[BaseProvider, BaseProvider]:
+    """The provider a standard reads the project through, and the one for its
+    whole repository. They are the same unless the project is rooted inside
+    the repository (a monorepo app or service)."""
+    repository = create_provider(**kwargs)
+    root = (root_path or "").strip("/")
+    return (RootedProvider(repository, root) if root else repository), repository
 
 
 def create_provider(

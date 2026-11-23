@@ -28,7 +28,7 @@ import traceback
 
 from standard_log import StandardLogger
 from project_context import ProjectContext
-from providers.factory import create_provider
+from providers.factory import create_project_provider
 
 
 def _first_line(message):
@@ -56,9 +56,14 @@ def _status_word(result):
 def _run(config, logger):
     platform = config.get("platform", "mock")
     target = config.get("full_path") or config.get("project_id") or ""
-    logger.info(f"run started: platform={platform} project={target}")
+    root_path = config.get("root_path") or ""
+    logger.info(
+        f"run started: platform={platform} project={target}"
+        + (f" root_path={root_path}" if root_path else "")
+    )
 
-    provider = create_provider(
+    provider, repository = create_project_provider(
+        root_path=root_path,
         platform=platform,
         project_id=config.get("project_id", ""),
         access_token=config.get("access_token"),
@@ -67,7 +72,7 @@ def _run(config, logger):
         ref=config.get("ref", ""),
         mock_data=config.get("mock_data"),
     )
-    project = ProjectContext(provider)
+    project = ProjectContext(provider, repository=repository)
     logger.info("project context ready")
 
     # Only pull in the LLM stack (litellm) when the workspace has roles
