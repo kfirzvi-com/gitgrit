@@ -17,6 +17,7 @@ from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.score_representation import ScoreDisplay
 from app.domain.usage import DayUsage, ExecutionSlice
 from app.domain.notifications import BODY_MAX, Kind, Severity, plain_reason
+from app.domain.projects import RootPath
 from app.domain.user_time_zone import UnknownTimeZone, UserTimeZone
 from app.infrastructure.model_fields import EncryptedCharField
 
@@ -660,6 +661,10 @@ class Project(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     full_path = models.CharField(max_length=2048)
+    # Where the project starts inside its repository (``RootPath``): "" for
+    # the whole repository, else a directory such as "apps/web". Several
+    # projects may share one repository at different root paths (a monorepo).
+    root_path = models.CharField(max_length=1024, blank=True, default="")
     web_url = models.URLField(max_length=2048)
     default_branch = models.CharField(max_length=255, default="main")
     webhook_id = models.CharField(max_length=255, blank=True, default="")
@@ -697,8 +702,8 @@ class Project(models.Model):
         db_table = "projects"
         constraints = [
             models.UniqueConstraint(
-                fields=["tenant", "platform_connection", "external_id"],
-                name="unique_tenant_connection_project",
+                fields=["tenant", "platform_connection", "external_id", "root_path"],
+                name="unique_tenant_connection_project_path",
             ),
         ]
         ordering = ["name"]
@@ -711,6 +716,28 @@ class Project(models.Model):
         """True when the project's files arrive as uploaded archives (one
         ``ArtifactCommit`` each) instead of from a Git repository."""
         return self.platform == Platform.ARTIFACT
+
+    @property
+    def location(self) -> RootPath:
+        """Where the project starts inside its repository."""
+        return RootPath(self.root_path)
+
+    @property
+    def ref(self) -> str:
+        """How the project is named to models and users: the repository's
+        ``full_path`` for a whole-repository project, ``<full_path>#<root_path>``
+        for a project inside a monorepo."""
+        return f"{self.full_path}#{self.root_path}" if self.root_path else self.full_path
+
+    @property
+    def repository_label(self) -> str:
+        """``org/repo`` plus ``/ apps/web`` for a project inside a repository."""
+        return f"{self.full_path} / {self.root_path}" if self.root_path else self.full_path
+
+    def covers(self, changed_paths) -> bool:
+        """Does a change to these repository paths concern this project?
+        ``None`` (unknown) always does; see ``RootPath.covers``."""
+        return self.location.covers(changed_paths)
 
     # --- Components -----------------------------------------------------------
     # A project is one git repository. Its *components* are the deployable
