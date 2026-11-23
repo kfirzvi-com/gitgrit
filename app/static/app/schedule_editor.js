@@ -489,6 +489,9 @@
     this.preview();
     this.dialog.showModal();
     (trigger === 'changes' ? this.dialog.querySelector('[data-trigger-choice]:checked') : this.input).focus();
+    // Suggestions are for a person in the box, not for the box opening with
+    // the caret in it: open, they would cover the fields under it.
+    this.hideSuggestions();
   };
 
   Editor.prototype.apply = function () {
