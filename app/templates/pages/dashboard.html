@@ -119,14 +119,14 @@
         <div class="overflow-x-auto">
           <table class="table table-sm">
             <thead>
-              <tr class="gg-eyebrow"><th>Project</th><th>Grade</th><th>Why</th><th>Owner</th><th>Stack</th></tr>
+              <tr class="gg-eyebrow"><th>Project</th><th>Grade</th><th class="w-full">Why</th><th>Owner</th><th>Stack</th></tr>
             </thead>
             <tbody>
               {% for row, why in attention_rows|slice:":5" %}
                 <tr data-row-tone="{{ row.tone }}">
                   <td class="font-mono text-sm whitespace-nowrap max-w-[14rem] truncate"><a href="{% url 'project_detail' row.project.pk %}" class="link link-hover" title="{{ row.project.name }}">{{ row.project.name }}</a></td>
                   <td>{% if row.score and row.score.outcome != "no_score" %}{% score row.score.value failed=row.score.failed size="sm" %}{% else %}<span style="color: var(--gg-text-dim)">&mdash;</span>{% endif %}</td>
-                  <td class="text-sm"{% if row.tone != "failed" %} style="color: var(--gg-text-dim)"{% endif %}>{{ why|default:"Grade below A" }}</td>
+                  <td class="text-sm min-w-[12rem]"{% if row.tone != "failed" %} style="color: var(--gg-text-dim)"{% endif %}><div class="line-clamp-2 break-words" data-why-text>{{ why|default:"Grade below A" }}</div><button type="button" class="link link-primary link-hover text-xs" data-why-toggle aria-expanded="false" hidden>See more</button></td>
                   <td class="text-sm whitespace-nowrap">{% if row.owner %}{{ row.owner }}{% else %}<span style="color: var(--gg-text-dim)">No owner</span>{% endif %}</td>
                   <td class="text-sm whitespace-nowrap" style="color: var(--gg-text-dim)">{{ row.stacks|join:", "|default:"—" }}</td>
                 </tr>
@@ -236,6 +236,28 @@
       if (!link.matches("[data-tab]")) root.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     show(location.hash.slice(1));
+  })();
+
+  // "Where the lights point": a long Why shows two lines, with See more / See less where it is cut.
+  (function () {
+    var table = document.querySelector("[data-light-targets] table");
+    if (!table) return;
+    function markCut() {
+      table.querySelectorAll("[data-why-text]").forEach(function (text) {
+        var button = text.nextElementSibling;
+        if (button.getAttribute("aria-expanded") === "true") return;
+        button.hidden = text.scrollHeight <= text.clientHeight;
+      });
+    }
+    table.addEventListener("click", function (e) {
+      var button = e.target.closest("[data-why-toggle]");
+      if (!button) return;
+      var open = button.getAttribute("aria-expanded") !== "true";
+      button.previousElementSibling.classList.toggle("line-clamp-2", !open);
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+      button.textContent = open ? "See less" : "See more";
+    });
+    new ResizeObserver(markCut).observe(table);
   })();
 </script>
 {% endwith %}
