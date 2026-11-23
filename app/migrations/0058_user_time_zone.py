@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app', '0056_llm_usage_and_budgets'),
+        ('app', '0057_workspace_usage'),
     ]
 
     operations = [
