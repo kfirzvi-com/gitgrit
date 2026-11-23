@@ -17,7 +17,6 @@ status service), so they never disagree.
 from __future__ import annotations
 
 from django.db.models import Q
-from django.db.models.functions import Coalesce
 
 from app.application.standard_engine import literal_ref
 from app.domain.models import Project, ProjectStandard, StandardExecution
@@ -52,15 +51,12 @@ def current_results(projects, statuses=FINISHED, exclude_execution_ids=(), branc
         on_home_branch |= Q(project_id=pair.project_id, standard_id=pair.standard_id) & refs
     if not on_home_branch:
         return []
-    # The newest *commit* wins, not the newest run: checking an old commit
-    # again must not change the picture. Runs of the same commit (and runs
-    # with no known commit date) go by when they ran.
-    committed = Coalesce("commit_check__committed_at", "created_at")
+    # The newest run wins, by when it ran.
     return list(
         StandardExecution.objects.filter(on_home_branch, status__in=statuses)
         .exclude(pk__in=list(exclude_execution_ids))
         .select_related("project", "standard", "commit_check")
-        .order_by("project_id", "standard_id", committed.desc(), "-created_at")
+        .order_by("project_id", "standard_id", "-created_at")
         .distinct("project_id", "standard_id")
     )
 
