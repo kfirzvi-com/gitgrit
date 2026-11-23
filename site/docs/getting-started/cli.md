@@ -112,7 +112,7 @@ If the newest commit has no score (a standard errored or never ran), neither doe
 
 ## Commands
 
-Project commands act on the repository you're in. Pass `--project org/repo` (or `-p`) to pick another one.
+Project commands act on the repository you're in (in a monorepo, the project whose directory you're in). Pass `--project org/repo` (or `-p`) to pick another one.
 
 | Command | What it does |
 |---|---|
@@ -122,11 +122,11 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit connection add --platform … --token-stdin` | Connect with an access token (owners and admins) |
 | `gitgrit repo list [-q filter]` | Repositories a connection reaches, and which are already projects |
 | **Projects** | |
-| `gitgrit project add [org/repo]` | Add a repository as a project |
+| `gitgrit project add [org/repo] [--path dir]` | Add a repository as a project, or a monorepo directory with `--path` ([Monorepos](monorepos.md)) |
 | `gitgrit project add --artifact --name …` | Create an [artifact project](artifact-projects.md) (uploaded builds) |
 | `gitgrit project upload <archive> -p <project>` | Upload a build to an artifact project as a commit; `--wait` exits by its score |
 | `gitgrit project list` | Projects in the workspace |
-| `gitgrit project view` | Which project this repository is |
+| `gitgrit project view` | Which project this repository (or the directory you're in) is |
 | `gitgrit project edit --lifecycle … --owner …` | Change a project's lifecycle or owner |
 | `gitgrit project standards` | Standards attached to the project |
 | `gitgrit project attach <standard>…` / `--all` | Attach standards; they run right away |
@@ -146,10 +146,9 @@ Project commands act on the repository you're in. Pass `--project org/repo` (or 
 | `gitgrit branches` / `commits` / `commit <sha>` | Results per branch and commit |
 | **Workspace** | |
 | `gitgrit overview` | The dashboard: projects by health, warning lights, what needs you |
-| `gitgrit stack list` / `view <stack>` | Stacks with their projects counted by health; a stack's components, worst first |
+| `gitgrit stack list` / `view <stack>` | Stacks with their projects counted by health; a stack's projects, worst first |
 | `gitgrit stack create <name>` / `edit <stack>` / `delete <stack> --yes` | Create, rename or delete a stack |
-| `gitgrit stack add <stack> [component…]` / `remove` | Put components in a stack or take them out: `org/repo` (its root), `org/repo:path` (a monorepo service); none means this repository |
-| `gitgrit stack components [-p org/repo]` | Every component and the stacks it belongs to |
+| `gitgrit stack add <stack> [project…]` / `remove` | Put projects in a stack or take them out: `org/repo`, `org/repo#path` (a monorepo project); none means the project you're in |
 | `gitgrit stack refresh <stack>` | Rebuild a stack's map from its projects' main branches (superusers) |
 | **AI** | |
 | `gitgrit ai usage [--period day\|week\|month]` | Input and output tokens per provider and model, per kind of work, per standard |

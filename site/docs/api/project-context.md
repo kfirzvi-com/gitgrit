@@ -4,7 +4,12 @@ title: "ProjectContext API"
 
 # ProjectContext API
 
-The `project` object passed to every standard's `evaluate` function provides these methods:
+The `project` object passed to every standard's `evaluate` function provides these methods.
+
+Paths are relative to the **project's root**: the repository root, or, for a
+project inside a [monorepo](../getting-started/monorepos.md), its directory
+(`package.json` there means `apps/web/package.json`). The two
+`*_repository_*` methods reach the whole repository on purpose.
 
 ## Methods
 
@@ -45,7 +50,8 @@ page = project.read_file_lines("assets/app.js")
 
 ### `project.list_files() -> list[str]`
 
-List all file paths in the repository.
+List all file paths in the project (the whole repository, or the project's
+directory inside a monorepo), relative to the project's root.
 
 ```python
 files = project.list_files()
@@ -122,6 +128,22 @@ tracked files.
 date_str = project.get_file_last_commit_date("CLAUDE.md")
 # "2026-04-15T10:23:00Z"
 ```
+
+### `project.get_repository_file_content(path) -> str | None`
+
+Read a file anywhere in the repository, by its path from the repository root,
+also outside the project's own directory. For a project inside a monorepo,
+this reaches what lives at the root: a workspace lockfile, CI config,
+`CODEOWNERS`. Same as `get_file_content` for a whole-repository project.
+
+```python
+lock = project.get_file_content("pnpm-lock.yaml") or project.get_repository_file_content("pnpm-lock.yaml")
+```
+
+### `project.list_repository_files() -> list[str]`
+
+Every file path in the whole repository, from the repository root. Same as
+`list_files` for a whole-repository project.
 
 ## Execution environment
 

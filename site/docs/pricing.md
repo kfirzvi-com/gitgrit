@@ -95,7 +95,7 @@ Start free. Grow into a plan when your team does. **Every plan includes unlimite
 
 ### What counts as a project?
 
-A project is one repository (or one [artifact project](getting-started/artifact-projects.md)) that GitGrit checks. Archived projects don't count.
+A project is one repository, one directory of a [monorepo](getting-started/monorepos.md) added as its own project, or one [artifact project](getting-started/artifact-projects.md) that GitGrit checks. Archived projects don't count.
 
 ### What counts as a standard execution?
 

@@ -60,8 +60,8 @@ Paths below are relative to `/api/v1/workspaces/{workspace_id}/`.
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `overview/` | The dashboard in one call: health counts, warning lights, what needs you |
-| `GET` `POST` | `projects/` | List projects; add a repository as a project |
-| `GET` | `projects/resolve/?repo_full_path=org/repo` | Find a project by its repository path (or `?web_url=`) |
+| `GET` `POST` | `projects/` | List projects; add a repository as a project (`root_path` for a [monorepo](../getting-started/monorepos.md) directory) |
+| `GET` | `projects/resolve/?repo_full_path=org/repo` | Find a project by its repository path (or `?web_url=`); `&path=` picks the monorepo project that directory is in |
 | `GET` `PATCH` `DELETE` | `projects/{project_id}/` | One project; change its lifecycle or owner; remove it |
 | `GET` | `projects/{project_id}/status/` | The project's grade and score, and why |
 | `GET` | `projects/{project_id}/health/` | Each attached standard's latest result |
@@ -91,10 +91,9 @@ Paths below are relative to `/api/v1/workspaces/{workspace_id}/`.
 |---|---|---|
 | `GET` `POST` | `stacks/` | List or create stacks |
 | `GET` `PATCH` `DELETE` | `stacks/{stack_id}/` | Read, rename or delete a stack |
-| `POST` | `stacks/{stack_id}/components/` | Add a component to a stack |
-| `DELETE` | `stacks/{stack_id}/components/{component_id}/` | Remove a component from a stack |
+| `POST` | `stacks/{stack_id}/projects/` | Add projects to a stack |
+| `DELETE` | `stacks/{stack_id}/projects/{project_id}/` | Remove a project from a stack |
 | `POST` | `stacks/{stack_id}/refresh/` | Rebuild the stack's map |
-| `GET` | `components/` | Every component in the workspace |
 
 ### Connections
 
