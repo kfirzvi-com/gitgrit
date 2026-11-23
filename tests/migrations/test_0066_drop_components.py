@@ -36,6 +36,9 @@ class DropComponentsTests(TransactionTestCase):
         )
         self.stack = Stack.objects.create(tenant=tenant, name="Core")
         api_root = Component.objects.create(tenant=tenant, project=self.api, path="", name="api")
+        api_worker = Component.objects.create(tenant=tenant, project=self.api, path="worker", name="worker")
+        self.worker_stack = Stack.objects.create(tenant=tenant, name="Jobs")
+        old.get_model("app", "ComponentStack").objects.create(component=api_worker, stack=self.worker_stack)
         web_root = Component.objects.create(tenant=tenant, project=self.web, path="", name="web")
 
         # What the previous release wrote while phase 1 was live.
@@ -64,6 +67,8 @@ class DropComponentsTests(TransactionTestCase):
         ProjectStack = self.apps.get_model("app", "ProjectStack")
         ProjectDependency = self.apps.get_model("app", "ProjectDependency")
         self.assertTrue(ProjectStack.objects.filter(project_id=self.api.pk, stack_id=self.stack.pk).exists())
+        # Not a component's inside the repository: that one waits on its suggestion.
+        self.assertFalse(ProjectStack.objects.filter(project_id=self.api.pk, stack_id=self.worker_stack.pk).exists())
         self.assertEqual(
             list(ProjectDependency.objects.values_list("source_id", "target_id", "label")),
             [(self.web.pk, self.api.pk, "HTTPS")],

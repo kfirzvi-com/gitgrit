@@ -5,7 +5,7 @@ the component tables. Database only: Django's model state already lost the
 components in 0063.
 
 1. Copy again what the previous release wrote to the component tables while
-   it served next to phase 1: stack memberships, edges, and externals or
+   it served next to phase 1: root components' stack memberships, edges, and externals or
    infrastructure that know only their component. (Kind, technologies and
    suggestions are not touched: the new release owns them by now.)
 2. Dedupe externals per project, name and direction, and infrastructure
@@ -30,6 +30,7 @@ FROM component_stacks cs
 JOIN components c ON c.id = cs.component_id
 JOIN projects p ON p.id = c.project_id
 JOIN stacks s ON s.id = cs.stack_id
+WHERE c.path = ''  -- a project is its root component; the others' stacks wait on their suggestions (0064)
 ON CONFLICT (project_id, stack_id) DO NOTHING;
 
 INSERT INTO project_dependencies (id, tenant_id, source_id, target_id, label, description, created_at, updated_at)
