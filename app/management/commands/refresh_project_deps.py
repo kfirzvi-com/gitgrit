@@ -10,6 +10,8 @@ Local development without a platform connection or an LLM key:
   manage.py refresh_project_deps <id> --local-path ../gitgrit-demo-monorepo
   # take the topology from a fixture instead of asking a model
   manage.py refresh_project_deps <id> --local-path ../repo --fixture topology.json
+  # every project of one repository (a monorepo), whole-repository project first
+  manage.py refresh_project_deps --repository org/repo --local-path ../repo --fixture topology.json
 
 Both imply --sync and one project.
 """
@@ -28,6 +30,10 @@ class Command(BaseCommand):
         parser.add_argument("project_ids", nargs="*", help="Project IDs to refresh")
         parser.add_argument("--all", action="store_true", help="All projects")
         parser.add_argument(
+            "--repository",
+            help="Every project of this repository (org/repo), the whole-repository one first",
+        )
+        parser.add_argument(
             "--sync",
             action="store_true",
             help="Run inline now instead of enqueuing (no worker needed)",
@@ -44,18 +50,20 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         if opts["all"]:
             projects = list(Project.objects.all())
+        elif opts.get("repository"):
+            projects = list(Project.objects.filter(full_path=opts["repository"]).order_by("root_path"))
         elif opts["project_ids"]:
             projects = list(Project.objects.filter(pk__in=opts["project_ids"]))
         else:
-            raise CommandError("Pass project IDs or --all")
+            raise CommandError("Pass project IDs, --repository or --all")
 
         if not projects:
             self.stdout.write("No matching projects.")
             return
 
         local = opts.get("local_path") or opts.get("fixture")
-        if local and len(projects) != 1:
-            raise CommandError("--local-path / --fixture apply to exactly one project")
+        if local and len({p.full_path for p in projects}) != 1:
+            raise CommandError("--local-path / --fixture apply to the projects of exactly one repository")
         sync = opts["sync"] or bool(local)
 
         for p in projects:
@@ -97,12 +105,10 @@ class Command(BaseCommand):
             )
             self.stderr.write(self.style.ERROR(f"✗ {project.name}: {exc}"))
             return
-        shape = ""
-        if summary.created or summary.removed:
-            shape = f" (components +{len(summary.created)}/-{len(summary.removed)})"
+        suggested = f"{summary.suggestions} suggested projects, " if summary.suggestions else ""
         self.stdout.write(
             self.style.SUCCESS(
-                f"✓ {project.name}: {summary.components} components{shape}, "
+                f"✓ {project.name}: {suggested}"
                 f"{summary.internal} internal, {summary.infrastructure} infra, "
                 f"{summary.external} external, {summary.files_read} files read"
             )

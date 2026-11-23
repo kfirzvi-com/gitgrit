@@ -197,7 +197,7 @@ class BaseWebhookView(APIView):
         removed_count = 0
         if removed_ids:
             for conn in connections:
-                # ``delete()`` totals every cascaded row (components, edges,
+                # ``delete()`` totals every cascaded row (edges,
                 # executions); report projects only.
                 _, per_model = Project.objects.filter(
                     platform_connection=conn, external_id__in=removed_ids

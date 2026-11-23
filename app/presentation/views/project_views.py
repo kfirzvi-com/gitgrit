@@ -12,6 +12,8 @@ from django.utils.dateparse import parse_datetime
 
 from app.presentation.bulk_edit_answer import BulkEditAnswer
 from app.application.project_bulk_edit import ProjectBulkEdit
+from app.application.project_suggestions import ProjectSuggestions
+from app.presentation.htmx import toast
 from app.application import commit_checks, project_management
 from app.application.errors import NotFoundError
 from app.application.commit_checks import (
@@ -97,7 +99,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
         return (
             Project.objects.filter(tenant=tenant)
             .select_related("platform_connection")
-            .prefetch_related("components__stacks")
+            .prefetch_related("stacks")
         )
 
     def get_context_data(self, **kwargs):
@@ -609,6 +611,32 @@ def retry_webhook(request, pk):
         messages.error(request, "Webhook registration failed. Check your connection token.")
 
     return redirect("project_detail", pk=project.pk)
+
+
+@login_required
+@require_POST
+def add_suggested_projects(request, pk):
+    """Add one suggested project (``path``) or, without one, every open
+    suggestion of this whole-repository project. Answers HTMX with the
+    repository section swapped in place."""
+    tenant = request.tenant
+    if not tenant:
+        messages.error(request, "No active workspace.")
+        return redirect("project_list")
+    project = get_object_or_404(Project.objects.select_related("platform_connection"), pk=pk, tenant=tenant)
+    path = request.POST.get("path")
+    result = ProjectSuggestions(project, request.user).add([path] if path else None)
+    if result.added:
+        names = ", ".join(p.name for p in result.added)
+        text = f"Added {names}." if len(result.added) <= 3 else f"Added {len(result.added)} projects."
+        level = "success"
+    else:
+        text, level = "Nothing to add: those are projects already.", "info"
+    if not request.headers.get("HX-Request"):
+        getattr(messages, level)(request, text)
+        return redirect("project_detail", pk=project.pk)
+    response = render(request, "partials/project_repository.html", {"project": project})
+    return toast(response, text, level)
 
 
 @login_required

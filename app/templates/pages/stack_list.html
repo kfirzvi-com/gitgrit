@@ -25,7 +25,6 @@
                 <th data-smart-sort="name">Stack</th>
                 <th data-smart-sort="failed">Projects by health</th>
                 <th data-smart-sort="projects" class="text-right">Projects</th>
-                <th data-smart-sort="components" class="text-right">Components</th>
                 <th>Owners</th>
               </tr>
             </thead>
@@ -46,7 +45,6 @@
                     data-sort-healthy="{{ row.health.healthy }}"
                     data-sort-share="{{ row.healthy_share }}"
                     data-sort-projects="{{ row.projects|length }}"
-                    data-sort-components="{{ row.component_count }}"
                     data-group-owner="{{ row.owner_values }}">
                   <td class="max-w-sm">
                     <a href="{% url 'stack_detail' stack.pk %}" class="link link-hover font-medium break-words">{{ stack.name }}</a>
@@ -62,7 +60,6 @@
                     {% endif %}
                   </td>
                   <td class="text-right tabular-nums">{{ row.projects|length }}</td>
-                  <td class="text-right tabular-nums">{{ row.component_count }}</td>
                   <td>
                     <div class="flex flex-wrap gap-1">
                       {% for owner in row.owners %}
@@ -89,7 +86,7 @@
   <div class="card bg-base-100 shadow-xl">
     <div class="card-body items-center text-center py-12">
       <h2 class="card-title">No stacks yet</h2>
-      <p class="opacity-70 mb-4">Create stacks to group the components of one application — its services, apps, libraries and infrastructure.</p>
+      <p class="opacity-70 mb-4">Create stacks to group the projects of one application — its services, apps, libraries and infrastructure.</p>
       <a href="{% url 'create_stack' %}" class="btn btn-primary">New Stack</a>
     </div>
   </div>

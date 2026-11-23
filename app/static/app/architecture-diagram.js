@@ -1,6 +1,6 @@
 /* Workspace architecture diagram (read-only).
  *
- * Stacks as nodes (with technologies aggregated from their components and a
+ * Stacks as nodes (with technologies aggregated from their projects and a
  * rolled-up compliance score), stack-to-stack dependencies as edges. Clicking
  * a stack opens its stack view. Built on window.GitGritFlow (flow-common.js),
  * which is loaded ahead of this file along with the React/@xyflow UMD globals.
@@ -52,10 +52,7 @@
       h(
         "div",
         { className: "gg-stack-node__meta" },
-        d.component_count + (d.component_count === 1 ? " component" : " components") +
-          (d.project_count !== d.component_count
-            ? " · " + d.project_count + (d.project_count === 1 ? " repo" : " repos")
-            : "")
+        d.project_count + (d.project_count === 1 ? " project" : " projects")
       ),
       techs.length
         ? h(

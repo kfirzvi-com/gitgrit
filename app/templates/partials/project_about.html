@@ -1,4 +1,5 @@
-{# The project's About card: description, details, languages and tags, components. #}
+{# The project's About card: description, details, languages and tags, stacks,  #}
+{# and the other projects in its repository (a monorepo) with suggested ones.    #}
 {# Long values are cut with an ellipsis so nothing runs past the card.          #}
 <div class="card bg-base-100 shadow-xl h-full">
   <div class="card-body p-5 gap-4 text-sm">
@@ -15,6 +16,10 @@
           </a>
         {% else %}<span title="{{ project.full_path }}">{{ project.get_platform_display }}</span>{% endif %}
       </dd>
+      {% if project.root_path %}
+      <dt class="text-base-content/60">Path</dt>
+      <dd class="min-w-0 truncate font-mono" title="{{ project.full_path }} / {{ project.root_path }}">{{ project.root_path }}</dd>
+      {% endif %}
       <dt class="text-base-content/60">Default branch</dt>
       <dd class="min-w-0 truncate font-mono" title="{{ project.default_branch }}">{{ project.default_branch }}</dd>
       <dt class="text-base-content/60">Lifecycle</dt>
@@ -52,28 +57,17 @@
       </div>
     {% endif %}
 
-    <div class="scroll-mt-20" id="components">
-      <h3 class="font-semibold mb-2 flex items-center gap-2">
-        Components
-        {% if project.is_monorepo %}<span class="badge badge-info badge-sm">Monorepo</span>{% endif %}
-      </h3>
-      <ul class="space-y-2">
-        {% for component in project.components.all %}
-          <li class="bg-base-200 rounded-lg px-3.5 py-3 min-w-0">
-            <div class="flex items-baseline gap-2 min-w-0">
-              <span class="font-semibold truncate">{{ component.name }}</span>
-              <span class="text-xs opacity-60 font-mono truncate">{% if component.path %}{{ component.path }}{% else %}repository root{% endif %}</span>
-            </div>
-            <div class="flex flex-wrap gap-1 mt-1">
-              {% for stack in component.stacks.all %}
-                <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
-              {% empty %}
-                <span class="text-xs opacity-60">Not in any stack</span>
-              {% endfor %}
-            </div>
-          </li>
+    <div>
+      <h3 class="font-semibold mb-2">Stacks</h3>
+      <div class="flex flex-wrap gap-1">
+        {% for stack in project.stacks.all %}
+          <a href="{% url 'stack_detail' stack.pk %}" class="badge badge-outline badge-sm hover:badge-primary">{{ stack.name }}</a>
+        {% empty %}
+          <span class="text-xs opacity-60">Not in any stack</span>
         {% endfor %}
-      </ul>
+      </div>
     </div>
+
+    {% if not project.is_artifact %}{% include "partials/project_repository.html" %}{% endif %}
   </div>
 </div>

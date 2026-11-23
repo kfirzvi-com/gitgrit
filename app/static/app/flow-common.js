@@ -86,7 +86,7 @@ window.GitGritFlow = (function () {
     workspace: "rgba(255,255,255,0.28)", // stack → stack (dashboard)
     internal: "rgba(255,255,255,0.32)", // project → project within a stack
     public: "#5eead4", // consumed by something (public-facing)
-    consuming: "#c084fc", // we consume a workspace component
+    consuming: "#c084fc", // we consume a workspace project
     thirdparty: "#facc15", // we depend on an external service
   };
 
@@ -116,10 +116,9 @@ window.GitGritFlow = (function () {
           ? h("div", { className: "gg-boundary-node__stack" }, d.stack_name)
           : null,
         h("div", { className: "gg-boundary-node__name" }, d.name),
-        // A component of another repository: say which one, unless the
-        // component is that repository's root (same name, nothing to add).
-        d.project_name && d.project_name !== d.name
-          ? h("div", { className: "gg-boundary-node__repo" }, d.project_name)
+        // A project inside a monorepo: say which repository it is in.
+        d.repository && d.repository !== d.name
+          ? h("div", { className: "gg-boundary-node__repo" }, d.repository)
           : null
       );
     };
@@ -319,7 +318,7 @@ window.GitGritFlow = (function () {
 
     var head = document.createElement("div");
     head.className = "gg-flow-tooltip__head";
-    // A node with its own health (a component) shows its dot; a stack, which
+    // A node with its own health (a project) shows its dot; a stack, which
     // has none, just its name above the projects that need attention.
     if (d.health) {
       var dot = document.createElement("span");

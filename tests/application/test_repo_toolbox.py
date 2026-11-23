@@ -115,7 +115,7 @@ class ReadFileTests(SimpleTestCase):
 
 
 class ScopedToolboxTests(SimpleTestCase):
-    """A component's toolbox lists its own directory by default but can still
+    """A project's toolbox lists its own directory by default but can still
     read repository-root files, and shares evidence with its parent."""
 
     TREE = [

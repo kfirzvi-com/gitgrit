@@ -163,7 +163,7 @@ class TestStacks(CockpitAPITestCase):
         super().setUp()
         self.stack = baker.make("app.Stack", tenant=self.tenant, name="Payments", description="Money")
         self.project = _project(self.tenant, name="ledger")
-        self.project.root_component.stacks.add(self.stack)
+        self.project.stacks.add(self.stack)
 
     def test_list_counts_each_stacks_projects(self):
         body = self.get(f"{self.ws}/stacks/").json()
@@ -171,14 +171,13 @@ class TestStacks(CockpitAPITestCase):
         assert body == [{"id": str(self.stack.pk), "name": "Payments", "description": "Money", "project_count": 1,
                          "failed": 0, "needs_attention": 1, "healthy": 0}]
 
-    def test_view_lists_components_worst_first(self):
+    def test_view_lists_projects_worst_first(self):
         body = self.get(f"{self.ws}/stacks/{self.stack.pk}/").json()
 
         assert body["name"] == "Payments"
         assert body["map_refreshing"] is False
-        component = body["components"][0]
-        assert (component["name"], component["project"]["name"], component["why"]) == (
-            self.project.root_component.name, "ledger", "Not checked yet")
+        row = body["projects"][0]
+        assert (row["name"], row["why"]) == ("ledger", "Not checked yet")
 
     def test_another_workspaces_stack_is_404(self):
         other = baker.make("app.Stack", tenant=baker.make("app.Tenant"))

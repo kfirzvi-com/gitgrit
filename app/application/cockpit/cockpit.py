@@ -11,7 +11,7 @@ from app.application.cockpit.attention_row import AttentionRow
 from app.application.cockpit.warning_light import WarningLight
 from app.application.project_health_counts import ProjectHealthCounts
 from app.application.standard_results import current_results
-from app.domain.models import CommitCheck, Component, Project, StandardExecution
+from app.domain.models import CommitCheck, Project, StandardExecution
 from app.domain.score_representation import ScoreTone
 from app.domain.scoring import CommitScoreOutcome
 
@@ -117,7 +117,7 @@ class Cockpit:
     def _stacks_by_project(tenant) -> dict:
         """Each project's stack names, sorted, once each."""
         by_project = defaultdict(set)
-        rows = Component.objects.filter(tenant=tenant, stacks__isnull=False).values_list("project_id", "stacks__name")
+        rows = Project.objects.filter(tenant=tenant, stacks__isnull=False).values_list("pk", "stacks__name")
         for project_id, name in rows:
             by_project[project_id].add(name)
         return {pid: tuple(sorted(names, key=str.lower)) for pid, names in by_project.items()}

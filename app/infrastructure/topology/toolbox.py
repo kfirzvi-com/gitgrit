@@ -50,22 +50,30 @@ def looks_like_manifest(path: str) -> bool:
 
 class RepoToolbox:
     """Tools over one snapshot. ``scope`` narrows the default listing to one
-    component's directory (a monorepo sub-tree) while ``read_file`` stays
+    project's directory (a monorepo sub-tree) while ``read_file`` stays
     repository-wide, so a scoped run can still open root manifests.
+    ``exclude`` hides the directories other projects own from the listings
+    (a whole-repository project leaves its monorepo's apps to them).
 
     Scoped toolboxes made with ``scoped()`` share the tree cache and the
     ``files_read`` record with their parent, so evidence is counted once per
     inference run.
     """
 
-    def __init__(self, snapshot: RepositorySnapshot, full_path: str, scope: str = "", *, _shared=None):
+    def __init__(
+        self, snapshot: RepositorySnapshot, full_path: str, scope: str = "", *, exclude=(), _shared=None
+    ):
         self._snapshot = snapshot
         self._full_path = full_path
         self._scope = clean_path(scope)
+        self._exclude = tuple(clean_path(p) for p in exclude if clean_path(p))
         self._shared = _shared if _shared is not None else {"tree": None, "tree_size": None, "read": []}
 
-    def scoped(self, path: str) -> "RepoToolbox":
-        return RepoToolbox(self._snapshot, self._full_path, path, _shared=self._shared)
+    def scoped(self, path: str, exclude=()) -> "RepoToolbox":
+        return RepoToolbox(self._snapshot, self._full_path, path, exclude=exclude, _shared=self._shared)
+
+    def _excluded(self, path: str) -> bool:
+        return any(path == d or path.startswith(d + "/") for d in self._exclude)
 
     @property
     def scope(self) -> str:
@@ -105,7 +113,7 @@ class RepoToolbox:
         """List the repository's files, one path per line.
 
         With no path (or '.', '/') lists the whole repository — or, when the
-        analysis is scoped to one component, that component's directory; a
+        analysis is scoped to one project, that project's directory; a
         large listing gets a directory summary plus every manifest/config
         file found anywhere. With a directory path lists only the files under
         it. Generated and dependency folders (node_modules, vendor, dist, …)
@@ -114,6 +122,8 @@ class RepoToolbox:
         tree = self.load_tree()
         if not tree:
             return "The repository listing is empty (no readable files on this branch)."
+        if self._exclude:
+            tree = [f for f in tree if not self._excluded(f)]
 
         p = clean_path(path)
         if p.lower() in self._root_aliases():
@@ -178,7 +188,7 @@ class RepoToolbox:
         p = clean_path(path)
         content = self._snapshot.read_file(p)
         if content is None and self._scope and not p.startswith(self._scope + "/"):
-            # A scoped model often writes paths relative to its component.
+            # A scoped model often writes paths relative to its project.
             content = self._snapshot.read_file(f"{self._scope}/{p}")
             if content is not None:
                 p = f"{self._scope}/{p}"

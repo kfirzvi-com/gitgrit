@@ -6,7 +6,7 @@ from enum import StrEnum
 class UsageCategory(StrEnum):
     """What a workspace spent tokens on."""
 
-    MAP = "map"  # inferring a project's components and dependencies (the diagrams)
+    MAP = "map"  # inferring a project's dependencies and suggested projects (the diagrams)
     STANDARD = "standard"  # running LLM standards (standards whose evaluate takes the llm)
 
     @property

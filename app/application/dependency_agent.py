@@ -53,9 +53,9 @@ def refresh_workspace_map(tenant) -> int:
 
 
 def refresh_stack_map(stack) -> int:
-    """Queue a dependency refresh for every project with a component in the
-    stack, from its default branch. Returns how many projects were queued."""
-    return refresh_projects_map(stack.projects)
+    """Queue a dependency refresh for every project in the stack, from its
+    default branch. Returns how many projects were queued."""
+    return refresh_projects_map(stack.projects.all())
 
 
 def refresh_projects_map(projects) -> int:
@@ -73,7 +73,8 @@ def infer_and_store(
     inference: TopologyInference | None = None,
     snapshot: RepositorySnapshot | None = None,
 ) -> InferenceSummary:
-    """Analyze one project's repository and replace its components and edges.
+    """Analyze one project and replace its edges (and, for a whole-repository
+    project, the projects suggested from inside its repository).
 
     Sets the project's deps_status to OK on success; raises on failure (the
     caller/task records the failure and the previous map is kept). A missing
@@ -91,7 +92,6 @@ def infer_and_store(
     use_case = RefreshProjectTopology(
         inference=inference,
         snapshot_factory=(lambda p: snapshot) if snapshot is not None else snapshot_for_project,
-        enqueue_refresh=_enqueue_refresh,
     )
     try:
         return use_case.run(project)

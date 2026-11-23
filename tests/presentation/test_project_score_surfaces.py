@@ -1,4 +1,4 @@
-"""The badge and the stack diagram's components show the project score: a
+"""The badge and the stack diagram's projects show the project score: a
 failing Required standard makes them 0 and says why."""
 from django.test import TestCase
 from django.urls import reverse
@@ -32,13 +32,12 @@ class ProjectScoreSurfacesTests(TestCase):
         assert "GitGrit compliance: F" in svg
         assert ScoreToneStyle.for_tone("failed").color in svg
 
-    def test_a_component_shows_the_project_score_and_why(self):
+    def test_a_project_node_shows_its_score_and_why(self):
         stack = baker.make("app.Stack", tenant=self.tenant)
-        component = self.project.root_component
-        component.stacks.add(stack)
+        self.project.stacks.add(stack)
 
         graph = stack_graph(stack)
-        node = next(n for n in graph["components"] if n["id"] == str(component.id))
+        node = next(n for n in graph["projects"] if n["id"] == str(self.project.id))
 
         assert (node["score"], node["score_text"], node["health"], node["issues"]) == (
             None, "F", "failed", ["No secrets failing"]
@@ -67,7 +66,7 @@ class ProjectScoreSurfacesTests(TestCase):
         session["active_tenant_id"] = str(self.tenant.id)
         session.save()
         stack = baker.make("app.Stack", tenant=self.tenant, name="Orders")
-        self.project.root_component.stacks.add(stack)
+        self.project.stacks.add(stack)
 
         body = self.client.get(reverse("stack_list")).content.decode()
 

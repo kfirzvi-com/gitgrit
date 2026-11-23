@@ -1,12 +1,12 @@
 """Changing many projects at once from the Projects page: owner, lifecycle,
-stacks (by component) and attached standards."""
+stacks and attached standards."""
 import pytest
 from django.test import TestCase
 from model_bakery import baker
 
 from app.application.errors import NotFoundError
 from app.application.project_bulk_edit import ProjectBulkEdit
-from app.domain.models import ProjectStandard
+from app.domain.models import Project, ProjectStandard
 
 class ProjectBulkEditTests(TestCase):
     def setUp(self):
@@ -31,18 +31,17 @@ class ProjectBulkEditTests(TestCase):
         with pytest.raises(ValueError):
             self.edit.apply("set_lifecycle", self.ids, "retired")
 
-    def test_a_project_joins_a_stack_by_its_root_component_and_leaves_it_whole(self):
-        extra = baker.make("app.Component", tenant=self.tenant, project=self.api, path="worker", name="worker")
-        extra.stacks.add(self.stack)
+    def test_projects_join_and_leave_a_stack(self):
+        self.api.stacks.add(self.stack)
 
         added = self.edit.apply("add_to_stack", self.ids, str(self.stack.pk))
 
-        assert (added.changed, added.unchanged) == (2, 0)
-        assert set(self.stack.components.values_list("path", flat=True)) == {"", "worker"}
+        assert (added.changed, added.unchanged) == (1, 1)
+        assert set(self.stack.projects.all()) == set(Project.objects.filter(pk__in=self.ids))
 
         removed = self.edit.apply("remove_from_stack", [self.api.pk], str(self.stack.pk))
         assert removed.changed == 1
-        assert not self.stack.components.filter(project=self.api).exists()
+        assert not self.stack.projects.filter(pk=self.api.pk).exists()
 
     def test_attaching_a_standard_with_an_importance_and_detaching_it(self):
         result = self.edit.apply("attach_standard", self.ids, str(self.standard.pk), importance_value="required")

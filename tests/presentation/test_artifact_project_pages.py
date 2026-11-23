@@ -148,7 +148,7 @@ class AddUploadProjectTests(UploadPageTestCase):
 
         project = Project.objects.get(name="Checkout")
         self.assertTrue(project.is_artifact)
-        self.assertEqual(project.root_component.stacks.get().name, "Web Team")
+        self.assertEqual(project.stacks.get().name, "Web Team")
         self.assertEqual(project.artifact_commits.get().message, "First release")
         self.assertRedirects(
             resp, reverse("project_detail", args=[project.pk]) + "#results",

@@ -1,7 +1,7 @@
 """Turning a topology's names into workspace references.
 
-The inference names other components loosely ("org/api", "api", "auth-service",
-"org/mono/apps/api-gateway"); the roster is the set of components it may mean.
+The inference names other projects loosely ("org/api", "api", "auth-service",
+"org/mono/apps/api-gateway"); the roster is the set of projects it may mean.
 This module maps one to the other and applies the classification rules that
 correct the most common model mistakes: a datastore filed as an external
 service, a bare cloud provider, a workspace repo listed as external, the same
@@ -18,19 +18,20 @@ from app.domain.architecture.topology import (
     OUTBOUND,
     ExternalLink,
     InfrastructureResource,
-    RepositoryTopology,
+    ProjectTopology,
 )
 
 
 @dataclass(frozen=True)
 class RosterEntry:
-    """One workspace component as the inference may refer to it.
-    ``component_id`` is None for a sibling that is about to be created."""
+    """One workspace project as the inference may refer to it: its
+    repository (``full_path``), where it starts inside it (``path``, "" for
+    the whole repository) and its name."""
 
     full_path: str
     path: str
     name: str
-    component_id: object | None = None
+    project_id: object | None = None
 
     @property
     def is_root(self) -> bool:
@@ -45,9 +46,10 @@ def resolve_ref(target: str, roster: Iterable[RosterEntry], *, this_repo: str = 
     """Best-effort mapping of a model-returned target onto one roster entry.
 
     Tried in order: exact ref (``repo`` or ``repo#path``); ``#path`` or a bare
-    path naming a sibling in ``this_repo``; a bare repository (its root, or
-    its only component); ``repo/path`` written with a slash; a unique
-    component name; a repository's last path segment (its root component).
+    path naming a project in ``this_repo``; a bare repository (its
+    whole-repository project, or its only one); ``repo/path`` written with a
+    slash; a unique project name; a repository's last path segment (its
+    whole-repository project).
     """
     t = (target or "").strip().lower().rstrip("/")
     if not t:
@@ -133,7 +135,6 @@ def infra_kind(name: str) -> str | None:
 
 @dataclass(frozen=True)
 class ResolvedInternal:
-    source_path: str
     target: RosterEntry
     label: str
 
@@ -151,55 +152,54 @@ class ResolvedTopology:
 
 
 def resolve_topology(
-    topology: RepositoryTopology, roster: Iterable[RosterEntry], *, this_repo: str
+    topology: ProjectTopology, roster: Iterable[RosterEntry], *, this_repo: str, this_path: str = ""
 ) -> ResolvedTopology:
+    """Resolve the project's internal targets against ``roster`` and clean its
+    externals and infrastructure. ``this_repo`` / ``this_path`` name the
+    project itself: an edge back to it is dropped, and ``#path`` targets name
+    projects of the same repository."""
     roster = list(roster)
-    own_paths = {c.path for c in topology.components}
+
+    def is_self(entry: RosterEntry) -> bool:
+        return entry.full_path.lower() == this_repo.lower() and entry.path == this_path
 
     internal: list[ResolvedInternal] = []
     unresolved: list[str] = []
-    seen_edges: set[tuple[str, str, str]] = set()
+    seen_edges: set[tuple[str, str]] = set()
     for dep in topology.internal:
-        if dep.source_path not in own_paths:
-            continue
         entry = resolve_ref(dep.target_ref, roster, this_repo=this_repo)
         if entry is None:
             unresolved.append(dep.target_ref)
             continue
-        if entry.full_path.lower() == this_repo.lower() and entry.path == dep.source_path:
+        if is_self(entry):
             continue  # self-loop
-        key = (dep.source_path, entry.full_path.lower(), entry.path)
+        key = (entry.full_path.lower(), entry.path)
         if key in seen_edges:
             continue
         seen_edges.add(key)
-        internal.append(ResolvedInternal(dep.source_path, entry, dep.label[:255]))
+        internal.append(ResolvedInternal(entry, dep.label[:255]))
 
-    infra: dict[tuple[str, str], InfrastructureResource] = {}
+    infra: dict[str, InfrastructureResource] = {}
 
-    def add_infra(source_path: str, name: str, kind: str, label: str = "") -> None:
+    def add_infra(name: str, kind: str, label: str = "") -> None:
         name = (name or "").strip()
-        key = (source_path, name.lower())
+        key = name.lower()
         if not name or key in infra or resolve_ref(name, roster, this_repo=this_repo):
             return
         if kind not in INFRA_KINDS:
             kind = infra_kind(name) or "other"
-        infra[key] = InfrastructureResource(
-            source_path=source_path, name=name[:255], kind=kind, label=(label or "")[:255]
-        )
+        infra[key] = InfrastructureResource(name=name[:255], kind=kind, label=(label or "")[:255])
 
     for res in topology.infrastructure:
-        if res.source_path in own_paths:
-            add_infra(res.source_path, res.name, res.kind, res.label)
+        add_infra(res.name, res.kind, res.label)
 
     externals: list[ExternalLink] = []
-    seen_ext: set[tuple[str, str, str]] = set()
+    seen_ext: set[tuple[str, str]] = set()
     for ext in topology.externals:
-        if ext.source_path not in own_paths:
-            continue
         name = (ext.name or "").strip()
         if not name:
             continue
-        # A workspace component listed as "external" belongs to internal edges.
+        # A workspace project listed as "external" belongs to internal edges.
         if resolve_ref(name, roster, this_repo=this_repo):
             continue
         if ext.direction == OUTBOUND:
@@ -207,15 +207,14 @@ def resolve_topology(
                 continue
             kind = infra_kind(name)
             if kind:
-                add_infra(ext.source_path, name, kind, ext.label)
+                add_infra(name, kind, ext.label)
                 continue
-        key = (ext.source_path, canonical_key(name), ext.direction)
+        key = (canonical_key(name), ext.direction)
         if key in seen_ext:
             continue
         seen_ext.add(key)
         externals.append(
             ExternalLink(
-                source_path=ext.source_path,
                 name=name[:255],
                 direction=ext.direction,
                 url=(ext.url or "")[:2048],

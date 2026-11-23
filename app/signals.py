@@ -2,12 +2,12 @@ from allauth.account.signals import email_confirmed
 from django.contrib.auth.signals import user_logged_in
 from django.db.models import QuerySet
 from django.db import transaction
-from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
+from django.db.models.signals import post_delete, pre_delete, pre_save
 
 from app.application import superuser_service
 from app.application.access import confirm_access_request_email
 from app.application.membership_service import roster_of
-from app.domain.models import ArtifactCommit, Component, Membership, Project, Tenant, User
+from app.domain.models import ArtifactCommit, Membership, Tenant, User
 from app.infrastructure import upload_storage
 from app.domain.workspace_roles import OWNER
 from app.workspace_access import leave_support_view
@@ -21,24 +21,6 @@ def reset_support_view(request, user, **kwargs):
         leave_support_view(request)
 
 
-def create_root_component(sender, instance, created, raw=False, **kwargs):
-    """Every project has at least one component: the repository root.
-
-    Created with the project so stack membership and the dependency graph
-    always have a component to attach to, before any analysis has run. The
-    inference agent later reconciles the component set by path, which keeps
-    this root row (and its id) for single-application repositories.
-    ``raw`` is True during fixture loading, where the fixture owns the rows.
-    """
-    if not created or raw:
-        return
-    Component.objects.get_or_create(
-        project=instance,
-        path="",
-        defaults={"tenant_id": instance.tenant_id, "name": instance.name},
-    )
-
-
 def delete_artifact_archive(sender, instance, **kwargs):
     """A deleted artifact commit takes its archive with it: deleting the
     project or its workspace cascades here, one commit at a time. Removed
@@ -48,7 +30,6 @@ def delete_artifact_archive(sender, instance, **kwargs):
 
 
 user_logged_in.connect(reset_support_view)
-post_save.connect(create_root_component, sender=Project, dispatch_uid="project_root_component")
 post_delete.connect(delete_artifact_archive, sender=ArtifactCommit, dispatch_uid="artifact_commit_archive")
 
 

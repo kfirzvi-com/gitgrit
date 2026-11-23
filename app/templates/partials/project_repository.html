@@ -1,0 +1,51 @@
+{# The other projects in this project's repository (a monorepo), and — on the  #}
+{# whole-repository project — the apps and services the analysis found inside #}
+{# it, each one click away from being a project of its own. Swapped in place  #}
+{# after an Add (HTMX), so the page never reloads.                             #}
+{% with siblings=project.repository_projects suggestions=project.open_suggestions %}
+<div class="scroll-mt-20" id="repository">
+  {% if siblings or suggestions %}
+    <h3 class="font-semibold mb-2 flex items-center gap-2">
+      In this repository
+      <span class="badge badge-info badge-sm">Monorepo</span>
+    </h3>
+    {% if siblings %}
+      <ul class="space-y-1 mb-3" data-repository-projects>
+        {% for sibling in siblings %}
+          <li class="flex items-baseline gap-2 min-w-0">
+            <a href="{% url 'project_detail' sibling.pk %}" class="link link-hover font-medium truncate">{{ sibling.name }}</a>
+            <span class="text-xs opacity-60 font-mono truncate">{{ sibling.root_path|default:"whole repository" }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if suggestions %}
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h4 class="text-xs uppercase tracking-wide opacity-60">Suggested projects</h4>
+        <button type="button" class="btn btn-xs btn-primary"
+                hx-post="{% url 'add_suggested_projects' project.pk %}"
+                hx-target="#repository" hx-swap="outerHTML"
+                data-add-all-suggestions>Add all ({{ suggestions|length }})</button>
+      </div>
+      <ul class="space-y-2" data-suggested-projects>
+        {% for suggestion in suggestions %}
+          <li class="bg-base-200 rounded-lg px-3.5 py-2.5 min-w-0 flex items-start justify-between gap-2" data-suggestion="{{ suggestion.path }}">
+            <div class="min-w-0">
+              <div class="flex items-baseline gap-2 min-w-0">
+                <span class="font-semibold truncate">{{ suggestion.name }}</span>
+                <span class="text-xs opacity-60 font-mono truncate">{{ suggestion.path }}</span>
+              </div>
+              {% if suggestion.description %}<p class="text-xs opacity-70 mt-0.5 line-clamp-2">{{ suggestion.description }}</p>{% endif %}
+            </div>
+            <button type="button" class="btn btn-xs btn-ghost border border-base-content/20 shrink-0"
+                    hx-post="{% url 'add_suggested_projects' project.pk %}"
+                    hx-vals='{"path": "{{ suggestion.path|escapejs }}"}'
+                    hx-target="#repository" hx-swap="outerHTML">Add</button>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="text-xs opacity-60 mt-2">Each becomes a project of its own, rooted at its directory: its standards, checks and score follow its own files.</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endwith %}

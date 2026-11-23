@@ -199,12 +199,14 @@ class StackSummarySerializer(serializers.Serializer):
     healthy = serializers.IntegerField()
 
 
-class StackComponentSerializer(serializers.Serializer):
+class StackProjectSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
-    path = serializers.CharField()
-    project = ProjectRefSerializer()
-    tone = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="Its repository's health.")
+    full_path = serializers.CharField(help_text="org/repo; empty for an artifact project.")
+    root_path = serializers.CharField(
+        allow_blank=True, help_text="Where it starts in its repository; empty for the whole repository."
+    )
+    tone = serializers.ChoiceField(choices=LEVEL_CHOICES, help_text="Its health.")
     grade = ScoreDisplaySerializer(allow_null=True)
     why = serializers.CharField()
     last_checked = serializers.DateTimeField(allow_null=True)
@@ -214,7 +216,7 @@ class StackDetailSerializer(StackSummarySerializer):
     standard_count = serializers.IntegerField()
     map_updated_at = serializers.DateTimeField(allow_null=True)
     map_refreshing = serializers.BooleanField()
-    components = StackComponentSerializer(many=True, help_text="Worst first.")
+    projects = StackProjectSerializer(many=True, help_text="Worst first.")
 
 
 class StackRefreshSerializer(serializers.Serializer):
@@ -233,21 +235,9 @@ class StackUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True)
 
 
-class ComponentProjectSerializer(ProjectRefSerializer):
-    full_path = serializers.CharField(help_text="org/repo; empty for an artifact project.")
+class ProjectIdsSerializer(serializers.Serializer):
+    project_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1)
 
 
-class ComponentSerializer(serializers.Serializer):
-    id = serializers.UUIDField()
-    name = serializers.CharField()
-    path = serializers.CharField(help_text='Where it lives in the repository; "" for the root component.')
-    project = ComponentProjectSerializer()
-    stacks = ProjectRefSerializer(many=True, help_text="Stacks it belongs to.")
-
-
-class ComponentIdsSerializer(serializers.Serializer):
-    component_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1)
-
-
-class StackComponentsChangeSerializer(serializers.Serializer):
+class StackProjectsChangeSerializer(serializers.Serializer):
     added = serializers.IntegerField(help_text="Newly added; ones already in the stack are skipped.")

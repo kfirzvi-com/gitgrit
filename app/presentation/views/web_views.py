@@ -61,7 +61,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["trend"] = TrendChart(HealthTrend.weekly(tenant))
             context["speedometer"] = Speedometer(cockpit.checks_this_week, cockpit.checks_peak)
 
-            stacks = list(Stack.objects.filter(tenant=tenant).prefetch_related("components__project"))
+            stacks = list(Stack.objects.filter(tenant=tenant).prefetch_related("projects"))
             health = ProjectHealthCounts.for_stacks(stacks)
             # Worst first: most failed, then most needing attention, then by name.
             context["stack_health"] = sorted(

@@ -2,7 +2,6 @@
 usage, the models a budget can cover, AI budgets, and stacks' health. Thin
 wrappers over the same application reads the pages use."""
 from django.utils import timezone
-from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import exceptions, status
 from rest_framework.response import Response
@@ -14,7 +13,7 @@ from app.application.dependency_agent import refresh_stack_map
 from app.application.project_health_counts import ProjectHealthCounts
 from app.application.stack_health import StackHealth
 from app.domain.ai_usage import BudgetPeriod, BudgetSummary
-from app.domain.models import Component, LLMBudget, Stack
+from app.domain.models import LLMBudget, Project, Stack
 from app.domain.score_representation import ScoreTone
 from app.presentation.api import cockpit_serializers as cs
 from app.presentation.api.views import WorkspaceAPIView
@@ -328,7 +327,7 @@ class StackListView(WorkspaceAPIView):
         responses={200: cs.StackSummarySerializer(many=True)},
     )
     def get(self, request, workspace_id):
-        stacks = list(Stack.objects.filter(tenant=self.tenant).prefetch_related("components__project"))
+        stacks = list(Stack.objects.filter(tenant=self.tenant).prefetch_related("projects"))
         health = ProjectHealthCounts.for_stacks(stacks)
         rows = sorted(
             ((stack, health[stack.pk]) for stack in stacks),
@@ -340,7 +339,7 @@ class StackListView(WorkspaceAPIView):
         operation_id="create_stack",
         tags=["stacks"],
         summary="Create a stack",
-        description="A stack groups components (deployable units inside repositories); add them with `POST stacks/<id>/components/`.",
+        description="A stack groups projects (a monorepo's projects can sit in different stacks); add them with `POST stacks/<id>/projects/`.",
         request=cs.StackCreateSerializer,
         responses={201: cs.StackSummarySerializer},
     )
@@ -360,7 +359,7 @@ class StackDetailView(WorkspaceAPIView):
     @extend_schema(
         operation_id="get_stack",
         tags=["stacks"],
-        summary="A stack's health and its components, worst first",
+        summary="A stack's health and its projects, worst first",
         responses={200: cs.StackDetailSerializer},
     )
     def get(self, request, workspace_id, stack_id):
@@ -372,18 +371,18 @@ class StackDetailView(WorkspaceAPIView):
             "standard_count": view.standard_count,
             "map_updated_at": view.map_updated_at.isoformat() if view.map_updated_at else None,
             "map_refreshing": view.map_refreshing,
-            "components": [
+            "projects": [
                 {
-                    "id": str(row.component.pk),
-                    "name": row.component.name,
-                    "path": row.component.path,
-                    "project": _project(row.component.project),
+                    "id": str(row.project.pk),
+                    "name": row.project.name,
+                    "full_path": row.project.full_path or "",
+                    "root_path": row.project.root_path,
                     "tone": str(row.tone),
-                    "grade": _grade(row.component.project, row.score),
+                    "grade": _grade(row.project, row.score),
                     "why": HealthNote.text(row.score),
                     "last_checked": row.score.created_at.isoformat() if row.score else None,
                 }
-                for row in view.components
+                for row in view.projects
             ],
         })
 
@@ -411,7 +410,7 @@ class StackDetailView(WorkspaceAPIView):
         operation_id="delete_stack",
         tags=["stacks"],
         summary="Delete a stack",
-        description="Its components stay; only the grouping goes.",
+        description="Its projects stay; only the grouping goes.",
         responses={204: None},
     )
     def delete(self, request, workspace_id, stack_id):
@@ -419,73 +418,38 @@ class StackDetailView(WorkspaceAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class StackComponentsView(WorkspaceAPIView):
+class StackProjectsView(WorkspaceAPIView):
     @extend_schema(
-        operation_id="add_stack_components",
+        operation_id="add_stack_projects",
         tags=["stacks"],
-        summary="Add components to a stack",
-        description="For a single-application repository, its root component is the project.",
-        request=cs.ComponentIdsSerializer,
-        responses={200: cs.StackComponentsChangeSerializer},
+        summary="Add projects to a stack",
+        request=cs.ProjectIdsSerializer,
+        responses={200: cs.StackProjectsChangeSerializer},
     )
     def post(self, request, workspace_id, stack_id):
         stack = _stack(self.tenant, stack_id)
-        data = cs.ComponentIdsSerializer(data=request.data)
+        data = cs.ProjectIdsSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         added = sum(
-            stack_service.add_component_to_stack(tenant=self.tenant, stack=stack, component=c)
-            for c in _components(self.tenant, data.validated_data["component_ids"])
+            stack_service.add_project_to_stack(tenant=self.tenant, stack=stack, project=p)
+            for p in _projects(self.tenant, data.validated_data["project_ids"])
         )
         return Response({"added": added})
 
 
-class StackComponentView(WorkspaceAPIView):
+class StackProjectView(WorkspaceAPIView):
     @extend_schema(
-        operation_id="remove_stack_component",
+        operation_id="remove_stack_project",
         tags=["stacks"],
-        summary="Take a component out of a stack",
+        summary="Take a project out of a stack",
         responses={204: None},
     )
-    def delete(self, request, workspace_id, stack_id, component_id):
+    def delete(self, request, workspace_id, stack_id, project_id):
         stack = _stack(self.tenant, stack_id)
-        (component,) = _components(self.tenant, [component_id])
-        if not stack_service.remove_component_from_stack(tenant=self.tenant, stack=stack, component=component):
-            raise exceptions.NotFound("That component isn't in the stack.")
+        (project,) = _projects(self.tenant, [project_id])
+        if not stack_service.remove_project_from_stack(tenant=self.tenant, stack=stack, project=project):
+            raise exceptions.NotFound("That project isn't in the stack.")
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class ComponentListView(WorkspaceAPIView):
-    @extend_schema(
-        operation_id="list_components",
-        tags=["stacks"],
-        summary="The workspace's components and the stacks each belongs to",
-        description=(
-            "A component is a deployable unit inside a repository: every project has a root one "
-            '(path ""), a monorepo one per service.'
-        ),
-        parameters=[OpenApiParameter("project_id", OpenApiTypes.UUID, required=False, description="Only this project's.")],
-        responses={200: cs.ComponentSerializer(many=True)},
-    )
-    def get(self, request, workspace_id):
-        components = (
-            Component.objects.filter(tenant=self.tenant)
-            .select_related("project")
-            .prefetch_related("stacks")
-            .order_by("project__name", "path")
-        )
-        project_id = request.query_params.get("project_id")
-        if project_id:
-            components = components.filter(project_id=project_id)
-        return Response([
-            {
-                "id": str(c.pk),
-                "name": c.name,
-                "path": c.path,
-                "project": {**_project(c.project), "full_path": c.project.full_path or ""},
-                "stacks": [{"id": str(s.pk), "name": s.name} for s in sorted(c.stacks.all(), key=lambda s: s.name.lower())],
-            }
-            for c in components
-        ])
 
 
 class StackRefreshView(WorkspaceAPIView):
@@ -504,12 +468,12 @@ class StackRefreshView(WorkspaceAPIView):
         return Response({"queued": queued}, status=status.HTTP_202_ACCEPTED)
 
 
-def _components(tenant, ids) -> list:
-    """The workspace's components with these ids; a 404 names any missing."""
-    found = {c.pk: c for c in Component.objects.filter(tenant=tenant, pk__in=ids).select_related("project")}
+def _projects(tenant, ids) -> list:
+    """The workspace's projects with these ids; a 404 names any missing."""
+    found = {p.pk: p for p in Project.objects.filter(tenant=tenant, pk__in=ids)}
     missing = [str(i) for i in ids if i not in found]
     if missing:
-        raise exceptions.NotFound(f"No component {', '.join(missing)} in this workspace.")
+        raise exceptions.NotFound(f"No project {', '.join(missing)} in this workspace.")
     return [found[i] for i in dict.fromkeys(ids)]
 
 

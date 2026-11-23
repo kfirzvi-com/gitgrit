@@ -42,9 +42,8 @@ class Fixture(TestCase):
         self.api = self._project("api", owner="Payments team", lifecycle="production", languages=["Python"])
         self.infra = self._project("infra", owner="Platform team", lifecycle="staging", languages=["HCL"])
         self.lonely = self._project("lonely", owner="", lifecycle="development")
-        # Every project gets its root component when created.
-        self.api.root_component.stacks.add(self.orders, self.platform)
-        self.infra.root_component.stacks.add(self.platform)
+        self.api.stacks.add(self.orders, self.platform)
+        self.infra.stacks.add(self.platform)
 
     def _project(self, name, **fields):
         return baker.make("app.Project", tenant=self.tenant, name=name, full_path=f"acme/{name}", **fields)
@@ -52,7 +51,7 @@ class Fixture(TestCase):
 
 class ProjectRowTests(Fixture):
     def test_a_row_lists_its_stacks_once_each_a_to_z(self):
-        rows = {r.project.name: r for r in ProjectRow.for_projects(self.tenant.projects.prefetch_related("components__stacks"))}
+        rows = {r.project.name: r for r in ProjectRow.for_projects(self.tenant.projects.prefetch_related("stacks"))}
 
         assert [s.name for s in rows["api"].stacks] == ["Orders", "Platform"]
         assert rows["api"].stack_names == "Orders|Platform"
@@ -104,7 +103,7 @@ class ProjectListPageTests(Fixture):
 class StackListPageTests(Fixture):
     def test_a_stack_row_counts_its_projects_once_and_lists_their_owners(self):
         rows = {r.stack.name: r for r in StackRow.for_stacks(
-            self.tenant.stacks.prefetch_related("components__project")
+            self.tenant.stacks.prefetch_related("projects")
         )}
 
         assert [p.name for p in rows["Platform"].projects] == ["api", "infra"]
@@ -114,13 +113,13 @@ class StackListPageTests(Fixture):
         assert rows["Platform"].healthy_share == "0"
 
     def test_the_filters_and_the_table(self):
-        rows = StackRow.for_stacks(self.tenant.stacks.prefetch_related("components__project"))
+        rows = StackRow.for_stacks(self.tenant.stacks.prefetch_related("projects"))
         search = StackListFilterSearch.for_rows(rows)
         table = StackListSmartTable.build()
 
         assert [f.key for f in search.fields] == ["has", "owner", "project", "name", "description"]
         assert [g.key for g in table.groups] == ["owner"]
-        assert {"failed", "healthy", "projects", "components"} <= {s.key for s in table.sorts}
+        assert {"failed", "healthy", "projects"} <= {s.key for s in table.sorts}
 
     def test_each_row_says_what_it_is_filtered_sorted_and_grouped_by(self):
         body = self.client.get(reverse("stack_list")).content.decode()

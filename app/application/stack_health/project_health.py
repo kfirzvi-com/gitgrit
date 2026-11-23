@@ -6,10 +6,10 @@ from app.domain.score_representation import ScoreTone
 
 
 @dataclass(frozen=True)
-class ComponentHealth:
-    """One component of a stack with its repository's health and score
-    (None when the repository was never checked)."""
+class ProjectHealth:
+    """One project of a stack with its health and score (None when the
+    project was never checked)."""
 
-    component: object  # Component
+    project: object  # Project
     tone: ScoreTone
     score: object = None  # CommitScore | None

@@ -62,19 +62,14 @@ class ProjectDeleted:
 
 
 @dataclass(frozen=True)
-class ComponentAddedToStack:
-    """A component joined a stack. Carries ``project_id`` because dependency
-    inference runs per repository, not per component."""
-
-    component_id: str
+class ProjectAddedToStack:
     project_id: str
     stack_id: str
     tenant_id: str
 
 
 @dataclass(frozen=True)
-class ComponentRemovedFromStack:
-    component_id: str
+class ProjectRemovedFromStack:
     project_id: str
     stack_id: str
     tenant_id: str
