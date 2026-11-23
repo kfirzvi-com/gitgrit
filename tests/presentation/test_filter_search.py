@@ -63,7 +63,7 @@ class StandardFilterSearchTests(TestCase):
             reverse("project_standards", args=[self.project.pk]) + "?embed=tab", HTTP_HX_REQUEST="true"
         ).content.decode()
 
-        assert [f["key"] for f in _config(body)["fields"]] == ["is", "importance", "label", "name", "description"]
+        assert [f["key"] for f in _config(body)["fields"]] == ["is", "importance", "runs", "label", "name", "description"]
         assert 'data-filter-label="security|code quality"' in body or 'data-filter-label="code quality|security"' in body
         assert 'data-filter-name="no secrets"' in body
         assert 'data-filter-description="finds keys"' in body

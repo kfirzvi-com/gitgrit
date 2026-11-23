@@ -11,6 +11,9 @@ Vocabulary, one class per term:
 - ``AttachedStandard``: a standard attached to the project, as a commit
   check considers it (does it run on the commit?).
 - ``ExpectedStandards``: the standards a commit check expects a result of.
+- ``CheckPlan``: which expected standards a check runs and which it carries
+  from earlier runs on its branch (scheduled standards,
+  ``app.domain.schedules``).
 - ``StandardRunResultsOnCommit``: every run on a commit, across its checks.
 - ``CommitScoringPolicy`` (strategy) and ``RequiredGateWeightedAveragePolicy``,
   the one in use (``COMMIT_SCORING_POLICY``): no score while an expected
@@ -31,6 +34,7 @@ importance or attachments later never rescores a commit.
 """
 from app.domain.scoring.attached_standard import AttachedStandard
 from app.domain.scoring.branch_commit_timeline import BranchCommitTimeline
+from app.domain.scoring.check_plan import CheckPlan
 from app.domain.scoring.check_run import CheckRun
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
 from app.domain.scoring.commit_score_value import CommitScoreValue
@@ -48,6 +52,7 @@ __all__ = [
     "COMMIT_SCORING_POLICY",
     "AttachedStandard",
     "BranchCommitTimeline",
+    "CheckPlan",
     "CheckRun",
     "CommitScoreOutcome",
     "CommitScoreValue",

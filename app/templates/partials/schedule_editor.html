@@ -1,0 +1,86 @@
+{% comment %}The standards table's "Runs" editor (one per table; script: app/static/app/schedule_editor.js):
+what runs the standards it is opened for (a row's chip, or the selected rows' "Runs" action): every
+change, a schedule, or both. A schedule is a cron expression, built like a filter search: type it
+(the box suggests values for the field the caret is in), or pick each field from its menu, or start
+from a preset. Under it, the schedule in words and its next times, read by the server
+(schedule_preview). The schedule's time zone is picked here and belongs to it: everyone reads its times
+in that zone (the reading adds the viewer's own times when theirs differs). Apply writes the rows'
+trigger-/schedule-/schedule_tz- fields; the table's Save saves them. Expects `trigger_options`.{% endcomment %}
+<dialog class="modal" data-schedule-editor data-preview-url="{% url 'schedule_preview' %}" aria-labelledby="schedule-editor-title">
+  <div class="modal-box max-w-2xl overflow-visible">
+    <h3 id="schedule-editor-title" class="text-lg font-semibold">When does <span data-schedule-for></span> run?</h3>
+    <p class="mt-1 text-sm opacity-70">A person can always run it from the project page too.</p>
+
+    <div class="mt-4 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="What runs it">
+      {% for option in trigger_options %}
+        <label class="gg-trigger-option">
+          <input type="radio" name="schedule-editor-trigger" value="{{ option.value }}" class="sr-only" data-trigger-choice>
+          <span class="flex items-center gap-2 font-medium">
+            {% if option.value == "changes" %}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M11.98 1.6a.75.75 0 0 1 .3.83L10.97 7h5.28a.75.75 0 0 1 .54 1.27l-8 8.5a.75.75 0 0 1-1.27-.71L8.83 11.5H3.75a.75.75 0 0 1-.55-1.27l8-8.5a.75.75 0 0 1 .78-.13Z"/></svg>
+            {% elif option.value == "schedule" %}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 1 0 1.06-1.06l-2.78-2.78V5Z" clip-rule="evenodd"/></svg>
+            {% else %}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M15.31 4.7a.75.75 0 0 1 0 1.06L9.06 12h3.19a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75v-5a.75.75 0 0 1 1.5 0v3.19l6.25-6.25a.75.75 0 0 1 1.06 0ZM4 10a6 6 0 0 1 8.4-5.5.75.75 0 1 0 .6-1.37A7.5 7.5 0 1 0 17.5 10a.75.75 0 0 0-1.5 0A6 6 0 0 1 4 10Z" clip-rule="evenodd"/></svg>
+            {% endif %}
+            {{ option.label }}
+          </span>
+          <span class="text-xs opacity-70">{{ option.description }}.</span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <div class="mt-5 space-y-3" data-schedule-builder>
+      <div class="flex flex-wrap items-center gap-2" data-schedule-presets>
+        <span class="text-xs font-semibold opacity-60">Start from</span>
+        <button type="button" class="gg-filter-menu-button" data-preset="hourly">Every hour</button>
+        <button type="button" class="gg-filter-menu-button" data-preset="daily">Every day</button>
+        <button type="button" class="gg-filter-menu-button" data-preset="weekdays">Weekdays</button>
+        <button type="button" class="gg-filter-menu-button" data-preset="weekly">Every week</button>
+        <button type="button" class="gg-filter-menu-button" data-preset="monthly">Every month</button>
+      </div>
+
+      <div class="relative">
+        <label class="input input-bordered flex w-full items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-50" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 1 0 1.06-1.06l-2.78-2.78V5Z" clip-rule="evenodd"/></svg>
+          <input type="text" class="grow min-w-0 font-mono text-base tracking-wide" data-cron-input
+                 placeholder="minute hour day month weekday" aria-label="Cron schedule"
+                 autocomplete="off" autocapitalize="off" spellcheck="false"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cron-suggestions">
+          <span class="text-xs opacity-50 whitespace-nowrap" data-cron-caret-field></span>
+        </label>
+        <ul id="cron-suggestions" class="gg-filter-suggestions hidden" role="listbox" aria-label="Suggestions" data-cron-suggestions></ul>
+      </div>
+
+      {# One menu button per field, in cron order, ticking values into the box like the filter menus. #}
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-5" data-cron-fields></div>
+
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <label for="schedule-editor-tz" class="text-xs font-semibold opacity-60">Time zone</label>
+        <input id="schedule-editor-tz" type="text" list="schedule-editor-tz-options" data-cron-tz-input
+               class="input input-bordered input-sm w-60 font-mono" autocomplete="off" spellcheck="false"
+               aria-describedby="schedule-editor-tz-hint">
+        <datalist id="schedule-editor-tz-options" data-cron-tz-options></datalist>
+        <span id="schedule-editor-tz-hint" class="text-xs opacity-60">The schedule's own: everyone sees its times in it.</span>
+      </div>
+
+      <div class="gg-cron-reading" data-cron-reading aria-live="polite">
+        <p class="font-medium" data-cron-text>&nbsp;</p>
+        <p class="mt-0.5 text-xs opacity-70" data-cron-next-line>Next: <span data-cron-next></span></p>
+        <p class="mt-0.5 text-xs opacity-60 hidden" data-cron-viewer-line>Your time (<span data-cron-viewer-tz></span>): <span data-cron-viewer-next></span></p>
+        <p class="mt-0.5 text-xs opacity-60">Times in <span data-cron-tz></span>, on the default branch's newest commit.</p>
+        <p class="mt-1 text-xs text-warning hidden" data-cron-warning></p>
+        <p class="mt-1 text-sm text-error hidden" data-cron-error></p>
+      </div>
+      <p class="text-xs opacity-60 hidden" data-schedule-only-note>
+        Pushes and pull requests skip it. On the default branch, its latest scheduled result counts in every check, so the project score always includes it.
+      </p>
+    </div>
+
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost btn-sm" data-schedule-cancel>Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" data-schedule-apply>Apply</button>
+    </div>
+  </div>
+  <div class="modal-backdrop" data-schedule-cancel></div>
+</dialog>

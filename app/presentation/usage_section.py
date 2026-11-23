@@ -10,6 +10,7 @@ TRIGGER_LABELS = {
     "merge_request": "Merge request",
     "manual": "Manual run",
     "upload": "Upload",
+    "schedule": "Scheduled run",
 }
 # How many projects a breakdown lists before "N more".
 PROJECTS_SHOWN = 5

@@ -27,7 +27,8 @@ from app.presentation.commit_results import CommitResultGrouping
 from app.presentation.smart_table import ProjectRow
 from app.application.standard_results import outcome_counts
 from app.application.standard_runs import enqueue_manual_run, enqueue_run, in_flight
-from app.domain import importance
+from app.domain import importance, schedules
+from app.presentation.schedule_chip import ScheduleChip
 from app.presentation import importance_text
 from app.domain.models import (
     Platform,
@@ -48,6 +49,9 @@ def _flash_runs(request, runs):
 
 
 IMPORTANCE_FIELD = "importance-"
+TRIGGER_FIELD = "trigger-"
+SCHEDULE_FIELD = "schedule-"
+SCHEDULE_TIME_ZONE_FIELD = "schedule_tz-"
 
 
 def _posted_importances(post) -> dict:
@@ -60,24 +64,48 @@ def _posted_importances(post) -> dict:
     }
 
 
-def _picker_context(tenant, project=None) -> dict:
+def _posted_schedules(post) -> dict:
+    """The standards table's ``trigger-``, ``schedule-`` and
+    ``schedule_tz-<standard id>`` fields, as standard id -> (trigger, cron
+    text, time zone)."""
+    return {
+        key[len(TRIGGER_FIELD):]: (
+            value,
+            post.get(SCHEDULE_FIELD + key[len(TRIGGER_FIELD):], ""),
+            post.get(SCHEDULE_TIME_ZONE_FIELD + key[len(TRIGGER_FIELD):], ""),
+        )
+        for key, value in post.items()
+        if key.startswith(TRIGGER_FIELD)
+    }
+
+
+def _picker_context(tenant, project=None, user=None) -> dict:
     """What the standards table needs: the workspace's standards, which are
-    attached, and each attached standard's importance."""
-    attachments = (
+    attached, and each attached standard's importance and what runs it."""
+    attachments = list(
         ProjectStandard.objects.filter(project=project) if project else ProjectStandard.objects.none()
     )
-    importances = {a.standard_id: a.importance for a in attachments}
+    by_standard = {a.standard_id: a for a in attachments}
+    # A new schedule starts in the zone on the viewer's profile, when they
+    # set one; else the editor starts from their browser's.
+    viewer_time_zone = (user.time_zone or "") if user and user.is_authenticated else ""
     standards = list(
         Standard.objects.filter(tenant=tenant).prefetch_related("labels").order_by("ordinal", "name")
     )
     for standard in standards:
+        attachment = by_standard.get(standard.pk)
         # The row's importance: the attached standard's, else what attaching
         # it would start at.
-        standard.importance = importances.get(standard.pk, importance.DEFAULT.value)
+        standard.importance = attachment.importance if attachment else importance.DEFAULT.value
+        standard.schedule_chip = ScheduleChip.of(
+            attachment.standard_schedule if attachment else schedules.StandardSchedule(), viewer_time_zone
+        )
     return {
         "workspace_standards": standards,
-        "attached_standard_ids": set(importances),
+        "attached_standard_ids": set(by_standard),
         "importance_options": importance_text.options(),
+        "trigger_options": ScheduleChip.trigger_options(),
+        "viewer_time_zone": viewer_time_zone,
     }
 
 
@@ -561,11 +589,12 @@ def project_standards(request, pk):
                 project,
                 request.POST.getlist("standards"),
                 importances=_posted_importances(request.POST),
+                schedules=_posted_schedules(request.POST),
             )
         except NotFoundError:
             messages.error(request, "One of those standards no longer exists. Please try again.")
             return redirect(reverse("project_detail", args=[pk]) + "#standards")
-        except importance.UnknownImportance as exc:
+        except (importance.UnknownImportance, schedules.InvalidSchedule) as exc:
             messages.error(request, str(exc))
             return redirect(reverse("project_detail", args=[pk]) + "#standards")
         standards = result["standards"]
@@ -606,7 +635,7 @@ def project_standards(request, pk):
         "partials/project_standards_form.html",
         {
             "project": project,
-            **_picker_context(tenant, project),
+            **_picker_context(tenant, project, request.user),
         },
     )
 

@@ -2,12 +2,14 @@
 {# The filter search (partials/filter_search.html) filters its rows: each says its values in data-filter-*. #}
 {# Context: workspace_standards (labels prefetched; each with .importance), attached_standard_ids (set of pks to pre-check), #}
 {# importance_options (app.presentation.importance_text.options(): each row's importance chip opens a menu of them). #}
+{# On a project (`project` set): a Runs column, each row's ScheduleChip (standard.schedule_chip) opening the #}
+{# schedule editor (partials/schedule_editor.html; needs trigger_options). #}
 {# Bulk edit as on GitHub: select rows (the left column), and the table's header turns into an action bar #}
 {# (Attach, Detach, Importance) for them. The Attached toggle is the form's "standards" field. #}
 {% load filter_search_tags %}
 <div class="standard-picker" data-filter-scope>
   <div class="mb-3">
-    {% standard_picker_filter_search workspace_standards as picker_filter_search %}
+    {% standard_picker_filter_search workspace_standards with_runs=project as picker_filter_search %}
     {% filter_search picker_filter_search label="Filter standards" %}
   </div>
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
@@ -44,6 +46,11 @@
           <th>
             <span title="How much the standard matters to this project">Importance</span>
           </th>
+          {% if project %}
+            <th>
+              <span title="What runs it: every matching change, a schedule, or both">Runs</span>
+            </th>
+          {% endif %}
           <th>Description</th>
           <th>
             <button type="button" class="link link-hover font-semibold"
@@ -57,7 +64,7 @@
             <input type="checkbox" class="checkbox checkbox-sm" checked data-select-all-rows
                    aria-label="Select every standard shown" onchange="selectAllStandardPickerRows(this)">
           </th>
-          <th colspan="5">
+          <th colspan="{% if project %}6{% else %}5{% endif %}">
             <div class="flex flex-wrap items-center gap-2 font-normal normal-case">
               <span class="mr-2 font-semibold"><span data-selected-count>0</span> selected</span>
               <button type="button" class="gg-filter-menu-button" onclick="attachSelectedStandards(this, true)">Attach</button>
@@ -66,6 +73,12 @@
                 Importance
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
               </button>
+              {% if project %}
+                <button type="button" class="gg-filter-menu-button" onclick="openScheduleEditorForSelected(this)">
+                  Runs
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 1 0 1.06-1.06l-2.78-2.78V5Z" clip-rule="evenodd"/></svg>
+                </button>
+              {% endif %}
               <div popover id="standard-picker-bulk-importance" class="gg-importance-menu" role="menu" aria-label="Set the importance of the selected standards">
                 {% for option in importance_options %}
                   <button type="button" class="gg-importance-option w-full text-left" role="menuitem"
@@ -91,6 +104,7 @@
               data-name="{{ standard.name|lower }}"
               data-first-label="{% for label in standard.labels.all %}{% if forloop.first %}{{ label.name|lower }}{% endif %}{% endfor %}"
               data-draft="{% if standard.draft %}1{% endif %}"
+              {% if project %}data-filter-runs="{{ standard.schedule_chip.trigger }}"{% endif %}
               data-disabled="{% if not standard.enabled %}1{% endif %}">
             <td>
               <input type="checkbox" class="checkbox checkbox-sm" data-row-select
@@ -99,7 +113,7 @@
             </td>
             <td>
               <a href="{% url 'standard_detail' standard.pk %}" target="_blank" rel="noopener"
-                 class="link link-hover font-medium">{{ standard.name }}</a>
+                 class="link link-hover font-medium" data-standard-name>{{ standard.name }}</a>
               {% if standard.draft %}
                 <span class="badge badge-warning badge-sm align-middle">Draft</span>
               {% elif not standard.enabled %}
@@ -142,6 +156,26 @@
                 </div>
               </div>
             </td>
+            {% if project %}
+              <td>
+                {% with chip=standard.schedule_chip %}
+                  <input type="hidden" name="trigger-{{ standard.pk }}" value="{{ chip.trigger }}" data-trigger-field>
+                  <input type="hidden" name="schedule-{{ standard.pk }}" value="{{ chip.schedule }}" data-schedule-field>
+                  <input type="hidden" name="schedule_tz-{{ standard.pk }}" value="{{ chip.time_zone }}" data-schedule-tz-field>
+                  <button type="button" class="gg-importance-chip gg-schedule-chip" data-schedule data-trigger="{{ chip.trigger }}"
+                          onclick="openScheduleEditor(this)"
+                          title="{% if chip.schedule %}{{ chip.schedule }} ({{ chip.time_zone }}){% else %}Runs on each matching push and pull request{% endif %}"
+                          aria-label="What runs {{ standard.name }}">
+                    <svg class="gg-schedule-icon" data-for="changes" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M11.98 1.6a.75.75 0 0 1 .3.83L10.97 7h5.28a.75.75 0 0 1 .54 1.27l-8 8.5a.75.75 0 0 1-1.27-.71L8.83 11.5H3.75a.75.75 0 0 1-.55-1.27l8-8.5a.75.75 0 0 1 .78-.13Z"/></svg>
+                    <svg class="gg-schedule-icon" data-for="schedule" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 1 0 1.06-1.06l-2.78-2.78V5Z" clip-rule="evenodd"/></svg>
+                    <svg class="gg-schedule-icon" data-for="both" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 1 0 1.06-1.06l-2.78-2.78V5Z" clip-rule="evenodd"/></svg>
+                    <span data-schedule-label>{{ chip.label }}</span>
+                    <span class="gg-schedule-zone{% if not chip.schedule %} hidden{% endif %}" data-schedule-zone>{{ chip.zone_label }}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 shrink-0 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.17l3.74-3.93a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
+                  </button>
+                {% endwith %}
+              </td>
+            {% endif %}
             <td class="max-w-56">
               {% if standard.description %}
                 <span class="block truncate text-sm opacity-70 cursor-help"
@@ -163,14 +197,15 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="6"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
+          <tr><td colspan="{% if project %}7{% else %}6{% endif %}"><p class="text-sm opacity-70">No standards in this workspace yet.</p></td></tr>
         {% endfor %}
         <tr class="standard-picker-no-match hidden" data-filter-empty>
-          <td colspan="6"><p class="text-sm opacity-70">No standards match these filters.</p></td>
+          <td colspan="{% if project %}7{% else %}6{% endif %}"><p class="text-sm opacity-70">No standards match these filters.</p></td>
         </tr>
       </tbody>
     </table>
   </div>
+  {% if project %}{% include "partials/schedule_editor.html" %}{% endif %}
   <div class="standard-desc-popover hidden fixed z-[100] max-w-sm rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-lg whitespace-pre-line"></div>
 </div>
 <script>

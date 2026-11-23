@@ -36,7 +36,7 @@ def log_time(value):
     return f"{date_part} {time_part} {tz}".strip()
 
 
-_TRIGGER_LABELS = {"manual": "Manual", "pull_request": "Pull request"}
+_TRIGGER_LABELS = {"manual": "Manual", "pull_request": "Pull request", "schedule": "Scheduled"}
 
 
 @register.filter

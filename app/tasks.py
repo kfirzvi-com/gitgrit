@@ -314,6 +314,18 @@ def expire_stale_standard_runs(timestamp: int) -> int:
     return expire_stale_runs()
 
 
+@app.periodic(cron="* * * * *")
+@app.task(queue="standards", name="run_scheduled_standards", pass_context=False)
+@fresh_db_connection
+def run_scheduled_standards(timestamp: int) -> int:
+    """Queue the attached standards whose schedule is due
+    (``app.application.schedules.StandardScheduler``). Every minute: a
+    schedule's finest grain."""
+    from app.application.schedules import StandardScheduler
+
+    return StandardScheduler().run_due()
+
+
 @app.periodic(cron="17 * * * *")
 @app.task(queue="graph", name="snapshot_workspace_usage", pass_context=False)
 @fresh_db_connection

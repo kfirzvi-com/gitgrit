@@ -108,7 +108,9 @@ Importance belongs to the attached standard, not to the standard itself, so the 
 
 ![The Standards tab: attach standards and set their importance](../images/app/project-standards.jpg){ .gg-shot loading=lazy }
 
-Set it in the project's **Standards** tab: click a row's importance in the **Importance** column and pick one, or check several rows and use **Set importance**, then click **Save**. Required standards show a stop sign, and a line above the table counts them. **Any importance** filters the table to the attached standards of one importance.
+The **Runs** column next to it sets what runs each standard: every change, a [schedule](../features/schedules.md), or both.
+
+Set importance in the project's **Standards** tab: click a row's importance in the **Importance** column and pick one, or check several rows and use **Set importance**, then click **Save**. Required standards show a stop sign, and a line above the table counts them. **Any importance** filters the table to the attached standards of one importance.
 
 The [API](https://app.gitgrit.dev/api/v1/docs/)'s list of a project's standards (`GET /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/`) returns each one's `importance`, and `PATCH /api/v1/workspaces/{workspace_id}/projects/{project_id}/standards/{standard_id}/` with `{"importance": "required"}` sets it.
 
@@ -116,7 +118,7 @@ Each run remembers the importance its standard had when it ran, so changing impo
 
 ## The score
 
-Each time the standards run on a commit (a push, a pull request, **Run**) is one **check** of it, and a commit reads its **newest check, alone**: a standard the newest check did not run is "not run", even if an earlier check ran it. A check reports nothing until **every expected standard has a result in it**: it passed or it failed. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when the check started. Each check, and so each commit, has one **outcome**, decided in this order:
+Each time the standards run on a commit (a push, a pull request, a [scheduled run](../features/schedules.md), **Run**) is one **check** of it, and a commit reads its **newest check, alone**: a standard the newest check did not run is "not run", even if an earlier check ran it. A check reports nothing until **every expected standard has a result in it**: it passed or it failed. The expected standards are the attached, enabled standards that apply to the commit (its branch and the project's languages) when the check started. Each check, and so each commit, has one **outcome**, decided in this order:
 
 1. **Checking**: a standard is still running on it.
 2. **No score**: an expected standard **errored** (its run produced no result, for any reason, GitGrit's own failures and a run stuck for over an hour included) or **never ran** in that check (for example, only one standard was run by hand). This holds for every importance, Required too, and even when a Required standard failed. The project page says which standard errored or was not run; run them all on the commit again.
@@ -129,7 +131,9 @@ A **branch** reads its **newest commit**, whatever its outcome, and the **projec
 
 On the **Results** tab, open a commit to see every check of it on a timeline: a circle per check with its score inside, newest on the left and selected, since the commit reads it. Hover a circle for when and how it ran; step through them with the arrows, or pick one, to see what that check found.
 
-Changing attachments or importance does not rescore anything: the next check does.
+On the default branch, a check also covers the standards it doesn't run because they run [on a schedule](../features/schedules.md#the-score): each **carries** its latest result on the branch, marked *carried from scheduled run*. A scheduled run carries every standard that wasn't due. Running one standard by hand carries nothing.
+
+Changing attachments, importance or schedules does not rescore anything: the next check does.
 
 ### Letters
 

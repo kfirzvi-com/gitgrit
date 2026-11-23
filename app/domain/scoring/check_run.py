@@ -27,13 +27,19 @@ class CheckRun:
 
     - ``decide()``: the score to save once none of its runs is going;
     - ``standing``: where it stands now (checking, no score, failed, scored);
-    - ``latest_results`` and ``never_ran_ids``: what to list for it."""
+    - ``latest_results`` and ``never_ran_ids``: what to list for it.
+
+    ``carried`` are the results it takes from earlier runs on its branch for
+    the standards it carries instead of running (``CheckPlan``): a
+    scheduled-only standard's newest result in a check of a change, the
+    standards not due in a scheduled check. Its own results come first."""
 
     commit_sha: str
     expected: ExpectedStandards
     results: tuple[StandardRunResult, ...] = ()
     standard_names: Mapping[str, str] = field(default_factory=dict)
     saved: CommitScoreValue | None = None
+    carried: tuple[StandardRunResult, ...] = ()
 
     @property
     def running(self) -> bool:
@@ -44,7 +50,9 @@ class CheckRun:
     def finished_results(self) -> list[StandardRunResult]:
         """Each expected standard's newest finished run in it (passed,
         failed or errored): what it is scored from."""
-        return StandardRunResultsOnCommit(self.results).newest_finished_per_expected_standard(self.expected)
+        return StandardRunResultsOnCommit(self.results + self.carried).newest_finished_per_expected_standard(
+            self.expected
+        )
 
     @property
     def not_run(self) -> list[str]:
@@ -99,11 +107,20 @@ class CheckRun:
                 continue
             seen.add(key)
             latest.append(result)
+        for result in self.carried:
+            if result.standard_id not in seen and self.expected.lists_runs_of(result.standard_id):
+                seen.add(result.standard_id)
+                latest.append(result)
         return latest
+
+    @property
+    def carried_execution_ids(self) -> set[str]:
+        """The runs it shows that it took from earlier checks."""
+        return {r.execution_id for r in self.carried}
 
     @property
     def never_ran_ids(self) -> list[str]:
         """The expected standards with no run at all in it."""
         if not self.expected:
             return []
-        return self.expected.without_any_run(r.standard_id for r in self.results)
+        return self.expected.without_any_run(r.standard_id for r in self.results + self.carried)

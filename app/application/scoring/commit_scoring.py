@@ -6,6 +6,11 @@ what it decides.
 A commit reads its newest check, alone; a branch reads its newest commit
 (``scoring.BranchCommitTimeline.newest_checked_commit``), whatever its
 outcome; a project reads its default branch.
+
+A check that carries standards (``scoring.CheckPlan``) takes each one's
+newest finished run on its branch from before it was queued. When a run it
+could have carried finishes after it was scored, it is scored again
+(``_rescore_carriers``).
 """
 from __future__ import annotations
 
@@ -27,6 +32,11 @@ RECENT_CHECKS = 50
 
 # How a standard the check expected but that no longer exists is named.
 REMOVED_STANDARD = "a removed standard"
+
+# How many newer checks on the branch a finished check rescores at most.
+RESCORED_CARRIERS = 10
+
+FINISHED = [s.value for s in scoring.StandardRunStatus if s.is_finished]
 
 
 # --- Facts --------------------------------------------------------------------------
@@ -58,10 +68,30 @@ def _saved_value(score: CommitScore | None) -> scoring.CommitScoreValue | None:
     return scoring.CommitScoreValue(score.value, failed_by_required_standard=score.failed, reason=score.reason)
 
 
+def _carried_executions(check) -> list:
+    """The runs ``check`` carries: for each standard it carries, the newest
+    finished run of it on the check's branch queued before the check."""
+    if not check.carried_standard_ids:
+        return []
+    return list(
+        StandardExecution.objects.filter(
+            project_id=check.project_id,
+            standard_id__in=[str(i) for i in check.carried_standard_ids],
+            commit_check__branch=check.branch,
+            created_at__lt=check.created_at,
+            status__in=FINISHED,
+        )
+        .exclude(commit_check=check)
+        .select_related("standard", "standard_version", "commit_check")
+        .order_by("standard_id", "-created_at")
+        .distinct("standard_id")
+    )
+
+
 def _runs_of(checks) -> dict:
     """Each check as a ``CheckRunRecord`` (check id -> record): its domain
-    ``scoring.CheckRun`` built from its facts, beside its rows. A few queries
-    for them all."""
+    ``scoring.CheckRun`` built from its facts, beside its rows (its own runs,
+    then the ones it carries). A few queries for them all."""
     checks = list(checks)
     if not checks:
         return {}
@@ -82,15 +112,19 @@ def _runs_of(checks) -> dict:
     records = {}
     for check in checks:
         own = executions[check.pk]
+        carried = _carried_executions(check)
+        for ex in carried:
+            ex.carried = True
         run = scoring.CheckRun(
             commit_sha=check.commit_sha,
             expected=scoring.ExpectedStandards(tuple(check.expected_standard_ids)),
             results=tuple(_run_result(e) for e in own),
             standard_names=names,
             saved=_saved_value(scores.get(check.pk)),
+            carried=tuple(_run_result(e) for e in carried),
         )
         score = None if run.running else scores.get(check.pk)
-        records[check.pk] = CheckRunRecord(check=check, run=run, executions=tuple(own), score=score)
+        records[check.pk] = CheckRunRecord(check=check, run=run, executions=tuple(own) + tuple(carried), score=score)
     return records
 
 
@@ -116,12 +150,20 @@ def expected_standards(project, branch: str) -> list[str]:
     )
 
 
-def score_check(check: CommitCheck) -> CommitScore | None:
+def score_check(check: CommitCheck, rescore_carriers: bool = True) -> CommitScore | None:
     """Save the score ``check`` gives its commit (``scoring.CheckRun.decide``)
-    once none of its runs is going: a verdict, or no score and why."""
+    once none of its runs is going: a verdict, or no score and why. Then
+    rescore the newer checks that carry what it ran."""
     new_score = _runs_of([check])[check.pk].run.decide()
     if new_score is None:
         return None
+    commit_score = _save_score(check, new_score)
+    if rescore_carriers:
+        _rescore_carriers(check)
+    return commit_score
+
+
+def _save_score(check: CommitCheck, new_score) -> CommitScore:
     commit_score = CommitScore.objects.create(
         project_id=check.project_id,
         commit_check=check,
@@ -135,6 +177,37 @@ def score_check(check: CommitCheck) -> CommitScore | None:
     )
     commit_score.executions.set([r.execution_id for r in new_score.run_results])
     return commit_score
+
+
+def _rescore_carriers(check: CommitCheck) -> None:
+    """The newer checks on ``check``'s branch that carry a standard it ran
+    were scored with an older result of it, or none: score them again, when
+    that changes their score."""
+    ran = set(
+        StandardExecution.objects.filter(commit_check=check).values_list("standard_id", flat=True)
+    )
+    ran = {str(i) for i in ran if i}
+    if not ran:
+        return
+    newer = (
+        CommitCheck.objects.filter(project_id=check.project_id, branch=check.branch, created_at__gt=check.created_at)
+        .exclude(carried_standard_ids=[])
+        .order_by("-created_at")[:RESCORED_CARRIERS]
+    )
+    carriers = [c for c in newer if ran & {str(i) for i in c.carried_standard_ids}]
+    for record in _runs_of(carriers).values():
+        decided = record.run.decide()
+        if decided is None:
+            continue
+        saved = record.score
+        same = saved is not None and (
+            saved.value == decided.score.value
+            and saved.failed == decided.score.failed_by_required_standard
+            and {str(i) for i in saved.executions.values_list("pk", flat=True)}
+            == {r.execution_id for r in decided.run_results}
+        )
+        if not same:
+            _save_score(record.check, decided)
 
 
 def score_checks(check_ids) -> list[CommitScore]:

@@ -90,6 +90,8 @@ When a budget runs low or is used up, owners and admins get a [notification](not
 
 A run that a budget holds back (or a model with no budget) errors with a message that says so, and its commit has no score until it runs.
 
+To spend less, run AI standards **on a schedule** instead of on every push: once a day on the default branch, with their latest result still in the project score ([Scheduled Standards](schedules.md)).
+
 ## AI usage
 
 The dashboard's **AI usage** tab shows the tokens spent today, this week or this month:
