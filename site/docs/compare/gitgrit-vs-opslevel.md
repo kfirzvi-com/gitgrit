@@ -20,7 +20,7 @@ description: "OpsLevel grades services in a catalog with built-in check types. G
 | | OpsLevel | GitGrit |
 |---|---|---|
 | What it is | Internal developer portal | Engineering standards platform |
-| What gets graded | Services (components) in a catalog | Repositories (projects) |
+| What gets graded | Services (components) in a catalog | Projects: repositories, or apps and services inside a monorepo |
 | How a check is defined | Built-in check types (file, grep, tags, packages, and more), or JSON you send from your own pipeline | Code (Python) that reads the repository, or an LLM check when a rule needs judgment |
 | Where checks run | OpsLevel evaluates its checks; custom logic runs in your own pipeline | In GitGrit's isolated sandbox, with nothing to maintain on your side |
 | When it's checked | Continuously, as OpsLevel scans connected repositories | On every push, pull request and tag, per branch |
