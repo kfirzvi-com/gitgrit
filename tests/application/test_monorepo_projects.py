@@ -160,3 +160,21 @@ class ResolveInMonorepoTests(TestCase):
         self.assertEqual(self._resolve("apps/web/src"), "apps/web")
         self.assertEqual(self._resolve("docs"), "")
         self.assertEqual(self._resolve(None), "")
+
+
+class RootedCommitListTests(TestCase):
+    def test_a_rooted_project_lists_and_pins_commits_touching_its_directory(self):
+        from app.application import commit_checks
+
+        conn = baker.make("app.PlatformConnection", platform="github")
+        project = baker.make(
+            "app.Project", tenant=conn.tenant, platform_connection=conn, external_id="77",
+            full_path="acme/shop", root_path="apps/web",
+        )
+        with mock.patch("app.application.commit_checks._client") as client:
+            client.return_value.list_commits.return_value = []
+            client.return_value.head_commit.return_value = {"sha": "a" * 40, "date": ""}
+            commit_checks.branch_commits(project, "main")
+            commit_checks.resolve_head_commit(project, "main")
+        self.assertEqual(client.return_value.list_commits.call_args.kwargs["path"], "apps/web")
+        self.assertEqual(client.return_value.head_commit.call_args.kwargs["path"], "apps/web")

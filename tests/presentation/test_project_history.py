@@ -129,7 +129,7 @@ class ProjectHistoryViewTests(TestCase):
         self.assertIn("Only the default branch counts", response.content.decode())
         self.platform.list_commits.assert_called_with(
             self.project.external_id, self.project.full_path, "feature/x", page=1,
-            per_page=commit_checks.COMMITS_PER_PAGE,
+            per_page=commit_checks.COMMITS_PER_PAGE, path="",
         )
 
     def test_it_polls_while_a_run_is_in_flight(self):
