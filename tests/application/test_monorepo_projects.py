@@ -178,3 +178,16 @@ class RootedCommitListTests(TestCase):
             commit_checks.resolve_head_commit(project, "main")
         self.assertEqual(client.return_value.list_commits.call_args.kwargs["path"], "apps/web")
         self.assertEqual(client.return_value.head_commit.call_args.kwargs["path"], "apps/web")
+
+
+class RootPathOptionsTests(TestCase):
+    def test_a_repository_offers_its_open_directories(self):
+        tenant = baker.make("app.Tenant")
+        conn = baker.make("app.PlatformConnection", tenant=tenant, platform="github")
+        baker.make(
+            "app.Project", tenant=tenant, platform_connection=conn, external_id="77",
+            full_path="acme/shop", root_path="apps/web",
+        )
+        with mock.patch("app.application.project_management.get_platform_client", return_value=_client()):
+            options = pm.root_path_options(tenant, conn, REPO)
+        self.assertEqual([o.path for o in options if o.is_project_like], ["services/api"])

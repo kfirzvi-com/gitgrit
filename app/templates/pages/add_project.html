@@ -72,11 +72,15 @@
         <div class="form-control">
           <label class="label"><span class="label-text">Root path</span></label>
           <input type="text" name="root_path" id="field-root-path" placeholder="/ (whole repository)"
-                 class="input input-bordered w-full font-mono" autocomplete="off" />
+                 class="input input-bordered w-full font-mono" autocomplete="off"
+                 list="root-path-options"
+                 data-options-url="{% url 'root_path_options' connection.pk %}" />
+          <datalist id="root-path-options"></datalist>
           <label class="label">
-            <span class="label-text-alt opacity-70">
+            <span class="label-text-alt opacity-70 whitespace-normal">
               For a monorepo, the directory this project lives in, e.g. <code>apps/web</code>.
               Standards and checks run from there. Leave empty for the whole repository.
+              <span id="root-path-hint"></span>
             </span>
           </label>
           <p id="root-path-taken" class="text-xs text-warning hidden"></p>
@@ -156,12 +160,39 @@ function selectProject(data) {
     : '';
   taken.classList.toggle('hidden', !added.length);
   document.getElementById('field-root-path').value = '';
+  loadRootPathOptions(data);
   document.getElementById('selected-project-info').innerHTML =
     '<div class="alert">' +
     '<span><strong>' + data.name + '</strong> — ' + data.full_path + '</span>' +
     '</div>';
   document.getElementById('add-project-form').classList.remove('hidden');
   document.getElementById('add-project-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Offer the repository's directories as root paths: those holding a build
+// manifest (package.json, go.mod, Dockerfile…) first, named by it.
+function loadRootPathOptions(data) {
+  const input = document.getElementById('field-root-path');
+  const list = document.getElementById('root-path-options');
+  const hint = document.getElementById('root-path-hint');
+  list.replaceChildren();
+  hint.textContent = '';
+  const params = new URLSearchParams({
+    external_id: data.external_id, full_path: data.full_path, default_branch: data.default_branch || '',
+  });
+  fetch(input.dataset.optionsUrl + '?' + params, { headers: { 'Accept': 'application/json' } })
+    .then(r => r.ok ? r.json() : { options: [] })
+    .then(({ options }) => {
+      for (const o of options) {
+        const option = document.createElement('option');
+        option.value = o.path;
+        if (o.manifests.length) option.label = o.manifests.join(', ');
+        list.appendChild(option);
+      }
+      const apps = options.filter(o => o.manifests.length).length;
+      if (apps) hint.textContent = apps + ' directories here look like apps or services; start typing to pick one.';
+    })
+    .catch(() => {});
 }
 </script>
 {% endblock %}

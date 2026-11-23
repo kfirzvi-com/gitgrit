@@ -399,6 +399,25 @@ def add_project_search(request, connection_id):
 
 
 @login_required
+def root_path_options(request, connection_id):
+    """The directories a project of the chosen repository could be rooted
+    at, for the add-project form's root-path autocomplete (JSON)."""
+    tenant = request.tenant
+    connection = get_object_or_404(PlatformConnection, id=connection_id, tenant=tenant)
+    repo = {
+        "external_id": request.GET.get("external_id", ""),
+        "full_path": request.GET.get("full_path", ""),
+        "default_branch": request.GET.get("default_branch", ""),
+    }
+    if not repo["full_path"]:
+        return JsonResponse({"options": []})
+    options = project_management.root_path_options(tenant, connection, repo)
+    return JsonResponse(
+        {"options": [{"path": o.path, "manifests": list(o.manifests)} for o in options]}
+    )
+
+
+@login_required
 def search_projects_api(request):
     """Search endpoint for HTMX — returns HTML partial or JSON."""
     tenant = request.tenant

@@ -22,6 +22,7 @@ from app.domain import importance
 from app.domain.events import ProjectCreated, ProjectDeleted, StandardsAttached
 from app.domain.projects import InvalidRootPath, RootPath
 from app.domain.projects.languages import languages_in
+from app.domain.projects.root_path_options import RootPathOptions
 from app.domain.models import (
     AuthMethod,
     Platform,
@@ -136,6 +137,23 @@ def search_repositories(
         r["added_paths"] = paths
         r["already_added"] = "" in paths
     return results[:limit]
+
+
+def root_path_options(tenant: Tenant, connection: PlatformConnection, repo: dict) -> list:
+    """The directories of ``repo`` (a result of ``search_repositories``) a
+    new project could be rooted at, project-like ones first, leaving out
+    paths already a project here. Empty when the platform can't list files."""
+    try:
+        files = get_platform_client(connection).get_tree(
+            repo["full_path"], repo.get("default_branch") or ""
+        )
+    except Exception:
+        logger.warning("Couldn't list the files of %s", repo.get("full_path"), exc_info=True)
+        return []
+    taken = Project.objects.filter(
+        tenant=tenant, platform_connection=connection, external_id=str(repo["external_id"])
+    ).values_list("root_path", flat=True)
+    return RootPathOptions(files, taken=taken).options()
 
 
 def find_repository(tenant: Tenant, connection: PlatformConnection, ref: str) -> dict:
