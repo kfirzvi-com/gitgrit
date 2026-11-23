@@ -333,26 +333,22 @@ class CommitScoreOutcomeTests(SimpleTestCase):
 
 
 class BranchCommitTimelineTests(SimpleTestCase):
-    def test_a_commit_counts_from_its_commit_time_else_its_first_check(self):
-        assert BranchCommitTimeline.commit_ordered_at(T0, T0 + timedelta(days=3)) == T0
-        assert BranchCommitTimeline.commit_ordered_at(None, T0) == T0
-
-    def test_a_branch_reads_its_newest_commits_newest_check(self):
+    def test_a_branch_reads_its_latest_check(self):
         first = SimpleNamespace(commit_sha="c1", committed_at=T0, created_at=T0)
-        rerun = SimpleNamespace(commit_sha="c1", committed_at=T0, created_at=T0 + timedelta(hours=1))
+        rerun = SimpleNamespace(commit_sha="c1", committed_at=None, created_at=T0 + timedelta(hours=1))
         older = SimpleNamespace(commit_sha="c0", committed_at=T0 - timedelta(days=1), created_at=T0 + timedelta(hours=2))
 
-        assert BranchCommitTimeline.newest_checked_commit([first, older, rerun]) is rerun
+        assert BranchCommitTimeline.newest_checked_commit([first, older, rerun]) is older
 
     def test_checks_without_a_commit_yet_are_left_out(self):
         pending = SimpleNamespace(commit_sha="", committed_at=None, created_at=T0 + timedelta(days=1))
         assert BranchCommitTimeline.newest_checked_commit([pending]) is None
 
-    def test_the_newest_commit_is_by_commit_time_not_by_check_time(self):
+    def test_the_order_is_by_when_the_check_ran_not_the_commit_time(self):
         old_rechecked = SimpleNamespace(commit_sha="old", committed_at=T0, created_at=T0 + timedelta(days=5))
         new = SimpleNamespace(commit_sha="new", committed_at=T0 + timedelta(days=1), created_at=T0 + timedelta(days=1))
 
-        assert BranchCommitTimeline.newest_checked_commit([old_rechecked, new]) is new
+        assert BranchCommitTimeline.newest_checked_commit([old_rechecked, new]) is old_rechecked
 
     def test_a_commit_keeps_its_last_score(self):
         newest_first = [SimpleNamespace(commit_sha="c1", v=2), SimpleNamespace(commit_sha="c1", v=1)]

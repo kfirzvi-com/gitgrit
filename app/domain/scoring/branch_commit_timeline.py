@@ -1,32 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 
 class BranchCommitTimeline:
-    """How a branch's commits and their scores are ordered. A branch reads
-    its newest commit, whatever its outcome (checking, no score, failed or
-    scored), never merely the newest run's: checking an old commit again
-    must not replace a newer commit's. And a commit reads its newest
-    check."""
+    """How a branch's checks and their scores are ordered: by when each
+    check ran (its ``created_at``, saved by the run itself, whatever
+    triggered it). A branch reads its newest check, whatever its outcome
+    (checking, no score, failed or scored)."""
 
     @staticmethod
-    def commit_ordered_at(committed_at: datetime | None, first_checked_at: datetime) -> datetime:
-        """When a commit counts as made: its commit time, else when it was
-        first checked."""
-        return committed_at or first_checked_at
-
-    @classmethod
-    def newest_checked_commit(cls, commit_checks):
-        """The newest commit among a branch's commit checks (rows with
-        ``commit_sha``, ``committed_at`` and ``created_at``), as its newest
-        check: the one the branch reads. None without any."""
+    def newest_checked_commit(commit_checks):
+        """The newest check among a branch's commit checks (rows with
+        ``commit_sha`` and ``created_at``) that has a commit: the one the
+        branch reads. None without any."""
         with_commit = [c for c in commit_checks if c.commit_sha]
         if not with_commit:
             return None
-        return max(
-            with_commit, key=lambda c: (cls.commit_ordered_at(c.committed_at, c.created_at), c.created_at)
-        )
+        return max(with_commit, key=lambda c: c.created_at)
 
     @staticmethod
     def last_score_per_commit(commit_scores_newest_first) -> dict:

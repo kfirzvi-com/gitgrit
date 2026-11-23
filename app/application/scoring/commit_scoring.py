@@ -13,7 +13,6 @@ import logging
 from collections import defaultdict
 
 from django.db.models import Q
-from django.db.models.functions import Coalesce
 
 from app.application.scoring.check_run_record import CheckRunRecord
 from app.domain import scoring
@@ -129,7 +128,7 @@ def score_check(check: CommitCheck) -> CommitScore | None:
         branch=check.branch,
         commit_sha=check.commit_sha,
         committed_at=check.committed_at,
-        ordered_at=scoring.BranchCommitTimeline.commit_ordered_at(check.committed_at, check.created_at),
+        ordered_at=check.created_at,
         value=new_score.score.value,
         failed=new_score.score.failed_by_required_standard,
         reason=new_score.score.reason,
@@ -206,8 +205,7 @@ def project_heads(projects) -> dict:
     heads = list(
         CommitCheck.objects.filter(on_default_branch)
         .exclude(commit_sha="")
-        .annotate(commit_ordered_at=Coalesce("committed_at", "created_at"))
-        .order_by("project_id", "-commit_ordered_at", "-created_at")
+        .order_by("project_id", "-created_at")
         .distinct("project_id")
     )
     runs = _runs_of(heads)
@@ -215,7 +213,8 @@ def project_heads(projects) -> dict:
 
 
 def _newest_first(queryset):
-    """Scores ordered the way ``scoring.BranchCommitTimeline`` orders commits."""
+    """Scores ordered the way ``scoring.BranchCommitTimeline`` orders checks:
+    by when their check ran."""
     return queryset.order_by("-ordered_at", "-created_at")
 
 

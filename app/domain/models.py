@@ -1611,8 +1611,8 @@ class CommitScore(models.Model):
     branch = models.CharField(max_length=255)
     commit_sha = models.CharField(max_length=40)
     committed_at = models.DateTimeField(null=True, blank=True)
-    # When the commit counts as made (``BranchCommitTimeline.commit_ordered_at``): a
-    # branch shows the score with the newest one.
+    # When its check ran (the check's ``created_at``): a branch shows the
+    # score with the newest one.
     ordered_at = models.DateTimeField()
     # 0-100; None when a Required standard failed the commit, or when it has
     # no score (a standard errored or never ran). See ``outcome``.

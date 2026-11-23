@@ -272,11 +272,11 @@ class VersionSnapshotTests(TestCase):
         self.assertEqual(runner.run.call_args.args[0], snapshot_code)
 
 
-class NewestCommitWinsTests(TestCase):
-    """A branch's current results come from its newest commit, so checking an
-    old commit again does not change its health."""
+class LatestRunWinsTests(TestCase):
+    """A branch's current results come from its latest runs, by when they ran,
+    whatever their commit's time."""
 
-    def test_rerunning_an_old_commit_does_not_take_over(self):
+    def test_the_latest_run_wins_even_on_an_older_commit(self):
         from app.application.standard_results import current_results
 
         project = _project()
@@ -291,8 +291,7 @@ class NewestCommitWinsTests(TestCase):
                            status=Status.FAILED, score=0, commit_check=old, ref="")
         StandardExecution.objects.filter(pk=newest_commit.pk).update(created_at=now - timedelta(hours=1))
 
-        self.assertEqual([r.pk for r in current_results([project])], [newest_commit.pk])
-        self.assertTrue(rerun.created_at > newest_commit.created_at - timedelta(hours=1))
+        self.assertEqual([r.pk for r in current_results([project])], [rerun.pk])
 
 
 class AttachmentsChangeOverTimeTests(TestCase):

@@ -232,12 +232,19 @@ class ProjectScoreTests(Fixture):
 
         assert scoring.project_score(self.project) == newest
 
-    def test_checking_an_old_commit_again_does_not_replace_a_newer_one(self):
+    def test_the_latest_run_is_what_the_project_shows_whatever_its_commit_time(self):
         now = timezone.now()
-        newest = self._scored("new", 90, now)
-        self._scored("old", 40, now - timedelta(days=5))
+        self._scored("new", 90, now)
+        latest_run = self._scored("old", 40, now - timedelta(days=5))
 
-        assert scoring.project_score(self.project) == newest
+        assert scoring.project_score(self.project) == latest_run
+
+    def test_a_run_without_a_commit_time_does_not_stay_on_top(self):
+        now = timezone.now()
+        self._scored("c1", 83, None)
+        latest_run = self._scored("c1", 90, now - timedelta(days=70))
+
+        assert scoring.project_score(self.project) == latest_run
 
     def test_no_checked_commit_means_no_score(self):
         assert scoring.project_score(self.project) is None
@@ -303,11 +310,11 @@ class BranchHeadTests(Fixture):
         assert (head.standing.finished_count, head.standing.expected_count) == (1, 2)
         assert scoring.project_scores([self.project]) == {}
 
-    def test_rechecking_an_older_commit_does_not_move_the_head(self):
-        newest = self._scored("new", 40, self.now)
-        self._scored("old", 100, self.now - timedelta(days=1))
+    def test_the_head_is_the_latest_run(self):
+        self._scored("new", 40, self.now)
+        latest_run = self._scored("old", 100, self.now - timedelta(days=1))
 
-        assert scoring.branch_head(self.project, "main").score == newest
+        assert scoring.branch_head(self.project, "main").score == latest_run
 
     def test_many_projects_are_read_the_same_as_one(self):
         other = baker.make("app.Project", tenant=self.tenant, default_branch="trunk", languages=[])
