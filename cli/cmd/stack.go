@@ -17,11 +17,11 @@ func newStackCmd() *cobra.Command {
 		Use:     "stack",
 		Aliases: []string{"stacks"},
 		Short:   "Stacks and their health",
-		Long: "A stack groups components: the deployable units inside repositories. A plain\n" +
-			"repository has one (its root); a monorepo one per service.",
+		Long: "A stack groups projects. A monorepo's projects (one per app or service,\n" +
+			"each at its own path) can sit in different stacks.",
 	}
 	c.AddCommand(stackList(), stackView(), stackCreate(), stackEdit(), stackDelete(),
-		stackAdd(), stackRemove(), newComponentsCmd(), stackRefresh())
+		stackAdd(), stackRemove(), stackRefresh())
 	return c
 }
 
@@ -60,7 +60,7 @@ func stackList() *cobra.Command {
 func stackView() *cobra.Command {
 	return &cobra.Command{
 		Use:   "view <stack>",
-		Short: "A stack's health and its components, worst first",
+		Short: "A stack's health and its projects, worst first",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			t, err := resolve(cmd.Context(), "", false)
@@ -88,18 +88,18 @@ func stackView() *cobra.Command {
 				case s.MapUpdatedAt != nil:
 					fmt.Fprintf(w, "Map: updated %s\n", output.Ago(*s.MapUpdatedAt))
 				}
-				if len(s.Components) == 0 {
-					fmt.Fprintln(w, "\nNo components yet.")
+				if len(s.Projects) == 0 {
+					fmt.Fprintln(w, "\nNo projects yet.")
 					return
 				}
 				fmt.Fprintln(w)
-				tb := output.NewTable(w, "COMPONENT", "PROJECT", "HEALTH", "GRADE", "WHY", "CHECKED")
-				for _, c := range s.Components {
+				tb := output.NewTable(w, "PROJECT", "REPOSITORY", "HEALTH", "GRADE", "WHY", "CHECKED")
+				for _, p := range s.Projects {
 					checked := "—"
-					if c.LastChecked != nil {
-						checked = output.Ago(*c.LastChecked)
+					if p.LastChecked != nil {
+						checked = output.Ago(*p.LastChecked)
 					}
-					tb.Row(componentName(c), c.Project.Name, tone(c.Tone), grade(c.Grade), dash(c.Why), checked)
+					tb.Row(p.Name, dash(projectLabel(p.FullPath, p.RootPath)), tone(p.Tone), grade(p.Grade), dash(p.Why), checked)
 				}
 				tb.Flush()
 			})
@@ -146,7 +146,7 @@ func stackCreate() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create <name>",
 		Short:   "Create a stack",
-		Example: "  gitgrit stack create Payments --description \"Checkout and billing\"\n  gitgrit stack add Payments acme/checkout acme/mono:services/billing",
+		Example: "  gitgrit stack create Payments --description \"Checkout and billing\"\n  gitgrit stack add Payments acme/checkout acme/mono#services/billing",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			t, err := resolve(cmd.Context(), "", false)
@@ -161,7 +161,7 @@ func stackCreate() *cobra.Command {
 				return err
 			}
 			return emit(cmd.OutOrStdout(), resp.Body, func() {
-				fmt.Fprintf(cmd.OutOrStdout(), "Created %s (%s).\nNext: gitgrit stack add %q <component>…\n", resp.JSON201.Name, resp.JSON201.Id, resp.JSON201.Name)
+				fmt.Fprintf(cmd.OutOrStdout(), "Created %s (%s).\nNext: gitgrit stack add %q <project>…\n", resp.JSON201.Name, resp.JSON201.Id, resp.JSON201.Name)
 			})
 		},
 	}
@@ -216,7 +216,7 @@ func stackDelete() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete <stack>",
 		Aliases: []string{"rm"},
-		Short:   "Delete a stack (its components stay; only the grouping goes)",
+		Short:   "Delete a stack (its projects stay; only the grouping goes)",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
@@ -245,31 +245,31 @@ func stackDelete() *cobra.Command {
 	return cmd
 }
 
-const componentHelp = "A component is its id, a project (org/repo: its root component), org/repo:path\n" +
-	"(a monorepo service), or its name. With none, this repository's root component.\n" +
-	"See them all with `gitgrit stack components`."
+const projectHelp = "A project is its id, its repository (org/repo: the whole-repository project),\n" +
+	"org/repo#path (a monorepo project; org/repo:path works too), or its name.\n" +
+	"With none, the project of the current directory."
 
 func stackAdd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "add <stack> [component…]",
-		Short:   "Add components to a stack",
-		Long:    "Add components to a stack.\n\n" + componentHelp,
-		Example: "  gitgrit stack add Payments                       # this repository\n  gitgrit stack add Payments acme/checkout acme/mono:services/billing",
+		Use:     "add <stack> [project…]",
+		Short:   "Add projects to a stack",
+		Long:    "Add projects to a stack.\n\n" + projectHelp,
+		Example: "  gitgrit stack add Payments                       # this project\n  gitgrit stack add Payments acme/checkout acme/mono#services/billing",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			t, stack, comps, err := stackAndComponents(cmd, args)
+			t, stack, projects, err := stackAndProjects(cmd, args)
 			if err != nil {
 				return err
 			}
 			var ids []uuid.UUID
 			seen := map[uuid.UUID]bool{}
-			for _, c := range comps {
-				if !seen[c.Id] {
-					seen[c.Id] = true
-					ids = append(ids, c.Id)
+			for _, p := range projects {
+				if !seen[p.Id] {
+					seen[p.Id] = true
+					ids = append(ids, p.Id)
 				}
 			}
-			resp, err := t.s.API.AddStackComponentsWithResponse(cmd.Context(), t.ws.ID, stack, api.ComponentIdsRequest{ComponentIds: ids})
+			resp, err := t.s.API.AddStackProjectsWithResponse(cmd.Context(), t.ws.ID, stack, api.ProjectIdsRequest{ProjectIds: ids})
 			if err != nil {
 				return err
 			}
@@ -278,7 +278,7 @@ func stackAdd() *cobra.Command {
 			}
 			return emit(cmd.OutOrStdout(), resp.Body, func() {
 				n := resp.JSON200.Added
-				fmt.Fprintf(cmd.OutOrStdout(), "Added %d component%s to %s", n, plural(n), args[0])
+				fmt.Fprintf(cmd.OutOrStdout(), "Added %d project%s to %s", n, plural(n), args[0])
 				if skipped := len(ids) - n; skipped > 0 {
 					fmt.Fprintf(cmd.OutOrStdout(), " (%d already in it)", skipped)
 				}
@@ -290,72 +290,33 @@ func stackAdd() *cobra.Command {
 
 func stackRemove() *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove <stack> [component…]",
-		Short: "Take components out of a stack",
-		Long:  "Take components out of a stack.\n\n" + componentHelp,
+		Use:   "remove <stack> [project…]",
+		Short: "Take projects out of a stack",
+		Long:  "Take projects out of a stack.\n\n" + projectHelp,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			t, stack, comps, err := stackAndComponents(cmd, args)
+			t, stack, projects, err := stackAndProjects(cmd, args)
 			if err != nil {
 				return err
 			}
-			for _, c := range comps {
-				resp, err := t.s.API.RemoveStackComponentWithResponse(cmd.Context(), t.ws.ID, stack, c.Id)
+			for _, p := range projects {
+				resp, err := t.s.API.RemoveStackProjectWithResponse(cmd.Context(), t.ws.ID, stack, p.Id)
 				if err != nil {
 					return err
 				}
 				if err := checkResp(resp.HTTPResponse, resp.Body); err != nil {
-					return fmt.Errorf("%s: %w", componentLabel(c), err)
+					return fmt.Errorf("%s: %w", projectRef(p), err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Removed %s from %s.\n", componentLabel(c), args[0])
+				fmt.Fprintf(cmd.OutOrStdout(), "Removed %s from %s.\n", projectRef(p), args[0])
 			}
 			return nil
 		},
 	}
 }
 
-func newComponentsCmd() *cobra.Command {
-	var project string
-	cmd := &cobra.Command{
-		Use:   "components",
-		Short: "The workspace's components and the stacks each belongs to",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			t, err := resolve(cmd.Context(), project, project != "")
-			if err != nil {
-				return err
-			}
-			params := &api.ListComponentsParams{}
-			if project != "" {
-				params.ProjectId = &t.p.ID
-			}
-			resp, err := t.s.API.ListComponentsWithResponse(cmd.Context(), t.ws.ID, params)
-			if err != nil {
-				return err
-			}
-			if err := checkResp(resp.HTTPResponse, resp.Body); err != nil {
-				return err
-			}
-			return emit(cmd.OutOrStdout(), resp.Body, func() {
-				tb := output.NewTable(cmd.OutOrStdout(), "COMPONENT", "NAME", "STACKS")
-				for _, c := range *resp.JSON200 {
-					names := make([]string, len(c.Stacks))
-					for i, s := range c.Stacks {
-						names[i] = s.Name
-					}
-					tb.Row(componentLabel(c), c.Name, dash(strings.Join(names, ", ")))
-				}
-				tb.Flush()
-			})
-		},
-	}
-	cmd.Flags().StringVarP(&project, "project", "p", "", "only this project's (id or org/repo)")
-	return cmd
-}
-
-// stackAndComponents resolves `<stack> [component…]`; no component means
-// this repository's root one.
-func stackAndComponents(cmd *cobra.Command, args []string) (*target, uuid.UUID, []api.Component, error) {
+// stackAndProjects resolves `<stack> [project…]`; no project means the one
+// the current directory is in.
+func stackAndProjects(cmd *cobra.Command, args []string) (*target, uuid.UUID, []api.Project, error) {
 	refs := args[1:]
 	t, err := resolve(cmd.Context(), "", len(refs) == 0)
 	if err != nil {
@@ -365,7 +326,7 @@ func stackAndComponents(cmd *cobra.Command, args []string) (*target, uuid.UUID, 
 	if err != nil {
 		return nil, uuid.UUID{}, nil, err
 	}
-	resp, err := t.s.API.ListComponentsWithResponse(cmd.Context(), t.ws.ID, &api.ListComponentsParams{})
+	resp, err := t.s.API.ListProjectsWithResponse(cmd.Context(), t.ws.ID)
 	if err != nil {
 		return nil, uuid.UUID{}, nil, err
 	}
@@ -373,66 +334,63 @@ func stackAndComponents(cmd *cobra.Command, args []string) (*target, uuid.UUID, 
 		return nil, uuid.UUID{}, nil, err
 	}
 	if len(refs) == 0 {
-		refs = []string{t.p.ID.String() + ":"}
+		refs = []string{t.p.ID.String()}
 	}
-	comps, err := findComponents(*resp.JSON200, refs)
-	return t, stack, comps, err
+	projects, err := findProjects(*resp.JSON200, refs)
+	return t, stack, projects, err
 }
 
-// findComponents resolves each ref: a component id; a project (id, org/repo
-// or name) for its root component; project:path; or a component name.
-func findComponents(all []api.Component, refs []string) ([]api.Component, error) {
-	out := make([]api.Component, 0, len(refs))
+// findProjects resolves each ref: a project id; org/repo for the
+// whole-repository project; org/repo#path or org/repo:path for one inside a
+// monorepo; or a project name.
+func findProjects(all []api.Project, refs []string) ([]api.Project, error) {
+	out := make([]api.Project, 0, len(refs))
 	for _, ref := range refs {
-		var match []api.Component
-		project, path, hasPath := strings.Cut(ref, ":")
+		var match []api.Project
+		repo, path, hasPath := strings.Cut(ref, "#")
+		if !hasPath {
+			repo, path, hasPath = strings.Cut(ref, ":")
+		}
 		id, idErr := uuid.Parse(ref)
-		for _, c := range all {
-			isProject := equalFold(c.Project.FullPath, project) || equalFold(c.Project.Name, project) || c.Project.Id.String() == project
+		for _, p := range all {
+			sameRepo := equalFold(p.FullPath, repo)
 			switch {
-			case idErr == nil && c.Id == id:
-				match = append(match, c)
-			case isProject && strings.Trim(c.Path, "/") == strings.Trim(path, "/") && (hasPath || c.Path == ""):
-				match = append(match, c)
-			case !hasPath && idErr != nil && !isProject && equalFold(c.Name, ref):
-				match = append(match, c)
+			case idErr == nil && p.Id == id:
+				match = append(match, p)
+			case sameRepo && strings.Trim(p.RootPath, "/") == strings.Trim(path, "/") && (hasPath || p.RootPath == ""):
+				match = append(match, p)
+			case !hasPath && idErr != nil && !sameRepo && equalFold(p.Name, ref):
+				match = append(match, p)
 			}
 		}
 		switch len(match) {
 		case 0:
-			return nil, fmt.Errorf("no component %q; see `gitgrit stack components`", ref)
+			return nil, fmt.Errorf("no project %q; see `gitgrit project list`", ref)
 		case 1:
 			out = append(out, match[0])
 		default:
 			labels := make([]string, len(match))
-			for i, c := range match {
-				labels[i] = componentLabel(c)
+			for i, p := range match {
+				labels[i] = projectRef(p)
 			}
-			return nil, fmt.Errorf("%q could be %s; name it as org/repo:path", ref, strings.Join(labels, ", "))
+			return nil, fmt.Errorf("%q could be %s; name it as org/repo#path", ref, strings.Join(labels, ", "))
 		}
 	}
 	return out, nil
 }
 
-// componentLabel is how a component is named on the command line: org/repo
-// for a root component, org/repo:path for one inside a monorepo.
-func componentLabel(c api.Component) string {
-	project := c.Project.FullPath
-	if project == "" {
-		project = c.Project.Name
+// projectRef is how a project is named on the command line: org/repo for a
+// whole-repository project, org/repo#path for one inside a monorepo, its
+// name for an artifact project.
+func projectRef(p api.Project) string {
+	repo := p.FullPath
+	if repo == "" {
+		repo = p.Name
 	}
-	if c.Path == "" {
-		return project
+	if p.RootPath == "" {
+		return repo
 	}
-	return project + ":" + c.Path
-}
-
-// componentName shows a monorepo component with its path.
-func componentName(c api.StackComponent) string {
-	if c.Path == "" {
-		return c.Name
-	}
-	return c.Name + " (" + c.Path + ")"
+	return repo + "#" + p.RootPath
 }
 
 func plural(n int) string {

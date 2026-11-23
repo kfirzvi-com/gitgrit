@@ -9,49 +9,46 @@ import (
 	"github.com/kfirzvi-com/gitgrit/cli/internal/api"
 )
 
-func TestFindComponents(t *testing.T) {
-	api1 := api.ComponentProject{Id: uuid.New(), Name: "api", FullPath: "acme/api"}
-	mono := api.ComponentProject{Id: uuid.New(), Name: "mono", FullPath: "acme/mono"}
-	apiRoot := api.Component{Id: uuid.New(), Name: "api", Project: api1}
-	monoRoot := api.Component{Id: uuid.New(), Name: "mono", Project: mono}
-	orders := api.Component{Id: uuid.New(), Name: "orders", Path: "services/orders", Project: mono}
-	web := api.Component{Id: uuid.New(), Name: "web", Path: "apps/web", Project: mono}
-	webToo := api.Component{Id: uuid.New(), Name: "web", Path: "legacy/web", Project: mono}
-	all := []api.Component{apiRoot, monoRoot, orders, web, webToo}
+func TestFindProjects(t *testing.T) {
+	apiP := api.Project{Id: uuid.New(), Name: "api", FullPath: "acme/api"}
+	mono := api.Project{Id: uuid.New(), Name: "mono", FullPath: "acme/mono"}
+	orders := api.Project{Id: uuid.New(), Name: "orders", FullPath: "acme/mono", RootPath: "services/orders"}
+	web := api.Project{Id: uuid.New(), Name: "web", FullPath: "acme/mono", RootPath: "apps/web"}
+	webToo := api.Project{Id: uuid.New(), Name: "web", FullPath: "acme/mono", RootPath: "legacy/web"}
+	all := []api.Project{apiP, mono, orders, web, webToo}
 
-	cases := map[string]api.Component{
-		"acme/api":                  apiRoot,
-		"ACME/mono":                 monoRoot,
-		"api":                       apiRoot,
-		"acme/mono:services/orders": orders,
-		"mono:/services/orders/":    orders,
-		"orders":                    orders,
-		orders.Id.String():          orders,
-		api1.Id.String() + ":":      apiRoot,
+	cases := map[string]api.Project{
+		"acme/api":                    apiP,
+		"ACME/mono":                   mono,
+		"api":                         apiP,
+		"acme/mono#services/orders":   orders,
+		"acme/mono:services/orders":   orders,
+		"acme/mono#/services/orders/": orders,
+		"orders":                      orders,
+		orders.Id.String():            orders,
 	}
 	for ref, want := range cases {
-		got, err := findComponents(all, []string{ref})
+		got, err := findProjects(all, []string{ref})
 		if err != nil || len(got) != 1 || got[0].Id != want.Id {
-			t.Errorf("%q: got %v, %v; want %s", ref, got, err, componentLabel(want))
+			t.Errorf("%q: got %v, %v; want %s", ref, got, err, projectRef(want))
 		}
 	}
-	if _, err := findComponents(all, []string{"web"}); err == nil || !strings.Contains(err.Error(), "acme/mono:apps/web") {
-		t.Errorf("two components are named web: want both offered, got %v", err)
+	if _, err := findProjects(all, []string{"web"}); err == nil || !strings.Contains(err.Error(), "acme/mono#apps/web") {
+		t.Errorf("two projects are named web: want both offered, got %v", err)
 	}
-	if _, err := findComponents(all, []string{"acme/api", "nope"}); err == nil || !strings.Contains(err.Error(), `"nope"`) {
+	if _, err := findProjects(all, []string{"acme/api", "nope"}); err == nil || !strings.Contains(err.Error(), `"nope"`) {
 		t.Errorf("an unknown ref should fail by name: %v", err)
 	}
 }
 
-func TestComponentLabel(t *testing.T) {
-	p := api.ComponentProject{Name: "mono", FullPath: "acme/mono"}
-	if got := componentLabel(api.Component{Project: p}); got != "acme/mono" {
-		t.Errorf("root: %q", got)
+func TestProjectRef(t *testing.T) {
+	if got := projectRef(api.Project{Name: "mono", FullPath: "acme/mono"}); got != "acme/mono" {
+		t.Errorf("whole repository: %q", got)
 	}
-	if got := componentLabel(api.Component{Project: p, Path: "services/orders"}); got != "acme/mono:services/orders" {
-		t.Errorf("service: %q", got)
+	if got := projectRef(api.Project{Name: "orders", FullPath: "acme/mono", RootPath: "services/orders"}); got != "acme/mono#services/orders" {
+		t.Errorf("inside a monorepo: %q", got)
 	}
-	if got := componentLabel(api.Component{Project: api.ComponentProject{Name: "Release builds"}}); got != "Release builds" {
+	if got := projectRef(api.Project{Name: "Release builds"}); got != "Release builds" {
 		t.Errorf("artifact project: %q", got)
 	}
 }
