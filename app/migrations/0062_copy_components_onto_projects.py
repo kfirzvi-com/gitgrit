@@ -1,7 +1,7 @@
 """Projects take over from components (phase 1b: copy the data).
 
 The copy, per project:
-* stack memberships of any of its components -> the project's;
+* the root component's stack memberships -> the project's;
 * the root component's kind and technologies -> the project's;
 * every non-root component -> a *suggested project* (with the stacks it was
   in, so adding it restores its memberships);
@@ -62,9 +62,12 @@ def copy_components(apps, schema_editor):
         components = list(Component.objects.filter(project=project).order_by("path"))
         suggestions = []
         for c in components:
-            for stack_id in stacks_of.get(c.pk, ()):
-                memberships.add((project.pk, stack_id))
             if c.path == "":
+                # The project is its root component: only its stacks. The
+                # others' stacks wait on their suggestions, and come back
+                # when those are added as projects.
+                for stack_id in stacks_of.get(c.pk, ()):
+                    memberships.add((project.pk, stack_id))
                 project.kind = c.kind
                 project.technologies = list(c.technologies or [])
             else:

@@ -86,9 +86,10 @@ class ProjectsReplaceComponentsTests(TransactionTestCase):
             (suggestion["path"], suggestion["kind"], suggestion["stack_ids"]),
             ("apps/web", "frontend", [str(self.web_stack.pk)]),
         )
+        # Only the root component's stacks: apps/web's wait on its suggestion.
         self.assertEqual(
             set(ProjectStack.objects.values_list("project_id", "stack_id")),
-            {(self.shop.pk, self.web_stack.pk), (self.billing.pk, self.pay_stack.pk)},
+            {(self.billing.pk, self.pay_stack.pk)},
         )
         # The edge inside the shop repository collapses until apps/web is a project.
         self.assertEqual(
