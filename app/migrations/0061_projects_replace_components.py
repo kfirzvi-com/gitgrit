@@ -1,11 +1,21 @@
-"""Projects take over from components (step 1 of 2: add and copy).
+"""Projects take over from components (phase 1a: add the project-level schema).
 
 A monorepo's apps and services become projects of their own (rooted at a
 path), so the architecture graph, stacks and dependency edges hang off
-projects. This migration only *adds* the project-level tables and columns
-and copies the component data into them; the component tables stay, so code
-from the previous release keeps working against this schema.
-0062 drops them.
+projects. This migration only *adds* the project-level tables and columns;
+0062 copies the component data into them (a separate migration: Django
+creates foreign-key indexes at the end of a migration, which Postgres refuses
+after rows were written in the same transaction).
+
+Zero downtime: ``migrate`` runs before the new release goes live, so the
+previous release keeps serving against this schema for a while. Nothing it
+reads or writes goes away: the component tables stay, the new project
+columns get database defaults (it inserts projects without them),
+externals/infrastructure may now have no component (the new release writes
+them by project only), and (0062) the new tables cascade deletes in the
+database (its Python cascade doesn't know them). 0063 retires the components from the new code's view
+only; a later release drops their tables after copying again whatever the
+previous release wrote in between (``copy_components`` is idempotent).
 
 The copy, per project:
 * stack memberships of any of its components -> the project's;
@@ -16,6 +26,7 @@ The copy, per project:
   edges inside one repository collapse away until its projects are added);
 * externals and infrastructure -> their component's project.
 """
+
 import uuid
 
 import django.db.models.deletion
@@ -29,64 +40,6 @@ KINDS = [
     ("infra", "Infrastructure as code"),
     ("other", "Other"),
 ]
-
-
-def copy_components(apps, schema_editor):
-    Project = apps.get_model("app", "Project")
-    Component = apps.get_model("app", "Component")
-    ComponentStack = apps.get_model("app", "ComponentStack")
-    ComponentDependency = apps.get_model("app", "ComponentDependency")
-    ProjectStack = apps.get_model("app", "ProjectStack")
-    ProjectDependency = apps.get_model("app", "ProjectDependency")
-    ExternalDependency = apps.get_model("app", "ExternalDependency")
-    InfrastructureComponent = apps.get_model("app", "InfrastructureComponent")
-
-    stacks_of: dict = {}
-    for component_id, stack_id in ComponentStack.objects.values_list("component_id", "stack_id"):
-        stacks_of.setdefault(component_id, []).append(str(stack_id))
-
-    memberships = set()
-    for project in Project.objects.all():
-        components = list(Component.objects.filter(project=project).order_by("path"))
-        suggestions = []
-        for c in components:
-            for stack_id in stacks_of.get(c.pk, ()):
-                memberships.add((project.pk, stack_id))
-            if c.path == "":
-                project.kind = c.kind
-                project.technologies = list(c.technologies or [])
-            else:
-                suggestions.append(
-                    {
-                        "path": c.path,
-                        "name": c.name,
-                        "kind": c.kind,
-                        "description": c.description,
-                        "technologies": list(c.technologies or []),
-                        "stack_ids": stacks_of.get(c.pk, []),
-                    }
-                )
-        project.suggested_projects = suggestions
-        project.save(update_fields=["kind", "technologies", "suggested_projects"])
-    ProjectStack.objects.bulk_create(
-        [ProjectStack(project_id=p, stack_id=s) for p, s in memberships], ignore_conflicts=True
-    )
-
-    project_of = dict(Component.objects.values_list("pk", "project_id"))
-    edges = {}
-    for d in ComponentDependency.objects.all():
-        source, target = project_of.get(d.source_id), project_of.get(d.target_id)
-        if source and target and source != target and (source, target) not in edges:
-            edges[(source, target)] = ProjectDependency(
-                tenant_id=d.tenant_id, source_id=source, target_id=target,
-                label=d.label, description=d.description,
-            )
-    ProjectDependency.objects.bulk_create(edges.values(), ignore_conflicts=True)
-
-    for model in (ExternalDependency, InfrastructureComponent):
-        for row in model.objects.filter(project__isnull=True).only("pk", "component_id"):
-            row.project_id = project_of.get(row.component_id)
-            row.save(update_fields=["project"])
 
 
 # ``component_dependencies`` was once ``project_dependencies`` (0020, renamed
@@ -105,6 +58,19 @@ RESTORE_LEGACY_INDEXES = ";".join(
     f'ALTER INDEX IF EXISTS "component_dependencies_{s}" RENAME TO "project_dependencies_{s}"'
     for s in _LEGACY_INDEXES
 )
+
+
+# The previous release inserts projects without these columns.
+OLD_RELEASE_DEFAULTS = """
+    ALTER TABLE projects ALTER COLUMN kind SET DEFAULT 'other';
+    ALTER TABLE projects ALTER COLUMN technologies SET DEFAULT '[]'::jsonb;
+    ALTER TABLE projects ALTER COLUMN suggested_projects SET DEFAULT '[]'::jsonb;
+"""
+DROP_OLD_RELEASE_DEFAULTS = """
+    ALTER TABLE projects ALTER COLUMN kind DROP DEFAULT;
+    ALTER TABLE projects ALTER COLUMN technologies DROP DEFAULT;
+    ALTER TABLE projects ALTER COLUMN suggested_projects DROP DEFAULT;
+"""
 
 
 class Migration(migrations.Migration):
@@ -216,5 +182,21 @@ class Migration(migrations.Migration):
                 related_name="infrastructure_components", to="app.project",
             ),
         ),
-        migrations.RunPython(copy_components, migrations.RunPython.noop),
+        migrations.AlterField(
+            model_name="externaldependency",
+            name="component",
+            field=models.ForeignKey(
+                null=True, on_delete=django.db.models.deletion.CASCADE,
+                related_name="external_dependencies", to="app.component",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="infrastructurecomponent",
+            name="component",
+            field=models.ForeignKey(
+                null=True, on_delete=django.db.models.deletion.CASCADE,
+                related_name="infrastructure_components", to="app.component",
+            ),
+        ),
+        migrations.RunSQL(OLD_RELEASE_DEFAULTS, DROP_OLD_RELEASE_DEFAULTS),
     ]

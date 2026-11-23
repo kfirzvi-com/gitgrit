@@ -125,23 +125,31 @@ class RefreshProjectTopology:
             for r in resolved.internal
             if r.target.project_id is not None and r.target.project_id != project.pk
         ]
-        externals = [
-            ExternalDependency(
-                tenant_id=tenant_id,
-                project=project,
-                name=e.name,
-                direction=e.direction,
-                url=e.url,
-                description=e.label,
+        # One row per (name, direction) / name: the database enforces it only
+        # from the release after components are dropped, so dedupe here too.
+        externals = _unique(
+            (
+                (e.name.lower(), e.direction),
+                ExternalDependency(
+                    tenant_id=tenant_id,
+                    project=project,
+                    name=e.name,
+                    direction=e.direction,
+                    url=e.url,
+                    description=e.label,
+                ),
             )
             for e in resolved.externals
-        ]
-        infra = [
-            InfrastructureComponent(
-                tenant_id=tenant_id, project=project, name=i.name, kind=i.kind, description=i.label
+        )
+        infra = _unique(
+            (
+                i.name.lower(),
+                InfrastructureComponent(
+                    tenant_id=tenant_id, project=project, name=i.name, kind=i.kind, description=i.label
+                ),
             )
             for i in resolved.infrastructure
-        ]
+        )
 
         with transaction.atomic():
             ProjectDependency.objects.filter(tenant_id=tenant_id, source=project).delete()
@@ -183,3 +191,11 @@ class RefreshProjectTopology:
             summary.files_read,
         )
         return summary
+
+
+def _unique(keyed_rows) -> list:
+    """The rows of ``(key, row)`` pairs, the first of each key only."""
+    rows: dict = {}
+    for key, row in keyed_rows:
+        rows.setdefault(key, row)
+    return list(rows.values())
