@@ -130,7 +130,10 @@ from app.presentation.views.notification_views import (
     open_notification,
 )
 from app.presentation.views.web_views import DashboardView, HomeView, dashboard_ai_usage, refresh_map
-from app.presentation.views.workspace_switcher_views import workspace_switcher_list
+from app.presentation.views.workspace_switcher_views import (
+    toggle_workspace_pin,
+    workspace_switcher_list,
+)
 from app.presentation.views.token_views import (
     create_personal_token,
     create_workspace_token,
@@ -180,6 +183,7 @@ urlpatterns = [
     # Tenant management
     path("tenants/switch/", switch_tenant, name="switch_tenant"),
     path("tenants/switcher/", workspace_switcher_list, name="workspace_switcher_list"),
+    path("tenants/switcher/pin/", toggle_workspace_pin, name="toggle_workspace_pin"),
     path("tenants/leave/", leave_workspace, name="leave_workspace"),
     path(
         "tenants/support/leave/",

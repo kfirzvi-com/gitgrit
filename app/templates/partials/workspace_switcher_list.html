@@ -1,25 +1,22 @@
 {% load workspace_tags %}
 {% comment %}
 Rows of the navbar workspace switcher. Loaded by HTMX into #workspace-list when
-the dropdown first opens, and re-loaded on every keystroke in the search box.
-A row marked "support" is a workspace the (super)user is not a member of.
+the dropdown first opens, re-loaded on every keystroke in the search box, and
+re-rendered after a pin toggles. Sections run pinned → workspaces → support;
+a row marked "support" is a workspace the (super)user is not a member of.
 {% endcomment %}
 {% if current_tenant %}
-  {% include "partials/workspace_switcher_row.html" with tenant=current_tenant is_current=True support=current_is_support %}
+  {% include "partials/workspace_switcher_row.html" with tenant=current_tenant is_current=True %}
 {% endif %}
 
-{% if others %}
-  {% if current_tenant %}
-    <li class="menu-title pt-2"><span>{% if q %}Matches{% else %}All workspaces{% endif %}</span></li>
+{% for section, rows in sections %}
+  {% if show_section_titles %}
+    <li class="menu-title pt-2"><span>{{ section.title }}</span></li>
   {% endif %}
-  {% for tenant in others %}
-    {% if tenant.id in member_tenant_ids %}
-      {% include "partials/workspace_switcher_row.html" with tenant=tenant support=False %}
-    {% else %}
-      {% include "partials/workspace_switcher_row.html" with tenant=tenant support=True %}
-    {% endif %}
+  {% for tenant in rows %}
+    {% include "partials/workspace_switcher_row.html" with tenant=tenant %}
   {% endfor %}
-{% endif %}
+{% endfor %}
 
 {% if remaining %}
   <li class="disabled"><span class="text-xs opacity-60">{{ remaining }} more — keep typing to narrow down</span></li>

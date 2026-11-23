@@ -152,3 +152,129 @@ class TestNavbarSwitcher(TestCase):
         html = self.client.get(reverse("dashboard")).content.decode()
 
         assert "Find workspace" in html
+
+
+def _rows(html, *names):
+    return [html.index(n) for n in names]
+
+
+@pytest.mark.django_db
+class TestSupportWorkspacesLast(TestCase):
+    url = reverse("workspace_switcher_list")
+
+    def test_superuser_sees_own_workspaces_before_support_ones(self):
+        user, _ = _login(self.client)
+        user.is_superuser = True
+        user.save()
+        _join(user, "Zulu Mine")
+        baker.make("app.Tenant", name="Alpha Support", slug="alpha-support")
+
+        html = self.client.get(self.url).content.decode()
+
+        zulu, alpha = _rows(html, "Zulu Mine", "Alpha Support")
+        assert zulu < alpha
+        assert html.index(">Support<") < alpha
+
+
+@pytest.mark.django_db
+class TestPinnedWorkspaces(TestCase):
+    url = reverse("workspace_switcher_list")
+    pin_url = reverse("toggle_workspace_pin")
+
+    def test_pinned_workspace_leads_the_list(self):
+        user, _ = _login(self.client)
+        _join(user, "Alpha")
+        zulu = _join(user, "Zulu")
+        baker.make("app.WorkspacePin", user=user, tenant=zulu)
+
+        html = self.client.get(self.url).content.decode()
+
+        zulu_at, alpha_at = _rows(html, "Zulu", "Alpha")
+        assert html.index(">Pinned<") < zulu_at < alpha_at
+
+    def test_pins_are_per_user(self):
+        user, _ = _login(self.client)
+        _join(user, "Alpha")
+        zulu = _join(user, "Zulu")
+        baker.make("app.WorkspacePin", user=baker.make("app.User"), tenant=zulu)
+
+        html = self.client.get(self.url).content.decode()
+
+        assert ">Pinned<" not in html
+        assert html.index("Alpha") < html.index("Zulu")
+
+    def test_pinned_support_workspace_comes_before_own(self):
+        user, _ = _login(self.client)
+        user.is_superuser = True
+        user.save()
+        _join(user, "Alpha Mine")
+        support = baker.make("app.Tenant", name="Zulu Support", slug="zulu-support")
+        baker.make("app.WorkspacePin", user=user, tenant=support)
+
+        html = self.client.get(self.url).content.decode()
+
+        assert html.index("Zulu Support") < html.index("Alpha Mine")
+
+    def test_toggle_pins_then_unpins(self):
+        user, _ = _login(self.client)
+        zulu = _join(user, "Zulu")
+
+        html = self.client.post(self.pin_url, {"tenant_id": str(zulu.id)}).content.decode()
+        assert user.workspace_pins.filter(tenant=zulu).exists()
+        assert "Unpin Zulu" in html
+
+        html = self.client.post(self.pin_url, {"tenant_id": str(zulu.id)}).content.decode()
+        assert not user.workspace_pins.exists()
+        assert "Pin Zulu" in html
+
+    def test_toggle_keeps_the_search(self):
+        user, _ = _login(self.client)
+        acme = _join(user, "Acme")
+        _join(user, "Beta")
+
+        html = self.client.post(
+            self.pin_url, {"tenant_id": str(acme.id), "q": "acme"}
+        ).content.decode()
+
+        assert "Acme" in html
+        assert "Beta" not in html
+
+    def test_cannot_pin_a_foreign_workspace(self):
+        user, _ = _login(self.client)
+        foreign = baker.make("app.Tenant", name="Foreign", slug="foreign")
+
+        response = self.client.post(self.pin_url, {"tenant_id": str(foreign.id)})
+
+        assert response.status_code == 404
+        assert not user.workspace_pins.exists()
+
+    def test_superuser_can_pin_a_support_workspace(self):
+        user, _ = _login(self.client)
+        user.is_superuser = True
+        user.save()
+        support = baker.make("app.Tenant", name="Support Co", slug="support-co")
+
+        response = self.client.post(self.pin_url, {"tenant_id": str(support.id)})
+
+        assert response.status_code == 200
+        assert user.workspace_pins.filter(tenant=support).exists()
+
+    def test_bad_tenant_id_is_404(self):
+        _login(self.client)
+
+        assert self.client.post(self.pin_url, {"tenant_id": "nope"}).status_code == 404
+
+    def test_pin_is_post_only(self):
+        _login(self.client)
+
+        assert self.client.get(self.pin_url).status_code == 405
+
+    def test_pin_survives_losing_access_but_stops_showing(self):
+        user, _ = _login(self.client)
+        gone = _join(user, "Gone Co")
+        baker.make("app.WorkspacePin", user=user, tenant=gone)
+        user.memberships.filter(tenant=gone).delete()
+
+        html = self.client.get(self.url).content.decode()
+
+        assert "Gone Co" not in html

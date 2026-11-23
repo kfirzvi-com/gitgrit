@@ -138,6 +138,38 @@ class Membership(models.Model):
         self.granted_at = timezone.now()
 
 
+class WorkspacePin(models.Model):
+    """A workspace a user pinned to the top of their workspace picker.
+
+    A preference, never access: the picker still lists only workspaces the
+    user can open, so a pin outliving its membership just stops showing.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="workspace_pins",
+    )
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="pins",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "workspace_pins"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "tenant"], name="unique_workspace_pin"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} 📌 {self.tenant}"
+
+
 class InvitationError(Exception):
     """An invitation that can't be used as asked. The message is for people."""
 

@@ -1,17 +1,40 @@
 {% load workspace_tags %}
-<li>
+{% comment %}
+One switcher row. ``tenant`` carries the ``is_member`` / ``is_pinned``
+annotations from workspace_switcher_list. The pin button sits beside the row
+(not inside it — no nested buttons) and re-renders the list; its id lets
+htmx put focus back on it after the swap, so the dropdown stays open.
+{% endcomment %}
+<li class="group relative">
   <button type="button" data-workspace-row
           hx-post="{% url 'switch_tenant' %}"
           hx-vals='{"tenant_id": "{{ tenant.id }}"}'
           hx-swap="none"
-          class="{% if is_current %}active {% endif %}flex w-full items-center gap-3 text-left">
+          class="{% if is_current %}active {% endif %}flex w-full items-center gap-3 text-left pr-10">
     <span class="w-6 h-6 rounded shrink-0 flex items-center justify-center text-xs font-bold {{ tenant|workspace_badge_class }}">{{ tenant.name|first|upper }}</span>
     <span class="flex flex-col items-start min-w-0">
       <span class="truncate max-w-full">{{ tenant.name }}</span>
       <span class="text-xs opacity-60 truncate max-w-full">{{ tenant.slug }}</span>
     </span>
-    {% if support %}
+    {% if not tenant.is_member %}
       <span class="badge badge-warning badge-xs ml-auto shrink-0" title="You're not a member — opens in support view">support</span>
     {% endif %}
+  </button>
+  <button type="button" id="pin-{{ tenant.id }}" data-pin-toggle
+          hx-post="{% url 'toggle_workspace_pin' %}"
+          hx-vals='{"tenant_id": "{{ tenant.id }}"}'
+          hx-include="#workspace-search"
+          hx-target="#workspace-list"
+          hx-swap="innerHTML"
+          data-no-loader
+          aria-pressed="{{ tenant.is_pinned|yesno:'true,false' }}"
+          aria-label="{% if tenant.is_pinned %}Unpin{% else %}Pin{% endif %} {{ tenant.name }}"
+          title="{% if tenant.is_pinned %}Unpin{% else %}Pin to top{% endif %}"
+          class="btn btn-ghost btn-xs btn-circle absolute right-2 top-1/2 -translate-y-1/2 border-0 bg-transparent shadow-none hover:bg-transparent focus-visible:outline-1 transition-opacity {% if tenant.is_pinned %}text-primary opacity-80 hover:opacity-100{% else %}opacity-0 group-hover:opacity-40 hover:!opacity-90 focus-visible:opacity-90{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="{% if tenant.is_pinned %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4"/>
+      <path d="M9 15l-4.5 4.5"/>
+      <path d="M14.5 4l5.5 5.5"/>
+    </svg>
   </button>
 </li>

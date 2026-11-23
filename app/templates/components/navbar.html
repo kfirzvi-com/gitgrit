@@ -142,6 +142,25 @@
         document.activeElement && document.activeElement.blur();
       }
     });
+    // Pinning re-renders the rows. Removing the focused pin button would drop
+    // focus and close the (focus-driven) dropdown — and a closed one can't be
+    // refocused. So park focus on the panel, which survives the swap, then
+    // hand it to the same pin button in its new place.
+    var panel = root.querySelector('.dropdown-content');
+    var pinnedId = null;
+    root.addEventListener('click', function (e) {
+      var pin = e.target.closest('[data-pin-toggle]');
+      pinnedId = pin ? pin.id : null;
+    });
+    root.addEventListener('htmx:beforeSwap', function (e) {
+      if (pinnedId && e.target.id === 'workspace-list') panel.focus({ preventScroll: true });
+    });
+    root.addEventListener('htmx:afterSwap', function (e) {
+      if (!pinnedId || e.target.id !== 'workspace-list') return;
+      var again = document.getElementById(pinnedId);
+      if (again) again.focus({ preventScroll: true });
+      pinnedId = null;
+    });
   })();
 </script>
 {% endif %}
