@@ -68,6 +68,7 @@ nav:
     - Search & Bulk Edit: features/search.md
     - Stacks & the Stack Map: features/stacks.md
     - AI Standards & Budgets: features/ai.md
+    - Scheduled Standards: features/schedules.md
     - Notifications: features/notifications.md
     - Standard Marketplace: features/marketplace.md
     - Standard Versioning: features/versioning.md

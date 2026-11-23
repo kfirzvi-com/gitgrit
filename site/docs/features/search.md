@@ -36,7 +36,7 @@ Suggestions appear under the box as you type a field or a value: pick one with t
 | **Projects** | `health` (`healthy`, `needs-attention`, `failed`, `unknown`), `stack`, `owner`, `lifecycle`, `platform` (`github`, `gitlab`, `artifact`), `language`, `name`, `path` |
 | **Stacks** | `has` (stacks with a project of that health: `has:failed`), `owner`, `project`, `name`, `description` |
 | **Standards** | `is` (`enabled`, `disabled`, `draft`), `label`, `event` (`push`, `pull_request`, `tag`), `source` (`marketplace`, `custom`), `name`, `description` |
-| **A project's Standards tab** | `is` (`attached`), `importance` (`required`, `major`, `minor`), `label`, `name`, `description` |
+| **A project's Standards tab** | `is` (`attached`), `importance` (`required`, `major`, `minor`), `runs` (`changes`, `schedule`, `both`: [what runs it](schedules.md)), `label`, `name`, `description` |
 | **Marketplace** | `is` (`available`, `installed`, `update`), `pack`, `label`, `author`, `event`, `name`, `description` |
 
 For example, on Standards, `label:ai` lists the AI-powered ones:
