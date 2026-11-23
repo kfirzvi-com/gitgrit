@@ -26,7 +26,7 @@ Anyone can still run any standard by hand from the project page.
 
 ## Set a schedule
 
-On a project's **Standards** tab, the **Runs** column shows what runs each attached standard. Click a row's chip, or check several rows and click **Runs** in the bar above the table, then click **Save**.
+On a project's **Standards** tab, the **Runs** column shows what runs each attached standard, and a schedule's time zone. Click a row's chip, or check several rows and click **Runs** in the bar above the table, then click **Save**.
 
 The editor writes the schedule as a [cron expression](https://en.wikipedia.org/wiki/Cron#Cron_expression), the five fields developers already know, without making you remember them:
 
@@ -34,9 +34,9 @@ The editor writes the schedule as a [cron expression](https://en.wikipedia.org/w
 - **Pick each field from its menu**: *Every hour*, steps such as *every 6 hours*, or tick the values you want. Ticked values that follow each other become a range (`1-5`).
 - **Or type it.** The box names the field the caret is in and suggests values for it.
 
-Under the fields, GitGrit reads the schedule back in words, with its next three times, so you never guess what a `*` means:
+Under the fields, pick the schedule's **time zone**. GitGrit then reads the schedule back in words, with its next three times, so you never guess what a `*` means:
 
-![The schedule editor: the trigger, presets, the five fields and the schedule in words](../images/app/schedule-editor.jpg){ .gg-shot loading=lazy }
+![The schedule editor: the trigger, presets, the five fields, the schedule's time zone, and the schedule in words, with a New York teammate's own times beside London's](../images/app/schedule-editor.jpg){ .gg-shot loading=lazy }
 
 ![A field's menu: shortcuts, then values to tick](../images/app/schedule-field-menu.jpg){ .gg-shot loading=lazy }
 
@@ -54,7 +54,7 @@ Under the fields, GitGrit reads the schedule back in words, with its next three 
 
 A few rules:
 
-- **Times are in your time zone**, the one on your profile, shown under the schedule. Each schedule keeps the zone it was saved in, so a teammate in another one sees the same times.
+- **A schedule has its own time zone.** Pick it under the fields (type to search every zone). It starts in the zone on your profile, else your browser's. The schedule's times are the same for everyone: a teammate in New York reads "06:00 · Madrid", not their own 00:00. When your zone is another, the reading adds your own times under the schedule's.
 - **More often than hourly is allowed but flagged.** The editor warns you, since an AI standard on `*/5 * * * *` costs more than one on every push.
 - **Missed times are skipped, not caught up.** If GitGrit was down at 06:00, the standard runs at its next time.
 - **Every scheduled standard of a project that is due at the same minute runs in one check.**
