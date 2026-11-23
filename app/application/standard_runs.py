@@ -23,6 +23,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from app.application.commit_checks import forget_platform_lists
+from app.application.changed_paths import ChangedPaths
 from app.application.event_bus import publish
 from app.application.scoring import expected_standards, score_checks
 from app.application.standard_engine import StandardEngine, bare_ref, literal_ref
@@ -323,8 +324,12 @@ def enqueue_for_event(
     # Resolve the platform actor to a GitGrit user (once per event)
     actor_user = resolve_user(event.platform, event.actor)
 
+    # A monorepo holds projects at different root paths: only those whose
+    # directory the event changed run (a whole-repository project always does).
+    touched = ChangedPaths(event).projects_touched(projects)
+
     queued: list[dict] = []
-    for project in projects:
+    for project in touched:
         # A code push may change dependencies — trigger a graph refresh
         # (its own background job, additive to the standard runs below).
         if event.event_type == "push":

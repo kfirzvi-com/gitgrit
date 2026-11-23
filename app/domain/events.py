@@ -24,6 +24,14 @@ class DomainEvent:
     commit_sha: str = ""
     # When that commit was made (ISO 8601), when the payload says.
     committed_at: str = ""
+    # Repository paths the event changed, when the payload lists them
+    # completely; None when it doesn't (then ``base_sha`` lets the platform's
+    # compare API tell). A project inside a monorepo runs only when its root
+    # path is among them.
+    changed_paths: tuple[str, ...] | None = None
+    # What the change is relative to: a push's previous head, a pull
+    # request's base commit. Empty when there is none (a new branch).
+    base_sha: str = ""
 
 
 # --- Workspace domain events -------------------------------------------------
