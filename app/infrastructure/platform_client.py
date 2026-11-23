@@ -404,6 +404,31 @@ class GitLabClient(PlatformClient):
         resp.raise_for_status()
         return resp.json().get("topics", [])
 
+    # 100 files a page: a repository of up to 20,000 files is listed whole.
+    MAX_TREE_PAGES = 200
+
+    def get_tree(self, full_path: str, ref: str = "") -> list[str]:
+        """Every file path in the repository (blobs only), for a project
+        rooted inside a monorepo: its languages and the root-path
+        suggestions. GitLab reads the default branch when no ref is given."""
+        params = {"recursive": "true", "per_page": 100}
+        if ref:
+            params["ref"] = ref
+        files: list[str] = []
+        for page in range(1, self.MAX_TREE_PAGES + 1):
+            resp = requests.get(
+                f"{self._api_base}/projects/{quote(full_path, safe='')}/repository/tree",
+                headers=self._headers,
+                params={**params, "page": page},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            batch = resp.json()
+            files += [item["path"] for item in batch if item.get("type") == "blob"]
+            if len(batch) < 100:
+                break
+        return files
+
     def list_branches(self, external_id: str, full_path: str) -> list[str]:
         names: list[str] = []
         for page in range(1, 11):
