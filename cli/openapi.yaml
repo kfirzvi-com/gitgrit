@@ -1435,11 +1435,17 @@ paths:
   /api/v1/workspaces/{workspace_id}/projects/resolve/:
     get:
       operationId: resolve_project
-      description: Pass `repo_full_path` (e.g. `acme/backend`) and/or `web_url` —
-        raw `git remote get-url origin` output is accepted. A miss returns 404 with
-        up to 5 close candidates.
+      description: 'Pass `repo_full_path` (e.g. `acme/backend`) and/or `web_url` —
+        raw `git remote get-url origin` output is accepted. A repository can hold
+        several projects at different root paths (a monorepo): pass `path`, where
+        you stand relative to the repository root, and the innermost project wins.
+        A miss returns 404 with up to 5 close candidates.'
       summary: Resolve a git remote to a project
       parameters:
+      - in: query
+        name: path
+        schema:
+          type: string
       - in: query
         name: repo_full_path
         schema:
@@ -3341,6 +3347,10 @@ components:
             the caller's own.
         full_path:
           type: string
+        root_path:
+          type: string
+          description: Where the project starts inside its repository; empty for the
+            whole repository.
         web_url:
           type: string
         default_branch:
@@ -3365,6 +3375,7 @@ components:
       - lifecycle
       - name
       - platform
+      - root_path
       - tags
       - web_url
     ProjectCreateRequest:
@@ -3392,6 +3403,12 @@ components:
           format: uuid
           description: '`repository` only: which connection reaches it. Optional when
             only one connection can.'
+        root_path:
+          type: string
+          default: ''
+          description: '`repository` only: the directory the project lives in (a monorepo
+            app or service, e.g. `apps/web`). Standards and checks run from there.
+            Empty for the whole repository.'
         lifecycle:
           type: string
           minLength: 1
@@ -3445,6 +3462,10 @@ components:
             the caller's own.
         full_path:
           type: string
+        root_path:
+          type: string
+          description: Where the project starts inside its repository; empty for the
+            whole repository.
         web_url:
           type: string
         default_branch:
@@ -3496,6 +3517,7 @@ components:
       - name
       - owner
       - platform
+      - root_path
       - runs
       - standards
       - tags
@@ -3520,6 +3542,10 @@ components:
             the caller's own.
         full_path:
           type: string
+        root_path:
+          type: string
+          description: Where the project starts inside its repository; empty for the
+            whole repository.
         web_url:
           type: string
         default_branch:
@@ -3566,6 +3592,7 @@ components:
       - name
       - owner
       - platform
+      - root_path
       - standards
       - tags
       - web_url
@@ -3765,7 +3792,15 @@ components:
           nullable: true
         already_added:
           type: boolean
+          description: The whole repository is already a project.
+        added_paths:
+          type: array
+          items:
+            type: string
+          description: Root paths it is already a project at (empty string = the whole
+            repository).
       required:
+      - added_paths
       - already_added
       - default_branch
       - description
@@ -3792,6 +3827,10 @@ components:
             the caller's own.
         full_path:
           type: string
+        root_path:
+          type: string
+          description: Where the project starts inside its repository; empty for the
+            whole repository.
         web_url:
           type: string
         default_branch:
@@ -3819,6 +3858,7 @@ components:
       - matched_by
       - name
       - platform
+      - root_path
       - tags
       - web_url
     RunCheckRequest:

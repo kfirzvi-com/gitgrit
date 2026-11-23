@@ -1195,7 +1195,10 @@ type Project struct {
 	Name       string             `json:"name"`
 
 	// Platform github, gitlab, or artifact.
-	Platform string   `json:"platform"`
+	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string   `json:"root_path"`
 	Tags     []string `json:"tags"`
 	WebUrl   string   `json:"web_url"`
 }
@@ -1217,6 +1220,9 @@ type ProjectCreateRequest struct {
 
 	// Repository `repository` only (required): the repository's path (`org/repo`) or platform id.
 	Repository *string `json:"repository,omitempty"`
+
+	// RootPath `repository` only: the directory the project lives in (a monorepo app or service, e.g. `apps/web`). Standards and checks run from there. Empty for the whole repository.
+	RootPath *string `json:"root_path,omitempty"`
 
 	// Stack `artifact` only: the stack to put it in, found by name or created.
 	Stack *string `json:"stack,omitempty"`
@@ -1248,6 +1254,9 @@ type ProjectCreated struct {
 
 	// Platform github, gitlab, or artifact.
 	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string `json:"root_path"`
 
 	// Runs The first run, when standards were attached.
 	Runs *RunsSummary `json:"runs"`
@@ -1283,6 +1292,9 @@ type ProjectDetail struct {
 
 	// Platform github, gitlab, or artifact.
 	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string `json:"root_path"`
 
 	// Standards Every attached standard, runnable or not.
 	Standards []AttachedStandard `json:"standards"`
@@ -1397,6 +1409,10 @@ type ProviderUsage struct {
 
 // Repository defines model for Repository.
 type Repository struct {
+	// AddedPaths Root paths it is already a project at (empty string = the whole repository).
+	AddedPaths []string `json:"added_paths"`
+
+	// AlreadyAdded The whole repository is already a project.
 	AlreadyAdded  bool    `json:"already_added"`
 	DefaultBranch *string `json:"default_branch"`
 	Description   *string `json:"description"`
@@ -1424,7 +1440,10 @@ type ResolvedProject struct {
 	Name      string        `json:"name"`
 
 	// Platform github, gitlab, or artifact.
-	Platform string   `json:"platform"`
+	Platform string `json:"platform"`
+
+	// RootPath Where the project starts inside its repository; empty for the whole repository.
+	RootPath string   `json:"root_path"`
 	Tags     []string `json:"tags"`
 	WebUrl   string   `json:"web_url"`
 }
@@ -1790,6 +1809,7 @@ type SetLlmRoleParamsRole string
 
 // ResolveProjectParams defines parameters for ResolveProject.
 type ResolveProjectParams struct {
+	Path         *string `form:"path,omitempty" json:"path,omitempty"`
 	RepoFullPath *string `form:"repo_full_path,omitempty" json:"repo_full_path,omitempty"`
 	WebUrl       *string `form:"web_url,omitempty" json:"web_url,omitempty"`
 }
@@ -4360,6 +4380,18 @@ func NewResolveProjectRequest(server string, workspaceId openapi_types.UUID, par
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
 
 		if params.RepoFullPath != nil {
 
