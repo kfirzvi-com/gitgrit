@@ -14,3 +14,5 @@ class InfoTip:
     how: str
     good: str = ""
     dora: bool = False
+    # The heading over ``good``.
+    reading_label: str = "Reading it"

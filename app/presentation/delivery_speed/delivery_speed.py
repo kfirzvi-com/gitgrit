@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.domain.delivery import DeliveryTotals, DoraBands
 from app.presentation.delivery_speed.band import Band
 from app.presentation.delivery_speed.band_meter import BandMeter
+from app.presentation.delivery_speed.bar_tip import BarTip
 from app.presentation.delivery_speed.info_tip import InfoTip
 from app.presentation.speedometer import Speedometer
 
@@ -36,6 +37,7 @@ TIPS = {
         "half deploy more often, half less.",
         "Elite: most days (3+ a week). High: weekly. Medium: monthly. Low: less often.",
         dora=True,
+        reading_label="What good looks like",
     ),
     "lead": InfoTip(
         "Lead time for changes",
@@ -43,6 +45,7 @@ TIPS = {
         "project (each from its own start, the commit by default). This is the median change.",
         "Elite: under a day. High: under a week. Medium: under a month. Low: longer.",
         dora=True,
+        reading_label="What good looks like",
     ),
     "open": InfoTip(
         "Open pull requests",
@@ -82,6 +85,41 @@ class DeliverySpeed:
         self.pull_age = BandMeter(age, PULL_AGE_EDGES, PULL_AGE)
         self.checks_this_week = checks_this_week
         self.checks_peak = checks_peak
+
+    @property
+    def bar_tips(self) -> dict[str, BarTip]:
+        """What each upright bar says on hover or focus."""
+        from app.templatetags.time_tags import duration
+
+        totals = self.totals
+        lead = self.lead.band
+        age = self.pull_age.band
+        return {
+            "lead": BarTip(
+                f"Lead time {duration(totals.lead_time)}",
+                f"{lead.label}: {self.lead_tier.lead_time.lower()}" if lead else "No changes shipped yet",
+                "Elite < 1 day · High < 1 week · Medium < 1 month",
+            ),
+            "merged": BarTip(
+                f"{totals.merged_per_week:.1f} merged a week",
+                f"{self.merged_trend_text} in the last 4 weeks against the 4 before" if self.merged_trend_text else "",
+                f"Bar: the last 4 weeks at {self.merged_share}% of the busiest week",
+            ),
+            "open": BarTip(
+                f"{totals.open_now} open pull request{'' if totals.open_now == 1 else 's'}",
+                f"{age.label}: open {duration(totals.open_age)} (median)" if age else "None open",
+                "Fresh < 1 day · Aging < 1 week · Stale beyond",
+            ),
+            "checks": BarTip(
+                f"{self.checks_this_week} commit{'' if self.checks_this_week == 1 else 's'} checked this week",
+                f"The busiest of the last 4 weeks had {self.checks_peak}",
+                f"Bar: this week at {self.checks_share}% of that",
+            ),
+        }
+
+    @property
+    def lead_tier(self):
+        return DoraBands.lead_time(self.totals.lead_time)
 
     @property
     def tips(self) -> dict[str, InfoTip]:

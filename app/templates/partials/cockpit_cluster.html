@@ -20,13 +20,13 @@
         <div class="flex items-end justify-center gap-1.5" data-speed-readouts>
           <div class="flex flex-col items-center gap-1 w-11" data-readout="lead">
             <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="{{ t.lead_time|duration }} (median)">{{ t.lead_time|short_duration }}</span>
-            {% include "partials/band_meter_vertical.html" with meter=speed.lead label="Lead time, by DORA's bands" %}
+            <div class="group/bar relative rounded-full outline-none transition-transform duration-150 hover:scale-x-125 focus-visible:scale-x-125 focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-lead" data-speed-bar="lead">{% include "partials/band_meter_vertical.html" with meter=speed.lead label="Lead time, by DORA's bands" %}{% include "partials/bar_tip.html" with tip=speed.bar_tips.lead key="lead" side="start" %}</div>
             <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Lead {% include "partials/info_tip.html" with tip=speed.tips.lead key="lead" bands=speed.bands align="left" %}</span>
             
           </div>
           <div class="flex flex-col items-center gap-1 w-11" data-readout="merged">
             <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="Merges a week across the workspace{% if speed.merged_trend_text %}; {{ speed.merged_trend_text }} in the last 4 weeks against the 4 before{% endif %}" data-merged-trend>{{ t.merged_per_week|floatformat:1 }}{% if speed.merged_trend_arrow %}<span class="ml-px text-[9px] font-normal opacity-70">{{ speed.merged_trend_arrow }}</span>{% endif %}</span>
-            <div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="Merges in the last 4 weeks at {{ speed.merged_share }}% of the busiest week"><span class="absolute bottom-0 inset-x-0 bg-secondary/80" style="height: {{ speed.merged_share }}%"></span></div>
+            <div class="group/bar relative rounded-full outline-none transition-transform duration-150 hover:scale-x-125 focus-visible:scale-x-125 focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-merged" data-speed-bar="merged"><div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="Merges in the last 4 weeks at {{ speed.merged_share }}% of the busiest week"><span class="absolute bottom-0 inset-x-0 bg-secondary/80" style="height: {{ speed.merged_share }}%"></span></div>{% include "partials/bar_tip.html" with tip=speed.bar_tips.merged key="merged" side="start" %}</div>
             <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Merged {% include "partials/info_tip.html" with tip=speed.tips.merged key="merged" align="left" %}</span>
           </div>
           <div class="flex flex-col items-center px-1">
@@ -42,14 +42,14 @@
           </div>
           <div class="flex flex-col items-center gap-1 w-11" data-readout="open">
             <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="{% if t.open_age %}Open {{ t.open_age|duration }} (median){% endif %}">{{ t.open_now }}</span>
-            {% include "partials/band_meter_vertical.html" with meter=speed.pull_age label="How long open pull requests have been open" %}
-            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">PRs {% include "partials/info_tip.html" with tip=speed.tips.open key="open" %}</span>
+            <div class="group/bar relative rounded-full outline-none transition-transform duration-150 hover:scale-x-125 focus-visible:scale-x-125 focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-open" data-speed-bar="open">{% include "partials/band_meter_vertical.html" with meter=speed.pull_age label="How long open pull requests have been open" %}{% include "partials/bar_tip.html" with tip=speed.bar_tips.open key="open" side="end" %}</div>
+            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">PRs {% include "partials/info_tip.html" with tip=speed.tips.open key="open" align="right" %}</span>
             
           </div>
           <div class="flex flex-col items-center gap-1 w-11" data-readout="checks">
             <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="Commits checked this week; the busiest of the last 4 weeks had {{ speed.checks_peak }}">{{ speed.checks_this_week }}</span>
-            <div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="{{ speed.checks_this_week }} commits checked this week, {{ speed.checks_share }}% of the busiest of the last 4 weeks"><span class="absolute bottom-0 inset-x-0 bg-primary/70" style="height: {{ speed.checks_share }}%"></span></div>
-            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Checked {% include "partials/info_tip.html" with tip=speed.tips.checks key="checks" %}</span>
+            <div class="group/bar relative rounded-full outline-none transition-transform duration-150 hover:scale-x-125 focus-visible:scale-x-125 focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-checks" data-speed-bar="checks"><div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="{{ speed.checks_this_week }} commits checked this week, {{ speed.checks_share }}% of the busiest of the last 4 weeks"><span class="absolute bottom-0 inset-x-0 bg-primary/70" style="height: {{ speed.checks_share }}%"></span></div>{% include "partials/bar_tip.html" with tip=speed.bar_tips.checks key="checks" side="end" %}</div>
+            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Checked {% include "partials/info_tip.html" with tip=speed.tips.checks key="checks" align="right" %}</span>
             
           </div>
         </div>

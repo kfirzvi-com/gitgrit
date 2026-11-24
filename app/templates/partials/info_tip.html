@@ -2,13 +2,15 @@
 keyboard focus, closes when either leaves. A small card, one idea per line: the title (with a DORA chip
 for DORA's metrics), how it is counted, and what good looks like; DORA's metrics show their bands as a
 row of coloured dots rather than more words. `tip` is the InfoTip; `bands` DORA's bands, best first;
-`align` "left" opens it towards the right (for an ⓘ near a left edge), else centred.{% endcomment %}
+`align` "left" opens it towards the right (for an ⓘ near a left edge), "right" towards the left (near a
+right edge), else centred.{% endcomment %}
 <span class="relative inline-flex align-middle group/tip" data-info-tip>
   <button type="button" class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold leading-none opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
           aria-label="About {{ tip.title|lower }}" aria-describedby="tip-{{ key }}">i</button>
   <span id="tip-{{ key }}" role="tooltip"
+        style="font-family: var(--gg-font-sans)"
         class="pointer-events-none invisible opacity-0 group-hover/tip:visible group-hover/tip:opacity-100 group-focus-within/tip:visible group-focus-within/tip:opacity-100 transition-opacity duration-150
-               absolute z-50 top-full mt-2 {% if align == 'left' %}left-0{% else %}left-1/2 -translate-x-1/2{% endif %} w-72 max-w-[80vw]
+               absolute z-50 top-full mt-2 {% if align == 'left' %}left-0{% elif align == 'right' %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %} w-72 max-w-[80vw]
                rounded-lg border border-base-content/15 bg-base-300 p-3 shadow-xl text-left normal-case tracking-normal font-normal text-xs leading-relaxed text-base-content">
     <span class="flex items-center gap-2 mb-1.5">
       <span class="text-sm font-semibold">{{ tip.title }}</span>
@@ -17,7 +19,7 @@ row of coloured dots rather than more words. `tip` is the InfoTip; `bands` DORA'
     <span class="block opacity-80">{{ tip.how }}</span>
     {% if tip.good %}
       <span class="mt-2 block border-t border-base-content/10 pt-2">
-        <span class="block text-[10px] font-semibold uppercase tracking-wide opacity-60 mb-0.5">{% if tip.dora %}What good looks like{% else %}Reading it{% endif %}</span>
+        <span class="block text-[10px] font-semibold uppercase tracking-wide opacity-60 mb-0.5">{{ tip.reading_label|default:"Reading it" }}</span>
         <span class="block opacity-80">{{ tip.good }}</span>
       </span>
     {% endif %}
