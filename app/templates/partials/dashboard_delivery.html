@@ -1,0 +1,98 @@
+{% load time_tags %}{% comment %}The dashboard's Delivery tab: the workspace's deploys, lead time and pull requests over the
+last 13 weeks, summed over its synced Git projects; how many projects sit in each DORA tier; and the
+projects that deployed most recently. Each project's own figures are on its Delivery tab and in the
+Projects list's columns.{% endcomment %}
+{% with t=delivery.totals %}
+<section aria-labelledby="delivery-title" class="flex flex-col gap-5" data-dashboard-delivery>
+  <div class="flex flex-col gap-1">
+    <h2 id="delivery-title" class="gg-eyebrow">Delivery &middot; last 13 weeks</h2>
+    <span class="text-sm" style="color: var(--gg-text-dim)">
+      {% if delivery.synced %}
+        Across {{ delivery.synced }} of {{ delivery.projects }} Git project{{ delivery.projects|pluralize }}{% if delivery.synced < delivery.projects %}; the rest sync within minutes{% endif %}.
+      {% else %}
+        No project has synced its delivery yet; it happens within minutes of adding one.
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="grid grid-cols-1 min-[901px]:grid-cols-2 min-[1201px]:grid-cols-3 gap-5">
+    {# Deploys per week, every project together #}
+    <div class="gg-panel p-6 flex flex-col gap-3 min-w-0" data-delivery-deploys>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div class="flex flex-col gap-1">
+          <span class="gg-eyebrow">Deploys</span>
+          <span class="text-[28px] font-bold leading-tight tabular-nums">{{ t.deployments_per_week|floatformat:1 }} <span class="text-base font-semibold" style="color: var(--gg-text-dim)">a week</span></span>
+        </div>
+        <div class="flex flex-wrap gap-1.5 text-xs" data-delivery-tiers>
+          {% for tier, count in t.tiers %}{% if count %}
+            <span class="badge badge-sm {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                  title="{{ count }} project{{ count|pluralize }}: {{ tier.cadence }}">{{ count }} {{ tier.label }}</span>
+          {% endif %}{% endfor %}
+        </div>
+      </div>
+      {% include "partials/delivery_week_chart.html" with chart=delivery_deploys bar="bg-primary" label="Deploys per week across the workspace" noun="deploy" %}
+    </div>
+
+    {# Lead time for changes: the median of every change shipped, and the projects per tier #}
+    <div class="gg-panel p-6 flex flex-col gap-3 min-w-0" data-delivery-lead>
+      <div class="flex flex-col gap-1">
+        <span class="gg-eyebrow">Lead time for changes</span>
+        <span class="text-[28px] font-bold leading-tight tabular-nums">{{ t.lead_time|duration }} <span class="text-base font-semibold" style="color: var(--gg-text-dim)">median</span></span>
+        <span class="text-sm" style="color: var(--gg-text-dim)">Every change shipped, each project measured from its own start (commit by default).</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5 text-xs" data-delivery-lead-tiers>
+        {% for tier, count in t.lead_tiers %}{% if count %}
+          <span class="badge badge-sm {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                title="{{ count }} project{{ count|pluralize }}: {{ tier.lead_time|lower }}">{{ count }} {{ tier.label }}</span>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+
+    {# Pull requests merged per week (bars) and open at each week's end (line) #}
+    <div class="gg-panel p-6 flex flex-col gap-3 min-w-0" data-delivery-pulls>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div class="flex flex-col gap-1">
+          <span class="gg-eyebrow">Pull requests</span>
+          <span class="text-[28px] font-bold leading-tight tabular-nums">{{ t.merged_per_week|floatformat:1 }} <span class="text-base font-semibold" style="color: var(--gg-text-dim)">merged a week</span></span>
+        </div>
+        <span class="text-[28px] font-bold leading-tight tabular-nums" data-delivery-open>{{ t.open_now }} <span class="text-base font-semibold" style="color: var(--gg-text-dim)">open now</span></span>
+      </div>
+      {% include "partials/delivery_week_chart.html" with chart=delivery_pulls bar="bg-secondary" label="Pull requests merged per week, and open at the end of each week, across the workspace" noun="merged" %}
+    </div>
+  </div>
+
+  {# The projects that deployed most recently #}
+  <div class="gg-panel p-6 flex flex-col gap-3 min-w-0" data-delivery-latest>
+    <div class="flex flex-wrap items-baseline justify-between gap-3">
+      <span class="gg-eyebrow">Latest deployments</span>
+      <a href="{% url 'project_list' %}" class="link link-hover text-xs" style="color: var(--gg-text-dim)">Every project's running version &rarr;</a>
+    </div>
+    {% if delivery.latest %}
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead><tr class="gg-eyebrow"><th>Project</th><th>Running</th><th>Deployed</th><th>Deploys</th><th>Lead time</th><th class="text-center">Open PRs</th></tr></thead>
+          <tbody>
+            {% for project, summary in delivery.latest %}
+              <tr>
+                <td class="max-w-xs truncate"><a href="{% url 'project_detail' project.pk %}#delivery" class="link link-hover font-medium">{{ project.name }}</a></td>
+                <td class="{% if not summary.running.version %}font-mono{% endif %} whitespace-nowrap">{{ summary.running.label }}</td>
+                <td class="whitespace-nowrap" title="{{ summary.running.deployed_at }}">{{ summary.running.deployed_at|timesince }} ago</td>
+                <td class="whitespace-nowrap">
+                  {% with tier=summary.frequency.tier %}
+                    <span class="badge badge-sm {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}">{{ tier.label }}</span>
+                    <span class="text-xs" style="color: var(--gg-text-dim)">{{ summary.frequency.per_week|floatformat:1 }}/wk</span>
+                  {% endwith %}
+                </td>
+                <td class="whitespace-nowrap">{{ summary.lead_time.median|duration }}</td>
+                <td class="text-center tabular-nums">{{ summary.pull_requests.open_now }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm" style="color: var(--gg-text-dim)">No deployments found in the last 13 weeks.</p>
+    {% endif %}
+  </div>
+</section>
+{% endwith %}

@@ -48,6 +48,9 @@ GIT_TAG = os.environ.get("GIT_TAG", "")
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 AIRGAPPED = os.environ.get("AIRGAPPED", "False") == "True"
+# How often each project's delivery data (deployments, pull requests, the
+# running version) is synced from its Git platform, in minutes.
+GITGRIT_DELIVERY_SYNC_MINUTES = int(os.environ.get("GITGRIT_DELIVERY_SYNC_MINUTES", "15"))
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [
     host for host in [urlparse(SITE_URL).hostname] if host
@@ -587,6 +590,14 @@ LOGGING = {
         "procrastinate.worker": {
             "handlers": ["console_timestamped"],
             "level": "INFO",
+            "propagate": False,
+        },
+        # Delivery syncs' GitHub calls: one line each, with its status (304:
+        # unchanged, free) and the token's allowance left, to watch the rate
+        # limit. GITGRIT_DELIVERY_LOG_LEVEL=WARNING keeps only failures.
+        "app.infrastructure.delivery": {
+            "handlers": ["console_timestamped"],
+            "level": os.environ.get("GITGRIT_DELIVERY_LOG_LEVEL", "INFO"),
             "propagate": False,
         },
     },

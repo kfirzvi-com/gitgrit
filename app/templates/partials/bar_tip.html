@@ -1,0 +1,13 @@
+{% comment %}What an upright delivery speed bar says when hovered or focused
+(presentation.delivery_speed.BarTip): its reading in full, what it means, its scale, and how it is
+counted across the workspace, in a small card above the bar. `side` "start" opens it towards the right (bars on the gauge's left), "end"
+towards the left (bars on its right), "center" centred (the gauge itself). Shown by CSS from the bar's `group/bar`; nothing to load.{% endcomment %}
+<span role="tooltip" id="bar-tip-{{ key }}" style="font-family: var(--gg-font-sans)"
+      class="pointer-events-none invisible opacity-0 group-hover/bar:visible group-hover/bar:opacity-100 group-focus-visible/bar:visible group-focus-visible/bar:opacity-100 transition-opacity duration-100
+             absolute z-40 bottom-full mb-2 {% if side == "end" %}right-0{% elif side == "center" %}left-1/2 -translate-x-1/2{% else %}left-0{% endif %} w-56 rounded-lg border border-base-content/15 bg-base-300 px-2.5 py-2 shadow-xl
+             text-left text-[11px] leading-snug text-base-content whitespace-normal">
+  <span class="block font-semibold">{{ tip.reading }}</span>
+  {% if tip.meaning %}<span class="block opacity-80">{{ tip.meaning }}</span>{% endif %}
+  {% if tip.scale %}<span class="mt-1 block border-t border-base-content/10 pt-1 text-[10px] opacity-60">{{ tip.scale }}</span>{% endif %}
+  {% if tip.how %}<span class="mt-1 block text-[10px] opacity-60 italic">{{ tip.how }}</span>{% endif %}
+</span>

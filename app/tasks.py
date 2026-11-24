@@ -338,6 +338,39 @@ def snapshot_workspace_usage(timestamp: int) -> int:
     return UsageMeter.snapshot_all()
 
 
+@app.task(queue="graph", name="sync_delivery")
+@fresh_db_connection
+def sync_delivery(project_id: str) -> None:
+    """Sync one project's delivery data (DORA metrics) from its Git
+    platform. Idempotent; a source that can't be read is noted on the
+    project's delivery settings rather than failing the job."""
+    from app.application.delivery import DeliverySync
+    from app.infrastructure.delivery import deployment_sources_for, repository_activity_for
+    from app.models import Project
+
+    project = Project.objects.filter(pk=project_id).select_related("platform_connection").first()
+    if project is None:
+        return
+    DeliverySync(deployment_sources_for, repository_activity_for).run(project)
+
+
+@app.periodic(cron="* * * * *")
+@app.task(queue="graph", name="sync_due_deliveries", pass_context=False)
+@fresh_db_connection
+def sync_due_deliveries(timestamp: int) -> int:
+    """Ask for a sync of every Git project due one (every
+    ``GITGRIT_DELIVERY_SYNC_MINUTES``), so pages never have to read the
+    platform themselves."""
+    from django.utils import timezone
+
+    from app.application.delivery import DeliverySyncRequest, DeliverySyncSchedule
+
+    due = list(DeliverySyncSchedule.due(timezone.now()))
+    for project in due:
+        DeliverySyncRequest.send(project)
+    return len(due)
+
+
 @app.periodic(cron="*/2 * * * *")
 @app.task(queue="graph", name="recover_stalled_jobs", pass_context=False)
 async def recover_stalled_jobs(timestamp: int) -> int:

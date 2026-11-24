@@ -56,7 +56,7 @@ class DashboardConnectFirstTests(TestCase):
         body = self.client.get(reverse("dashboard")).content.decode()
 
         self.assertIn("data-cockpit-empty", body)
-        for part in ('data-gauge="checks"', 'data-gauge="health"', 'data-gauge="fuel"', 'data-light="ai_budget"'):
+        for part in ('data-gauge="speed"', 'data-gauge="health"', 'data-gauge="fuel"', 'data-light="ai_budget"'):
             self.assertIn(part, body)
         self.assertNotIn('" data-lit', body)  # no lamp is lit
         self.assertIn('data-step="ai-budget"', body)

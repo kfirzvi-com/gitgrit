@@ -10,7 +10,9 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
 
+from app.presentation.project_overview import ProjectOverview, StandardsSummary
 from app.presentation.bulk_edit_answer import BulkEditAnswer
+from app.application.delivery import DeliveryReport, DeliverySyncRequest
 from app.application.project_bulk_edit import ProjectBulkEdit
 from app.application.project_suggestions import ProjectSuggestions
 from app.presentation.htmx import toast
@@ -31,6 +33,7 @@ from app.domain import importance, schedules
 from app.presentation.schedule_chip import ScheduleChip
 from app.presentation import importance_text
 from app.domain.models import (
+    DeliverySettings,
     Platform,
     PlatformConnection,
     Project,
@@ -207,8 +210,20 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         return Project.objects.filter(tenant=tenant).select_related("platform_connection")
 
     def get_context_data(self, **kwargs):
+        """The Overview summarises every tab: the score and its results, and
+        for a Git project its delivery (a first visit starts its first sync)."""
         context = super().get_context_data(**kwargs)
-        context.update(results_context(self.object))
+        project = self.object
+        context.update(results_context(project))
+        delivery = None
+        if not project.is_artifact:
+            settings, _ = DeliverySettings.objects.get_or_create(project=project)
+            if settings.refreshed_at is None and settings.refresh_requested_at is None:
+                DeliverySyncRequest.send(project)
+            delivery = DeliveryReport.for_project(project)
+        context["delivery"] = delivery
+        context["overview"] = ProjectOverview(project, context, delivery)
+        context["standards_summary"] = StandardsSummary(project)
         return context
 
 

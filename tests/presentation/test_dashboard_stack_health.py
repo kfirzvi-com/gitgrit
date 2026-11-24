@@ -87,7 +87,7 @@ class DashboardCockpitTests(TestCase):
         self.assertContains(response, "1 needs attention.")
         self.assertContains(response, 'data-light="no_score" data-lit')
         self.assertNotContains(response, 'data-light="failed" data-lit')
-        for gauge in ("health", "checks"):
+        for gauge in ("health", "speed"):
             self.assertContains(response, f'data-gauge="{gauge}"')
         self.assertContains(response, "data-trend")
 
