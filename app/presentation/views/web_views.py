@@ -74,7 +74,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             delivery = WorkspaceDelivery.for_workspace(tenant)
             context["delivery"] = delivery
             context["speed"] = DeliverySpeed(delivery.totals, cockpit.checks_this_week, cockpit.checks_peak)
-            context["delivery_deploys"] = DeliveryChart(delivery.totals.starts, delivery.totals.deployments)
+            context["delivery_deploys"] = DeliveryChart(
+                delivery.totals.starts,
+                delivery.totals.deployments,
+                labels=[f"{n} deploy{'' if n == 1 else 's'}" for n in delivery.totals.deployments],
+            )
             context["delivery_pulls"] = DeliveryChart(
                 delivery.totals.starts, delivery.totals.merged, delivery.totals.open_at_end
             )

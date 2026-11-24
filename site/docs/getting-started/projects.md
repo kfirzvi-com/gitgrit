@@ -9,7 +9,7 @@ A project is what GitGrit checks against your standards. Each belongs to a works
 - **Repositories**: on GitHub or GitLab, coming in through one of the workspace's git platform connections and checked on their webhook events (this page).
 - **[Artifact projects](artifact-projects.md)**: builds you upload as archives, checked on each upload.
 
-The **Projects** list shows every project with its grade, stacks, owner, lifecycle, platform and when it was last checked. [Filter, sort, group and bulk edit](../features/search.md) it like every list.
+The **Projects** list shows every project with its grade, its [delivery](../features/delivery.md) (running version, deploys a week and lead time), stacks, owner and when it was last checked. **Columns** shows or hides lifecycle, platform and the rest. [Filter, sort, group and bulk edit](../features/search.md) it like every list.
 
 ![The Projects list](../images/app/projects-list.jpg){ .gg-shot loading=lazy }
 
@@ -17,8 +17,10 @@ The **Projects** list shows every project with its grade, stacks, owner, lifecyc
 
 A workspace owner or admin connects GitHub or GitLab once, in **Workspace Settings** → **Git Platform Connections**:
 
-- **GitHub App** (recommended for GitHub): click **Install GitHub App**, pick your organization and the repositories GitGrit may read. There's no token to rotate, and GitHub sends GitGrit every push through the App.
+- **GitHub App** (recommended for GitHub): click **Install GitHub App**, pick your organization and the repositories GitGrit may read. There's no token to rotate, and GitHub sends GitGrit every push, pull request and deployment through the App.
 - **Access token** (GitLab, or GitHub without the App): pick the platform, paste a personal access token and click **Add Connection**. **How to generate a token?** lists the permissions it needs.
+
+GitGrit only reads your code. On GitHub it needs **Contents** and **Metadata** read (and, for a token, **Webhooks** read and write, to register its webhook). [Delivery metrics](../features/delivery.md#what-gitgrit-needs) also read **Pull requests**, **Deployments** and **Actions**.
 
 From the terminal: `gitgrit connection app` or `gitgrit connection add`. See [Command Line](cli.md).
 
@@ -65,19 +67,26 @@ A standard can limit which events and branches it runs on. See [Writing Standard
 
 ## The project page
 
-<video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/project-failed.jpg" aria-label="From the project list to a failed project: its grade, results and standards">
+<video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/project-failed.jpg" aria-label="From the project list to a failed project: its Overview, results, delivery and standards">
   <source src="../../videos/project.webm" type="video/webm">
 </video>
 
-![A project's Overview: its grade and what it is based on](../images/app/project-overview.jpg){ .gg-shot loading=lazy }
+![A project's Overview: results, delivery, standards and what the project is](../images/app/project-overview.jpg){ .gg-shot loading=lazy }
 
-- **Overview**: the project's [score](#the-score) and how many standards passed, failed or errored
+- **Overview**: the project at a glance: its [score](#the-score), its delivery, its standards and recent activity
 - **Results**: each branch's score and its commits, each with its own score and every standard's message
+- **Delivery**: how the project ships: deployments, lead time and pull requests ([Delivery Metrics](../features/delivery.md))
 - **Standards**: attach and detach standards and set their [importance](#importance)
 - **Get your Badge**: an embeddable score badge for your README ([Compliance Badges](../features/badges.md))
 - **Edit**: lifecycle and owner. **Remove** deletes the project, its results and its webhook.
 
-The **Overview** shows the grade on the scale A+ to F, what it's based on (how many standards failed, errored and passed), when it last ran, and the project's details: platform, default branch, lifecycle, owner, webhook, languages, tags, stacks and, for a monorepo, the other projects in the repository and the [suggested projects](monorepos.md#suggested-projects).
+The **Overview** is made of cards, each linking to the tab with more:
+
+- **Results**: the grade on the scale A+ to F, what it's based on (how many Required standards failed, and how many standards failed, errored and passed) and when it last ran.
+- **Delivery**: what's running in production, deploys a week and lead time with their [DORA tiers](../features/delivery.md#dora-tiers), commits waiting to ship, and pull requests: open, merged a week and time to merge.
+- **Standards**: how many are attached, by [importance](#importance) and by [what runs them](../features/schedules.md).
+- **About**: the project's description, platform, default branch, lifecycle, owner, webhook, languages, tags, stacks and, for a monorepo, the other projects in the repository and the [suggested projects](monorepos.md#suggested-projects).
+- **Recent activity**: deployments, merges and standard results, newest first.
 
 When a Required standard fails, the Overview says which:
 
