@@ -82,7 +82,8 @@ class GitHubApi:
             raise RateLimited(_reset_time(response))
         if response.status_code == 403:
             raise SourceUnavailable(
-                f"The GitHub token can't read {permission.lower()}: give it {permission} read access."
+                f"The GitHub token can't read this repository's {permission.lower()}: give it "
+                f"{permission} read access, with this repository among those it can reach."
             )
         response.raise_for_status()
         body = response.json()
