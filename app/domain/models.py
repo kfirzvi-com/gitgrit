@@ -12,7 +12,14 @@ from django.utils import timezone
 
 from app.domain import importance as importance_domain
 from app.domain import schedules
-from app.domain.delivery import DeploymentEvent, DeploymentStrategy, PendingCommits, ProductionEnvironment
+from app.domain.delivery import (
+    DeploymentEvent,
+    DeploymentStrategy,
+    PendingCommits,
+    ProductionEnvironment,
+    PullRequestFacts,
+    PullRequestState,
+)
 from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCount, UsageCategory
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
@@ -1249,6 +1256,55 @@ class Deployment(models.Model):
             succeeded=self.succeeded,
             environment=self.environment,
             ref=self.ref,
+        )
+
+
+class PullRequest(models.Model):
+    """A project's pull request, as last synced or reported by webhook."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey("Project", on_delete=models.CASCADE, related_name="pull_requests")
+    number = models.PositiveIntegerField()
+    title = models.CharField(max_length=500)
+    author = models.CharField(max_length=255, blank=True, default="")
+    author_is_bot = models.BooleanField(default=False)
+    url = models.URLField(max_length=2048, blank=True, default="")
+    draft = models.BooleanField(default=False)
+    state = models.CharField(max_length=10, choices=PullRequestState.choices())
+    base_ref = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    merged_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "pull_requests"
+        constraints = [
+            models.UniqueConstraint(fields=["project", "number"], name="unique_project_pull_request"),
+        ]
+        indexes = [
+            models.Index(fields=["project", "state"]),
+            models.Index(fields=["project", "updated_at"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.project} #{self.number}"
+
+    @property
+    def facts(self) -> PullRequestFacts:
+        return PullRequestFacts(
+            number=self.number,
+            title=self.title,
+            author=self.author,
+            url=self.url,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            draft=self.draft,
+            author_is_bot=self.author_is_bot,
+            merged_at=self.merged_at,
+            closed_at=self.closed_at,
+            base_ref=self.base_ref,
         )
 
 

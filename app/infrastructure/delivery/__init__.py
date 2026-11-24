@@ -4,6 +4,7 @@ from app.application.delivery import DeploymentSources, RepositoryActivity
 from app.domain.models import Platform
 from app.infrastructure.delivery.github_api import GitHubApi
 from app.infrastructure.delivery.github_deployment_sources import GitHubDeploymentSources
+from app.infrastructure.delivery.github_pull_requests import pull_request_from_payload
 from app.infrastructure.delivery.github_repository_activity import GitHubRepositoryActivity
 from app.infrastructure.delivery.unsupported_platform_sources import UnsupportedPlatformSources
 from app.infrastructure.delivery.unsupported_repository_activity import UnsupportedRepositoryActivity
@@ -32,5 +33,6 @@ __all__ = [
     "UnsupportedPlatformSources",
     "UnsupportedRepositoryActivity",
     "deployment_sources_for",
+    "pull_request_from_payload",
     "repository_activity_for",
 ]

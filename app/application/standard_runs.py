@@ -297,9 +297,10 @@ def _tell_delivery(event: DomainEvent, projects) -> None:
     """Let delivery syncs hear about the event too. Never fails the webhook:
     the scheduled sync catches up on anything missed here."""
     from app.application.delivery import DeliveryWebhook
+    from app.infrastructure.delivery import pull_request_from_payload
 
     try:
-        DeliveryWebhook.receive(event, projects.select_related("delivery"))
+        DeliveryWebhook.receive(event, projects.select_related("delivery"), pull_request_from_payload)
     except Exception:
         logger.exception("Delivery could not take webhook event %s", event.event_type)
 

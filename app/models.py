@@ -12,6 +12,7 @@ from app.domain.models import (  # noqa: F401
     Project,
     DeliverySettings,
     Deployment,
+    PullRequest,
     ProjectStack,
     Stack,
     Tenant,

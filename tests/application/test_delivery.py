@@ -14,8 +14,8 @@ from app.application.delivery import (
     RateLimited,
     SourceUnavailable,
 )
-from app.domain.delivery import DeploymentEvent, DeploymentStrategy, DoraTier, PendingCommits
-from app.models import DeliverySettings, Deployment, Platform, Project
+from app.domain.delivery import DeploymentEvent, DeploymentStrategy, DoraTier, PendingCommits, PullRequestFacts
+from app.models import DeliverySettings, Deployment, Platform, Project, PullRequest
 
 NOW = datetime(2026, 11, 16, 12, tzinfo=timezone.utc)
 
@@ -62,12 +62,32 @@ class FakeActivity:
         self.pending = pending
         self.unavailable = unavailable
         self.compared = None
+        self.open = []
+        self.updated = []
+        self.asked_since = []
+
+    def open_pull_requests(self):
+        return self.open
+
+    def pull_requests_updated_since(self, since):
+        self.asked_since.append(since)
+        return self.updated
 
     def pending_commits(self, deployed_sha, branch):
         self.compared = (deployed_sha, branch)
         if self.unavailable:
             raise SourceUnavailable(self.unavailable)
         return self.pending
+
+
+def pull(number, opened_days_ago=3, merged_days_ago=None, updated_days_ago=None):
+    return PullRequestFacts(
+        number=number, title=f"Change {number}", author="dev", url=f"https://example.test/pull/{number}",
+        created_at=NOW - timedelta(days=opened_days_ago),
+        updated_at=NOW - timedelta(days=updated_days_ago if updated_days_ago is not None else (merged_days_ago or opened_days_ago)),
+        merged_at=NOW - timedelta(days=merged_days_ago) if merged_days_ago is not None else None,
+        closed_at=NOW - timedelta(days=merged_days_ago) if merged_days_ago is not None else None,
+    )
 
 
 class DeliverySyncTests(TestCase):
@@ -179,6 +199,26 @@ class DeliverySyncTests(TestCase):
         self.assertEqual(settings.refresh_error, str(RateLimited(NOW)))
         self.assertIn("resumes after 12:00 UTC", settings.refresh_error)
 
+    def test_the_first_sync_reads_every_open_pull_request_and_the_windows_changes(self):
+        self.activity.open = [pull(1, opened_days_ago=400)]
+        self.activity.updated = [pull(2, merged_days_ago=5), pull(1, opened_days_ago=400, updated_days_ago=1)]
+
+        self.refresh()
+
+        self.assertEqual(self.activity.asked_since, [NOW - timedelta(weeks=14)])
+        self.assertEqual(sorted(PullRequest.objects.values_list("number", "state")), [(1, "open"), (2, "merged")])
+
+    def test_later_syncs_read_only_what_changed_since_the_newest_stored_change(self):
+        self.activity.updated = [pull(1, updated_days_ago=2)]
+        self.refresh()
+        self.activity.asked_since.clear()
+        self.activity.updated = [pull(1, merged_days_ago=0)]
+
+        self.refresh()
+
+        self.assertEqual(self.activity.asked_since, [NOW - timedelta(days=2) - timedelta(minutes=5)])
+        self.assertEqual(PullRequest.objects.get(number=1).state, "merged")
+
     def test_looks_back_a_week_past_the_frequency_window(self):
         source = FakeSource(DeploymentStrategy.DEFAULT_BRANCH)
         DeliverySettings.objects.create(project=self.project, strategy=DeploymentStrategy.DEFAULT_BRANCH)
@@ -218,6 +258,20 @@ class DeliveryReportTests(TestCase):
 
         self.assertEqual(report.running.label, "v3.1.0")
         self.assertEqual(report.pending.count, 2)
+
+    def test_reports_pull_request_flow_and_lists_open_ones_oldest_first(self):
+        from app.application.delivery import PullRequestRefresh
+
+        PullRequestRefresh.record(self.project, [
+            pull(1, opened_days_ago=2), pull(2, opened_days_ago=30), pull(3, merged_days_ago=1),
+            pull(4, opened_days_ago=200, merged_days_ago=150),
+        ])
+
+        report = DeliveryReport.for_project(self.project, now=NOW)
+
+        self.assertEqual(report.pull_requests.open_now, 2)
+        self.assertEqual(report.pull_requests.merged, 1)
+        self.assertEqual([pr.number for pr in report.open_pull_requests], [2, 1])
 
     def test_before_any_refresh_there_is_nothing_to_rank(self):
         report = DeliveryReport.for_project(self.project, now=NOW)
@@ -315,6 +369,18 @@ class DeliveryWebhookTests(TestCase):
     def test_a_push_to_the_default_or_deploy_branch_asks_for_a_sync(self):
         self.assertEqual(self.receive("push", ref="refs/heads/main"), 1)
         self.assertEqual(self.receive("push", ref="refs/heads/production"), 1)
+
+    def test_a_pull_request_event_is_recorded_from_its_payload(self):
+        from app.application.delivery import DeliveryWebhook
+        from app.domain.events import DomainEvent
+
+        event = DomainEvent(event_type="pull_request", platform="github", external_project_id="1", raw_payload={"n": 7})
+        projects = Project.objects.filter(pk=self.project.pk).select_related("delivery")
+
+        DeliveryWebhook.receive(event, projects, read_pull_request=lambda payload: pull(payload["n"]))
+
+        self.assertEqual(PullRequest.objects.get(project=self.project).number, 7)
+        self.send.assert_not_called()
 
     def test_a_push_to_a_feature_branch_or_a_deleted_branch_does_not(self):
         self.assertEqual(self.receive("push", ref="refs/heads/feature/x"), 0)

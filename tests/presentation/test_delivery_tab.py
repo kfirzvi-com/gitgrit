@@ -109,3 +109,18 @@ class DeliveryTabTests(TestCase):
         self.assertContains(response, 'href="https://github.com/acme/shop/releases/tag/v2.0.0"')
         self.assertContains(response, 'data-pending-commits="5"')
         self.assertContains(response, f'href="https://github.com/acme/shop/compare/{"f" * 40}...main"')
+
+    def test_lists_open_pull_requests_with_draft_and_bot_marks(self):
+        DeliverySettings.objects.create(project=self.project, refreshed_at=timezone.now())
+        now = timezone.now()
+        baker.make("app.PullRequest", project=self.project, number=12, title="Bump requests", state="open",
+                   author="dependabot[bot]", author_is_bot=True, created_at=now - timedelta(days=3), updated_at=now)
+        baker.make("app.PullRequest", project=self.project, number=13, title="Try the new layout", state="open",
+                   draft=True, created_at=now - timedelta(days=1), updated_at=now)
+
+        response = self.client.get(self.url())
+
+        self.assertContains(response, "Bump requests")
+        self.assertContains(response, '<span class="badge badge-ghost badge-sm">bot</span>', html=True)
+        self.assertContains(response, "draft</span>")
+        self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-open-now>2</span>', html=True)

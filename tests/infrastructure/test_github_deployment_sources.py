@@ -21,11 +21,11 @@ class FakeApi:
         self.objects = objects or {}
         self.calls = []
 
-    def pages(self, path, params=None, permission="Contents", key=""):
+    def pages(self, path, params=None, permission="Contents", key="", slim=None):
         self.calls.append((path, params))
         yield from self.lists.get(path, [])
 
-    def get(self, path, params=None, permission="Contents"):
+    def get(self, path, params=None, permission="Contents", slim=None):
         self.calls.append((path, params))
         return self.objects[path]
 
@@ -166,3 +166,48 @@ class RepositoryActivityTests(SimpleTestCase):
         ]})
 
         self.assertEqual(slim, {"ahead_by": 2, "oldest": "2026-11-20T09:00:00Z"})
+
+
+def github_pull(number, updated, merged=None, state="open", user_type="User"):
+    return {
+        "number": number, "title": f"Change {number}", "html_url": f"https://github.com/acme/shop/pull/{number}",
+        "draft": False, "user": {"login": "dependabot[bot]" if user_type == "Bot" else "dev", "type": user_type},
+        "created_at": "2026-11-01T00:00:00Z", "updated_at": updated, "merged_at": merged,
+        "closed_at": merged, "base": {"ref": "main"}, "body": "long text not kept",
+    }
+
+
+class PullRequestReadingTests(SimpleTestCase):
+    def activity(self, pulls):
+        from app.infrastructure.delivery.github_repository_activity import GitHubRepositoryActivity
+
+        return GitHubRepositoryActivity(FakeApi({"pulls": pulls}))
+
+    def test_reads_changes_newest_first_until_one_is_older_than_asked(self):
+        pulls = [
+            github_pull(3, "2026-11-12T00:00:00Z", merged="2026-11-12T00:00:00Z"),
+            github_pull(2, "2026-11-05T00:00:00Z"),
+            github_pull(1, "2026-10-20T00:00:00Z"),
+        ]
+
+        found = self.activity(pulls).pull_requests_updated_since(SINCE)
+
+        self.assertEqual([pr.number for pr in found], [3, 2])
+        self.assertEqual(found[0].merged_at, datetime(2026, 11, 12, tzinfo=timezone.utc))
+
+    def test_a_bot_author_is_marked(self):
+        found = self.activity([github_pull(1, "2026-11-12T00:00:00Z", user_type="Bot")]).open_pull_requests()
+
+        self.assertTrue(found[0].author_is_bot)
+        self.assertEqual(found[0].author, "dependabot[bot]")
+
+    def test_a_webhook_payload_without_a_pull_request_reads_as_none(self):
+        from app.infrastructure.delivery import pull_request_from_payload
+
+        self.assertIsNone(pull_request_from_payload({"object_kind": "merge_request"}))
+        self.assertEqual(pull_request_from_payload({"pull_request": github_pull(9, "2026-11-12T00:00:00Z")}).number, 9)
+
+    def test_cached_pull_requests_keep_only_what_is_read(self):
+        from app.infrastructure.delivery.github_pull_requests import slim_pull_request
+
+        self.assertNotIn("body", slim_pull_request(github_pull(1, "2026-11-12T00:00:00Z")))

@@ -9,6 +9,7 @@ from app.application.delivery.delivery_webhook import DeliveryWebhook
 from app.application.delivery.deployment_refresh import DeploymentRefresh
 from app.application.delivery.deployment_source import DeploymentSource
 from app.application.delivery.deployment_sources import DeploymentSources
+from app.application.delivery.pull_request_refresh import PullRequestRefresh
 from app.application.delivery.rate_limited import RateLimited
 from app.application.delivery.repository_activity import RepositoryActivity
 from app.application.delivery.source_unavailable import SourceUnavailable
@@ -22,6 +23,7 @@ __all__ = [
     "DeploymentRefresh",
     "DeploymentSource",
     "DeploymentSources",
+    "PullRequestRefresh",
     "RateLimited",
     "RepositoryActivity",
     "SourceUnavailable",

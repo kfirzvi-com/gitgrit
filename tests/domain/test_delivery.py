@@ -11,6 +11,9 @@ from app.domain.delivery import (
     DoraTier,
     PendingCommits,
     ProductionEnvironment,
+    PullRequestFacts,
+    PullRequestFlow,
+    PullRequestState,
     RateLimit,
     RunningVersion,
     SyncPolicy,
@@ -211,3 +214,46 @@ class PendingCommitsTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             PendingCommits(3)
         self.assertFalse(PendingCommits(0).any)
+
+
+def pr(number, opened, merged=None, closed=None):
+    """A pull request opened, merged or closed that many days before TODAY's noon."""
+    noon = datetime.combine(TODAY, time(12), tzinfo=timezone.utc)
+
+    def ago(days):
+        return None if days is None else noon - timedelta(days=days)
+
+    return PullRequestFacts(
+        number=number, title=f"PR {number}", author="dev", url="", created_at=ago(opened),
+        updated_at=ago(min(d for d in (opened, merged, closed) if d is not None)),
+        merged_at=ago(merged), closed_at=ago(closed if closed is not None else merged),
+    )
+
+
+class PullRequestFlowTests(SimpleTestCase):
+    def test_merges_count_in_the_week_they_landed(self):
+        flow = PullRequestFlow.of([pr(1, opened=10, merged=2), pr(2, opened=9, merged=8), pr(3, opened=3)], TODAY)
+
+        self.assertEqual(flow.weeks[-1].merged, 1)
+        self.assertEqual(flow.weeks[-2].merged, 1)
+        self.assertEqual(flow.merged, 2)
+        self.assertAlmostEqual(flow.merged_per_week, 2 / 13)
+
+    def test_open_at_each_weeks_end_counts_what_was_opened_and_not_yet_closed(self):
+        flow = PullRequestFlow.of([pr(1, opened=20, merged=2), pr(2, opened=20, closed=10), pr(3, opened=3)], TODAY)
+
+        self.assertEqual(flow.weeks[-3].open_at_end, 2)  # week ending 7 days before last week's end
+        self.assertEqual(flow.weeks[-2].open_at_end, 1)
+        self.assertEqual(flow.weeks[-1].open_at_end, 1)
+
+    def test_open_now_and_the_oldest_one(self):
+        flow = PullRequestFlow.of([pr(1, opened=30), pr(2, opened=3), pr(3, opened=40, closed=1)], TODAY)
+
+        self.assertEqual(flow.open_now, 2)
+        self.assertEqual(flow.oldest_open_since, datetime.combine(TODAY, time(12), tzinfo=timezone.utc) - timedelta(days=30))
+
+    def test_a_pull_request_closed_unmerged_is_no_merge(self):
+        closed = pr(1, opened=5, closed=1)
+
+        self.assertIs(closed.state, PullRequestState.CLOSED)
+        self.assertEqual(PullRequestFlow.of([closed], TODAY).merged, 0)
