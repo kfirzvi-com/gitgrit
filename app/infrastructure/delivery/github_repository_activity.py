@@ -4,11 +4,14 @@ from datetime import datetime
 
 import requests
 
-from app.domain.delivery import PendingCommits, PullRequestFacts
+from app.domain.delivery import PendingCommits, PullRequestFacts, ShippedCommit
 from app.infrastructure.delivery.github_api import GitHubApi, github_time
 from app.infrastructure.delivery.github_pull_requests import pull_request_facts, slim_pull_request
 
 PULLS = "Pull requests"
+# Commits read per deployment at most; a deployment shipping more counts the
+# newest ones.
+MAX_SHIPPED = 300
 
 
 class GitHubRepositoryActivity:
@@ -44,6 +47,29 @@ class GitHubRepositoryActivity:
                 break
             found.append(pull_request_facts(item))
         return found
+
+    def commits_between(self, base_sha: str, head_sha: str) -> list[ShippedCommit] | None:
+        try:
+            items = list(self._api.pages(
+                f"compare/{base_sha}...{head_sha}", {"per_page": 100}, key="commits", slim=_slim_commit
+            ))
+        except requests.HTTPError as error:
+            if error.response is not None and error.response.status_code in (404, 422):
+                return None
+            raise
+        return [
+            ShippedCommit(sha=item["sha"], authored_at=github_time(item["authored_at"]), first_parent_sha=item["parent"])
+            for item in items[-MAX_SHIPPED:]
+        ]
+
+
+def _slim_commit(item: dict) -> dict:
+    parents = item.get("parents") or []
+    return {
+        "sha": item["sha"],
+        "authored_at": item["commit"]["author"]["date"],
+        "parent": parents[0]["sha"] if parents else "",
+    }
 
 
 def _slim_compare(body: dict) -> dict:

@@ -40,6 +40,12 @@ class PullRequestRefresh:
         numbers. Idempotent; a webhook's pull request is recorded this way
         too."""
         by_number = {fact.number: fact for fact in facts}
+        stored = {
+            number: (draft, ready_at)
+            for number, draft, ready_at in PullRequest.objects.filter(
+                project=project, number__in=by_number
+            ).values_list("number", "draft", "ready_at")
+        }
         PullRequest.objects.bulk_create(
             [
                 PullRequest(
@@ -52,6 +58,8 @@ class PullRequestRefresh:
                     draft=fact.draft,
                     state=fact.state.value,
                     base_ref=fact.base_ref,
+                    merge_commit_sha=fact.merge_commit_sha,
+                    ready_at=fact.ready_since(*stored.get(fact.number, (None, None))),
                     created_at=fact.created_at,
                     updated_at=fact.updated_at,
                     merged_at=fact.merged_at,
@@ -62,8 +70,8 @@ class PullRequestRefresh:
             update_conflicts=True,
             unique_fields=["project", "number"],
             update_fields=[
-                "title", "author", "author_is_bot", "url", "draft", "state", "base_ref",
-                "created_at", "updated_at", "merged_at", "closed_at",
+                "title", "author", "author_is_bot", "url", "draft", "state", "base_ref", "merge_commit_sha",
+                "ready_at", "created_at", "updated_at", "merged_at", "closed_at",
             ],
         )
         return len(by_number)

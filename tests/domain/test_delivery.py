@@ -5,6 +5,10 @@ from datetime import date, datetime, time, timedelta, timezone
 from django.test import SimpleTestCase
 
 from app.domain.delivery import (
+    LeadTime,
+    LeadTimeStart,
+    Shipment,
+    ShippedCommit,
     DeliveryTotals,
     DeploymentEvent,
     DeploymentFrequency,
@@ -305,3 +309,94 @@ class PullRequestOpenTimeTests(SimpleTestCase):
 
         self.assertIsNone(flow.time_to_merge)
         self.assertIsNone(flow.open_age)
+
+
+NOON = datetime.combine(TODAY, time(12), tzinfo=timezone.utc)
+
+
+def commit(sha, hours_ago, parent=""):
+    return ShippedCommit(sha=sha, authored_at=NOON - timedelta(hours=hours_ago), first_parent_sha=parent)
+
+
+def merged_pr(number, merge_sha, opened_hours_ago, merged_hours_ago, ready_hours_ago=None):
+    return PullRequestFacts(
+        number=number, title="", author="", url="",
+        created_at=NOON - timedelta(hours=opened_hours_ago), updated_at=NOON,
+        merged_at=NOON - timedelta(hours=merged_hours_ago), closed_at=NOON - timedelta(hours=merged_hours_ago),
+        merge_commit_sha=merge_sha,
+        ready_at=NOON - timedelta(hours=ready_hours_ago) if ready_hours_ago is not None else None,
+    )
+
+
+class LeadTimeTests(SimpleTestCase):
+    def shipment(self):
+        """Deployed at noon today: a merge commit M (PR #7, its inner commits
+        a and b off the line) on top of a direct push D."""
+        return Shipment(head_sha="M", deployed_at=NOON, commits=(
+            commit("M", 2, parent="D"), commit("b", 30, parent="a"), commit("a", 50, parent="D0"),
+            commit("D", 10, parent="X"),
+        ))
+
+    def test_from_commit_every_commit_counts_from_when_it_was_written(self):
+        lead = LeadTime.of([self.shipment()], [merged_pr(7, "M", 40, 2)], TODAY)
+
+        self.assertEqual(sorted(c.length for c in lead.changes), [timedelta(hours=h) for h in (2, 10, 30, 50)])
+        self.assertEqual(lead.median, timedelta(hours=20))
+        self.assertEqual(lead.tier, DoraTier.ELITE)
+
+    def test_from_ready_a_pull_request_counts_once_and_a_direct_push_from_its_commit(self):
+        lead = LeadTime.of([self.shipment()], [merged_pr(7, "M", 40, 2, ready_hours_ago=36)], TODAY, LeadTimeStart.READY)
+
+        self.assertEqual({c.pull_request: c.length for c in lead.changes},
+                         {None: timedelta(hours=10), 7: timedelta(hours=36)})
+        self.assertEqual(lead.review, timedelta(hours=34))
+        self.assertEqual(lead.waiting, timedelta(hours=2))
+
+    def test_a_pull_request_never_a_draft_was_ready_when_opened(self):
+        lead = LeadTime.of([self.shipment()], [merged_pr(7, "M", 40, 2)], TODAY, LeadTimeStart.READY)
+
+        self.assertIn(timedelta(hours=40), [c.length for c in lead.changes])
+
+    def test_from_merge_only_the_wait_for_production_counts_for_a_pull_request(self):
+        lead = LeadTime.of([self.shipment()], [merged_pr(7, "M", 40, 2)], TODAY, LeadTimeStart.MERGE)
+
+        self.assertEqual(sorted(c.length for c in lead.changes), [timedelta(hours=2), timedelta(hours=10)])
+
+    def test_tiers_follow_doras_bands(self):
+        def tier(hours):
+            shipment = Shipment("c", NOON, (commit("c", hours),))
+            return LeadTime.of([shipment], [], TODAY).tier
+
+        self.assertEqual(tier(23), DoraTier.ELITE)
+        self.assertEqual(tier(24 * 6), DoraTier.HIGH)
+        self.assertEqual(tier(24 * 20), DoraTier.MEDIUM)
+        self.assertEqual(tier(24 * 40), DoraTier.LOW)
+        self.assertEqual(LeadTime.of([], [], TODAY).tier, DoraTier.NONE)
+
+    def test_only_shipments_in_the_window_count_by_the_week_they_shipped(self):
+        old = Shipment("o", NOON - timedelta(weeks=14), (commit("o", 24 * 7 * 14 + 1),))
+        last_week = Shipment("w", NOON - timedelta(days=7), (commit("w", 24 * 7 + 5),))
+
+        lead = LeadTime.of([old, last_week, self.shipment()], [], TODAY)
+
+        self.assertEqual(len(lead.changes), 5)
+        self.assertEqual(lead.weeks[-2].changes, 1)
+        self.assertEqual(lead.weeks[-2].median, timedelta(hours=5))
+        self.assertEqual(lead.weeks[-1].changes, 4)
+
+
+class ReadyForReviewTests(SimpleTestCase):
+    def facts(self, draft=False, ready_at=None):
+        return PullRequestFacts(number=1, title="", author="", url="", created_at=NOON - timedelta(days=2),
+                                updated_at=NOON, draft=draft, ready_at=ready_at)
+
+    def test_ready_when_opened_unless_seen_leaving_draft(self):
+        self.assertEqual(self.facts().ready_since(None, None), NOON - timedelta(days=2))
+        self.assertEqual(self.facts().ready_since(True, None), NOON)
+        self.assertIsNone(self.facts(draft=True).ready_since(None, None))
+
+    def test_a_known_time_is_kept(self):
+        known = NOON - timedelta(days=1)
+
+        self.assertEqual(self.facts().ready_since(False, known), known)
+        self.assertEqual(self.facts(ready_at=known).ready_since(None, None), known)

@@ -65,9 +65,13 @@ class FakeActivity:
         self.open = []
         self.updated = []
         self.asked_since = []
+        self.shipped = {}
 
     def open_pull_requests(self):
         return self.open
+
+    def commits_between(self, base_sha, head_sha):
+        return self.shipped.get((base_sha, head_sha))
 
     def pull_requests_updated_since(self, since):
         self.asked_since.append(since)
@@ -386,3 +390,62 @@ class DeliveryWebhookTests(TestCase):
         self.assertEqual(self.receive("push", ref="refs/heads/feature/x"), 0)
         self.assertEqual(self.receive("push", ref="refs/heads/main", deleted=True), 0)
         self.send.assert_not_called()
+
+
+class ShipmentRefreshTests(TestCase):
+    def setUp(self):
+        self.project = baker.make(Project, default_branch="main")
+        self.settings = DeliverySettings.objects.create(project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS)
+        self.activity = FakeActivity()
+
+    def deploy(self, tag, days_ago, sha=None, succeeded=True):
+        return baker.make(Deployment, project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS, external_id=tag,
+                          sha=sha or f"sha-{tag}", deployed_at=NOW - timedelta(days=days_ago), succeeded=succeeded)
+
+    def run_refresh(self):
+        from app.application.delivery import ShipmentRefresh
+
+        return ShipmentRefresh(now=lambda: NOW).run(self.project, self.settings, self.activity)
+
+    def test_each_deployment_ships_what_its_commit_has_beyond_the_previous_ones(self):
+        from app.domain.delivery import ShippedCommit as Commit
+
+        self.deploy("v1", 10)
+        self.deploy("v2-broken", 6, succeeded=False)
+        v2 = self.deploy("v2", 5)
+        self.activity.shipped[("sha-v1", "sha-v2")] = [Commit("c1", NOW - timedelta(days=7), "sha-v1"), Commit("sha-v2", NOW - timedelta(days=6), "c1")]
+
+        self.assertEqual(self.run_refresh(), 2)
+
+        self.assertEqual(sorted(v2.shipped_commits.values_list("sha", flat=True)), ["c1", "sha-v2"])
+        self.assertEqual(self.run_refresh(), 0)  # each deployment is read once
+
+    def test_a_redeploy_of_the_same_commit_ships_nothing_new(self):
+        self.deploy("eu", 3, sha="abc")
+        us = self.deploy("us", 2, sha="abc")
+        self.activity.shipped[("abc", "abc")] = "should not be asked"
+
+        self.run_refresh()
+
+        self.assertFalse(us.shipped_commits.exists())
+
+
+class LeadTimesTests(TestCase):
+    def test_a_projects_lead_time_from_its_chosen_start(self):
+        from app.application.delivery import LeadTimes, PullRequestRefresh
+        from app.models import ShippedCommit as StoredCommit
+
+        project = baker.make(Project)
+        settings = DeliverySettings.objects.create(project=project, strategy=DeploymentStrategy.RELEASE_TAGS, lead_time_start="merge")
+        deployment = baker.make(Deployment, project=project, strategy=DeploymentStrategy.RELEASE_TAGS, sha="m",
+                                deployed_at=NOW - timedelta(hours=1), succeeded=True)
+        StoredCommit.objects.create(deployment=deployment, sha="m", authored_at=NOW - timedelta(days=3), first_parent_sha="p")
+        PullRequestRefresh.record(project, [PullRequestFacts(
+            number=4, title="", author="", url="", created_at=NOW - timedelta(days=3), updated_at=NOW,
+            merged_at=NOW - timedelta(hours=5), closed_at=NOW - timedelta(hours=5), merge_commit_sha="m",
+        )])
+
+        lead = LeadTimes.for_project(settings, NOW)
+
+        self.assertEqual(lead.median, timedelta(hours=4))
+        self.assertEqual(lead.changes[0].pull_request, 4)

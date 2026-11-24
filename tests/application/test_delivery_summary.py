@@ -48,5 +48,7 @@ class DeliverySummaryTests(TestCase):
         self.assertTrue(summaries[self.quiet.pk].synced)
 
     def test_reads_in_a_fixed_number_of_queries(self):
-        with self.assertNumQueries(3):
+        # Settings, deployments, pull requests, then lead time: shipments and their
+        # commits (the merged pull requests only when commits shipped).
+        with self.assertNumQueries(5):
             self.summaries()

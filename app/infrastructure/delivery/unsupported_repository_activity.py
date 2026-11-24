@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.domain.delivery import PendingCommits, PullRequestFacts
+from app.domain.delivery import PendingCommits, PullRequestFacts, ShippedCommit
 
 
 class UnsupportedRepositoryActivity:
@@ -17,3 +17,6 @@ class UnsupportedRepositoryActivity:
 
     def pull_requests_updated_since(self, since: datetime) -> list[PullRequestFacts]:
         return []
+
+    def commits_between(self, base_sha: str, head_sha: str) -> list[ShippedCommit] | None:
+        return None

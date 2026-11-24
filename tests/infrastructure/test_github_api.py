@@ -75,3 +75,13 @@ class GitHubApiTests(SimpleTestCase):
         with mock.patch("requests.get", return_value=answer(status=403)):
             with self.assertRaisesMessage(SourceUnavailable, "give it Deployments read access"):
                 self.api().get("deployments", permission="Deployments")
+
+    def test_answers_cached_under_another_version_are_not_reused(self):
+        from app.infrastructure.delivery import github_api
+
+        with mock.patch("requests.get", side_effect=[answer(body={"n": 1}), answer(body={"n": 2})]) as get:
+            self.api().get("pulls/1")
+            with mock.patch.object(github_api, "CACHE_VERSION", github_api.CACHE_VERSION + 1):
+                self.assertEqual(self.api().get("pulls/1"), {"n": 2})
+
+        self.assertNotIn("If-None-Match", get.call_args_list[1].kwargs["headers"])

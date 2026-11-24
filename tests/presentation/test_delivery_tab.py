@@ -137,3 +137,33 @@ class DeliveryTabTests(TestCase):
 
         self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-time-to-merge>2 days</span>', html=True)
         self.assertContains(response, "5 hours")
+
+    def test_shows_lead_time_from_the_chosen_start_with_the_pull_request_breakdown(self):
+        from app.models import ShippedCommit
+
+        now = timezone.now()
+        DeliverySettings.objects.create(project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS,
+                                        lead_time_start="ready", refreshed_at=now)
+        deployment = baker.make(Deployment, project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS,
+                                sha="m", deployed_at=now - timedelta(hours=1), succeeded=True)
+        ShippedCommit.objects.create(deployment=deployment, sha="m", authored_at=now - timedelta(days=5))
+        baker.make("app.PullRequest", project=self.project, number=3, state="merged", merge_commit_sha="m",
+                   created_at=now - timedelta(days=3), ready_at=now - timedelta(hours=25), updated_at=now,
+                   merged_at=now - timedelta(hours=5), closed_at=now - timedelta(hours=5))
+
+        response = self.client.get(self.url())
+
+        self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-lead-median>1 day</span>', html=True)
+        self.assertContains(response, 'data-lead-tier="high"')
+        self.assertContains(response, "from ready for review to production")
+        self.assertContains(response, "20 hours</span> in review")
+
+    def test_the_lead_time_start_is_a_setting(self):
+        DeliverySettings.objects.create(project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS)
+
+        self.client.post(self.url("project_delivery_settings"), {
+            "strategy": "release_tags", "release_tag_pattern": "v*", "deploy_branch": "production",
+            "lead_time_start": "merge",
+        })
+
+        self.assertEqual(DeliverySettings.objects.get(project=self.project).lead_time_start, "merge")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from app.domain.delivery import PendingCommits, PullRequestFacts
+from app.domain.delivery import PendingCommits, PullRequestFacts, ShippedCommit
 
 
 class RepositoryActivity(Protocol):
@@ -21,4 +21,9 @@ class RepositoryActivity(Protocol):
 
     def pull_requests_updated_since(self, since: datetime) -> list[PullRequestFacts]:
         """Pull requests opened, changed, merged or closed since ``since``."""
+        ...
+
+    def commits_between(self, base_sha: str, head_sha: str) -> list[ShippedCommit] | None:
+        """The commits ``head_sha`` has and ``base_sha`` does not, or None
+        when the platform cannot tell (one of them is gone)."""
         ...

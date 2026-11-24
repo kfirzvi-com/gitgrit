@@ -8,6 +8,7 @@ from django.utils import timezone
 from app.application.delivery.deployment_refresh import DeploymentRefresh, SourcesFor
 from app.application.delivery.pull_request_refresh import PullRequestRefresh
 from app.application.delivery.repository_activity import RepositoryActivity
+from app.application.delivery.shipment_refresh import ShipmentRefresh
 from app.application.delivery.source_unavailable import SourceUnavailable
 from app.domain.delivery import RunningVersion
 from app.models import DeliverySettings, Deployment, Project
@@ -18,7 +19,8 @@ ActivityFor = Callable[[Project], RepositoryActivity]
 class DeliverySync:
     """Reads a project's delivery data from its Git platform and stores it:
     its deployments (and the strategy that found them), the commits on the
-    default branch that the running version lacks, and its pull requests.
+    default branch that the running version lacks, its pull requests, and
+    the commits each deployment shipped (for lead time).
     Whatever could not
     be read is noted on the settings for the Delivery tab to show; what was
     stored before stays."""
@@ -32,6 +34,7 @@ class DeliverySync:
         self._deployments = DeploymentRefresh(sources_for, now)
         self._activity_for = activity_for
         self._pull_requests = PullRequestRefresh(now)
+        self._shipments = ShipmentRefresh(now)
         self._now = now
 
     def run(self, project: Project) -> DeliverySettings:
@@ -43,6 +46,7 @@ class DeliverySync:
         if self._activity_for is not None:
             self._sync_pending(project, settings, problems)
             self._sync_pull_requests(project, problems)
+            self._sync_shipments(project, settings, problems)
         settings.refreshed_at = self._now()
         settings.refresh_error = "\n".join(dict.fromkeys(problems))
         settings.save(
@@ -76,5 +80,11 @@ class DeliverySync:
     def _sync_pull_requests(self, project: Project, problems: list[str]) -> None:
         try:
             self._pull_requests.run(project, self._activity_for(project))
+        except SourceUnavailable as unavailable:
+            problems.append(str(unavailable))
+
+    def _sync_shipments(self, project: Project, settings: DeliverySettings, problems: list[str]) -> None:
+        try:
+            self._shipments.run(project, settings, self._activity_for(project))
         except SourceUnavailable as unavailable:
             problems.append(str(unavailable))

@@ -14,12 +14,14 @@ from app.domain import importance as importance_domain
 from app.domain import schedules
 from app.domain.delivery import (
     DeploymentEvent,
+    LeadTimeStart,
     DeploymentStrategy,
     PendingCommits,
     ProductionEnvironment,
     PullRequestFacts,
     PullRequestState,
 )
+from app.domain.delivery import ShippedCommit as ShippedCommitFacts
 from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCount, UsageCategory
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
@@ -1173,6 +1175,9 @@ class DeliverySettings(models.Model):
     release_tag_pattern = models.CharField(max_length=100, default="v*")
     deploy_workflow = models.CharField(max_length=255, blank=True, default="")
     deploy_branch = models.CharField(max_length=255, default="production")
+    lead_time_start = models.CharField(
+        max_length=10, choices=LeadTimeStart.choices(), default=LeadTimeStart.COMMIT
+    )
     # The strategy the last refresh used: the chosen one, or what AUTO found.
     detected_strategy = models.CharField(
         max_length=20, choices=DeploymentStrategy.choices(), blank=True, default=""
@@ -1231,6 +1236,8 @@ class Deployment(models.Model):
     environment = models.CharField(max_length=255, blank=True, default="")
     deployed_at = models.DateTimeField()
     succeeded = models.BooleanField(default=True)
+    # When the commits it shipped were read (``shipped_commits``); None: not yet.
+    changes_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1259,6 +1266,29 @@ class Deployment(models.Model):
         )
 
 
+class ShippedCommit(models.Model):
+    """A commit a deployment brought to production, for lead time."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    deployment = models.ForeignKey("Deployment", on_delete=models.CASCADE, related_name="shipped_commits")
+    sha = models.CharField(max_length=64)
+    authored_at = models.DateTimeField()
+    first_parent_sha = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        db_table = "shipped_commits"
+        constraints = [
+            models.UniqueConstraint(fields=["deployment", "sha"], name="unique_deployment_shipped_commit"),
+        ]
+
+    def __str__(self):
+        return f"{self.deployment} {self.sha[:7]}"
+
+    @property
+    def facts(self) -> ShippedCommitFacts:
+        return ShippedCommitFacts(sha=self.sha, authored_at=self.authored_at, first_parent_sha=self.first_parent_sha)
+
+
 class PullRequest(models.Model):
     """A project's pull request, as last synced or reported by webhook."""
 
@@ -1272,8 +1302,12 @@ class PullRequest(models.Model):
     draft = models.BooleanField(default=False)
     state = models.CharField(max_length=10, choices=PullRequestState.choices())
     base_ref = models.CharField(max_length=255, blank=True, default="")
+    # The commit its merge put on the base branch (blank until merged).
+    merge_commit_sha = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
+    # When it was ready for review (None: still a draft).
+    ready_at = models.DateTimeField(null=True, blank=True)
     merged_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
 
@@ -1305,6 +1339,8 @@ class PullRequest(models.Model):
             merged_at=self.merged_at,
             closed_at=self.closed_at,
             base_ref=self.base_ref,
+            merge_commit_sha=self.merge_commit_sha,
+            ready_at=self.ready_at,
         )
 
 

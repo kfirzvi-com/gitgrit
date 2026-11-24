@@ -44,6 +44,15 @@ def _render(request, project: Project, form: DeliverySettingsForm | None = None,
                     for week in report.pull_requests.weeks
                 ],
             ),
+            "lead_chart": DeliveryChart(
+                [week.starts for week in report.lead_time.weeks],
+                [_hours(week.median) for week in report.lead_time.weeks],
+                labels=[
+                    f"{week.changes} change{'' if week.changes == 1 else 's'}, {duration(week.median)} (median)"
+                    if week.changes else "nothing shipped"
+                    for week in report.lead_time.weeks
+                ],
+            ),
             "form": form or DeliverySettingsForm(instance=report.settings),
             "open_settings": open_settings,
             "next_refresh": _next_refresh(report.settings),

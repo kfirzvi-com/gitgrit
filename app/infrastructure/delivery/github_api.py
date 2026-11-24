@@ -15,6 +15,9 @@ MAX_PAGES = 20
 # Cached answers outlive several syncs; one that ages out costs a single
 # full request the next time.
 CACHE_SECONDS = 7 * 24 * 3600
+# Part of every cache key: raise it whenever what a ``slim`` keeps changes,
+# or an unchanged answer (304) would hand back an old, trimmed-down body.
+CACHE_VERSION = 2
 
 Slim = Callable[[dict], dict]
 
@@ -97,7 +100,7 @@ class GitHubApi:
     def _cache_key(self, url: str, params: dict | None) -> str:
         query = "&".join(f"{k}={v}" for k, v in sorted((params or {}).items()))
         # Per token: two workspaces' tokens may see the same URL differently.
-        return "gh-etag:" + hashlib.sha256(f"{self._token_key} {url}?{query}".encode()).hexdigest()
+        return f"gh-etag:v{CACHE_VERSION}:" + hashlib.sha256(f"{self._token_key} {url}?{query}".encode()).hexdigest()
 
     def _allowance_key(self) -> str:
         return f"gh-allowance:{self._token_key}"
@@ -121,9 +124,12 @@ def _reset_time(response: requests.Response) -> datetime:
 
 
 def _list_slimmer(key: str, slim: Slim) -> Slim:
+    """Keeps only the list, each item slimmed: the rest of an object
+    response (a compare's files) is not read, so not kept."""
+
     def trim(body):
         if key:
-            return {**{k: v for k, v in body.items() if k != key}, key: [slim(item) for item in body.get(key, [])]}
+            return {key: [slim(item) for item in body.get(key, [])]}
         return [slim(item) for item in body]
 
     return trim

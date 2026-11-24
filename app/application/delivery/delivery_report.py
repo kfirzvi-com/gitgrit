@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 from django.db.models import Q
 from django.utils import timezone
 
+from app.application.delivery.lead_times import LeadTimes
 from app.domain.delivery import (
+    LeadTime,
     DeploymentFrequency,
     DeploymentStrategy,
     PendingCommits,
@@ -34,6 +36,7 @@ class DeliveryReport:
     recent: tuple[Deployment, ...]
     running: RunningVersion | None = None
     pull_requests: PullRequestFlow | None = None
+    lead_time: LeadTime | None = None
     open_pull_requests: tuple[PullRequest, ...] = ()
 
     @classmethod
@@ -54,6 +57,7 @@ class DeliveryReport:
             frequency=DeploymentFrequency.of(events, now.date(), tz=now.tzinfo),
             recent=tuple(deployments.order_by("-deployed_at")[:RECENT]),
             running=RunningVersion.latest(events),
+            lead_time=LeadTimes.for_project(settings, now),
             pull_requests=PullRequestFlow.of((pr.facts for pr in pulls), now.date(), tz=now.tzinfo, now=now),
             open_pull_requests=tuple(
                 pulls.filter(state=PullRequestState.OPEN).order_by("created_at")[:OPEN_LISTED]

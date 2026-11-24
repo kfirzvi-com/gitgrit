@@ -1,6 +1,7 @@
 {% load time_tags %}{# The project page's Delivery tab: what runs in production and what waits  #}
-{# to ship, DORA deployment frequency, pull request flow, open pull requests, #}
-{# the latest deployments and how they are counted (and changing that).       #}
+{# to ship; the DORA pair, deployment frequency and lead time for changes;    #}
+{# pull request flow and how long pull requests stay open; open pull requests; #}
+{# the latest deployments and how delivery is measured (and changing that).   #}
 {# While a sync runs, the tab polls itself every 2 seconds.                   #}
 {% with frequency=report.frequency tier=report.frequency.tier %}
 <div id="project-delivery" class="flex flex-col gap-6"
@@ -89,6 +90,39 @@
     </div>
 
 
+    {# Lead time for changes: how long changes take to reach production #}
+    {% with lead=report.lead_time %}
+    <div class="card bg-base-100 shadow-xl min-w-0" data-lead-time>
+      <div class="card-body p-5 gap-4 [&_p]:grow-0">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="card-title text-base">Lead time for changes</h2>
+            <p class="text-xs opacity-60">Last 13 weeks · from {{ lead.start.label|lower }} to production</p>
+          </div>
+          <span class="badge {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                data-lead-tier="{{ lead.tier }}" title="DORA performance band">{{ lead.tier.label }}</span>
+        </div>
+
+        <div class="flex items-baseline gap-2">
+          <span class="text-4xl font-bold tabular-nums" data-lead-median>{{ lead.median|duration }}</span>
+          <span class="text-sm opacity-70">median</span>
+        </div>
+        <p class="text-sm opacity-80 -mt-2">{{ lead.tier.lead_time }} · {{ lead.changes|length }} change{{ lead.changes|length|pluralize }}{% if lead.through_pull_requests %}, {{ lead.through_pull_requests }} through pull requests{% endif %}</p>
+
+        {% include "partials/delivery_week_chart.html" with chart=lead_chart bar="bg-primary" label="Median lead time per week of deployment, over the last 13 weeks" noun="" %}
+
+        {% if lead.review or lead.waiting %}
+          <p class="text-xs opacity-70" data-lead-breakdown>
+            Pull requests: <span class="font-semibold">{{ lead.review|duration }}</span> in review (ready to merged) ·
+            <span class="font-semibold">{{ lead.waiting|duration }}</span> waiting for production (merged to deployed), medians
+          </p>
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
+  </div>
+
+  <div class="grid grid-cols-1 min-[901px]:grid-cols-2 gap-6">
     {# Pull requests: merges per week (bars) and open at each week's end (line) #}
     {% with flow=report.pull_requests %}
     <div class="card bg-base-100 shadow-xl min-w-0" data-pull-requests>
@@ -114,30 +148,29 @@
       </div>
     </div>
     {% endwith %}
-  </div>
-
-  {# How long pull requests stay open: merged ones until merge, open ones so far #}
-  {% with flow=report.pull_requests %}
-  <div class="card bg-base-100 shadow-xl" data-pull-request-open-time>
-    <div class="card-body p-5 gap-4 [&_p]:grow-0">
-      <div>
-        <h2 class="card-title text-base">How long pull requests stay open</h2>
-        <p class="text-xs opacity-60">Last 13 weeks · from opening to merge</p>
-      </div>
-      <div class="flex flex-wrap gap-x-10 gap-y-2">
+    {# How long pull requests stay open: merged ones until merge, open ones so far #}
+    {% with flow=report.pull_requests %}
+    <div class="card bg-base-100 shadow-xl min-w-0" data-pull-request-open-time>
+      <div class="card-body p-5 gap-4 [&_p]:grow-0">
         <div>
-          <span class="text-4xl font-bold tabular-nums" data-time-to-merge>{{ flow.time_to_merge|duration }}</span>
-          <span class="text-sm opacity-70">to merge (median)</span>
+          <h2 class="card-title text-base">How long pull requests stay open</h2>
+          <p class="text-xs opacity-60">Last 13 weeks · from opening to merge</p>
         </div>
-        <div>
-          <span class="text-4xl font-bold tabular-nums" data-open-age>{{ flow.open_age|duration }}</span>
-          <span class="text-sm opacity-70">open so far, for the {{ flow.open_now }} still open (median)</span>
+        <div class="flex flex-wrap gap-x-10 gap-y-2">
+          <div>
+            <span class="text-4xl font-bold tabular-nums" data-time-to-merge>{{ flow.time_to_merge|duration }}</span>
+            <span class="text-sm opacity-70">to merge (median)</span>
+          </div>
+          <div>
+            <span class="text-4xl font-bold tabular-nums" data-open-age>{{ flow.open_age|duration }}</span>
+            <span class="text-sm opacity-70">open so far, for the {{ flow.open_now }} still open (median)</span>
+          </div>
         </div>
+        {% include "partials/delivery_week_chart.html" with chart=merge_chart bar="bg-secondary" label="Median time from opening to merge, per week of merge, over the last 13 weeks" noun="" %}
       </div>
-      {% include "partials/delivery_week_chart.html" with chart=merge_chart bar="bg-secondary" label="Median time from opening to merge, per week of merge, over the last 13 weeks" noun="" %}
     </div>
+    {% endwith %}
   </div>
-  {% endwith %}
 
   {# Open pull requests, oldest first #}
   <div class="card bg-base-100 shadow-xl" data-open-pull-requests>
@@ -239,7 +272,7 @@
         {% endif %}
 
         <details class="collapse collapse-arrow border border-base-content/10 rounded-box" {% if open_settings %}open{% endif %}>
-          <summary class="collapse-title text-sm min-h-0 py-2">Change how deployments are counted</summary>
+          <summary class="collapse-title text-sm min-h-0 py-2">Change how delivery is measured</summary>
           <div class="collapse-content">
             <form hx-post="{% url 'project_delivery_settings' project.pk %}" hx-target="#project-delivery" hx-swap="outerHTML"
                   class="flex flex-col gap-3" data-delivery-settings>

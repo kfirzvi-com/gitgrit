@@ -5,7 +5,9 @@ from app.infrastructure.delivery.github_api import github_time
 
 # The fields kept from GitHub's pull request objects (API items and webhook
 # payloads have the same shape); the rest is too much to cache.
-_KEPT = ("number", "title", "html_url", "draft", "created_at", "updated_at", "merged_at", "closed_at")
+_KEPT = (
+    "number", "title", "html_url", "draft", "created_at", "updated_at", "merged_at", "closed_at", "merge_commit_sha",
+)
 
 
 def slim_pull_request(item: dict) -> dict:
@@ -17,8 +19,9 @@ def slim_pull_request(item: dict) -> dict:
     }
 
 
-def pull_request_facts(item: dict) -> PullRequestFacts:
-    """A GitHub pull request object as facts."""
+def pull_request_facts(item: dict, ready_at=None) -> PullRequestFacts:
+    """A GitHub pull request object as facts. GitHub's object does not say
+    when it was ready for review; a webhook announcing it passes it in."""
     user = item.get("user") or {}
 
     def moment(key):
@@ -36,13 +39,19 @@ def pull_request_facts(item: dict) -> PullRequestFacts:
         merged_at=moment("merged_at"),
         closed_at=moment("closed_at"),
         base_ref=(item.get("base") or {}).get("ref", ""),
+        # GitHub fills it in for open pull requests too (a test merge); it
+        # only means the base branch's commit once merged.
+        merge_commit_sha=(item.get("merge_commit_sha") or "") if item.get("merged_at") else "",
+        ready_at=ready_at,
     )
 
 
 def pull_request_from_payload(payload: dict) -> PullRequestFacts | None:
     """The pull request a GitHub ``pull_request`` webhook is about, or None
-    when the payload carries none (another platform's event)."""
+    when the payload carries none (another platform's event). Its
+    ``ready_for_review`` action says when it became ready."""
     item = payload.get("pull_request")
     if not isinstance(item, dict) or "number" not in item or not item.get("created_at"):
         return None
-    return pull_request_facts(item)
+    ready = payload.get("action") == "ready_for_review" and item.get("updated_at")
+    return pull_request_facts(item, ready_at=github_time(ready) if ready else None)
