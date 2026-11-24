@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.application import scoring
+from app.application.delivery import DeliverySummary
 from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.health import counted_level
 from app.domain.models import Project
@@ -27,14 +28,19 @@ class ProjectRow:
     project: Project
     head: object = None
     stacks: tuple = ()
+    delivery: DeliverySummary | None = None
 
     @classmethod
     def for_projects(cls, projects) -> list["ProjectRow"]:
-        """A row per project, every head read at once. ``projects`` should
-        prefetch ``stacks``."""
+        """A row per project, every head and delivery summary read at once.
+        ``projects`` should prefetch ``stacks``."""
         projects = list(projects)
         heads = scoring.project_heads(projects)
-        return [cls(project=p, head=heads.get(p.pk), stacks=cls._stacks_of(p)) for p in projects]
+        delivery = DeliverySummary.for_projects(projects)
+        return [
+            cls(project=p, head=heads.get(p.pk), stacks=cls._stacks_of(p), delivery=delivery.get(p.pk))
+            for p in projects
+        ]
 
     @staticmethod
     def _stacks_of(project) -> tuple:
@@ -66,6 +72,25 @@ class ProjectRow:
         return self.head.check.created_at if self.head else None
 
     # --- What the row sorts by (data-sort-*) --------------------------------
+
+    @property
+    def sort_deployed(self) -> str:
+        """When its running version was deployed; never deployed: empty (last)."""
+        running = self.delivery.running if self.delivery else None
+        return str(int(running.deployed_at.timestamp())) if running else ""
+
+    @property
+    def sort_deploys(self) -> str:
+        return f"{self.delivery.frequency.per_week:.2f}" if self.delivery and self.delivery.synced else ""
+
+    @property
+    def sort_open_pulls(self) -> str:
+        return str(self.delivery.pull_requests.open_now) if self.delivery and self.delivery.synced else ""
+
+    @property
+    def tier_value(self) -> str:
+        """Its deploy tier for grouping; not synced yet: empty."""
+        return self.delivery.frequency.tier.value if self.delivery and self.delivery.synced else ""
 
     @property
     def sort_score(self) -> str:

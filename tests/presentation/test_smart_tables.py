@@ -81,8 +81,8 @@ class ProjectListPageTests(Fixture):
     def test_the_table_sorts_by_score_and_groups_by_owner_and_stack(self):
         table = ProjectListSmartTable.build()
 
-        assert {"name", "score", "health", "owner", "checked"} <= {s.key for s in table.sorts}
-        assert [g.key for g in table.groups] == ["owner", "stack", "health", "lifecycle", "platform"]
+        assert {"name", "score", "health", "owner", "checked", "deployed", "deploys", "pulls"} <= {s.key for s in table.sorts}
+        assert [g.key for g in table.groups] == ["owner", "stack", "health", "lifecycle", "platform", "tier"]
 
     def test_each_row_says_what_it_is_filtered_sorted_and_grouped_by(self):
         body = self.client.get(reverse("project_list")).content.decode()

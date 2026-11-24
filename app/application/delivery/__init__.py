@@ -2,6 +2,7 @@
 on a schedule and report it. Sources plug in behind the ``DeploymentSources``
 port."""
 from app.application.delivery.delivery_report import DeliveryReport
+from app.application.delivery.delivery_summary import DeliverySummary
 from app.application.delivery.delivery_sync import DeliverySync
 from app.application.delivery.delivery_sync_request import DeliverySyncRequest
 from app.application.delivery.delivery_sync_schedule import DeliverySyncSchedule
@@ -16,6 +17,7 @@ from app.application.delivery.source_unavailable import SourceUnavailable
 
 __all__ = [
     "DeliveryReport",
+    "DeliverySummary",
     "DeliverySync",
     "DeliverySyncRequest",
     "DeliverySyncSchedule",
