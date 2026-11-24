@@ -1,117 +1,97 @@
 {% comment %}The project page's Overview: a summary of every tab, so the tabs are only for deep dives.
-The score (Results) beside delivery and pull requests at a glance (Delivery) and what wants a look
-across all of them; below, the latest activity and the project's details. Each card links to the tab with more
-(`data-open-tab`, handled by the page's tab script). Uploaded-build projects have no delivery.{% endcomment %}
+Top: the Results card (score and results) beside the Delivery card, in sections: Shipping (running
+version, deploys, lead time, what waits to ship) and Pull requests (open, merged, time to merge, open
+so far); DORA's stability pair (MTTR, change failure rate) would be a third section. Below: what
+needs attention across every tab, recent activity, and the project's details. Each card and item
+links to the tab with more (`data-open-tab`, handled by the page's tab script). Uploaded-build
+projects have no delivery.{% endcomment %}
 {% load time_tags %}
 <div class="flex flex-col gap-6" data-project-overview>
-  {% include "partials/project_score_scale.html" %}
-  <div class="grid grid-cols-1 min-[1001px]:grid-cols-[2fr_3fr] gap-6 -mt-3 items-start">
+  <div class="grid grid-cols-1 {% if delivery %}min-[1001px]:grid-cols-[2fr_3fr]{% endif %} gap-6 items-stretch">
     <div class="min-w-0">{% include "partials/project_overview_health.html" %}</div>
 
     {% if delivery %}
-    <div class="flex flex-col gap-6 min-w-0">
-      {# Delivery at a glance #}
-      <div class="card bg-base-100 shadow-xl" data-overview-delivery>
-        <div class="card-body p-5 gap-4 [&_p]:grow-0">
-          <div class="flex items-baseline justify-between gap-3">
-            <h2 class="card-title text-base">Delivery</h2>
-            <a href="#delivery" class="link link-hover text-primary text-[13px]" data-open-tab="delivery">Delivery details &rarr;</a>
-          </div>
-          {% if not delivery.has_refreshed %}
-            <p class="text-sm opacity-60 flex items-center gap-2"><span class="loading loading-spinner loading-xs"></span> Syncing from {{ project.get_platform_display }}…</p>
-          {% else %}
-          <div class="grid grid-cols-2 min-[701px]:grid-cols-4 gap-x-6 gap-y-4">
-            <div class="min-w-0" data-overview-running>
-              <p class="text-xs uppercase tracking-wide opacity-60">Running</p>
-              {% if delivery.running %}
-                <p class="text-2xl font-bold truncate {% if not delivery.running.version %}font-mono{% endif %}" title="{{ delivery.running.sha }}">{{ delivery.running.label }}</p>
-                <p class="text-xs opacity-70" title="{{ delivery.running.deployed_at }}">{{ delivery.running.deployed_at|ago }}</p>
-              {% else %}
-                <p class="text-2xl font-bold opacity-40">—</p>
-                <p class="text-xs opacity-70">No deployment in 13 weeks</p>
-              {% endif %}
-            </div>
-            <div class="min-w-0" data-overview-deploys>
-              <p class="text-xs uppercase tracking-wide opacity-60">Deploys</p>
-              {% with tier=delivery.frequency.tier %}
-                <p class="text-2xl font-bold tabular-nums">{{ delivery.frequency.per_week|floatformat:1 }}<span class="text-sm font-normal opacity-70"> /week</span></p>
-                <span class="badge badge-xs {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}" title="{{ tier.cadence }}">{{ tier.label }}</span>
-              {% endwith %}
-            </div>
-            <div class="min-w-0" data-overview-lead>
-              <p class="text-xs uppercase tracking-wide opacity-60">Lead time</p>
-              {% with lead=delivery.lead_time %}
-                <p class="text-2xl font-bold tabular-nums">{{ lead.median|duration }}</p>
-                <span class="badge badge-xs {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}" title="From {{ lead.start.phrase }} to production: {{ lead.tier.lead_time|lower }}">{{ lead.tier.label }}</span>
-              {% endwith %}
-            </div>
-            <div class="min-w-0" data-overview-waiting>
-              <p class="text-xs uppercase tracking-wide opacity-60">Waiting to ship</p>
-              {% with pending=delivery.pending %}
-                <p class="text-2xl font-bold tabular-nums">{% if pending %}{{ pending.count }}{% else %}—{% endif %}</p>
-                <p class="text-xs opacity-70">{% if pending.any %}oldest {{ pending.oldest_at|ago }}{% elif pending %}all shipped{% else %}not known{% endif %}</p>
-              {% endwith %}
-            </div>
-          </div>
-          {% endif %}
+    <div class="card bg-base-100 shadow-xl min-w-0" data-overview-delivery>
+      <div class="card-body p-5 gap-4 [&_p]:grow-0">
+        <div class="flex items-baseline justify-between gap-3">
+          <h2 class="card-title text-base">Delivery</h2>
+          <a href="#delivery" class="link link-hover text-primary text-[13px]" data-open-tab="delivery">Delivery details &rarr;</a>
         </div>
-      </div>
-
-      {# Pull requests at a glance #}
-      {% with flow=delivery.pull_requests %}
-      <div class="card bg-base-100 shadow-xl" data-overview-pulls>
-        <div class="card-body p-5 gap-4 [&_p]:grow-0">
-          <div class="flex items-baseline justify-between gap-3">
-            <h2 class="card-title text-base">Pull requests</h2>
-            <a href="#delivery" class="link link-hover text-primary text-[13px]" data-open-tab="delivery">Pull request details &rarr;</a>
+        {% if not delivery.has_refreshed %}
+          <p class="text-sm opacity-60 flex items-center gap-2"><span class="loading loading-spinner loading-xs"></span> Syncing from {{ project.get_platform_display }}…</p>
+        {% else %}
+        {% with running=delivery.running pending=delivery.pending tier=delivery.frequency.tier lead=delivery.lead_time flow=delivery.pull_requests %}
+        <section aria-label="Shipping" class="flex flex-col gap-1.5" data-overview-shipping>
+          <h3 class="text-xs font-semibold uppercase tracking-wide opacity-70">Shipping</h3>
+          <div class="grid grid-cols-2 min-[701px]:grid-cols-4 gap-px rounded-box overflow-hidden bg-base-content/10">
+          <div class="bg-base-100 p-3 min-w-0" data-overview-running>
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Running</p>
+            <p class="text-lg font-bold truncate {% if running and not running.version %}font-mono{% endif %}" title="{{ running.sha }}">{% if running %}{{ running.label }}{% else %}—{% endif %}</p>
+            <p class="text-xs opacity-60 truncate">{% if running %}{{ running.deployed_at|ago }}{% else %}none in 13 weeks{% endif %}</p>
           </div>
-          <div class="grid grid-cols-2 min-[701px]:grid-cols-4 gap-x-6 gap-y-4">
-            <div><p class="text-xs uppercase tracking-wide opacity-60">Open now</p><p class="text-2xl font-bold tabular-nums" data-overview-open>{{ flow.open_now }}</p></div>
-            <div><p class="text-xs uppercase tracking-wide opacity-60">Merged</p><p class="text-2xl font-bold tabular-nums">{{ flow.merged_per_week|floatformat:1 }}<span class="text-sm font-normal opacity-70"> /week</span></p></div>
-            <div><p class="text-xs uppercase tracking-wide opacity-60">Time to merge</p><p class="text-2xl font-bold tabular-nums">{{ flow.time_to_merge|duration }}</p></div>
-            <div><p class="text-xs uppercase tracking-wide opacity-60">Open so far</p><p class="text-2xl font-bold tabular-nums">{{ flow.open_age|duration }}</p></div>
+          <div class="bg-base-100 p-3 min-w-0" data-overview-deploys>
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Deploys</p>
+            <p class="text-lg font-bold tabular-nums">{{ delivery.frequency.per_week|floatformat:1 }}<span class="text-xs font-normal opacity-60"> /week</span></p>
+            <span class="badge badge-xs {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}" title="{{ tier.cadence }}">{{ tier.label }}</span>
           </div>
-        </div>
-      </div>
-      {% endwith %}
-      {# What wants a look, across every tab #}
-      <div class="card bg-base-100 shadow-xl min-w-0" data-overview-attention>
-        <div class="card-body p-5 gap-3">
-          <h2 class="card-title text-base">Needs attention</h2>
-          {% with items=overview.attention %}
-            {% if items %}
-              <ul class="flex flex-col gap-3">
-                {% for item in items %}
-                  <li class="flex items-start gap-2.5 min-w-0">
-                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full gg-tone-bg-{{ item.tone }}" aria-hidden="true"></span>
-                    <div class="min-w-0">
-                      <a href="#{{ item.tab }}" class="link link-hover text-sm font-medium" data-open-tab="{{ item.tab }}">{{ item.text }}</a>
-                      {% if item.detail %}<p class="text-xs opacity-60 break-words">{{ item.detail }}</p>{% endif %}
-                    </div>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="text-sm opacity-70 flex items-center gap-2"><span class="h-2 w-2 rounded-full gg-tone-bg-healthy" aria-hidden="true"></span>Nothing needs a look right now.</p>
-            {% endif %}
-          {% endwith %}
-        </div>
+          <div class="bg-base-100 p-3 min-w-0" data-overview-lead>
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Lead time</p>
+            <p class="text-lg font-bold tabular-nums">{{ lead.median|duration }}</p>
+            <span class="badge badge-xs {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}" title="From {{ lead.start.phrase }} to production: {{ lead.tier.lead_time|lower }}">{{ lead.tier.label }}</span>
+          </div>
+          <div class="bg-base-100 p-3 min-w-0" data-overview-waiting>
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Waiting to ship</p>
+            <p class="text-lg font-bold tabular-nums">{% if pending %}{{ pending.count }}{% else %}—{% endif %}</p>
+            <p class="text-xs opacity-60 truncate">{% if pending.any %}oldest {{ pending.oldest_at|ago }}{% elif pending %}all shipped{% else %}not known{% endif %}</p>
+          </div>
+          </div>
+        </section>
+        <section aria-label="Pull requests" class="flex flex-col gap-1.5" data-overview-pull-requests>
+          <h3 class="text-xs font-semibold uppercase tracking-wide opacity-70">Pull requests</h3>
+          <div class="grid grid-cols-2 min-[701px]:grid-cols-4 gap-px rounded-box overflow-hidden bg-base-content/10">
+          <div class="bg-base-100 p-3 min-w-0" data-overview-pulls>
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Open PRs</p>
+            <p class="text-lg font-bold tabular-nums" data-overview-open>{{ flow.open_now }}</p>
+            <p class="text-xs opacity-60 truncate">{% if flow.oldest_open_since %}oldest {{ flow.oldest_open_since|ago }}{% else %}none open{% endif %}</p>
+          </div>
+          <div class="bg-base-100 p-3 min-w-0">
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Merged</p>
+            <p class="text-lg font-bold tabular-nums">{{ flow.merged_per_week|floatformat:1 }}<span class="text-xs font-normal opacity-60"> /week</span></p>
+            <p class="text-xs opacity-60">{{ flow.merged }} in 13 weeks</p>
+          </div>
+          <div class="bg-base-100 p-3 min-w-0">
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Time to merge</p>
+            <p class="text-lg font-bold tabular-nums">{{ flow.time_to_merge|duration }}</p>
+            <p class="text-xs opacity-60">median</p>
+          </div>
+          <div class="bg-base-100 p-3 min-w-0">
+            <p class="text-[11px] uppercase tracking-wide opacity-60">Open so far</p>
+            <p class="text-lg font-bold tabular-nums">{{ flow.open_age|duration }}</p>
+            <p class="text-xs opacity-60">median of open PRs</p>
+          </div>
+          </div>
+        </section>
+        {% endwith %}
+        {% endif %}
       </div>
     </div>
-    {% else %}
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 min-[1001px]:grid-cols-3 gap-6 items-start">
     {# What wants a look, across every tab #}
     <div class="card bg-base-100 shadow-xl min-w-0" data-overview-attention>
       <div class="card-body p-5 gap-3">
         <h2 class="card-title text-base">Needs attention</h2>
         {% with items=overview.attention %}
           {% if items %}
-            <ul class="flex flex-col gap-3">
+            <ul class="flex flex-col gap-2.5">
               {% for item in items %}
                 <li class="flex items-start gap-2.5 min-w-0">
                   <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full gg-tone-bg-{{ item.tone }}" aria-hidden="true"></span>
                   <div class="min-w-0">
                     <a href="#{{ item.tab }}" class="link link-hover text-sm font-medium" data-open-tab="{{ item.tab }}">{{ item.text }}</a>
-                    {% if item.detail %}<p class="text-xs opacity-60 break-words">{{ item.detail }}</p>{% endif %}
+                    {% if item.detail %}<p class="text-xs opacity-60 truncate" title="{{ item.detail }}">{{ item.detail }}</p>{% endif %}
                   </div>
                 </li>
               {% endfor %}
@@ -122,23 +102,20 @@ across all of them; below, the latest activity and the project's details. Each c
         {% endwith %}
       </div>
     </div>
-    {% endif %}
-  </div>
 
-  <div class="grid grid-cols-1 min-[1001px]:grid-cols-2 gap-6 items-start">
     {# The latest deployments, merges and standard results #}
     <div class="card bg-base-100 shadow-xl min-w-0" data-overview-activity>
       <div class="card-body p-5 gap-3">
         <h2 class="card-title text-base">Recent activity</h2>
         {% with items=overview.activity %}
           {% if items %}
-            <ul class="flex flex-col gap-2.5">
+            <ul class="flex flex-col gap-2">
               {% for item in items %}
-                <li class="flex items-start gap-2.5 min-w-0 text-sm">
-                  <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {% if item.tone %}gg-tone-bg-{{ item.tone }}{% else %}bg-base-content/30{% endif %}" aria-hidden="true"></span>
-                  <div class="min-w-0 flex-1">
-                    {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="link link-hover break-words">{{ item.text }}</a>{% else %}<a href="#{{ item.tab }}" class="link link-hover break-words" data-open-tab="{{ item.tab }}">{{ item.text }}</a>{% endif %}
-                  </div>
+                <li class="flex items-center gap-2.5 min-w-0 text-sm">
+                  <span class="h-2 w-2 shrink-0 rounded-full {% if item.tone %}gg-tone-bg-{{ item.tone }}{% else %}bg-base-content/30{% endif %}" aria-hidden="true"></span>
+                  <span class="min-w-0 flex-1 truncate" title="{{ item.text }}">
+                    {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="link link-hover">{{ item.text }}</a>{% else %}<a href="#{{ item.tab }}" class="link link-hover" data-open-tab="{{ item.tab }}">{{ item.text }}</a>{% endif %}
+                  </span>
                   <span class="text-xs opacity-60 whitespace-nowrap" title="{{ item.at }}">{{ item.at|ago }}</span>
                 </li>
               {% endfor %}

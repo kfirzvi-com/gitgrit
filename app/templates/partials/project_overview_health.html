@@ -1,58 +1,65 @@
-{% comment %}The Overview tab's score card (Michal's design): the project's score as a big
-letter, whether a Required standard failed it, the results bar and legend the Results tab shows
-too (partials/outcome_bar.html), and a footer with the last run and a way into the Results tab.
-The card glows in the score's colour (scores.css; colours from ScoreToneStyle).{% endcomment %}
+{% comment %}The Overview's Results card, compact: the project's score, whether a Required standard
+failed it, how many standards it is based on, the results bar and legend the Results tab shows too
+(partials/outcome_bar.html), the last run, and a way into the Results tab. With no score: why, folded
+away (partials/no_score_alert.html), and what to do. The card's edge takes the score's colour.
+Uploaded-build projects re-render it after an upload (artifact_views.project_overview_health).{% endcomment %}
 {% load score_tags project_tags time_tags %}
-{% if project_has_score %}
-  {% score_tone compliance_score project_score.failed as tone %}
-  {# As tall as its content, not stretched to the About card beside it (long for a monorepo). #}
-  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-{{ tone }} flex flex-col" data-overview-health{% if project.is_artifact %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
-    <div class="flex flex-col items-center justify-center text-center px-6 sm:px-10 pt-8 pb-7">
-      {% score compliance_score failed=project_score.failed size="hero" data_attr="data-score-value" %}
-      {% if health_breakdown.required_failed %}
-        <p class="gg-required-failed text-xl mt-4" data-required-failed="{{ health_breakdown.required_failed }}">{% include "partials/importance_icon.html" with value="required" %}{{ health_breakdown.required_failed }} Required standard{{ health_breakdown.required_failed|pluralize }} failed</p>
-      {% else %}
-        <p class="text-xl font-semibold mt-4" data-required-failed="0">No Required failures</p>
-      {% endif %}
-      <p class="text-sm opacity-60 mt-1">Based on {{ health_breakdown.total }} standard{{ health_breakdown.total|pluralize }}</p>
+{% if project_has_score %}{% score_tone compliance_score project_score.failed as tone %}{% endif %}
+<div class="card bg-base-100 shadow-xl h-full gg-tone-card {% if project_has_score %}gg-tone-card-{{ tone }}{% else %}gg-tone-card-unknown{% endif %}" data-overview-health{% if project.is_artifact %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
+  <div class="card-body p-5 gap-4 [&_p]:grow-0">
+    <div class="flex items-baseline justify-between gap-3">
+      <h2 class="card-title text-base">Results</h2>
+      <a href="#results" class="link link-hover text-primary text-[13px]" data-open-tab="results" data-results-link>See results by commit &rarr;</a>
+    </div>
+    <div class="-mb-2">{% include "partials/project_score_scale.html" %}</div>
 
-      <div class="w-full max-w-lg mt-6 space-y-2.5" data-health-breakdown>
-        {% include "partials/outcome_bar.html" with counts=health_breakdown %}
+    {% if project_has_score %}
+      <div class="flex items-center gap-5">
+        <div class="shrink-0">{% score compliance_score failed=project_score.failed size="xl" data_attr="data-score-value" %}</div>
+        <div class="min-w-0">
+          {% if health_breakdown.required_failed %}
+            <p class="gg-required-failed font-semibold" data-required-failed="{{ health_breakdown.required_failed }}">{% include "partials/importance_icon.html" with value="required" %}{{ health_breakdown.required_failed }} Required standard{{ health_breakdown.required_failed|pluralize }} failed</p>
+          {% else %}
+            <p class="font-semibold" data-required-failed="0">No Required failures</p>
+          {% endif %}
+          <p class="text-xs opacity-60">Based on {{ health_breakdown.total }} standard{{ health_breakdown.total|pluralize }}</p>
+          {% with last=recent_executions.0 %}
+            {% if last %}<p class="text-xs opacity-60 truncate" data-last-run>Last run {% local_time last.created_at "j M, H:i" %} &middot; {{ last|trigger_label }}</p>{% endif %}
+          {% endwith %}
+        </div>
       </div>
-    </div>
-
-    <div class="mt-auto flex flex-wrap items-center justify-between gap-2 px-6 sm:px-8 py-3.5 border-t border-base-content/10 text-[13px]" data-last-run>
-      {% with last=recent_executions.0 %}
-        {% if last %}
-          <span class="opacity-60 min-w-0 truncate">Last run: {% local_time last.created_at "j M Y, H:i" %} &middot; {{ last|trigger_label }} run</span>
+      <div class="space-y-2" data-health-breakdown>
+        {% include "partials/outcome_bar.html" with counts=health_breakdown align="start" %}
+      </div>
+    {% else %}
+      <div class="flex items-center gap-4">
+        {% if branch_head.outcome == "checking" or branch_head.outcome == "no_score" %}
+          <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-base-content/30" data-score-value>{% include "partials/no_grade.html" with subject=branch_head size="sm" %}</div>
         {% else %}
-          <span></span>
+          <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-base-content/30 text-2xl opacity-60" aria-hidden="true">&mdash;</div>
         {% endif %}
-      {% endwith %}
-      <a href="#results" class="link link-hover text-primary" data-open-tab="results" data-results-link>See results by commit &rarr;</a>
-    </div>
-  </div>
-{% else %}
-  {# No score: as tall as its content, not stretched to the About card beside it. #}
-  <div class="card bg-base-100 shadow-xl gg-tone-card gg-tone-card-unknown" data-overview-health{% if project.is_artifact %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
-    <div class="card-body items-center justify-center gap-6 py-10">
-      {% if branch_head.outcome == "checking" or branch_head.outcome == "no_score" %}
-        <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30" data-score-value>{% include "partials/no_grade.html" with subject=branch_head size="hero" %}</div>
-      {% else %}
-        <div class="flex h-28 w-28 items-center justify-center rounded-full border-4 border-dashed border-base-content/30 text-4xl opacity-60" aria-hidden="true">&mdash;</div>
-      {% endif %}
+        <div class="min-w-0">
+          {% if project.is_artifact and not project.artifact_commits.exists %}
+            <p class="font-semibold">No commits uploaded yet</p>
+            <p class="text-xs opacity-60">Upload the build's files to check them.</p>
+          {% elif attached_standards %}
+            <p class="font-semibold">No score on {{ project.default_branch }} yet</p>
+            <p class="text-xs opacity-60">A commit gets one when every standard has a result on it.</p>
+            {% include "partials/score_note.html" with score=None head=branch_head %}
+          {% else %}
+            <p class="font-semibold">No standards attached</p>
+            <p class="text-xs opacity-60">Pick the standards that apply to this project.</p>
+          {% endif %}
+        </div>
+      </div>
       {% if project.is_artifact and not project.artifact_commits.exists %}
-        <p class="text-base opacity-60 text-center">No commits uploaded yet. Upload the build's files to check them.</p>
-        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('upload_modal').showModal()">Upload a commit</button>
+        <div><button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('upload_modal').showModal()">Upload a commit</button></div>
       {% elif attached_standards %}
-        <p class="text-base opacity-60 text-center">No score on {{ project.default_branch }} yet: a commit gets one when every standard has a result on it (passed or failed).</p>
-        {% include "partials/score_note.html" with score=None head=branch_head %}
         {% include "partials/no_score_alert.html" with head=branch_head run_url="" %}
-        <a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a>
+        {% if branch_head.outcome != "no_score" %}<div><a href="#results" class="btn btn-primary btn-sm" data-open-tab="results">Run the standards</a></div>{% endif %}
       {% else %}
-        <p class="text-base opacity-60 text-center">No standards attached. Pick the standards that apply to this project.</p>
-        <a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a>
+        <div><a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a></div>
       {% endif %}
-    </div>
+    {% endif %}
   </div>
-{% endif %}
+</div>
