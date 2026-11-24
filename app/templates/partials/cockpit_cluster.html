@@ -77,30 +77,30 @@
         </div>
       </div>
 
-      {% comment %}AI fuel: a vertical tank per budgeted provider and model, filled to what is left
-      of its budget. Models are priced apart, so no tank adds up another's tokens.{% endcomment %}
-      <a href="#tab-ai" class="flex flex-col items-center gap-2 group self-stretch justify-end" data-gauge="fuel">
+      {% comment %}AI fuel, set low and small beside the health dial like a car's side gauge: a vertical
+      tank per budgeted provider and model, filled to what is left of its budget. Models are priced apart, so no tank adds up another's tokens.{% endcomment %}
+      <a href="#tab-ai" class="flex flex-col items-center gap-1.5 group md:translate-y-10" data-gauge="fuel">
         <span class="gg-eyebrow text-center">AI budget left</span>
         {% if fuel.has_budget %}
-          <div class="flex items-end gap-3">
-            <div class="flex flex-col justify-between h-[120px] text-[10px] font-bold mb-7" style="color: #5a6478" aria-hidden="true"><span>F</span><span>E</span></div>
+          <div class="flex items-end gap-2">
+            <div class="flex flex-col justify-between h-[80px] text-[9px] font-bold mb-6" style="color: #5a6478" aria-hidden="true"><span>F</span><span>E</span></div>
             {% for tank in fuel.tanks %}
-              <div class="flex flex-col items-center gap-1 w-12" data-tank data-level="{{ tank.level }}"
+              <div class="flex flex-col items-center gap-1 w-8" data-tank data-level="{{ tank.level }}"
                    title="{{ tank.row.budget.provider.display_name }} {{ tank.row.budget.model }}, {{ tank.row.period.label|lower }} budget ({{ tank.row.window }}): {{ tank.percent_left }}% left, resets {{ tank.row.resets|date:'M j, H:i' }}{% if tank.row.budget.stop_at_limit %}; stops runs when used up{% endif %}">
-                <span class="text-[10px] tabular-nums gg-dial-digits-text gg-tank-{{ tank.level }}">{{ tank.percent_left }}%</span>
+                <span class="text-[9px] tabular-nums gg-dial-digits-text gg-tank-{{ tank.level }}">{{ tank.percent_left }}%</span>
                 <div class="gg-tank">
                   <span class="gg-tank-fill gg-tank-{{ tank.level }}" style="height: {{ tank.percent_left }}%"></span>
                   {% if tank.low_at_percent %}<span class="gg-tank-mark" style="bottom: {{ tank.low_at_percent }}%" title="Low at {{ tank.low_at_percent }}% left: owners and admins are warned here" data-low-mark></span>{% endif %}
                 </div>
-                <span class="text-[10px] leading-tight text-center w-full h-6 overflow-hidden break-words" style="color: var(--gg-text-dim)">{{ tank.row.budget.model|short_model }}</span>
+                <span class="text-[9px] leading-tight text-center w-full h-5 overflow-hidden break-words" style="color: var(--gg-text-dim)">{{ tank.row.budget.model|short_model }}</span>
               </div>
             {% endfor %}
           </div>
-          <span class="text-[11px] group-hover:underline" style="color: var(--gg-text-dim)">{% if fuel.more %}+{{ fuel.more }} more &middot; {% endif %}see all budgets</span>
+          <span class="text-[10px] group-hover:underline" style="color: var(--gg-text-dim)">{% if fuel.more %}+{{ fuel.more }} more &middot; {% endif %}see all budgets</span>
         {% else %}
-          <div class="flex items-end gap-3 opacity-60" aria-hidden="true">
-            <div class="flex flex-col justify-between h-[120px] text-[10px] font-bold" style="color: #5a6478"><span>F</span><span>E</span></div>
-            {% for _ in "123" %}<div class="w-12"><div class="gg-tank"></div></div>{% endfor %}
+          <div class="flex items-end gap-2 opacity-60" aria-hidden="true">
+            <div class="flex flex-col justify-between h-[80px] text-[9px] font-bold" style="color: #5a6478"><span>F</span><span>E</span></div>
+            {% for _ in "123" %}<div class="w-8"><div class="gg-tank"></div></div>{% endfor %}
           </div>
           <span class="text-xs text-center" style="color: var(--gg-text-dim)">No budgets: AI models can't run</span>
         {% endif %}
