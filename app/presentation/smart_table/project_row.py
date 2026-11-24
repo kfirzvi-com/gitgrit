@@ -88,6 +88,12 @@ class ProjectRow:
         return str(self.delivery.pull_requests.open_now) if self.delivery and self.delivery.synced else ""
 
     @property
+    def sort_lead(self) -> str:
+        """Its median lead time in hours; none yet: empty (last)."""
+        median = self.delivery.lead_time.median if self.delivery and self.delivery.synced else None
+        return f"{median.total_seconds() / 3600:.2f}" if median is not None else ""
+
+    @property
     def tier_value(self) -> str:
         """Its deploy tier for grouping; not synced yet: empty."""
         return self.delivery.frequency.tier.value if self.delivery and self.delivery.synced else ""

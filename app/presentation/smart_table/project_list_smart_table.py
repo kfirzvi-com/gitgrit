@@ -13,7 +13,7 @@ from app.presentation.smart_table.sort_option import SortOption
 class ProjectListSmartTable:
     """The Projects page's table: sorted by name, score, health (worst
     first), owner, lifecycle, stacks, when last checked, when last deployed,
-    deploys a week or open pull requests; grouped by owner, stack, health,
+    deploys a week, lead time or open pull requests; grouped by owner, stack, health,
     lifecycle, platform or deploy tier. Every column but the project's may
     be hidden; lifecycle and platform start hidden."""
 
@@ -30,6 +30,7 @@ class ProjectListSmartTable:
                 SortOption("checked", "Last checked", numeric=True, descending=True),
                 SortOption("deployed", "Last deployed", numeric=True, descending=True),
                 SortOption("deploys", "Deploys a week", numeric=True, descending=True),
+                SortOption("lead", "Lead time", numeric=True),
                 SortOption("pulls", "Open pull requests", numeric=True, descending=True),
             ),
             groups=(
@@ -58,6 +59,7 @@ class ProjectListSmartTable:
             columns=(
                 ColumnOption("score", "Score"),
                 ColumnOption("delivery", "Delivery"),
+                ColumnOption("lead", "Lead time"),
                 ColumnOption("stacks", "Stacks"),
                 ColumnOption("owner", "Owner"),
                 ColumnOption("lifecycle", "Lifecycle", shown=False),

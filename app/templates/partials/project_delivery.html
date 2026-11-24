@@ -97,7 +97,7 @@
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="card-title text-base">Lead time for changes</h2>
-            <p class="text-xs opacity-60">Last 13 weeks · from {{ lead.start.label|lower }} to production</p>
+            <p class="text-xs opacity-60">Last 13 weeks · from {{ lead.start.phrase }} to production</p>
           </div>
           <span class="badge {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
                 data-lead-tier="{{ lead.tier }}" title="DORA performance band">{{ lead.tier.label }}</span>

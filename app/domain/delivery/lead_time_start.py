@@ -24,6 +24,11 @@ class LeadTimeStart(StrEnum):
         return _LABELS[self]
 
     @property
+    def phrase(self) -> str:
+        """The start in a sentence: "from {phrase} to production"."""
+        return _PHRASES[self]
+
+    @property
     def description(self) -> str:
         return _DESCRIPTIONS[self]
 
@@ -36,6 +41,12 @@ _LABELS = {
     LeadTimeStart.COMMIT: "Commit (DORA)",
     LeadTimeStart.READY: "Ready for review",
     LeadTimeStart.MERGE: "Merge",
+}
+
+_PHRASES = {
+    LeadTimeStart.COMMIT: "commit",
+    LeadTimeStart.READY: "ready for review",
+    LeadTimeStart.MERGE: "merge",
 }
 
 _DESCRIPTIONS = {

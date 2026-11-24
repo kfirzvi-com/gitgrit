@@ -66,3 +66,19 @@ class DeliveryChartTests(TestCase):
         chart = DeliveryChart([date(2026, 11, 2)], [0], [0])
 
         self.assertEqual((chart.columns[0].height, chart.columns[0].y), (0, 100.0))
+
+
+class DashboardLeadTimeTests(TestCase):
+    def test_the_workspace_median_pools_every_change_and_counts_projects_per_tier(self):
+        from app.domain.delivery import DeliveryTotals, LeadTime, Shipment, ShippedCommit
+        from datetime import datetime, timezone as tz
+
+        noon = datetime(2026, 11, 16, 12, tzinfo=tz.utc)
+        fast = LeadTime.of([Shipment("a", noon, (ShippedCommit("a", noon - timedelta(hours=2)),))], [], date(2026, 11, 16))
+        slow = LeadTime.of([Shipment("b", noon, (ShippedCommit("b", noon - timedelta(days=10)), ShippedCommit("c", noon - timedelta(days=12))))], [], date(2026, 11, 16))
+
+        totals = DeliveryTotals.of([], [], [fast, slow])
+
+        self.assertEqual(totals.lead_time, timedelta(days=10))
+        self.assertEqual(dict(totals.lead_tiers)[DoraTier.ELITE], 1)
+        self.assertEqual(dict(totals.lead_tiers)[DoraTier.MEDIUM], 1)

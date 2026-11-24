@@ -26,6 +26,7 @@
                 <th data-smart-sort="name">Project</th>
                 <th data-smart-sort="score" data-smart-column="score" class="text-center">Score</th>
                 <th data-smart-sort="deployed" data-smart-column="delivery">Delivery</th>
+                <th data-smart-sort="lead" data-smart-column="lead">Lead time</th>
                 <th data-smart-sort="stacks" data-smart-column="stacks">Stacks</th>
                 <th data-smart-sort="owner" data-smart-column="owner">Owner</th>
                 <th data-smart-sort="lifecycle" data-smart-column="lifecycle">Lifecycle</th>
@@ -35,7 +36,7 @@
               {# Replaces the header row while any project is selected (bulk edit). #}
               <tr class="hidden gg-bulk-bar" data-bulk-bar>
                 {% include "partials/bulk_select_cell.html" with noun="project" %}
-                <th colspan="8">
+                <th colspan="9">
                   {% url 'bulk_edit_projects' as bulk_url %}
                   <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
                     <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
@@ -137,6 +138,7 @@
                     data-sort-checked="{{ row.sort_checked }}"
                     data-sort-deployed="{{ row.sort_deployed }}"
                     data-sort-deploys="{{ row.sort_deploys }}"
+                    data-sort-lead="{{ row.sort_lead }}"
                     data-sort-pulls="{{ row.sort_open_pulls }}"
                     data-group-tier="{{ row.tier_value }}"
                     data-group-owner="{{ row.owner_value }}"
@@ -178,6 +180,18 @@
                     {% endif %}
                   </td>
                   {% endwith %}
+                  {# Median lead time for changes and its DORA tier. #}
+                  <td class="whitespace-nowrap" data-smart-column="lead" data-project-lead>
+                    {% with lead=row.delivery.lead_time %}
+                      {% if row.delivery.synced and lead.median is not None %}
+                        <span class="text-sm font-medium">{{ lead.median|duration }}</span>
+                        <span class="badge badge-xs {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                              title="DORA lead time for changes, from {{ lead.start.phrase }}: {{ lead.tier.lead_time|lower }}">{{ lead.tier.label }}</span>
+                      {% else %}
+                        <span class="text-sm opacity-40">—</span>
+                      {% endif %}
+                    {% endwith %}
+                  </td>
                   <td data-smart-column="stacks">
                     <div class="flex flex-wrap gap-1">
                       {% for stack in row.stacks %}
@@ -212,7 +226,7 @@
                 {% endwith %}
               {% endfor %}
               <tr class="hidden" data-filter-empty>
-                <td colspan="9"><p class="text-sm opacity-70">No projects match these filters.</p></td>
+                <td colspan="10"><p class="text-sm opacity-70">No projects match these filters.</p></td>
               </tr>
             </tbody>
           </table>

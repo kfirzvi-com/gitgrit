@@ -71,7 +71,7 @@ class ProjectListColumnsTests(TestCase):
 
         self.assertEqual(
             [c.key for c in table.columns],
-            ["score", "delivery", "stacks", "owner", "lifecycle", "platform", "checked"],
+            ["score", "delivery", "lead", "stacks", "owner", "lifecycle", "platform", "checked"],
         )
         self.assertEqual(table.hidden_columns, "lifecycle platform")
 
@@ -82,6 +82,12 @@ class ProjectListColumnsTests(TestCase):
         self.assertContains(response, '[data-smart-hidden~="platform"] [data-smart-column="platform"]{display:none}')
         self.assertContains(response, 'data-smart-menu="columns"')
         self.assertContains(response, '<td data-smart-column="platform">')
+
+    def test_lead_time_is_a_sortable_column_that_can_be_hidden(self):
+        response = self.client.get(reverse("project_list"))
+
+        self.assertContains(response, 'data-smart-column="lead"')
+        self.assertContains(response, 'data-sort-lead=""')
 
 
 class DurationFilterTests(TestCase):

@@ -33,7 +33,9 @@ class WorkspaceDelivery:
         )
         return cls(
             totals=DeliveryTotals.of(
-                [summary.frequency for _, summary in synced], [summary.pull_requests for _, summary in synced]
+                [summary.frequency for _, summary in synced],
+                [summary.pull_requests for _, summary in synced],
+                [summary.lead_time for _, summary in synced],
             ),
             latest=tuple(deployed[:LATEST]),
             synced=len(synced),
