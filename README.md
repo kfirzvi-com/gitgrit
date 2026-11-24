@@ -78,6 +78,14 @@ Contributions are welcome — read [`CONTRIBUTING.md`](CONTRIBUTING.md), sign th
 
 Found a vulnerability? Please don't open a public issue — see [`SECURITY.md`](SECURITY.md) for the private reporting process.
 
+## Made by Praktical
+
+GitGrit is built by **Praktical**, the company behind a small family of developer tools.
+Our other products:
+
+- **[GitHawk](https://github.com/kfirzvi-com/githawk)**: a git graph for VS Code that is just a git graph. No AI, no telemetry, no account.
+- **[HermiTile](https://github.com/kfirzvi-com/hermitile)**: layouts for VS Code's panels, switched from the keyboard.
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
