@@ -123,7 +123,7 @@ class DeliveryTabTests(TestCase):
         self.assertContains(response, "Bump requests")
         self.assertContains(response, '<span class="badge badge-ghost badge-sm">bot</span>', html=True)
         self.assertContains(response, "draft</span>")
-        self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-open-now>2</span>', html=True)
+        self.assertContains(response, '<span class="text-2xl font-bold tabular-nums" data-open-now>2</span>', html=True)
 
     def test_says_how_long_pull_requests_stay_open(self):
         DeliverySettings.objects.create(project=self.project, refreshed_at=timezone.now())
@@ -135,8 +135,8 @@ class DeliveryTabTests(TestCase):
 
         response = self.client.get(self.url())
 
-        self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-time-to-merge>2 days</span>', html=True)
-        self.assertContains(response, "5 hours")
+        self.assertContains(response, '<span class="text-2xl font-bold tabular-nums" data-time-to-merge>2 days</span>', html=True)
+        self.assertContains(response, "Open ones so far: 5 hours")
 
     def test_shows_lead_time_from_the_chosen_start_with_the_pull_request_breakdown(self):
         from app.models import ShippedCommit
@@ -153,10 +153,11 @@ class DeliveryTabTests(TestCase):
 
         response = self.client.get(self.url())
 
-        self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-lead-median>1 day</span>', html=True)
+        self.assertContains(response, '<span class="text-2xl font-bold tabular-nums" data-lead-median>1 day</span>', html=True)
         self.assertContains(response, 'data-lead-tier="high"')
         self.assertContains(response, "from ready for review to production")
         self.assertContains(response, "20 hours</span> in review")
+        self.assertContains(response, 'class="relative h-12')  # compact charts
 
     def test_the_lead_time_start_is_a_setting(self):
         DeliverySettings.objects.create(project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS)
@@ -167,3 +168,12 @@ class DeliveryTabTests(TestCase):
         })
 
         self.assertEqual(DeliverySettings.objects.get(project=self.project).lead_time_start, "merge")
+
+    def test_settings_open_from_a_button_and_close_with_never_mind(self):
+        DeliverySettings.objects.create(project=self.project, refreshed_at=timezone.now())
+
+        response = self.client.get(self.url())
+
+        self.assertContains(response, "data-delivery-settings-toggle")
+        self.assertContains(response, "data-delivery-settings-cancel")
+        self.assertContains(response, "Never mind")

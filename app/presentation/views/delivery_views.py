@@ -20,7 +20,6 @@ def _project(request, pk) -> Project:
 
 def _render(request, project: Project, form: DeliverySettingsForm | None = None, open_settings: bool = False):
     report = DeliveryReport.for_project(project)
-    busiest = max((week.deployments for week in report.frequency.weeks), default=0)
     return render(
         request,
         "partials/project_delivery.html",
@@ -28,9 +27,15 @@ def _render(request, project: Project, form: DeliverySettingsForm | None = None,
             "project": project,
             "report": report,
             "settings": report.settings,
-            "weeks": [
-                (week, round(100 * week.deployments / busiest) if busiest else 0) for week in report.frequency.weeks
-            ],
+            "deploy_chart": DeliveryChart(
+                [week.starts for week in report.frequency.weeks],
+                [week.deployments for week in report.frequency.weeks],
+                labels=[
+                    f"{week.deployments} deployment{'' if week.deployments == 1 else 's'} on "
+                    f"{week.deploy_days} day{'' if week.deploy_days == 1 else 's'}"
+                    for week in report.frequency.weeks
+                ],
+            ),
             "pull_chart": DeliveryChart(
                 [week.starts for week in report.pull_requests.weeks],
                 [week.merged for week in report.pull_requests.weeks],
