@@ -10,6 +10,8 @@ from app.domain.delivery import (
     DeploymentStrategy,
     DoraTier,
     ProductionEnvironment,
+    RateLimit,
+    SyncPolicy,
 )
 
 TODAY = date(2026, 11, 16)  # a Monday
@@ -138,3 +140,35 @@ class DeploymentFrequencyTests(SimpleTestCase):
 
     def test_per_week_is_the_average_over_the_window(self):
         self.assertAlmostEqual(DeploymentFrequency.of(every(7), TODAY).per_week, 1.0)
+
+
+class SyncPolicyTests(SimpleTestCase):
+    def test_a_sync_is_due_after_the_interval(self):
+        policy = SyncPolicy(interval=timedelta(minutes=15))
+        now = datetime(2026, 11, 24, 12, tzinfo=timezone.utc)
+
+        self.assertTrue(policy.is_due(None, now))
+        self.assertFalse(policy.is_due(now - timedelta(minutes=14), now))
+        self.assertTrue(policy.is_due(now - timedelta(minutes=15), now))
+
+    def test_refreshing_by_hand_waits_out_the_cooldown(self):
+        policy = SyncPolicy(cooldown=timedelta(minutes=5))
+        synced = datetime(2026, 11, 24, 12, tzinfo=timezone.utc)
+
+        self.assertFalse(policy.may_refresh(synced, synced + timedelta(minutes=4)))
+        self.assertTrue(policy.may_refresh(synced, synced + timedelta(minutes=5)))
+        self.assertEqual(policy.next_refresh(synced), synced + timedelta(minutes=5))
+
+    def test_the_interval_must_be_positive(self):
+        with self.assertRaises(ValueError):
+            SyncPolicy(interval=timedelta(0))
+
+
+class RateLimitTests(SimpleTestCase):
+    def test_low_below_a_tenth_of_the_allowance_until_it_resets(self):
+        now = datetime(2026, 11, 24, 12, tzinfo=timezone.utc)
+        low = RateLimit(limit=5000, remaining=499, resets_at=now + timedelta(minutes=10))
+
+        self.assertTrue(low.is_low(now))
+        self.assertFalse(low.is_low(now + timedelta(minutes=10)))
+        self.assertFalse(RateLimit(limit=5000, remaining=500, resets_at=low.resets_at).is_low(now))

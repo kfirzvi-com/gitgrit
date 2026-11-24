@@ -46,7 +46,9 @@
         <div class="flex items-start justify-between gap-3">
           <h2 class="card-title text-base">How deployments are counted</h2>
           <form hx-post="{% url 'project_delivery_refresh' project.pk %}" hx-target="#project-delivery" hx-swap="outerHTML">
-            <button type="submit" class="btn btn-xs btn-ghost border border-base-content/20 font-normal" {% if settings.refreshing %}disabled{% endif %}>Refresh</button>
+            <button type="submit" class="btn btn-xs btn-ghost border border-base-content/20 font-normal"
+                    {% if settings.refreshing or next_refresh %}disabled{% endif %}
+                    {% if next_refresh %}title="Synced moments ago; Refresh works again in {{ next_refresh|timeuntil }}"{% endif %}>Refresh</button>
           </form>
         </div>
 
@@ -60,9 +62,9 @@
 
         <p class="text-xs opacity-60 flex items-center gap-2">
           {% if settings.refreshing %}
-            <span class="loading loading-spinner loading-xs"></span> Looking for deployments on {{ project.get_platform_display }}…
+            <span class="loading loading-spinner loading-xs"></span> Syncing from {{ project.get_platform_display }}…
           {% elif settings.refreshed_at %}
-            Checked {{ settings.refreshed_at|timesince }} ago
+            <span data-synced>Synced {{ settings.refreshed_at|timesince }} ago · syncs every {{ sync_minutes }} minutes</span>
           {% endif %}
         </p>
 

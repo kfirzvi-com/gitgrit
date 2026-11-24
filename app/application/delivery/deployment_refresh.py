@@ -6,6 +6,7 @@ from typing import Callable
 from django.utils import timezone
 
 from app.application.delivery.deployment_sources import DeploymentSources
+from app.application.delivery.rate_limited import RateLimited
 from app.application.delivery.source_unavailable import SourceUnavailable
 from app.domain.delivery import DeploymentEvent, DeploymentStrategy
 from app.domain.delivery.deployment_frequency import WEEKS
@@ -27,22 +28,18 @@ class DeploymentRefresh:
         self._sources_for = sources_for
         self._now = now
 
-    def run(self, project: Project) -> DeliverySettings:
-        settings, _ = DeliverySettings.objects.get_or_create(project=project)
+    def run(self, project: Project, settings: DeliverySettings, problems: list[str]) -> DeploymentStrategy | None:
+        """Record what the strategy finds and return the strategy, or None
+        when it could not be read (``problems`` says why)."""
         since = self._now() - LOOKBACK
-        problems: list[str] = []
-        strategy: DeploymentStrategy | None = None
         try:
             sources = self._sources_for(project, settings)
             strategy, events = self._find(sources, settings, since, problems)
-            self._record(project, events)
         except SourceUnavailable as unavailable:
             problems.append(str(unavailable))
-        settings.detected_strategy = strategy.value if strategy else ""
-        settings.refreshed_at = self._now()
-        settings.refresh_error = "\n".join(problems)
-        settings.save(update_fields=["detected_strategy", "refreshed_at", "refresh_error", "updated_at"])
-        return settings
+            return None
+        self._record(project, events)
+        return strategy
 
     def _find(
         self, sources: DeploymentSources, settings: DeliverySettings, since: datetime, problems: list[str]
@@ -54,6 +51,8 @@ class DeploymentRefresh:
         for strategy in order[:-1]:
             try:
                 events = sources.for_strategy(strategy).find(since)
+            except RateLimited:
+                raise
             except SourceUnavailable as unavailable:
                 problems.append(str(unavailable))
                 continue

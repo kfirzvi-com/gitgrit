@@ -1,17 +1,26 @@
-"""Delivery use cases: find a project's deployments and report how often it
-ships. Sources plug in behind the ``DeploymentSources`` port."""
+"""Delivery use cases: sync a project's delivery data from its Git platform
+on a schedule and report it. Sources plug in behind the ``DeploymentSources``
+port."""
 from app.application.delivery.delivery_report import DeliveryReport
+from app.application.delivery.delivery_sync import DeliverySync
+from app.application.delivery.delivery_sync_request import DeliverySyncRequest
+from app.application.delivery.delivery_sync_schedule import DeliverySyncSchedule
+from app.application.delivery.delivery_webhook import DeliveryWebhook
 from app.application.delivery.deployment_refresh import DeploymentRefresh
-from app.application.delivery.deployment_refresh_request import DeploymentRefreshRequest
 from app.application.delivery.deployment_source import DeploymentSource
 from app.application.delivery.deployment_sources import DeploymentSources
+from app.application.delivery.rate_limited import RateLimited
 from app.application.delivery.source_unavailable import SourceUnavailable
 
 __all__ = [
     "DeliveryReport",
+    "DeliverySync",
+    "DeliverySyncRequest",
+    "DeliverySyncSchedule",
+    "DeliveryWebhook",
     "DeploymentRefresh",
-    "DeploymentRefreshRequest",
     "DeploymentSource",
     "DeploymentSources",
+    "RateLimited",
     "SourceUnavailable",
 ]

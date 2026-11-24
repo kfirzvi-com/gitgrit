@@ -1,14 +1,21 @@
-"""Delivery use cases: refreshing a project's deployments (detection,
-recording, problems) and the report the Delivery tab shows."""
+"""Delivery use cases: syncing a project's deployments (detection,
+recording, problems), when syncs run, and the report the Delivery tab shows."""
 from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 from django.test import TestCase
 from model_bakery import baker
 
-from app.application.delivery import DeliveryReport, DeploymentRefresh, DeploymentRefreshRequest, SourceUnavailable
+from app.application.delivery import (
+    DeliveryReport,
+    DeliverySync,
+    DeliverySyncRequest,
+    DeliverySyncSchedule,
+    RateLimited,
+    SourceUnavailable,
+)
 from app.domain.delivery import DeploymentEvent, DeploymentStrategy, DoraTier
-from app.models import DeliverySettings, Deployment, Project
+from app.models import DeliverySettings, Deployment, Platform, Project
 
 NOW = datetime(2026, 11, 16, 12, tzinfo=timezone.utc)
 
@@ -24,14 +31,19 @@ def event(strategy, external_id, days_ago=1, sha=None, succeeded=True):
 
 
 class FakeSource:
-    def __init__(self, strategy, events=(), unavailable=""):
+    def __init__(self, strategy, events=(), unavailable="", error=None):
         self.strategy = strategy
         self.events = list(events)
         self.unavailable = unavailable
+        self.error = error
         self.since = None
+        self.asked = False
 
     def find(self, since):
         self.since = since
+        self.asked = True
+        if self.error:
+            raise self.error
         if self.unavailable:
             raise SourceUnavailable(self.unavailable)
         return self.events
@@ -45,13 +57,13 @@ class FakeSources:
         return self.by_strategy.get(strategy) or FakeSource(strategy)
 
 
-class DeploymentRefreshTests(TestCase):
+class DeliverySyncTests(TestCase):
     def setUp(self):
         self.project = baker.make(Project)
 
     def refresh(self, *sources):
         fakes = FakeSources(*sources)
-        return DeploymentRefresh(lambda project, settings: fakes, now=lambda: NOW).run(self.project)
+        return DeliverySync(lambda project, settings: fakes, now=lambda: NOW).run(self.project)
 
     def test_detection_takes_the_first_strategy_that_finds_a_successful_deployment(self):
         settings = self.refresh(
@@ -105,6 +117,22 @@ class DeploymentRefreshTests(TestCase):
         self.assertEqual(Deployment.objects.count(), 1)
         self.assertTrue(Deployment.objects.get().succeeded)
 
+    def test_a_strategy_that_cannot_be_read_keeps_the_one_detected_before(self):
+        DeliverySettings.objects.create(project=self.project, detected_strategy=DeploymentStrategy.RELEASE_TAGS)
+
+        settings = self.refresh(FakeSource(DeploymentStrategy.ENVIRONMENTS, error=RateLimited(NOW)))
+
+        self.assertEqual(settings.strategy_in_use, DeploymentStrategy.RELEASE_TAGS)
+
+    def test_running_out_of_rate_limit_stops_detection_and_says_once_when_it_resumes(self):
+        later = FakeSource(DeploymentStrategy.RELEASE_TAGS, [event(DeploymentStrategy.RELEASE_TAGS, "v1")])
+
+        settings = self.refresh(FakeSource(DeploymentStrategy.ENVIRONMENTS, error=RateLimited(NOW)), later)
+
+        self.assertFalse(later.asked)
+        self.assertEqual(settings.refresh_error, str(RateLimited(NOW)))
+        self.assertIn("resumes after 12:00 UTC", settings.refresh_error)
+
     def test_looks_back_a_week_past_the_frequency_window(self):
         source = FakeSource(DeploymentStrategy.DEFAULT_BRANCH)
         DeliverySettings.objects.create(project=self.project, strategy=DeploymentStrategy.DEFAULT_BRANCH)
@@ -141,13 +169,96 @@ class DeliveryReportTests(TestCase):
         self.assertFalse(report.has_refreshed)
 
 
-class DeploymentRefreshRequestTests(TestCase):
-    def test_a_request_queues_a_refresh_and_marks_it_under_way(self):
-        project = baker.make(Project)
+class DeliverySyncRequestTests(TestCase):
+    def setUp(self):
+        self.project = baker.make(Project)
+        patcher = mock.patch("app.tasks.sync_delivery.configure")
+        self.configure = patcher.start()
+        self.addCleanup(patcher.stop)
 
-        with mock.patch("app.tasks.refresh_deployments.configure") as configure:
-            settings = DeploymentRefreshRequest.send(project)
+    def test_a_request_queues_a_sync_and_marks_it_under_way(self):
+        settings = DeliverySyncRequest.send(self.project)
 
-        configure.assert_called_once_with(lock=f"deployments:{project.pk}", queueing_lock=f"deployments:{project.pk}")
-        configure.return_value.defer.assert_called_once_with(project_id=str(project.pk))
+        self.configure.assert_called_once_with(lock=f"delivery:{self.project.pk}", queueing_lock=f"delivery:{self.project.pk}")
+        self.configure.return_value.defer.assert_called_once_with(project_id=str(self.project.pk))
         self.assertTrue(settings.refreshing)
+
+    def test_refresh_by_hand_waits_out_the_cooldown_after_a_sync(self):
+        DeliverySettings.objects.create(project=self.project, refreshed_at=NOW - timedelta(minutes=2))
+
+        self.assertFalse(DeliverySyncRequest.refresh(self.project, now=NOW))
+        self.assertTrue(DeliverySyncRequest.refresh(self.project, now=NOW + timedelta(minutes=4)))
+        self.configure.assert_called_once()
+
+    def test_refresh_by_hand_does_nothing_while_a_sync_is_under_way(self):
+        DeliverySettings.objects.create(project=self.project, refresh_requested_at=NOW)
+
+        self.assertFalse(DeliverySyncRequest.refresh(self.project, now=NOW + timedelta(hours=1)))
+        self.configure.assert_not_called()
+
+
+class DeliverySyncScheduleTests(TestCase):
+    def due(self):
+        return set(DeliverySyncSchedule.due(NOW))
+
+    def project(self, **delivery):
+        project = baker.make(Project, platform=Platform.GITHUB)
+        if delivery:
+            DeliverySettings.objects.create(project=project, **delivery)
+        return project
+
+    def test_projects_never_synced_are_due(self):
+        fresh = self.project()
+        opened = self.project(strategy=DeploymentStrategy.AUTO)
+
+        self.assertEqual(self.due(), {fresh, opened})
+
+    def test_a_project_is_due_once_its_interval_has_passed(self):
+        stale = self.project(refreshed_at=NOW - timedelta(minutes=15))
+        self.project(refreshed_at=NOW - timedelta(minutes=14))
+
+        self.assertEqual(self.due(), {stale})
+
+    def test_a_sync_under_way_is_left_alone_unless_it_was_asked_for_long_ago(self):
+        self.project(refreshed_at=NOW - timedelta(hours=1), refresh_requested_at=NOW - timedelta(minutes=1))
+        lost = self.project(refreshed_at=NOW - timedelta(hours=1), refresh_requested_at=NOW - timedelta(minutes=30))
+
+        self.assertEqual(self.due(), {lost})
+
+    def test_uploaded_builds_are_never_due(self):
+        baker.make(Project, platform=Platform.ARTIFACT)
+
+        self.assertEqual(self.due(), set())
+
+    def test_the_interval_comes_from_the_setting(self):
+        with self.settings(GITGRIT_DELIVERY_SYNC_MINUTES=60):
+            self.assertEqual(DeliverySyncSchedule.policy().interval, timedelta(hours=1))
+
+
+class DeliveryWebhookTests(TestCase):
+    def setUp(self):
+        self.project = baker.make(Project, default_branch="main")
+        DeliverySettings.objects.create(project=self.project, deploy_branch="production")
+        patcher = mock.patch("app.application.delivery.delivery_webhook.DeliverySyncRequest.send")
+        self.send = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def receive(self, event_type, **fields):
+        from app.application.delivery import DeliveryWebhook
+        from app.domain.events import DomainEvent
+
+        event = DomainEvent(event_type=event_type, platform="github", external_project_id="1", **fields)
+        return DeliveryWebhook.receive(event, Project.objects.filter(pk=self.project.pk).select_related("delivery"))
+
+    def test_a_release_or_deployment_status_asks_for_a_sync(self):
+        self.assertEqual(self.receive("release"), 1)
+        self.assertEqual(self.receive("deployment_status"), 1)
+
+    def test_a_push_to_the_default_or_deploy_branch_asks_for_a_sync(self):
+        self.assertEqual(self.receive("push", ref="refs/heads/main"), 1)
+        self.assertEqual(self.receive("push", ref="refs/heads/production"), 1)
+
+    def test_a_push_to_a_feature_branch_or_a_deleted_branch_does_not(self):
+        self.assertEqual(self.receive("push", ref="refs/heads/feature/x"), 0)
+        self.assertEqual(self.receive("push", ref="refs/heads/main", deleted=True), 0)
+        self.send.assert_not_called()

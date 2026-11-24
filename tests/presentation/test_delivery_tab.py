@@ -22,7 +22,7 @@ class DeliveryTabTests(TestCase):
         session["active_tenant_id"] = str(self.tenant.id)
         session.save()
         self.project = baker.make("app.Project", tenant=self.tenant, web_url="https://github.com/acme/shop")
-        patcher = mock.patch("app.tasks.refresh_deployments.configure")
+        patcher = mock.patch("app.tasks.sync_delivery.configure")
         self.configure = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -84,3 +84,12 @@ class DeliveryTabTests(TestCase):
         self.client.post(self.url("project_delivery_refresh"))
 
         self.configure.return_value.defer.assert_called_once()
+
+    def test_refresh_right_after_a_sync_waits_and_says_when_it_works_again(self):
+        DeliverySettings.objects.create(project=self.project, refreshed_at=timezone.now() - timedelta(minutes=1))
+
+        response = self.client.post(self.url("project_delivery_refresh"))
+
+        self.configure.assert_not_called()
+        self.assertContains(response, "Refresh works again in")
+        self.assertContains(response, "syncs every 15 minutes")

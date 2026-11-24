@@ -338,35 +338,37 @@ def snapshot_workspace_usage(timestamp: int) -> int:
     return UsageMeter.snapshot_all()
 
 
-@app.task(queue="graph", name="refresh_deployments")
+@app.task(queue="graph", name="sync_delivery")
 @fresh_db_connection
-def refresh_deployments(project_id: str) -> None:
-    """Look for one project's deployments and record them (DORA deployment
-    frequency). Idempotent; a source that can't be read is noted on the
+def sync_delivery(project_id: str) -> None:
+    """Sync one project's delivery data (DORA metrics) from its Git
+    platform. Idempotent; a source that can't be read is noted on the
     project's delivery settings rather than failing the job."""
-    from app.application.delivery import DeploymentRefresh
+    from app.application.delivery import DeliverySync
     from app.infrastructure.delivery import deployment_sources_for
     from app.models import Project
 
     project = Project.objects.filter(pk=project_id).select_related("platform_connection").first()
     if project is None:
         return
-    DeploymentRefresh(deployment_sources_for).run(project)
+    DeliverySync(deployment_sources_for).run(project)
 
 
-@app.periodic(cron="17 */6 * * *")
-@app.task(queue="graph", name="refresh_all_deployments", pass_context=False)
+@app.periodic(cron="* * * * *")
+@app.task(queue="graph", name="sync_due_deliveries", pass_context=False)
 @fresh_db_connection
-def refresh_all_deployments(timestamp: int) -> int:
-    """Ask for a deployment refresh of every Git project, four times a day,
-    so deployment frequency keeps up without anyone pressing Refresh."""
-    from app.application.delivery import DeploymentRefreshRequest
-    from app.models import Platform, Project
+def sync_due_deliveries(timestamp: int) -> int:
+    """Ask for a sync of every Git project due one (every
+    ``GITGRIT_DELIVERY_SYNC_MINUTES``), so pages never have to read the
+    platform themselves."""
+    from django.utils import timezone
 
-    projects = Project.objects.exclude(platform=Platform.ARTIFACT)
-    for project in projects:
-        DeploymentRefreshRequest.send(project)
-    return projects.count()
+    from app.application.delivery import DeliverySyncRequest, DeliverySyncSchedule
+
+    due = list(DeliverySyncSchedule.due(timezone.now()))
+    for project in due:
+        DeliverySyncRequest.send(project)
+    return len(due)
 
 
 @app.periodic(cron="*/2 * * * *")

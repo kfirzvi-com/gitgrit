@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from app.application.delivery import DeliveryReport, DeploymentRefreshRequest
+from app.application.delivery import DeliveryReport, DeliverySyncRequest, DeliverySyncSchedule
 from app.models import DeliverySettings, Project
 from app.presentation.delivery_settings_form import DeliverySettingsForm
 
@@ -30,8 +31,20 @@ def _render(request, project: Project, form: DeliverySettingsForm | None = None,
             ],
             "form": form or DeliverySettingsForm(instance=report.settings),
             "open_settings": open_settings,
+            "next_refresh": _next_refresh(report.settings),
+            "sync_minutes": int(DeliverySyncSchedule.policy().interval.total_seconds() // 60),
         },
     )
+
+
+def _next_refresh(settings: DeliverySettings):
+    """When Refresh works again, while the last sync is too recent."""
+    if settings.refreshed_at is None or settings.refreshing:
+        return None
+    policy = DeliverySyncSchedule.policy()
+    if policy.may_refresh(settings.refreshed_at, timezone.now()):
+        return None
+    return policy.next_refresh(settings.refreshed_at)
 
 
 @login_required
@@ -41,15 +54,17 @@ def project_delivery(request, pk):
     project = _project(request, pk)
     settings, _ = DeliverySettings.objects.get_or_create(project=project)
     if settings.refreshed_at is None and settings.refresh_requested_at is None:
-        DeploymentRefreshRequest.send(project)
+        DeliverySyncRequest.send(project)
     return _render(request, project)
 
 
 @login_required
 @require_POST
 def project_delivery_refresh(request, pk):
+    """Sync now, unless the last sync was moments ago (then the tab says
+    when Refresh works again)."""
     project = _project(request, pk)
-    DeploymentRefreshRequest.send(project)
+    DeliverySyncRequest.refresh(project)
     return _render(request, project)
 
 
@@ -64,5 +79,5 @@ def project_delivery_settings(request, pk):
         return _render(request, project, form=form, open_settings=True)
     form.save()
     if form.has_changed():
-        DeploymentRefreshRequest.send(project)
+        DeliverySyncRequest.send(project)
     return _render(request, project)
