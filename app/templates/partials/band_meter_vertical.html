@@ -1,7 +1,7 @@
 {% comment %}A band meter (presentation.delivery_speed.BandMeter) standing up, for a gauge's side: equal
 parts stacked worst at the bottom, best at the top, each in its colour, the one the value falls in lit,
 and a marker line at the value. `label` says what it measures, for screen readers.{% endcomment %}
-<div class="relative h-[84px] w-2.5 flex flex-col-reverse gap-px" role="img"
+<div class="relative h-[84px] w-2.5 flex flex-col-reverse gap-px transition-transform duration-150 group-hover/bar:scale-x-125 group-focus-visible/bar:scale-x-125" role="img"
      aria-label="{{ label }}: {% if meter.band %}{{ meter.band.label }}{% else %}not known yet{% endif %}">
   {% for band in meter.bands %}
     <span class="w-full first:rounded-b-full last:rounded-t-full {{ band.css }} {% if band != meter.band %}opacity-25{% endif %}"

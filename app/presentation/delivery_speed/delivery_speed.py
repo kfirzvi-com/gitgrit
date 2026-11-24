@@ -94,7 +94,14 @@ class DeliverySpeed:
         totals = self.totals
         lead = self.lead.band
         age = self.pull_age.band
+        tier = self.deploy_tier
+        counted = [f"{count} {band.label}" for band, count in totals.tiers if count]
         return {
+            "deploys": BarTip(
+                f"{totals.typical_deploys_a_week:.1f} deploys a week, typical project",
+                f"{tier.label}: {tier.cadence.lower()}" if totals.deployments else "No deployments yet",
+                "Projects: " + " · ".join(counted) if counted else "",
+            ),
             "lead": BarTip(
                 f"Lead time {duration(totals.lead_time)}",
                 f"{lead.label}: {self.lead_tier.lead_time.lower()}" if lead else "No changes shipped yet",
@@ -135,11 +142,19 @@ class DeliverySpeed:
         return DoraBands.deploy_rate(self.totals.typical_deploys_a_week)
 
     @property
-    def zones(self) -> list[tuple[str, str]]:
-        """Each DORA band's stretch of the speedometer's arc: (path, colour)."""
+    def zones(self) -> list[tuple[str, str, str]]:
+        """Each DORA band's stretch of the speedometer's arc: (path, colour,
+        what it means)."""
         width = 1 / len(DORA)
+        low, medium, high = DoraBands.DEPLOYS_A_WEEK
+        meanings = (
+            f"Low: less than monthly, under {low:g} deploys a week",
+            f"Medium: monthly, {low:g} to {medium:g} deploys a week",
+            f"High: weekly, {medium:g} to {high:g} deploys a week",
+            f"Elite: most days, {high:g} or more deploys a week",
+        )
         return [
-            (self.speedometer.zone_path(index * width, (index + 1) * width), band.css.replace("bg-", ""))
+            (self.speedometer.zone_path(index * width, (index + 1) * width), band.css.replace("bg-", ""), meanings[index])
             for index, band in enumerate(DORA)
         ]
 

@@ -160,7 +160,9 @@ class DeliverySpeedBarTipsTests(DashboardDeliveryTests):
     def test_each_bar_is_focusable_and_reads_out_its_value_meaning_and_scale(self):
         response = self.client.get(reverse("dashboard"))
 
-        for key in ("lead", "merged", "open", "checks"):
+        for key in ("deploys", "lead", "merged", "open", "checks"):
             self.assertContains(response, f'aria-describedby="bar-tip-{key}" data-speed-bar="{key}"')
+        self.assertContains(response, "deploys a week, typical project")
+        self.assertContains(response, "<title>High: weekly, 1 to 3 deploys a week</title>")
         self.assertContains(response, "Elite &lt; 1 day · High &lt; 1 week · Medium &lt; 1 month")
         self.assertContains(response, "Fresh &lt; 1 day · Aging &lt; 1 week · Stale beyond")
