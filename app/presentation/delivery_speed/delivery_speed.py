@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.domain.delivery import DeliveryTotals, DoraBands
 from app.presentation.delivery_speed.band import Band
 from app.presentation.delivery_speed.band_meter import BandMeter
+from app.presentation.delivery_speed.info_tip import InfoTip
 from app.presentation.speedometer import Speedometer
 
 HOUR = 3600
@@ -19,6 +20,49 @@ PULL_AGE = (Band("Stale", "bg-error"), Band("Aging", "bg-warning"), Band("Fresh"
 PULL_AGE_EDGES = (14 * DAY, 7 * DAY, DAY, 0.0)
 # Weeks compared for the merge trend: the latest four against the four before.
 TREND_WEEKS = 4
+
+# What each part of the gauge means and how it is counted across the workspace.
+TIPS = {
+    "dora": InfoTip(
+        "DORA metrics",
+        "DORA (DevOps Research and Assessment) found four measures that predict how well teams ship: "
+        "deployment frequency, lead time for changes, change failure rate and time to restore.",
+        "Speed is the first two, shown here. Each is ranked in four bands, Low to Elite.",
+        dora=True,
+    ),
+    "deploys": InfoTip(
+        "Deploys a week",
+        "Each project's deploys a week over the last 13 weeks. The gauge shows the median project: "
+        "half deploy more often, half less.",
+        "Elite: most days (3+ a week). High: weekly. Medium: monthly. Low: less often.",
+        dora=True,
+    ),
+    "lead": InfoTip(
+        "Lead time for changes",
+        "How long each change shipped in the last 13 weeks took to reach production, across every "
+        "project (each from its own start, the commit by default). This is the median change.",
+        "Elite: under a day. High: under a week. Medium: under a month. Low: longer.",
+        dora=True,
+    ),
+    "open": InfoTip(
+        "Open pull requests",
+        "Pull requests open now, added up across projects. The meter shows how long they have "
+        "been open, the median one.",
+        "Not a DORA metric. Fresh: under a day. Aging: under a week. Stale: longer.",
+    ),
+    "merged": InfoTip(
+        "Merged a week",
+        "Pull requests merged across every project, averaged over 13 weeks. The arrow compares the "
+        "last 4 weeks with the 4 before.",
+        "No right number: watch the trend.",
+    ),
+    "checks": InfoTip(
+        "Commits checked",
+        "Commits GitGrit checked against your standards this week, across every project, beside "
+        "the busiest of the last 4 weeks.",
+        "How actively standards run, not how good delivery is.",
+    ),
+}
 
 
 class DeliverySpeed:
@@ -38,6 +82,15 @@ class DeliverySpeed:
         self.pull_age = BandMeter(age, PULL_AGE_EDGES, PULL_AGE)
         self.checks_this_week = checks_this_week
         self.checks_peak = checks_peak
+
+    @property
+    def tips(self) -> dict[str, InfoTip]:
+        return TIPS
+
+    @property
+    def bands(self) -> tuple[Band, ...]:
+        """DORA's bands, best first, for a tip's legend."""
+        return tuple(reversed(DORA))
 
     @property
     def deploy_tier(self):

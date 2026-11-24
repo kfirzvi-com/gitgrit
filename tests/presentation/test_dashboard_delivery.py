@@ -143,3 +143,14 @@ class DeliverySpeedTests(TestCase):
         self.assertEqual(speed.merged_trend, 20)
         self.assertEqual(speed.merged_trend_text, "↑ 20%")
         self.assertEqual(speed.checks_share, 50)
+
+
+class DeliverySpeedTipsTests(DashboardDeliveryTests):
+    def test_every_readout_explains_how_it_is_counted_and_dora_is_introduced(self):
+        response = self.client.get(reverse("dashboard"))
+
+        for key in ("dora", "deploys", "lead", "open", "merged", "checks"):
+            self.assertContains(response, f'aria-describedby="tip-{key}"')
+        self.assertContains(response, "DevOps Research and Assessment")
+        self.assertContains(response, "The gauge shows the median project")
+        self.assertContains(response, "added up across projects")
