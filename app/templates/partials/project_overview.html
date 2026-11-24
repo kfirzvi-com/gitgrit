@@ -7,7 +7,7 @@ links to the tab with more (`data-open-tab`, handled by the page's tab script). 
 projects have no delivery.{% endcomment %}
 {% load time_tags %}
 <div class="flex flex-col gap-6" data-project-overview>
-  <div class="grid grid-cols-1 {% if delivery %}min-[1001px]:grid-cols-[2fr_3fr]{% endif %} gap-6 items-stretch">
+  <div class="grid grid-cols-1 {% if delivery %}min-[1001px]:grid-cols-[2fr_3fr]{% endif %} gap-6 items-start">
     <div class="min-w-0">{% include "partials/project_overview_health.html" %}</div>
 
     {% if delivery %}

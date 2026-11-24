@@ -5,7 +5,7 @@ away (partials/no_score_alert.html), and what to do. The card's edge takes the s
 Uploaded-build projects re-render it after an upload (artifact_views.project_overview_health).{% endcomment %}
 {% load score_tags project_tags time_tags %}
 {% if project_has_score %}{% score_tone compliance_score project_score.failed as tone %}{% endif %}
-<div class="card bg-base-100 shadow-xl h-full gg-tone-card {% if project_has_score %}gg-tone-card-{{ tone }}{% else %}gg-tone-card-unknown{% endif %}" data-overview-health{% if project.is_artifact %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
+<div class="card bg-base-100 shadow-xl gg-tone-card {% if project_has_score %}gg-tone-card-{{ tone }}{% else %}gg-tone-card-unknown{% endif %}" data-overview-health{% if project.is_artifact %} hx-get="{% url 'project_overview_health' project.pk %}" hx-trigger="commitUploaded from:body delay:3s" hx-swap="outerHTML" data-no-loader{% endif %}>
   <div class="card-body p-5 gap-4 [&_p]:grow-0">
     <div class="flex items-baseline justify-between gap-3">
       <h2 class="card-title text-base">Results</h2>
