@@ -1,25 +1,35 @@
-{% load ai_tags %}  {% comment %}The instrument cluster, like a car's: commits checked (speedometer), project health
+{% load ai_tags time_tags %}  {% comment %}The instrument cluster, like a car's: delivery speed (speedometer: deploys this week, with lead
+  time, merges and open pull requests beneath), project health
   (the big centre dial, counts only, never one grade) and the AI fuel gauge (what is left of the
   tightest AI budget); under them the warning lamps, the trip computer (AI this month) and when the
   numbers were last checked.{% endcomment %}
   <section class="gg-cluster px-6 pt-8 pb-6 flex flex-col gap-6" aria-label="Instrument cluster" data-workspace-health>
     <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10">
 
-      <div class="flex flex-col items-center gap-2" data-gauge="checks">
-        <span class="gg-eyebrow text-center">Commits checked</span>
+      {% comment %}Delivery speed: deploys this week against the busiest week of the last 13, with
+      lead time, merges and open pull requests beneath; the Delivery tab has the rest.{% endcomment %}
+      {% with t=delivery.totals %}
+      <a href="#tab-delivery" class="flex flex-col items-center gap-2 group" data-gauge="speed">
+        <span class="gg-eyebrow text-center">Delivery speed</span>
         <svg viewBox="0 0 200 200" class="w-[170px] h-[170px]" role="img"
-             aria-label="{{ cockpit.checks_this_week }} commits checked this week, against {{ cockpit.checks_peak }} in the busiest of the last 4 weeks; last week {{ cockpit.checks_last_week }}">
+             aria-label="{{ speedometer.value }} deploys this week, against {{ speedometer.full_scale }} in the busiest of the last 13 weeks">
           <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
           <g stroke="#5a6478" stroke-width="1.5">{% for x1, y1, x2, y2 in speedometer.ticks %}<line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>{% endfor %}</g>
           <path d="{{ speedometer.arc_path }}" fill="none" class="gg-gauge-track" stroke-width="8" stroke-linecap="round"/>
           {% if speedometer.value %}<path d="{{ speedometer.arc_path }}" fill="none" stroke="var(--gg-primary)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="{{ speedometer.share }} 100"/>{% endif %}
           <line x1="100" y1="100" x2="{{ speedometer.needle_x }}" y2="{{ speedometer.needle_y }}" class="gg-needle"/>
           <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
-          <text x="100" y="160" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ cockpit.checks_this_week }}</text>
-          <text x="100" y="178" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.5">THIS WEEK</text>
+          <text x="100" y="160" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ speedometer.value }}</text>
+          <text x="100" y="178" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.5">DEPLOYS THIS WEEK</text>
         </svg>
-        <span class="text-xs" style="color: var(--gg-text-dim)">Last week {{ cockpit.checks_last_week }} &middot; 4-wk peak {{ cockpit.checks_peak }}</span>
-      </div>
+        <dl class="grid grid-cols-3 gap-x-4 text-center text-xs" style="color: var(--gg-text-dim)" data-speed-readouts>
+          <div><dt>Lead time</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.lead_time|duration }}</dd></div>
+          <div><dt>Merged/wk</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.merged_per_week|floatformat:1 }}</dd></div>
+          <div><dt>Open PRs</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.open_now }}</dd></div>
+        </dl>
+        <span class="text-[11px]" style="color: var(--gg-text-dim)">{{ cockpit.checks_this_week }} commit{{ cockpit.checks_this_week|pluralize }} checked this week</span>
+      </a>
+      {% endwith %}
 
       <div class="flex flex-col items-center gap-1.5 w-[22rem] max-w-full" data-gauge="health">
         <span class="gg-eyebrow">Workspace health</span>

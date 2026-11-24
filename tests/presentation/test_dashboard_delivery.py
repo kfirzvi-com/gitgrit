@@ -82,3 +82,13 @@ class DashboardLeadTimeTests(TestCase):
         self.assertEqual(totals.lead_time, timedelta(days=10))
         self.assertEqual(dict(totals.lead_tiers)[DoraTier.ELITE], 1)
         self.assertEqual(dict(totals.lead_tiers)[DoraTier.MEDIUM], 1)
+
+
+class DeliverySpeedGaugeTests(DashboardDeliveryTests):
+    def test_the_clusters_left_gauge_is_delivery_speed(self):
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, 'data-gauge="speed"')
+        self.assertContains(response, "DEPLOYS THIS WEEK")
+        self.assertContains(response, "data-speed-readouts")
+        self.assertNotContains(response, 'data-gauge="checks"')

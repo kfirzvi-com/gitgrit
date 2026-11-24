@@ -61,7 +61,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 (row, HealthNote.text(row.score, row.below_par)) for row in cockpit.rows
             ]
             context["trend"] = TrendChart(HealthTrend.weekly(tenant))
-            context["speedometer"] = Speedometer(cockpit.checks_this_week, cockpit.checks_peak)
 
             stacks = list(Stack.objects.filter(tenant=tenant).prefetch_related("projects"))
             health = ProjectHealthCounts.for_stacks(stacks)
@@ -74,6 +73,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["map_updated_at"] = map_status(Project.objects.filter(tenant=tenant))["updated_at"]
             delivery = WorkspaceDelivery.for_workspace(tenant)
             context["delivery"] = delivery
+            # The cluster's speedometer: deploys this week against the busiest week.
+            deploys = delivery.totals.deployments
+            context["speedometer"] = Speedometer(deploys[-1] if deploys else 0, max(deploys, default=0))
             context["delivery_deploys"] = DeliveryChart(delivery.totals.starts, delivery.totals.deployments)
             context["delivery_pulls"] = DeliveryChart(
                 delivery.totals.starts, delivery.totals.merged, delivery.totals.open_at_end
