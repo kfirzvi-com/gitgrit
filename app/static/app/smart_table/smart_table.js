@@ -1,3 +1,4 @@
+import { SmartTableColumns } from './smart_table_columns.js';
 import { SmartTableGroups } from './smart_table_groups.js';
 import { SmartTableSelection } from './smart_table_selection.js';
 import { SmartTableSort } from './smart_table_sort.js';
@@ -13,7 +14,8 @@ import { SmartTableSort } from './smart_table_sort.js';
 // search filters like any row. The choice rides in the address
 // (?group=owner&sort=score&dir=desc), and so does the filter search's query
 // (?q=…), so a link — or the table fetched again after a bulk change
-// (`smart-table:reload`) — reads the same.
+// (`smart-table:reload`) — reads the same. Which columns show is the
+// viewer's own choice (SmartTableColumns), kept in their browser.
 export class SmartTable {
   constructor(element) {
     this.element = element;
@@ -27,6 +29,7 @@ export class SmartTable {
     this.sorts = new Map(this.config.sorts.map((s) => [s.key, s]));
     this.groupOptions = new Map(this.config.groups.map((g) => [g.key, g]));
     this.collapsed = new Set();
+    this.columns = new SmartTableColumns(this);
     this.readAddress();
     this.restoreQuery();
     this.decorateHeaders();
@@ -165,6 +168,12 @@ export class SmartTable {
   }
 
   choose(kind, value) {
+    if (kind === 'column') {
+      // The menu stays open: several columns are often turned at once.
+      this.columns.toggle(value);
+      this.showChoice();
+      return;
+    }
     if (kind === 'group') {
       this.group = value;
       this.collapsed.clear();
@@ -218,7 +227,8 @@ export class SmartTable {
       const { smartOption: kind, value } = option.dataset;
       const ticked = (kind === 'group' && value === this.group)
         || (kind === 'sort' && value === this.sort)
-        || (kind === 'dir' && value === (this.descending ? 'desc' : 'asc'));
+        || (kind === 'dir' && value === (this.descending ? 'desc' : 'asc'))
+        || (kind === 'column' && this.columns.shows(value));
       option.setAttribute('aria-checked', String(ticked));
     });
     const groupMenu = this.element.querySelector('[data-smart-menu="group"] [data-smart-menu-current]');

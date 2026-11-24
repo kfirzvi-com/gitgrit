@@ -51,3 +51,34 @@ class AgoFilterTests(TestCase):
 
         self.assertEqual(ago(timezone.now() - timedelta(hours=16, minutes=58)), "16\xa0hours ago")
         self.assertEqual(ago(None), "")
+
+
+class ProjectListColumnsTests(TestCase):
+    def setUp(self):
+        user = baker.make("app.User")
+        tenant = baker.make("app.Tenant")
+        baker.make("app.Membership", user=user, tenant=tenant, role="member")
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = str(tenant.id)
+        session.save()
+        baker.make("app.Project", tenant=tenant, name="shop", platform=Platform.GITHUB)
+
+    def test_every_column_but_the_projects_can_be_hidden_lifecycle_and_platform_start_hidden(self):
+        from app.presentation.smart_table.project_list_smart_table import ProjectListSmartTable
+
+        table = ProjectListSmartTable.build()
+
+        self.assertEqual(
+            [c.key for c in table.columns],
+            ["score", "delivery", "stacks", "owner", "lifecycle", "platform", "checked"],
+        )
+        self.assertEqual(table.hidden_columns, "lifecycle platform")
+
+    def test_the_page_starts_with_them_hidden_and_offers_a_columns_menu(self):
+        response = self.client.get(reverse("project_list"))
+
+        self.assertContains(response, 'data-smart-hidden="lifecycle platform"')
+        self.assertContains(response, '[data-smart-hidden~="platform"] [data-smart-column="platform"]{display:none}')
+        self.assertContains(response, 'data-smart-menu="columns"')
+        self.assertContains(response, '<td data-smart-column="platform">')

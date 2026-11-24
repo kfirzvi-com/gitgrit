@@ -24,7 +24,7 @@ NON_MANIFEST_STORAGES = {
 
 
 def _smart_table_config(body):
-    match = re.search(r'<div data-smart-table>\s*<script type="application/json">(.*?)</script>', body, re.S)
+    match = re.search(r'<div data-smart-table[^>]*>\s*<script type="application/json">(.*?)</script>', body, re.S)
     return json.loads(match.group(1))
 
 

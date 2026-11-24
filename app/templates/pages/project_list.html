@@ -16,7 +16,7 @@
       {% project_list_filter_search rows as list_filter_search %}
       {% filter_search list_filter_search label="Filter projects" %}
       {% project_list_smart_table as table %}
-      <div data-smart-table>
+      <div data-smart-table data-smart-hidden="{{ table.hidden_columns }}">
         {% smart_table_toolbar table %}
         <div class="overflow-x-auto lg:overflow-visible">
           <table class="table gg-smart-table">
@@ -24,13 +24,13 @@
               <tr data-bulk-header>
                 {% include "partials/bulk_select_cell.html" with noun="project" %}
                 <th data-smart-sort="name">Project</th>
-                <th data-smart-sort="score" class="text-center">Score</th>
-                <th data-smart-sort="deployed">Delivery</th>
-                <th data-smart-sort="stacks">Stacks</th>
-                <th data-smart-sort="owner">Owner</th>
-                <th data-smart-sort="lifecycle">Lifecycle</th>
-                <th>Platform</th>
-                <th data-smart-sort="checked">Last checked</th>
+                <th data-smart-sort="score" data-smart-column="score" class="text-center">Score</th>
+                <th data-smart-sort="deployed" data-smart-column="delivery">Delivery</th>
+                <th data-smart-sort="stacks" data-smart-column="stacks">Stacks</th>
+                <th data-smart-sort="owner" data-smart-column="owner">Owner</th>
+                <th data-smart-sort="lifecycle" data-smart-column="lifecycle">Lifecycle</th>
+                <th data-smart-column="platform">Platform</th>
+                <th data-smart-sort="checked" data-smart-column="checked">Last checked</th>
               </tr>
               {# Replaces the header row while any project is selected (bulk edit). #}
               <tr class="hidden gg-bulk-bar" data-bulk-bar>
@@ -149,7 +149,7 @@
                     <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
                     <p class="text-xs opacity-60 truncate font-mono max-w-64" title="{{ project.repository_label }}">{{ project.repository_label }}</p>
                   </td>
-                  <td class="text-center" data-project-score>
+                  <td class="text-center" data-smart-column="score" data-project-score>
                     <span class="text-2xl">{% if row.head.outcome == "checking" or row.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=row.head size="sm" %}{% else %}{% score row.score_value failed=row.score.failed %}{% endif %}</span>
                     {% if row.score.failed %}
                       <span class="gg-required-failed block text-xs leading-tight" data-project-failed>Project failed!</span>
@@ -157,7 +157,7 @@
                   </td>
                   {# What runs in production and since when; its deploy tier and open pull requests. #}
                   {% with delivery=row.delivery %}
-                  <td class="whitespace-nowrap" data-project-delivery>
+                  <td class="whitespace-nowrap" data-smart-column="delivery" data-project-delivery>
                     {% if delivery.synced %}
                       <div class="flex items-center gap-2">
                         {% if delivery.running %}
@@ -178,7 +178,7 @@
                     {% endif %}
                   </td>
                   {% endwith %}
-                  <td>
+                  <td data-smart-column="stacks">
                     <div class="flex flex-wrap gap-1">
                       {% for stack in row.stacks %}
                         <button type="button" class="badge badge-outline badge-sm cursor-pointer whitespace-nowrap" title="Filter by this stack"
@@ -188,7 +188,7 @@
                       {% endfor %}
                     </div>
                   </td>
-                  <td>
+                  <td data-smart-column="owner">
                     {% if project.owner %}
                       <button type="button" class="link link-hover text-sm text-left whitespace-nowrap" title="Filter by this owner"
                               data-filter-toggle="owner" data-filter-value="{{ row.owner_value|lower }}">{{ project.owner }}</button>
@@ -196,16 +196,16 @@
                       <span class="text-sm opacity-40">—</span>
                     {% endif %}
                   </td>
-                  <td>
+                  <td data-smart-column="lifecycle">
                     <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this lifecycle"
                             data-filter-toggle="lifecycle" data-filter-value="{{ project.lifecycle }}">{{ project.get_lifecycle_display }}</button>
                   </td>
-                  <td>
+                  <td data-smart-column="platform">
                     <button type="button" class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm cursor-pointer"
                             title="Filter by this platform"
                             data-filter-toggle="platform" data-filter-value="{{ project.platform }}">{{ project.get_platform_display }}</button>
                   </td>
-                  <td class="text-sm whitespace-nowrap opacity-70">
+                  <td class="text-sm whitespace-nowrap opacity-70" data-smart-column="checked">
                     {% if row.checked_at %}{% local_time row.checked_at "j M Y, H:i" %}{% else %}<span class="opacity-60">Never</span>{% endif %}
                   </td>
                 </tr>
