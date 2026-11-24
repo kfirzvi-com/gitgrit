@@ -10,7 +10,7 @@ from app.models import Project, StandardExecution
 from app.presentation.project_overview.activity_item import ActivityItem
 
 # Recent activity listed on the Overview.
-RECENT = 8
+RECENT = 12
 
 
 class ProjectOverview:

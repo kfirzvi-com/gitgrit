@@ -2,5 +2,6 @@
 deep dives."""
 from app.presentation.project_overview.activity_item import ActivityItem
 from app.presentation.project_overview.project_overview import ProjectOverview
+from app.presentation.project_overview.standards_summary import StandardsSummary
 
-__all__ = ["ActivityItem", "ProjectOverview"]
+__all__ = ["ActivityItem", "ProjectOverview", "StandardsSummary"]

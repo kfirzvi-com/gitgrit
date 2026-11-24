@@ -1,14 +1,15 @@
 {% comment %}The project page's Overview: a summary of every tab, so the tabs are only for deep dives.
-Laid out like a repository's home page: one main column, read top to bottom by importance — the
-Results card (score and results), the Delivery card in sections (Shipping; Pull requests; DORA's
-stability pair would be a third), then recent activity — and a narrow sidebar with the project's
-details that stays in view. Every main card is the same width, so their edges and tiles line up. Each
+Laid out like a repository's home page: a main area of equal half-width cards, read left to right,
+top to bottom — Results (score and results) and Standards (what is attached and what runs it), then
+Delivery in sections (Shipping; Pull requests; DORA's stability pair would be a third) and recent
+activity — and a narrow sidebar with the project's details that stays in view. Each
 card links to the tab with more (`data-open-tab`, handled by the page's tab script). Uploaded-build
 projects have no delivery. On a narrow screen the sidebar follows the main column.{% endcomment %}
 {% load time_tags %}
 <div class="grid grid-cols-1 min-[1001px]:grid-cols-[minmax(0,1fr)_20rem] gap-6 items-start" data-project-overview>
-  <div class="flex flex-col gap-6 min-w-0" data-overview-main>
+  <div class="grid grid-cols-1 min-[801px]:grid-cols-2 gap-6 min-w-0" data-overview-main>
     {% include "partials/project_overview_health.html" %}
+    {% include "partials/project_overview_standards.html" %}
 
     {% if delivery %}
     <div class="card bg-base-100 shadow-xl min-w-0" data-overview-delivery>
@@ -23,7 +24,7 @@ projects have no delivery. On a narrow screen the sidebar follows the main colum
         {% with running=delivery.running pending=delivery.pending tier=delivery.frequency.tier lead=delivery.lead_time flow=delivery.pull_requests %}
         <section aria-label="Shipping" class="flex flex-col gap-1.5" data-overview-shipping>
           <h3 class="text-xs font-semibold uppercase tracking-wide opacity-70">Shipping</h3>
-          <div class="grid grid-cols-2 min-[701px]:grid-cols-4 gap-px rounded-box overflow-hidden bg-base-content/10">
+          <div class="grid grid-cols-2 gap-px rounded-box overflow-hidden bg-base-content/10">
           <div class="bg-base-100 p-3 min-w-0" data-overview-running>
             <p class="text-[11px] uppercase tracking-wide opacity-60">Running</p>
             <p class="text-lg font-bold truncate {% if running and not running.version %}font-mono{% endif %}" title="{{ running.sha }}">{% if running %}{{ running.label }}{% else %}—{% endif %}</p>
@@ -48,7 +49,7 @@ projects have no delivery. On a narrow screen the sidebar follows the main colum
         </section>
         <section aria-label="Pull requests" class="flex flex-col gap-1.5" data-overview-pull-requests>
           <h3 class="text-xs font-semibold uppercase tracking-wide opacity-70">Pull requests</h3>
-          <div class="grid grid-cols-2 min-[701px]:grid-cols-4 gap-px rounded-box overflow-hidden bg-base-content/10">
+          <div class="grid grid-cols-2 gap-px rounded-box overflow-hidden bg-base-content/10">
           <div class="bg-base-100 p-3 min-w-0" data-overview-pulls>
             <p class="text-[11px] uppercase tracking-wide opacity-60">Open PRs</p>
             <p class="text-lg font-bold tabular-nums" data-overview-open>{{ flow.open_now }}</p>

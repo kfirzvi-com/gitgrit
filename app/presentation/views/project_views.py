@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView, UpdateView
 from django.utils.dateparse import parse_datetime
 
-from app.presentation.project_overview import ProjectOverview
+from app.presentation.project_overview import ProjectOverview, StandardsSummary
 from app.presentation.bulk_edit_answer import BulkEditAnswer
 from app.application.delivery import DeliveryReport, DeliverySyncRequest
 from app.application.project_bulk_edit import ProjectBulkEdit
@@ -223,6 +223,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
             delivery = DeliveryReport.for_project(project)
         context["delivery"] = delivery
         context["overview"] = ProjectOverview(project, context, delivery)
+        context["standards_summary"] = StandardsSummary(project)
         return context
 
 

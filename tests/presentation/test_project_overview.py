@@ -91,3 +91,37 @@ class OverviewPageTests(TestCase):
 
         self.assertNotContains(response, "data-overview-delivery")
         self.assertContains(response, "data-overview-activity")
+
+
+class StandardsSummaryTests(TestCase):
+    def test_counts_attached_active_importance_triggers_and_sources(self):
+        from app.presentation.project_overview import StandardsSummary
+
+        project = baker.make("app.Project")
+        market = baker.make("app.MarketplaceStandard")
+        required = baker.make("app.Standard", tenant=project.tenant, name="Secrets", source_marketplace_standard=market)
+        nightly = baker.make("app.Standard", tenant=project.tenant, name="Licenses")
+        draft = baker.make("app.Standard", tenant=project.tenant, name="Docs", draft=True)
+        soon = timezone.now() + timedelta(hours=3)
+        baker.make("app.ProjectStandard", project=project, standard=required, importance="required")
+        baker.make("app.ProjectStandard", project=project, standard=nightly, importance="minor",
+                   runs_on_changes=False, schedule="0 2 * * *", next_scheduled_run_at=soon)
+        baker.make("app.ProjectStandard", project=project, standard=draft, importance="minor")
+
+        summary = StandardsSummary(project)
+
+        self.assertEqual((summary.attached, summary.active, summary.inactive), (3, 2, 1))
+        self.assertEqual([(i.value, n) for i, n in summary.by_importance], [("required", 1), ("major", 0), ("minor", 2)])
+        self.assertEqual((summary.on_changes, summary.scheduled, summary.schedule_only), (2, 1, 1))
+        self.assertEqual(summary.next_scheduled_run, soon)
+        self.assertEqual((summary.from_marketplace, summary.written_here), (1, 2))
+
+
+class StandardsCardTests(OverviewPageTests):
+    def test_the_overview_has_a_standards_card_beside_results(self):
+        project = baker.make("app.Project", tenant=self.tenant, platform=Platform.GITHUB)
+
+        response = self.client.get(reverse("project_detail", args=[project.pk]))
+
+        self.assertContains(response, "data-overview-standards")
+        self.assertContains(response, "No standards attached yet")
