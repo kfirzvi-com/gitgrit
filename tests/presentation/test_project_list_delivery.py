@@ -33,7 +33,8 @@ class ProjectListDeliveryTests(TestCase):
 
         self.assertContains(response, ">v4.2.0</a>")
         self.assertContains(response, 'data-group-tier="low"')
-        self.assertContains(response, '<td class="text-center tabular-nums" data-project-open-pulls>1</td>', html=True)
+        self.assertContains(response, 'data-project-open-pulls="1"')
+        self.assertContains(response, "1 open PR<")
 
     def test_a_project_not_synced_yet_shows_dashes_and_sorts_last(self):
         baker.make("app.Project", tenant=self.tenant, name="new", platform=Platform.GITHUB)
@@ -42,3 +43,11 @@ class ProjectListDeliveryTests(TestCase):
 
         self.assertContains(response, 'data-sort-deploys=""')
         self.assertContains(response, 'data-group-tier=""')
+
+
+class AgoFilterTests(TestCase):
+    def test_says_only_the_largest_unit(self):
+        from app.templatetags.time_tags import ago
+
+        self.assertEqual(ago(timezone.now() - timedelta(hours=16, minutes=58)), "16\xa0hours ago")
+        self.assertEqual(ago(None), "")

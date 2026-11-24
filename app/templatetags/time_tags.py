@@ -12,6 +12,7 @@ from datetime import timezone as dt_timezone
 
 from django import template
 from django.utils import dateformat
+from django.utils.timesince import timesince
 from django.utils.html import format_html
 
 register = template.Library()
@@ -33,3 +34,12 @@ def local_time(value, fmt):
         fmt,
         dateformat.format(utc, fmt),
     )
+
+
+@register.filter
+def ago(value):
+    """How long ago ``value`` was, in its largest unit only: "16 hours ago",
+    where ``timesince`` says "16 hours, 58 minutes"."""
+    if not value:
+        return ""
+    return f"{timesince(value, depth=1)} ago"

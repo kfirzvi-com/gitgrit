@@ -25,9 +25,7 @@
                 {% include "partials/bulk_select_cell.html" with noun="project" %}
                 <th data-smart-sort="name">Project</th>
                 <th data-smart-sort="score" class="text-center">Score</th>
-                <th data-smart-sort="deployed">Running</th>
-                <th data-smart-sort="deploys">Deploys</th>
-                <th data-smart-sort="pulls" class="text-center">Open PRs</th>
+                <th data-smart-sort="deployed">Delivery</th>
                 <th data-smart-sort="stacks">Stacks</th>
                 <th data-smart-sort="owner">Owner</th>
                 <th data-smart-sort="lifecycle">Lifecycle</th>
@@ -37,7 +35,7 @@
               {# Replaces the header row while any project is selected (bulk edit). #}
               <tr class="hidden gg-bulk-bar" data-bulk-bar>
                 {% include "partials/bulk_select_cell.html" with noun="project" %}
-                <th colspan="10">
+                <th colspan="8">
                   {% url 'bulk_edit_projects' as bulk_url %}
                   <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
                     <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
@@ -149,7 +147,7 @@
                   <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
                   <td class="max-w-sm">
                     <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
-                    <p class="text-xs opacity-60 truncate font-mono">{{ project.repository_label }}</p>
+                    <p class="text-xs opacity-60 truncate font-mono max-w-64" title="{{ project.repository_label }}">{{ project.repository_label }}</p>
                   </td>
                   <td class="text-center" data-project-score>
                     <span class="text-2xl">{% if row.head.outcome == "checking" or row.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=row.head size="sm" %}{% else %}{% score row.score_value failed=row.score.failed %}{% endif %}</span>
@@ -157,34 +155,33 @@
                       <span class="gg-required-failed block text-xs leading-tight" data-project-failed>Project failed!</span>
                     {% endif %}
                   </td>
+                  {# What runs in production and since when; its deploy tier and open pull requests. #}
                   {% with delivery=row.delivery %}
-                  <td class="whitespace-nowrap" data-project-running>
-                    {% if delivery.running %}
-                      <a href="{% url 'project_detail' project.pk %}#delivery" class="link link-hover {% if not delivery.running.version %}font-mono{% endif %} text-sm font-medium">{{ delivery.running.label }}</a>
-                      <p class="text-xs opacity-60" title="{{ delivery.running.deployed_at }}">{{ delivery.running.deployed_at|timesince }} ago</p>
-                    {% else %}
-                      <span class="text-sm opacity-40">—</span>
-                    {% endif %}
-                  </td>
-                  <td class="whitespace-nowrap" data-project-deploys>
+                  <td class="whitespace-nowrap" data-project-delivery>
                     {% if delivery.synced %}
-                      {% with tier=delivery.frequency.tier %}
-                        <span class="badge badge-sm {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
-                              title="DORA deployment frequency: {{ tier.cadence }}">{{ tier.label }}</span>
-                        <p class="text-xs opacity-60">{{ delivery.frequency.per_week|floatformat:1 }} a week</p>
-                      {% endwith %}
+                      <div class="flex items-center gap-2">
+                        {% if delivery.running %}
+                          <a href="{% url 'project_detail' project.pk %}#delivery" class="link link-hover text-sm font-medium {% if not delivery.running.version %}font-mono{% endif %}" data-project-running>{{ delivery.running.label }}</a>
+                        {% else %}
+                          <span class="text-sm opacity-40">Not deployed</span>
+                        {% endif %}
+                        {% with tier=delivery.frequency.tier %}
+                          <span class="badge badge-xs {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                                title="DORA deploy frequency: {{ delivery.frequency.per_week|floatformat:1 }} a week ({{ tier.cadence }})" data-project-tier="{{ tier }}">{{ tier.label }}</span>
+                        {% endwith %}
+                      </div>
+                      <p class="text-xs opacity-60">
+                        {% if delivery.running %}<span title="{{ delivery.running.deployed_at }}">{{ delivery.running.deployed_at|ago }}</span> · {% endif %}<span data-project-open-pulls="{{ delivery.pull_requests.open_now }}">{{ delivery.pull_requests.open_now }} open PR{{ delivery.pull_requests.open_now|pluralize }}</span>
+                      </p>
                     {% else %}
                       <span class="text-sm opacity-40">—</span>
                     {% endif %}
-                  </td>
-                  <td class="text-center tabular-nums" data-project-open-pulls>
-                    {% if delivery.synced %}{{ delivery.pull_requests.open_now }}{% else %}<span class="text-sm opacity-40">—</span>{% endif %}
                   </td>
                   {% endwith %}
                   <td>
                     <div class="flex flex-wrap gap-1">
                       {% for stack in row.stacks %}
-                        <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this stack"
+                        <button type="button" class="badge badge-outline badge-sm cursor-pointer whitespace-nowrap" title="Filter by this stack"
                                 data-filter-toggle="stack" data-filter-value="{{ stack.name|lower }}">{{ stack.name }}</button>
                       {% empty %}
                         <span class="text-sm opacity-40">—</span>
@@ -215,7 +212,7 @@
                 {% endwith %}
               {% endfor %}
               <tr class="hidden" data-filter-empty>
-                <td colspan="11"><p class="text-sm opacity-70">No projects match these filters.</p></td>
+                <td colspan="9"><p class="text-sm opacity-70">No projects match these filters.</p></td>
               </tr>
             </tbody>
           </table>
