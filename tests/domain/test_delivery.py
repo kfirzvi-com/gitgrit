@@ -9,8 +9,10 @@ from app.domain.delivery import (
     DeploymentFrequency,
     DeploymentStrategy,
     DoraTier,
+    PendingCommits,
     ProductionEnvironment,
     RateLimit,
+    RunningVersion,
     SyncPolicy,
 )
 
@@ -172,3 +174,40 @@ class RateLimitTests(SimpleTestCase):
         self.assertTrue(low.is_low(now))
         self.assertFalse(low.is_low(now + timedelta(minutes=10)))
         self.assertFalse(RateLimit(limit=5000, remaining=500, resets_at=low.resets_at).is_low(now))
+
+
+class RunningVersionTests(SimpleTestCase):
+    def deploy(self, strategy, days_ago, ref="", succeeded=True, sha=None):
+        return DeploymentEvent(
+            strategy=strategy, external_id=f"{strategy}-{days_ago}", sha=sha or f"{days_ago:040d}",
+            deployed_at=datetime(2026, 11, 20, tzinfo=timezone.utc) - timedelta(days=days_ago),
+            succeeded=succeeded, ref=ref,
+        )
+
+    def test_the_newest_deployment_that_shipped_is_running(self):
+        running = RunningVersion.latest([
+            self.deploy(DeploymentStrategy.RELEASE_TAGS, 3, ref="v1.2.0"),
+            self.deploy(DeploymentStrategy.RELEASE_TAGS, 1, ref="v1.3.0", succeeded=False),
+            self.deploy(DeploymentStrategy.RELEASE_TAGS, 5, ref="v1.1.0"),
+        ])
+
+        self.assertEqual(running.label, "v1.2.0")
+        self.assertTrue(running.tagged)
+
+    def test_nothing_runs_before_a_deployment_ships(self):
+        self.assertIsNone(RunningVersion.latest([]))
+
+    def test_a_version_like_ref_names_it_else_the_short_commit(self):
+        versioned = RunningVersion.latest([self.deploy(DeploymentStrategy.ENVIRONMENTS, 1, ref="2.4.1-rc.1")])
+        branch = RunningVersion.latest([self.deploy(DeploymentStrategy.ENVIRONMENTS, 1, ref="main", sha="abcdef1234")])
+
+        self.assertEqual(versioned.label, "2.4.1-rc.1")
+        self.assertEqual(branch.label, "abcdef1")
+        self.assertEqual(branch.version, "")
+
+
+class PendingCommitsTests(SimpleTestCase):
+    def test_waiting_commits_need_the_oldest_ones_time(self):
+        with self.assertRaises(ValueError):
+            PendingCommits(3)
+        self.assertFalse(PendingCommits(0).any)

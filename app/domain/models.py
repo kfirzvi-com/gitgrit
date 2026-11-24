@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from app.domain import importance as importance_domain
 from app.domain import schedules
-from app.domain.delivery import DeploymentEvent, DeploymentStrategy, ProductionEnvironment
+from app.domain.delivery import DeploymentEvent, DeploymentStrategy, PendingCommits, ProductionEnvironment
 from app.domain.ai_usage import BudgetLevel, BudgetPeriod, TokenBudget, TokenCount, UsageCategory
 from app.domain.scoring import StandardRunResult, StandardRunStatus
 from app.domain.scoring.commit_score_outcome import CommitScoreOutcome
@@ -1173,6 +1173,10 @@ class DeliverySettings(models.Model):
     refresh_requested_at = models.DateTimeField(null=True, blank=True)
     refreshed_at = models.DateTimeField(null=True, blank=True)
     refresh_error = models.TextField(blank=True, default="")
+    # Commits on the default branch the running version lacks, as of the
+    # last sync (None: not known).
+    pending_commits = models.PositiveIntegerField(null=True, blank=True)
+    oldest_pending_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -1190,6 +1194,12 @@ class DeliverySettings(models.Model):
         """A refresh was asked for and has not finished yet."""
         requested, done = self.refresh_requested_at, self.refreshed_at
         return requested is not None and (done is None or done < requested)
+
+    @property
+    def pending(self) -> PendingCommits | None:
+        if self.pending_commits is None:
+            return None
+        return PendingCommits(self.pending_commits, self.oldest_pending_at)
 
     @property
     def strategy_in_use(self) -> DeploymentStrategy | None:

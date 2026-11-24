@@ -93,3 +93,19 @@ class DeliveryTabTests(TestCase):
         self.configure.assert_not_called()
         self.assertContains(response, "Refresh works again in")
         self.assertContains(response, "syncs every 15 minutes")
+
+    def test_shows_the_running_version_and_links_what_waits_to_ship(self):
+        DeliverySettings.objects.create(
+            project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS, refreshed_at=timezone.now(),
+            pending_commits=5, oldest_pending_at=timezone.now() - timedelta(days=3),
+        )
+        self.project.default_branch = "main"
+        self.project.save()
+        baker.make(Deployment, project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS, ref="v2.0.0",
+                   external_id="v2.0.0", sha="f" * 40, deployed_at=timezone.now() - timedelta(days=2))
+
+        response = self.client.get(self.url())
+
+        self.assertContains(response, 'href="https://github.com/acme/shop/releases/tag/v2.0.0"')
+        self.assertContains(response, 'data-pending-commits="5"')
+        self.assertContains(response, f'href="https://github.com/acme/shop/compare/{"f" * 40}...main"')

@@ -10,6 +10,8 @@ Pure Python (no Django): the vocabulary and rules every layer shares.
 * ``DeploymentFrequency`` / ``WeeklyDeployments`` — changes shipped per week
   over the last quarter;
 * ``DoraTier`` — the DORA band that frequency falls in;
+* ``RunningVersion`` — what runs in production now;
+* ``PendingCommits`` — commits on the default branch not shipped yet;
 * ``SyncPolicy`` — how often delivery data is read from the platform;
 * ``RateLimit`` — what is left of a token's API allowance.
 """
@@ -17,8 +19,10 @@ from app.domain.delivery.deployment_event import DeploymentEvent
 from app.domain.delivery.deployment_frequency import DeploymentFrequency
 from app.domain.delivery.deployment_strategy import DeploymentStrategy
 from app.domain.delivery.dora_tier import DoraTier
+from app.domain.delivery.pending_commits import PendingCommits
 from app.domain.delivery.production_environment import ProductionEnvironment
 from app.domain.delivery.rate_limit import RateLimit
+from app.domain.delivery.running_version import RunningVersion
 from app.domain.delivery.sync_policy import SyncPolicy
 from app.domain.delivery.weekly_deployments import WeeklyDeployments
 
@@ -27,8 +31,10 @@ __all__ = [
     "DeploymentFrequency",
     "DeploymentStrategy",
     "DoraTier",
+    "PendingCommits",
     "ProductionEnvironment",
     "RateLimit",
+    "RunningVersion",
     "SyncPolicy",
     "WeeklyDeployments",
 ]

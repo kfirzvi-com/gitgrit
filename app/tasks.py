@@ -345,13 +345,13 @@ def sync_delivery(project_id: str) -> None:
     platform. Idempotent; a source that can't be read is noted on the
     project's delivery settings rather than failing the job."""
     from app.application.delivery import DeliverySync
-    from app.infrastructure.delivery import deployment_sources_for
+    from app.infrastructure.delivery import deployment_sources_for, repository_activity_for
     from app.models import Project
 
     project = Project.objects.filter(pk=project_id).select_related("platform_connection").first()
     if project is None:
         return
-    DeliverySync(deployment_sources_for).run(project)
+    DeliverySync(deployment_sources_for, repository_activity_for).run(project)
 
 
 @app.periodic(cron="* * * * *")

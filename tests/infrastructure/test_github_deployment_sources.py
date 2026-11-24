@@ -1,6 +1,7 @@
 """The GitHub deployment sources, against canned API answers: which records
 count as production deployments, when, and whether they shipped."""
 from datetime import datetime, timezone
+from unittest import mock
 
 from django.test import SimpleTestCase
 
@@ -131,3 +132,37 @@ class BranchPushesTests(SimpleTestCase):
 
         self.assertEqual([e.sha for e in events], ["d", "c"])
         self.assertEqual(api.calls[0][1]["ref"], "refs/heads/production")
+
+
+class RepositoryActivityTests(SimpleTestCase):
+    def test_pending_commits_count_what_the_branch_has_beyond_the_deployed_commit(self):
+        from app.infrastructure.delivery.github_repository_activity import GitHubRepositoryActivity
+
+        api = mock.Mock()
+        api.get.return_value = {"ahead_by": 2, "oldest": "2026-11-20T09:00:00Z"}
+
+        pending = GitHubRepositoryActivity(api).pending_commits("abc", "main")
+
+        self.assertEqual(pending.count, 2)
+        self.assertEqual(pending.oldest_at, datetime(2026, 11, 20, 9, tzinfo=timezone.utc))
+        self.assertEqual(api.get.call_args.args[0], "compare/abc...main")
+
+    def test_a_deployed_commit_gone_from_the_repository_is_not_known(self):
+        import requests
+
+        from app.infrastructure.delivery.github_repository_activity import GitHubRepositoryActivity
+
+        api = mock.Mock()
+        api.get.side_effect = requests.HTTPError(response=mock.Mock(status_code=404))
+
+        self.assertIsNone(GitHubRepositoryActivity(api).pending_commits("gone", "main"))
+
+    def test_the_compare_answer_is_slimmed_to_count_and_oldest(self):
+        from app.infrastructure.delivery.github_repository_activity import _slim_compare
+
+        slim = _slim_compare({"ahead_by": 2, "files": [1, 2], "commits": [
+            {"commit": {"committer": {"date": "2026-11-20T09:00:00Z"}}},
+            {"commit": {"committer": {"date": "2026-11-21T09:00:00Z"}}},
+        ]})
+
+        self.assertEqual(slim, {"ahead_by": 2, "oldest": "2026-11-20T09:00:00Z"})

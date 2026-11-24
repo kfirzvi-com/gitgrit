@@ -1,9 +1,57 @@
-{# The project page's Delivery tab: DORA deployment frequency, how deployments #}
+{# The project page's Delivery tab: what runs in production now, DORA        #}
+{# deployment frequency, how deployments #}
 {# are counted (and changing that), and the latest deployments. While a look  #}
 {# for deployments runs, the tab polls itself every 2 seconds.               #}
 {% with frequency=report.frequency tier=report.frequency.tier %}
 <div id="project-delivery" class="flex flex-col gap-6"
      {% if settings.refreshing %}hx-get="{% url 'project_delivery' project.pk %}" hx-trigger="every 2s" hx-swap="outerHTML" data-no-loader{% endif %}>
+  {# Running now: the newest deployment that shipped, and what waits to ship #}
+  <div class="card bg-base-100 shadow-xl" data-running-now>
+    <div class="card-body p-5 flex-row flex-wrap items-center gap-x-10 gap-y-4 [&_p]:grow-0">
+      <div class="min-w-0">
+        <p class="text-xs uppercase tracking-wide opacity-60">Running in production</p>
+        {% with running=report.running %}
+          {% if running %}
+            <p class="flex items-baseline gap-3 flex-wrap">
+              {% if project.web_url %}
+                <a class="text-3xl font-bold link link-hover {% if not running.version %}font-mono{% endif %}" data-running-version
+                   href="{{ project.web_url }}{% if running.tagged %}/releases/tag/{{ running.ref|urlencode }}{% else %}/commit/{{ running.sha }}{% endif %}"
+                   target="_blank" rel="noopener noreferrer">{{ running.label }}</a>
+              {% else %}
+                <span class="text-3xl font-bold" data-running-version>{{ running.label }}</span>
+              {% endif %}
+              {% if running.version %}<span class="font-mono text-sm opacity-60">{{ running.short_sha }}</span>{% endif %}
+            </p>
+            <p class="text-sm opacity-80" title="{{ running.deployed_at }}">
+              Deployed {{ running.deployed_at|timesince }} ago · {{ running.deployed_at|date:"M j, H:i" }}{% if running.environment %} · {{ running.environment }}{% endif %}
+            </p>
+          {% elif settings.refreshing %}
+            <p class="text-lg opacity-60">Looking…</p>
+          {% else %}
+            <p class="text-lg opacity-60">No deployment in the last 13 weeks</p>
+          {% endif %}
+        {% endwith %}
+      </div>
+      {% with pending=report.pending %}
+        {% if report.running and pending %}
+          <div class="min-w-0" data-pending-commits="{{ pending.count }}">
+            <p class="text-xs uppercase tracking-wide opacity-60">Waiting to ship</p>
+            {% if pending.any %}
+              <p class="text-3xl font-bold tabular-nums">
+                {% if project.web_url %}<a class="link link-hover" href="{{ project.web_url }}/compare/{{ report.running.sha }}...{{ project.default_branch|urlencode }}" target="_blank" rel="noopener noreferrer">{{ pending.count }}</a>{% else %}{{ pending.count }}{% endif %}
+                <span class="text-sm font-normal opacity-70">commit{{ pending.count|pluralize }} on {{ project.default_branch }}</span>
+              </p>
+              <p class="text-sm opacity-80">Oldest waiting {{ pending.oldest_at|timesince }}</p>
+            {% else %}
+              <p class="text-3xl font-bold">0</p>
+              <p class="text-sm opacity-80">{{ project.default_branch }} is all in production</p>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 min-[901px]:grid-cols-[3fr_2fr] gap-6">
 
     {# Deployment frequency #}

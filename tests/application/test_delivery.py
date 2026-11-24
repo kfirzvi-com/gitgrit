@@ -14,7 +14,7 @@ from app.application.delivery import (
     RateLimited,
     SourceUnavailable,
 )
-from app.domain.delivery import DeploymentEvent, DeploymentStrategy, DoraTier
+from app.domain.delivery import DeploymentEvent, DeploymentStrategy, DoraTier, PendingCommits
 from app.models import DeliverySettings, Deployment, Platform, Project
 
 NOW = datetime(2026, 11, 16, 12, tzinfo=timezone.utc)
@@ -57,13 +57,59 @@ class FakeSources:
         return self.by_strategy.get(strategy) or FakeSource(strategy)
 
 
+class FakeActivity:
+    def __init__(self, pending=None, unavailable=""):
+        self.pending = pending
+        self.unavailable = unavailable
+        self.compared = None
+
+    def pending_commits(self, deployed_sha, branch):
+        self.compared = (deployed_sha, branch)
+        if self.unavailable:
+            raise SourceUnavailable(self.unavailable)
+        return self.pending
+
+
 class DeliverySyncTests(TestCase):
     def setUp(self):
-        self.project = baker.make(Project)
+        self.project = baker.make(Project, default_branch="main")
+        self.activity = FakeActivity()
 
     def refresh(self, *sources):
         fakes = FakeSources(*sources)
-        return DeliverySync(lambda project, settings: fakes, now=lambda: NOW).run(self.project)
+        return DeliverySync(lambda project, settings: fakes, lambda project: self.activity, now=lambda: NOW).run(
+            self.project
+        )
+
+    def test_counts_the_commits_waiting_behind_the_running_version(self):
+        self.activity.pending = PendingCommits(4, NOW - timedelta(days=2))
+
+        settings = self.refresh(
+            FakeSource(DeploymentStrategy.RELEASE_TAGS, [
+                event(DeploymentStrategy.RELEASE_TAGS, "v1", days_ago=5),
+                event(DeploymentStrategy.RELEASE_TAGS, "v2", days_ago=1),
+            ]),
+        )
+
+        self.assertEqual(self.activity.compared, ("sha-v2", "main"))
+        self.assertEqual(settings.pending, PendingCommits(4, NOW - timedelta(days=2)))
+
+    def test_nothing_waits_to_ship_before_anything_runs(self):
+        DeliverySettings.objects.create(project=self.project, pending_commits=3, oldest_pending_at=NOW)
+
+        settings = self.refresh()
+
+        self.assertIsNone(self.activity.compared)
+        self.assertIsNone(settings.pending)
+
+    def test_commits_that_cannot_be_compared_keep_the_last_count_and_say_why(self):
+        DeliverySettings.objects.create(project=self.project, pending_commits=3, oldest_pending_at=NOW)
+        self.activity.unavailable = "The GitHub token can't read contents."
+
+        settings = self.refresh(FakeSource(DeploymentStrategy.RELEASE_TAGS, [event(DeploymentStrategy.RELEASE_TAGS, "v1")]))
+
+        self.assertEqual(settings.pending_commits, 3)
+        self.assertIn("can't read contents", settings.refresh_error)
 
     def test_detection_takes_the_first_strategy_that_finds_a_successful_deployment(self):
         settings = self.refresh(
@@ -160,6 +206,18 @@ class DeliveryReportTests(TestCase):
         self.assertEqual(report.frequency.total, 13)
         self.assertEqual(report.frequency.tier, DoraTier.HIGH)
         self.assertTrue(all(d.strategy == DeploymentStrategy.RELEASE_TAGS for d in report.recent))
+
+    def test_reports_the_running_version_and_what_waits_behind_it(self):
+        DeliverySettings.objects.create(
+            project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS, pending_commits=2, oldest_pending_at=NOW
+        )
+        baker.make(Deployment, project=self.project, strategy=DeploymentStrategy.RELEASE_TAGS, ref="v3.1.0",
+                   external_id="v3.1.0", deployed_at=NOW - timedelta(days=1))
+
+        report = DeliveryReport.for_project(self.project, now=NOW)
+
+        self.assertEqual(report.running.label, "v3.1.0")
+        self.assertEqual(report.pending.count, 2)
 
     def test_before_any_refresh_there_is_nothing_to_rank(self):
         report = DeliveryReport.for_project(self.project, now=NOW)
