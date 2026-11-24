@@ -152,7 +152,7 @@ class DeliverySpeedTipsTests(DashboardDeliveryTests):
         self.assertContains(response, 'aria-describedby="tip-dora"')
         self.assertContains(response, "DevOps Research and Assessment")
         # Each bar's label opens its tip: how it is counted and what good looks like.
-        for key, label in (("lead", "Lead"), ("merged", "Merged"), ("open", "PRs"), ("checks", "Checked")):
+        for key, label in (("lead", "Lead time"), ("merged", "Merged weekly"), ("open", "Open PRs"), ("checks", "Commits checked")):
             self.assertContains(response, f'aria-describedby="tip-{key}">{label}</button>')
         self.assertContains(response, "added up across projects")
         # Each reading says how it is counted in its own hover card.
