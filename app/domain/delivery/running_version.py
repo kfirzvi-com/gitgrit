@@ -31,13 +31,17 @@ class RunningVersion:
         shipped = [deployment for deployment in deployments if deployment.succeeded]
         if not shipped:
             return None
-        newest = max(shipped, key=lambda deployment: deployment.deployed_at)
+        return cls.of(max(shipped, key=lambda deployment: deployment.deployed_at))
+
+    @classmethod
+    def of(cls, deployment: DeploymentEvent) -> RunningVersion:
+        """The version a deployment put (or tried to put) in production."""
         return cls(
-            sha=newest.sha,
-            deployed_at=newest.deployed_at,
-            ref=newest.ref,
-            environment=newest.environment,
-            tagged=newest.strategy is DeploymentStrategy.RELEASE_TAGS,
+            sha=deployment.sha,
+            deployed_at=deployment.deployed_at,
+            ref=deployment.ref,
+            environment=deployment.environment,
+            tagged=deployment.strategy is DeploymentStrategy.RELEASE_TAGS,
         )
 
     @property

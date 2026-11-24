@@ -38,6 +38,7 @@ class DeliveryReport:
     pull_requests: PullRequestFlow | None = None
     lead_time: LeadTime | None = None
     open_pull_requests: tuple[PullRequest, ...] = ()
+    recently_merged: tuple[PullRequest, ...] = ()
 
     @classmethod
     def for_project(cls, project: Project, now: datetime | None = None) -> DeliveryReport:
@@ -61,6 +62,9 @@ class DeliveryReport:
             pull_requests=PullRequestFlow.of((pr.facts for pr in pulls), now.date(), tz=now.tzinfo, now=now),
             open_pull_requests=tuple(
                 pulls.filter(state=PullRequestState.OPEN).order_by("created_at")[:OPEN_LISTED]
+            ),
+            recently_merged=tuple(
+                PullRequest.objects.filter(project=project, state=PullRequestState.MERGED).order_by("-merged_at")[:RECENT]
             ),
         )
 
