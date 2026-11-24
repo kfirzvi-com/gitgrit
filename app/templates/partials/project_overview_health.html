@@ -1,5 +1,5 @@
-{% comment %}The Overview's Results card, compact: the project's score, whether a Required standard
-failed it, how many standards it is based on, the results bar and legend the Results tab shows too
+{% comment %}The Overview's Results card, one wide row: the project's score, whether a Required standard
+failed it, how many standards it is based on; beside them the results bar and legend the Results tab shows too
 (partials/outcome_bar.html), the last run, and a way into the Results tab. With no score: why, folded
 away (partials/no_score_alert.html), and what to do. The card's edge takes the score's colour.
 Uploaded-build projects re-render it after an upload (artifact_views.project_overview_health).{% endcomment %}
@@ -14,6 +14,7 @@ Uploaded-build projects re-render it after an upload (artifact_views.project_ove
     <div class="-mb-2">{% include "partials/project_score_scale.html" %}</div>
 
     {% if project_has_score %}
+      <div class="grid grid-cols-1 min-[701px]:grid-cols-[auto_minmax(0,1fr)] items-center gap-x-8 gap-y-4">
       <div class="flex items-center gap-5">
         <div class="shrink-0">{% score compliance_score failed=project_score.failed size="xl" data_attr="data-score-value" %}</div>
         <div class="min-w-0">
@@ -30,6 +31,7 @@ Uploaded-build projects re-render it after an upload (artifact_views.project_ove
       </div>
       <div class="space-y-2" data-health-breakdown>
         {% include "partials/outcome_bar.html" with counts=health_breakdown align="start" %}
+      </div>
       </div>
     {% else %}
       <div class="flex items-center gap-4">

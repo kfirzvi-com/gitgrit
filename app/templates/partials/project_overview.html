@@ -1,14 +1,14 @@
 {% comment %}The project page's Overview: a summary of every tab, so the tabs are only for deep dives.
-Top: the Results card (score and results) beside the Delivery card, in sections: Shipping (running
-version, deploys, lead time, what waits to ship) and Pull requests (open, merged, time to merge, open
-so far); DORA's stability pair (MTTR, change failure rate) would be a third section. Below: what
-needs attention across every tab, recent activity, and the project's details. Each card and item
-links to the tab with more (`data-open-tab`, handled by the page's tab script). Uploaded-build
-projects have no delivery.{% endcomment %}
+Laid out like a repository's home page: one main column, read top to bottom by importance — the
+Results card (score and results), the Delivery card in sections (Shipping; Pull requests; DORA's
+stability pair would be a third), then recent activity — and a narrow sidebar with the project's
+details that stays in view. Every main card is the same width, so their edges and tiles line up. Each
+card links to the tab with more (`data-open-tab`, handled by the page's tab script). Uploaded-build
+projects have no delivery. On a narrow screen the sidebar follows the main column.{% endcomment %}
 {% load time_tags %}
-<div class="flex flex-col gap-6" data-project-overview>
-  <div class="grid grid-cols-1 {% if delivery %}min-[1001px]:grid-cols-[2fr_3fr]{% endif %} gap-6 items-start">
-    <div class="min-w-0">{% include "partials/project_overview_health.html" %}</div>
+<div class="grid grid-cols-1 min-[1001px]:grid-cols-[minmax(0,1fr)_20rem] gap-6 items-start" data-project-overview>
+  <div class="flex flex-col gap-6 min-w-0" data-overview-main>
+    {% include "partials/project_overview_health.html" %}
 
     {% if delivery %}
     <div class="card bg-base-100 shadow-xl min-w-0" data-overview-delivery>
@@ -76,32 +76,6 @@ projects have no delivery.{% endcomment %}
       </div>
     </div>
     {% endif %}
-  </div>
-
-  <div class="grid grid-cols-1 min-[1001px]:grid-cols-3 gap-6 items-start">
-    {# What wants a look, across every tab #}
-    <div class="card bg-base-100 shadow-xl min-w-0" data-overview-attention>
-      <div class="card-body p-5 gap-3">
-        <h2 class="card-title text-base">Needs attention</h2>
-        {% with items=overview.attention %}
-          {% if items %}
-            <ul class="flex flex-col gap-2.5">
-              {% for item in items %}
-                <li class="flex items-start gap-2.5 min-w-0">
-                  <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full gg-tone-bg-{{ item.tone }}" aria-hidden="true"></span>
-                  <div class="min-w-0">
-                    <a href="#{{ item.tab }}" class="link link-hover text-sm font-medium" data-open-tab="{{ item.tab }}">{{ item.text }}</a>
-                    {% if item.detail %}<p class="text-xs opacity-60 truncate" title="{{ item.detail }}">{{ item.detail }}</p>{% endif %}
-                  </div>
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <p class="text-sm opacity-70 flex items-center gap-2"><span class="h-2 w-2 rounded-full gg-tone-bg-healthy" aria-hidden="true"></span>Nothing needs a look right now.</p>
-          {% endif %}
-        {% endwith %}
-      </div>
-    </div>
 
     {# The latest deployments, merges and standard results #}
     <div class="card bg-base-100 shadow-xl min-w-0" data-overview-activity>
@@ -126,7 +100,9 @@ projects have no delivery.{% endcomment %}
         {% endwith %}
       </div>
     </div>
-
-    <div class="min-w-0">{% include "partials/project_about.html" %}</div>
   </div>
+
+  <aside class="min-w-0 min-[1001px]:sticky min-[1001px]:top-20" aria-label="About this project" data-overview-sidebar>
+    {% include "partials/project_about.html" %}
+  </aside>
 </div>
