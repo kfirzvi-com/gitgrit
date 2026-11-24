@@ -101,11 +101,12 @@
 
   {% include "partials/cockpit_cluster.html" %}
 
-  {% comment %}Below the cluster, one tab at a time: what needs you, the stack map, AI usage. The tab
+  {% comment %}Below the cluster, one tab at a time: what needs you, delivery, AI usage, the stack map. The tab
   is kept in the URL's hash, so links into it (the lamps and the fuel gauge) open it.{% endcomment %}
   <div class="flex flex-col gap-5" data-dashboard-tabs>
     <div role="tablist" aria-label="Dashboard views" class="tabs tabs-boxed self-start bg-base-100">
       <a role="tab" href="#tab-overview" class="tab tab-active" aria-selected="true" aria-controls="tab-overview" data-tab="tab-overview">Needs you</a>
+      <a role="tab" href="#tab-delivery" class="tab" aria-selected="false" aria-controls="tab-delivery" data-tab="tab-delivery">Delivery</a>
       <a role="tab" href="#tab-ai" class="tab" aria-selected="false" aria-controls="tab-ai" data-tab="tab-ai">AI usage</a>
       <a role="tab" href="#tab-map" class="tab" aria-selected="false" aria-controls="tab-map" data-tab="tab-map">Stack map</a>
     </div>
@@ -205,6 +206,10 @@
       <p class="text-sm" style="color: var(--gg-text-dim)">No stacks yet. Stacks group related projects into systems. <a href="{% url 'create_stack' %}" class="link link-primary">Create a stack</a></p>
     {% endif %}
   </section>
+    </div>
+
+    <div id="tab-delivery" role="tabpanel" data-tab-panel hidden>
+      {% include "partials/dashboard_delivery.html" %}
     </div>
 
     <div id="tab-ai" role="tabpanel" data-tab-panel hidden>

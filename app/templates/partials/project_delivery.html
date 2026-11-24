@@ -110,29 +110,7 @@
         </div>
         <p class="text-sm opacity-80 -mt-2">{{ flow.merged }} merged in 13 weeks{% if flow.oldest_open_since %} · oldest open for {{ flow.oldest_open_since|timesince }}{% endif %}</p>
 
-        <div class="relative h-28 border-b border-base-content/15" role="img"
-             aria-label="Pull requests merged per week, and open at the end of each week, over the last 13 weeks">
-          <div class="absolute inset-0 flex items-end gap-1">
-            {% for week, height, x, y in pull_weeks %}
-              <div class="flex-1 h-full flex items-end" title="Week of {{ week.starts|date:'M j' }}: {{ week.merged }} merged, {{ week.open_at_end }} open at its end">
-                <div class="w-full rounded-t {% if week.merged %}bg-secondary{% else %}bg-base-content/10{% endif %}"
-                     style="height: {% if week.merged %}{{ height }}%{% else %}2px{% endif %}"></div>
-              </div>
-            {% endfor %}
-          </div>
-          <svg class="absolute inset-0 w-full h-full overflow-visible pointer-events-none text-accent" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"
-                      points="{% for week, height, x, y in pull_weeks %}{{ x }},{{ y }} {% endfor %}"/>
-          </svg>
-        </div>
-        <div class="flex justify-between items-center text-xs opacity-60 -mt-2">
-          <span>{{ flow.starts|date:"M j" }}</span>
-          <span class="flex gap-3">
-            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-sm bg-secondary"></span>merged</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-3 h-0.5 bg-accent"></span>open at week's end</span>
-          </span>
-          <span>This week</span>
-        </div>
+        {% include "partials/delivery_week_chart.html" with chart=pull_chart bar="bg-secondary" label="Pull requests merged per week, and open at the end of each week, over the last 13 weeks" noun="merged" %}
       </div>
     </div>
     {% endwith %}

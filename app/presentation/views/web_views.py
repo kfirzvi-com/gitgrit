@@ -8,12 +8,14 @@ from django.views.generic import TemplateView
 
 from app.application.ai_usage import AIUsageReport
 from app.application.cockpit import Cockpit, HealthTrend
+from app.application.delivery import WorkspaceDelivery
 from app.domain.ai_usage import BudgetPeriod
 from app.application.dependency_agent import refresh_workspace_map
 from app.application.project_health_counts import ProjectHealthCounts
 from app.domain.models import PlatformConnection, Standard, Project, Stack
 from app.presentation.ai_usage_section import AIUsageSection
 from app.presentation.budget_row import BudgetRow
+from app.presentation.delivery_chart import DeliveryChart
 from app.presentation.fuel_gauge import FuelGauge
 from app.presentation.architecture import map_status, stack_dependencies
 from app.presentation.health_dial import HealthDial
@@ -70,6 +72,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             )
             context["stack_map"] = StackMap(context["stack_health"], stack_dependencies(tenant, stacks))
             context["map_updated_at"] = map_status(Project.objects.filter(tenant=tenant))["updated_at"]
+            delivery = WorkspaceDelivery.for_workspace(tenant)
+            context["delivery"] = delivery
+            context["delivery_deploys"] = DeliveryChart(delivery.totals.starts, delivery.totals.deployments)
+            context["delivery_pulls"] = DeliveryChart(
+                delivery.totals.starts, delivery.totals.merged, delivery.totals.open_at_end
+            )
             context.update(ai_usage_context(self.request, BudgetPeriod.MONTH))
             models = [m for provider in context["ai"].report.providers for m in provider.models]
             context["fuel"] = FuelGauge(

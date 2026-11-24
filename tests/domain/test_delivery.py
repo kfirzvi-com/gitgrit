@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from django.test import SimpleTestCase
 
 from app.domain.delivery import (
+    DeliveryTotals,
     DeploymentEvent,
     DeploymentFrequency,
     DeploymentStrategy,
@@ -257,3 +258,27 @@ class PullRequestFlowTests(SimpleTestCase):
 
         self.assertIs(closed.state, PullRequestState.CLOSED)
         self.assertEqual(PullRequestFlow.of([closed], TODAY).merged, 0)
+
+
+class DeliveryTotalsTests(SimpleTestCase):
+    def frequency(self, every_days):
+        return DeploymentFrequency.of(every(every_days), TODAY)
+
+    def test_sums_each_week_over_the_projects_and_counts_their_tiers(self):
+        daily, weekly = self.frequency(1), self.frequency(7)
+        flows = [PullRequestFlow.of([pr(1, opened=3)], TODAY), PullRequestFlow.of([pr(2, opened=9, merged=1)], TODAY)]
+
+        totals = DeliveryTotals.of([daily, weekly], flows)
+
+        self.assertEqual(totals.deployments[-1], daily.weeks[-1].deployments + weekly.weeks[-1].deployments)
+        self.assertEqual(totals.merged[-1], 1)
+        self.assertEqual(totals.open_now, 1)
+        self.assertEqual(dict(totals.tiers)[DoraTier.ELITE], 1)
+        self.assertEqual(dict(totals.tiers)[DoraTier.HIGH], 1)
+        self.assertEqual(len(totals.starts), 13)
+
+    def test_no_projects_add_up_to_nothing(self):
+        totals = DeliveryTotals.of([], [])
+
+        self.assertEqual(totals.deployments, ())
+        self.assertEqual(totals.deployments_per_week, 0.0)

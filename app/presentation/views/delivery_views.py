@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 
 from app.application.delivery import DeliveryReport, DeliverySyncRequest, DeliverySyncSchedule
 from app.models import DeliverySettings, Project
+from app.presentation.delivery_chart import DeliveryChart
 from app.presentation.delivery_settings_form import DeliverySettingsForm
 
 
@@ -29,31 +30,17 @@ def _render(request, project: Project, form: DeliverySettingsForm | None = None,
             "weeks": [
                 (week, round(100 * week.deployments / busiest) if busiest else 0) for week in report.frequency.weeks
             ],
-            "pull_weeks": _pull_weeks(report),
+            "pull_chart": DeliveryChart(
+                [week.starts for week in report.pull_requests.weeks],
+                [week.merged for week in report.pull_requests.weeks],
+                [week.open_at_end for week in report.pull_requests.weeks],
+            ),
             "form": form or DeliverySettingsForm(instance=report.settings),
             "open_settings": open_settings,
             "next_refresh": _next_refresh(report.settings),
             "sync_minutes": int(DeliverySyncSchedule.policy().interval.total_seconds() // 60),
         },
     )
-
-
-def _pull_weeks(report: DeliveryReport) -> list[tuple]:
-    """Per week: the week, its merge bar's height and the open-count line's
-    point (x, y in a 0–100 box), both scaled to the busiest week."""
-    weeks = report.pull_requests.weeks
-    most_merged = max((week.merged for week in weeks), default=0)
-    most_open = max((week.open_at_end for week in weeks), default=0)
-    width = 100 / len(weeks)
-    return [
-        (
-            week,
-            round(100 * week.merged / most_merged) if most_merged else 0,
-            round(width * (index + 0.5), 2),
-            round(100 - 92 * week.open_at_end / most_open, 2) if most_open else 100,
-        )
-        for index, week in enumerate(weeks)
-    ]
 
 
 def _next_refresh(settings: DeliverySettings):

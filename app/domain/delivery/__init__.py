@@ -15,9 +15,11 @@ Pure Python (no Django): the vocabulary and rules every layer shares.
 * ``PullRequestFacts`` / ``PullRequestState`` — one pull request;
 * ``PullRequestFlow`` / ``WeeklyPullRequests`` — merges per week and what
   stays open, over the same weeks;
+* ``DeliveryTotals`` — a workspace's delivery, summed over its projects;
 * ``SyncPolicy`` — how often delivery data is read from the platform;
 * ``RateLimit`` — what is left of a token's API allowance.
 """
+from app.domain.delivery.delivery_totals import DeliveryTotals
 from app.domain.delivery.deployment_event import DeploymentEvent
 from app.domain.delivery.deployment_frequency import DeploymentFrequency
 from app.domain.delivery.deployment_strategy import DeploymentStrategy
@@ -34,6 +36,7 @@ from app.domain.delivery.weekly_deployments import WeeklyDeployments
 from app.domain.delivery.weekly_pull_requests import WeeklyPullRequests
 
 __all__ = [
+    "DeliveryTotals",
     "DeploymentEvent",
     "DeploymentFrequency",
     "DeploymentStrategy",
