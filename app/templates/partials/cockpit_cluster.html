@@ -4,15 +4,15 @@
   tightest AI budget); under them the warning lamps, the trip computer (AI this month) and when the
   numbers were last checked.{% endcomment %}
   <section class="gg-cluster px-6 pt-8 pb-6 flex flex-col gap-6" aria-label="Instrument cluster" data-workspace-health>
-    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10">
+    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10 md:mb-10">
 
-      {% comment %}Delivery speed: the typical project's deploys a week on a speedometer whose arc is
+      {% comment %}Delivery speed, set low beside the health dial like a car's smaller gauges: the typical project's deploys a week on a speedometer whose arc is
       coloured by DORA's bands (Low, Medium, High, Elite), so where the needle points says how good it
       is; beneath it lead time (DORA's bands), open pull requests (how long they have been open), merges a
       week (their trend) and commits checked (against the busiest of the last four weeks). Each has an ⓘ
       saying how it is counted across the workspace and what good looks like (partials/info_tip.html).{% endcomment %}
       {% with t=speed.totals %}
-      <div class="flex flex-col items-center gap-1.5 w-full max-w-[18rem]" data-gauge="speed">
+      <div class="flex flex-col items-center gap-1.5 w-full max-w-[18rem] md:translate-y-10" data-gauge="speed">
         <span class="gg-eyebrow text-center inline-flex items-center gap-1.5">Delivery speed {% include "partials/info_tip.html" with tip=speed.tips.dora key="dora" bands=speed.bands %}</span>
         <svg viewBox="0 0 200 200" class="w-[120px] h-[120px]" role="img"
              aria-label="The typical project deploys {{ t.typical_deploys_a_week|floatformat:1 }} times a week: DORA {{ speed.deploy_tier.label }}">
