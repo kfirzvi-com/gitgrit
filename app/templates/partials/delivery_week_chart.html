@@ -1,11 +1,18 @@
 {% comment %}A delivery chart (presentation.delivery_chart.DeliveryChart): one bar per week, newest on
-the right, and, when the chart has one, a line over them. `bar` is the bars' colour class, `height`
-its height class (h-28 by default; compact cards pass h-12), `noun` names the bar value in each week's tooltip (a column's own label, when it has one, says it instead).{% endcomment %}
-<div class="relative {{ height|default:'h-28' }} border-b border-base-content/15" role="img" aria-label="{{ label }}">
+the right, and, when the chart has one, a line over them. Interactive (static/app/delivery_chart.js):
+hovering or focusing a week shows its numbers in a tooltip, lights its bar and dims the rest, and marks
+its point on the line. `bar` is the bars' colour class, `height` its height class (h-28 by default;
+compact cards pass h-12), `noun` names the bar value in each week's tooltip (a column's own label,
+when it has one, says it instead).{% endcomment %}
+{% load static %}
+<div class="relative {{ height|default:'h-28' }} border-b border-base-content/15" role="group" aria-label="{{ label }}" data-week-chart>
   <div class="absolute inset-0 flex items-end gap-1">
     {% for column in chart.columns %}
-      <div class="flex-1 h-full flex items-end" title="Week of {{ column.starts|date:'M j' }}: {% if column.label %}{{ column.label }}{% else %}{{ column.value }} {{ noun }}{% endif %}{% if chart.has_line %}, {{ column.line_value }} open at its end{% endif %}">
-        <div class="w-full rounded-t {% if column.value %}{{ bar }}{% else %}bg-base-content/10{% endif %}"
+      <div class="flex-1 h-full flex items-end cursor-default outline-none rounded-sm focus-visible:ring-1 focus-visible:ring-base-content/40" tabindex="0"
+           data-week-bar="{{ forloop.counter0 }}"
+           data-tip="Week of {{ column.starts|date:'M j' }}: {% if column.label %}{{ column.label }}{% else %}{{ column.value }} {{ noun }}{% endif %}{% if chart.has_line %}, {{ column.line_value }} open at its end{% endif %}"
+           aria-label="Week of {{ column.starts|date:'M j' }}: {% if column.label %}{{ column.label }}{% else %}{{ column.value }} {{ noun }}{% endif %}{% if chart.has_line %}, {{ column.line_value }} open at its end{% endif %}">
+        <div class="w-full rounded-t transition-opacity {% if column.value %}{{ bar }}{% else %}bg-base-content/10{% endif %}"
              style="height: {% if column.value %}{{ column.height }}%{% else %}2px{% endif %}"></div>
       </div>
     {% endfor %}
@@ -14,7 +21,12 @@ its height class (h-28 by default; compact cards pass h-12), `noun` names the ba
     <svg class="absolute inset-0 w-full h-full overflow-visible pointer-events-none text-accent" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
       <polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" points="{{ chart.points }}"/>
     </svg>
+    {% for column in chart.columns %}
+      <span class="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent ring-2 ring-base-100 pointer-events-none" hidden
+            style="left: {{ column.x }}%; top: {{ column.y }}%" data-week-dot="{{ forloop.counter0 }}"></span>
+    {% endfor %}
   {% endif %}
+  <div class="absolute bottom-full mb-1 z-10 -translate-x-1/2 px-2 py-1 rounded bg-base-300 text-xs whitespace-nowrap shadow-lg pointer-events-none" hidden role="tooltip" data-week-tip></div>
 </div>
 <div class="flex justify-between items-center text-[10px] opacity-60">
   <span>{{ chart.columns.0.starts|date:"M j" }}</span>
@@ -26,3 +38,4 @@ its height class (h-28 by default; compact cards pass h-12), `noun` names the ba
   {% endif %}
   <span>This week</span>
 </div>
+<script type="module" src="{% static 'app/delivery_chart.js' %}"></script>

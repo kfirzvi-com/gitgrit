@@ -92,3 +92,12 @@ class DeliverySpeedGaugeTests(DashboardDeliveryTests):
         self.assertContains(response, "DEPLOYS THIS WEEK")
         self.assertContains(response, "data-speed-readouts")
         self.assertNotContains(response, 'data-gauge="checks"')
+
+
+class InteractiveChartTests(DashboardDeliveryTests):
+    def test_each_week_is_focusable_with_its_numbers_for_the_tooltip(self):
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, "data-week-chart")
+        self.assertContains(response, 'tabindex="0"\n           data-week-bar="12"')
+        self.assertContains(response, "app/delivery_chart.js")
