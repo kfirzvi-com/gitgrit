@@ -8,6 +8,7 @@ from django.utils import timezone
 from app.application.delivery.deployment_sources import DeploymentSources
 from app.application.delivery.rate_limited import RateLimited
 from app.application.delivery.source_unavailable import SourceUnavailable
+from app.application.delivery.token_refused import TokenRefused
 from app.domain.delivery import DeploymentEvent, DeploymentStrategy
 from app.domain.delivery.deployment_frequency import WEEKS
 from app.models import DeliverySettings, Deployment, Project
@@ -35,6 +36,8 @@ class DeploymentRefresh:
         try:
             sources = self._sources_for(project, settings)
             strategy, events = self._find(sources, settings, since, problems)
+        except TokenRefused:
+            raise
         except SourceUnavailable as unavailable:
             problems.append(str(unavailable))
             return None
@@ -51,7 +54,7 @@ class DeploymentRefresh:
         for strategy in order[:-1]:
             try:
                 events = sources.for_strategy(strategy).find(since)
-            except RateLimited:
+            except (RateLimited, TokenRefused):
                 raise
             except SourceUnavailable as unavailable:
                 problems.append(str(unavailable))

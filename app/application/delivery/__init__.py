@@ -16,6 +16,7 @@ from app.application.delivery.rate_limited import RateLimited
 from app.application.delivery.repository_activity import RepositoryActivity
 from app.application.delivery.shipment_refresh import ShipmentRefresh
 from app.application.delivery.source_unavailable import SourceUnavailable
+from app.application.delivery.token_refused import TokenRefused
 from app.application.delivery.workspace_delivery import WorkspaceDelivery
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     "RepositoryActivity",
     "ShipmentRefresh",
     "SourceUnavailable",
+    "TokenRefused",
     "WorkspaceDelivery",
 ]

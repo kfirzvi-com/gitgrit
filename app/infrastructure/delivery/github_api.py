@@ -8,7 +8,7 @@ from typing import Callable, Iterator
 import requests
 from django.core.cache import caches
 
-from app.application.delivery import RateLimited, SourceUnavailable
+from app.application.delivery import RateLimited, SourceUnavailable, TokenRefused
 from app.domain.delivery import RateLimit
 from app.infrastructure.delivery.github_not_found import GitHubNotFound
 
@@ -104,7 +104,7 @@ class GitHubApi:
         if status in (403, 429) and response.headers.get("X-RateLimit-Remaining") == "0":
             raise RateLimited(_reset_time(response))
         if status == 401:
-            raise SourceUnavailable(
+            raise TokenRefused(
                 "GitHub refused the connection's token (expired or revoked): reconnect it in workspace settings."
             )
         if status == 403:

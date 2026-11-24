@@ -449,3 +449,21 @@ class LeadTimesTests(TestCase):
 
         self.assertEqual(lead.median, timedelta(hours=4))
         self.assertEqual(lead.changes[0].pull_request, 4)
+
+
+class TokenRefusedTests(TestCase):
+    def test_a_refused_token_stops_the_sync_at_the_first_refusal(self):
+        from app.application.delivery import TokenRefused
+
+        project = baker.make(Project, default_branch="main")
+        activity = FakeActivity()
+        refused = FakeSource(DeploymentStrategy.ENVIRONMENTS, error=TokenRefused("GitHub refused the token."))
+        later = FakeSource(DeploymentStrategy.RELEASE_TAGS, [event(DeploymentStrategy.RELEASE_TAGS, "v1")])
+        sources = FakeSources(refused, later)
+
+        settings = DeliverySync(lambda p, s: sources, lambda p: activity, now=lambda: NOW).run(project)
+
+        self.assertFalse(later.asked)
+        self.assertEqual(activity.asked_since, [])
+        self.assertEqual(settings.refresh_error, "GitHub refused the token.")
+        self.assertIsNotNone(settings.refreshed_at)

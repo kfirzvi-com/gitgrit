@@ -10,6 +10,7 @@ from app.application.delivery.pull_request_refresh import PullRequestRefresh
 from app.application.delivery.repository_activity import RepositoryActivity
 from app.application.delivery.shipment_refresh import ShipmentRefresh
 from app.application.delivery.source_unavailable import SourceUnavailable
+from app.application.delivery.token_refused import TokenRefused
 from app.domain.delivery import RunningVersion
 from app.models import DeliverySettings, Deployment, Project
 
@@ -40,13 +41,17 @@ class DeliverySync:
     def run(self, project: Project) -> DeliverySettings:
         settings, _ = DeliverySettings.objects.get_or_create(project=project)
         problems: list[str] = []
-        strategy = self._deployments.run(project, settings, problems)
-        if strategy is not None:
-            settings.detected_strategy = strategy.value
-        if self._activity_for is not None:
-            self._sync_pending(project, settings, problems)
-            self._sync_pull_requests(project, problems)
-            self._sync_shipments(project, settings, problems)
+        try:
+            strategy = self._deployments.run(project, settings, problems)
+            if strategy is not None:
+                settings.detected_strategy = strategy.value
+            if self._activity_for is not None:
+                self._sync_pending(project, settings, problems)
+                self._sync_pull_requests(project, problems)
+                self._sync_shipments(project, settings, problems)
+        except TokenRefused as refused:
+            # Nothing else can be read with these credentials: stop here.
+            problems.append(str(refused))
         settings.refreshed_at = self._now()
         settings.refresh_error = "\n".join(dict.fromkeys(problems))
         settings.save(
@@ -71,6 +76,8 @@ class DeliverySync:
             return
         try:
             pending = self._activity_for(project).pending_commits(running.sha, project.default_branch)
+        except TokenRefused:
+            raise
         except SourceUnavailable as unavailable:
             problems.append(str(unavailable))
             return
@@ -80,11 +87,15 @@ class DeliverySync:
     def _sync_pull_requests(self, project: Project, problems: list[str]) -> None:
         try:
             self._pull_requests.run(project, self._activity_for(project))
+        except TokenRefused:
+            raise
         except SourceUnavailable as unavailable:
             problems.append(str(unavailable))
 
     def _sync_shipments(self, project: Project, settings: DeliverySettings, problems: list[str]) -> None:
         try:
             self._shipments.run(project, settings, self._activity_for(project))
+        except TokenRefused:
+            raise
         except SourceUnavailable as unavailable:
             problems.append(str(unavailable))
