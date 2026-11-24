@@ -17,7 +17,10 @@ class DeliveryTotals:
     weeks all end on the same day): deployments, merges and pull requests
     open at each week's end, what is open now, how many projects sit in
     each deploy tier and each lead time tier, and the median lead time of
-    every change shipped (each project measured from its own start)."""
+    every change shipped (each project measured from its own start), the
+    typical project's deploys a week (the median project: DORA's bands are
+    per project, so a workspace total has none) and how long the pull
+    requests still open have been open."""
 
     starts: tuple[date, ...]
     deployments: tuple[int, ...]
@@ -27,6 +30,8 @@ class DeliveryTotals:
     tiers: tuple[tuple[DoraTier, int], ...]
     lead_time: timedelta | None = None
     lead_tiers: tuple[tuple[DoraTier, int], ...] = ()
+    typical_deploys_a_week: float = 0.0
+    open_age: timedelta | None = None
 
     @classmethod
     def of(
@@ -57,6 +62,8 @@ class DeliveryTotals:
             tiers=tuple(tier_counts.items()),
             lead_time=median(lengths) if lengths else None,
             lead_tiers=tuple(lead_counts.items()),
+            typical_deploys_a_week=median([f.per_week for f in frequencies]) if frequencies else 0.0,
+            open_age=median(ages) if (ages := [age for flow in flows for age in flow.open_ages]) else None,
         )
 
     @property

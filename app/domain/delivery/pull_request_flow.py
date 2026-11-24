@@ -25,7 +25,7 @@ class PullRequestFlow:
     open_now: int
     oldest_open_since: datetime | None
     time_to_merge: timedelta | None = None
-    open_age: timedelta | None = None
+    open_ages: tuple[timedelta, ...] = ()
 
     @classmethod
     def of(
@@ -67,12 +67,17 @@ class PullRequestFlow:
             open_now=len(open_prs),
             oldest_open_since=min((pr.created_at for pr in open_prs), default=None),
             time_to_merge=_time_to_merge(merged_in_window),
-            open_age=median([now - pr.created_at for pr in open_prs]) if open_prs else None,
+            open_ages=tuple(now - pr.created_at for pr in open_prs),
         )
 
     @property
     def starts(self) -> date:
         return self.weeks[0].starts
+
+    @property
+    def open_age(self) -> timedelta | None:
+        """How long the pull requests still open have been open (median)."""
+        return median(self.open_ages) if self.open_ages else None
 
     @property
     def merged(self) -> int:

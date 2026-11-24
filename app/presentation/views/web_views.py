@@ -16,11 +16,11 @@ from app.domain.models import PlatformConnection, Standard, Project, Stack
 from app.presentation.ai_usage_section import AIUsageSection
 from app.presentation.budget_row import BudgetRow
 from app.presentation.delivery_chart import DeliveryChart
+from app.presentation.delivery_speed import DeliverySpeed
 from app.presentation.fuel_gauge import FuelGauge
 from app.presentation.architecture import map_status, stack_dependencies
 from app.presentation.health_dial import HealthDial
 from app.presentation.health_note import HealthNote
-from app.presentation.speedometer import Speedometer
 from app.presentation.stack_map import StackMap
 from app.presentation.trend_chart import TrendChart
 from app.workspace_access import is_workspace_admin
@@ -73,9 +73,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["map_updated_at"] = map_status(Project.objects.filter(tenant=tenant))["updated_at"]
             delivery = WorkspaceDelivery.for_workspace(tenant)
             context["delivery"] = delivery
-            # The cluster's speedometer: deploys this week against the busiest week.
-            deploys = delivery.totals.deployments
-            context["speedometer"] = Speedometer(deploys[-1] if deploys else 0, max(deploys, default=0))
+            context["speed"] = DeliverySpeed(delivery.totals, cockpit.checks_this_week, cockpit.checks_peak)
             context["delivery_deploys"] = DeliveryChart(delivery.totals.starts, delivery.totals.deployments)
             context["delivery_pulls"] = DeliveryChart(
                 delivery.totals.starts, delivery.totals.merged, delivery.totals.open_at_end

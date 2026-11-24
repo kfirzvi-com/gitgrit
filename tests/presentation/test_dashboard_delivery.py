@@ -89,7 +89,8 @@ class DeliverySpeedGaugeTests(DashboardDeliveryTests):
         response = self.client.get(reverse("dashboard"))
 
         self.assertContains(response, 'data-gauge="speed"')
-        self.assertContains(response, "DEPLOYS THIS WEEK")
+        self.assertContains(response, "DEPLOYS / WEEK")
+        self.assertContains(response, 'data-zone="success"')  # DORA's Elite band on the arc
         self.assertContains(response, "data-speed-readouts")
         self.assertNotContains(response, 'data-gauge="checks"')
 
@@ -101,3 +102,44 @@ class InteractiveChartTests(DashboardDeliveryTests):
         self.assertContains(response, "data-week-chart")
         self.assertContains(response, 'tabindex="0"\n           data-week-bar="12"')
         self.assertContains(response, "app/delivery_chart.js")
+
+
+class BandMeterTests(TestCase):
+    def meter(self, value, edges=(0.0, 0.25, 1.0, 3.0, 10.0)):
+        from app.presentation.delivery_speed.delivery_speed import DORA
+        from app.presentation.delivery_speed import BandMeter
+
+        return BandMeter(value, edges, DORA)
+
+    def test_a_rising_value_sits_in_its_band_in_proportion(self):
+        self.assertEqual(self.meter(2.0).band.label, "High")
+        self.assertAlmostEqual(self.meter(2.0).fraction, (2 + 0.5) / 4)
+        self.assertEqual(self.meter(50).fraction, 1.0)
+        self.assertEqual(self.meter(0.1).band.label, "Low")
+
+    def test_a_falling_value_like_lead_time_is_best_when_small(self):
+        day = 86400.0
+        edges = (90 * day, 30 * day, 7 * day, day, 0.0)
+
+        self.assertEqual(self.meter(0.5 * day, edges).band.label, "Elite")
+        self.assertEqual(self.meter(10 * day, edges).band.label, "Medium")
+        self.assertEqual(self.meter(400 * day, edges).fraction, 0.0)
+
+    def test_an_unknown_value_has_no_band_or_marker(self):
+        self.assertIsNone(self.meter(None).band)
+        self.assertFalse(self.meter(None).known)
+
+
+class DeliverySpeedTests(TestCase):
+    def test_merges_trend_compares_the_last_four_weeks_with_the_four_before(self):
+        from app.domain.delivery import DeliveryTotals
+        from app.presentation.delivery_speed import DeliverySpeed
+
+        totals = DeliveryTotals(starts=(), deployments=(), merged=(0,) * 5 + (2, 2, 3, 3, 3, 3, 3, 3),
+                                open_at_end=(), open_now=0, tiers=())
+
+        speed = DeliverySpeed(totals, checks_this_week=5, checks_peak=10)
+
+        self.assertEqual(speed.merged_trend, 20)
+        self.assertEqual(speed.merged_trend_text, "↑ 20%")
+        self.assertEqual(speed.checks_share, 50)

@@ -7,15 +7,13 @@ from typing import Iterable
 
 from app.domain.delivery.change_lead_time import ChangeLeadTime
 from app.domain.delivery.deployment_frequency import WEEKS
+from app.domain.delivery.dora_bands import DoraBands
 from app.domain.delivery.dora_tier import DoraTier
 from app.domain.delivery.lead_time_start import LeadTimeStart
 from app.domain.delivery.pull_request_facts import PullRequestFacts
 from app.domain.delivery.shipment import Shipment
 from app.domain.delivery.weekly_lead_time import WeeklyLeadTime
 
-# DORA's lead time bands: the median change reaches production within a day
-# (elite), a week (high), a month (medium), or later (low).
-_BANDS = ((timedelta(days=1), DoraTier.ELITE), (timedelta(weeks=1), DoraTier.HIGH), (timedelta(days=30), DoraTier.MEDIUM))
 
 
 @dataclass(frozen=True)
@@ -98,12 +96,7 @@ class LeadTime:
 
     @property
     def tier(self) -> DoraTier:
-        if self.median is None:
-            return DoraTier.NONE
-        for limit, tier in _BANDS:
-            if self.median < limit:
-                return tier
-        return DoraTier.LOW
+        return DoraBands.lead_time(self.median)
 
     @property
     def review(self) -> timedelta | None:

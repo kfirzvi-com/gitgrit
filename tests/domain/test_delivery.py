@@ -400,3 +400,14 @@ class ReadyForReviewTests(SimpleTestCase):
 
         self.assertEqual(self.facts().ready_since(False, known), known)
         self.assertEqual(self.facts(ready_at=known).ready_since(None, None), known)
+
+
+class DoraBandsTests(SimpleTestCase):
+    def test_a_weekly_deploy_rate_falls_in_doras_bands(self):
+        from app.domain.delivery import DoraBands
+
+        self.assertEqual(DoraBands.deploy_rate(0), DoraTier.NONE)
+        self.assertEqual(DoraBands.deploy_rate(0.1), DoraTier.LOW)
+        self.assertEqual(DoraBands.deploy_rate(0.5), DoraTier.MEDIUM)
+        self.assertEqual(DoraBands.deploy_rate(2), DoraTier.HIGH)
+        self.assertEqual(DoraBands.deploy_rate(3), DoraTier.ELITE)

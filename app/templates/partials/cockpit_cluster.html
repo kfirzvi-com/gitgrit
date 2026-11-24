@@ -6,28 +6,51 @@
   <section class="gg-cluster px-6 pt-8 pb-6 flex flex-col gap-6" aria-label="Instrument cluster" data-workspace-health>
     <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10">
 
-      {% comment %}Delivery speed: deploys this week against the busiest week of the last 13, with
-      lead time, merges and open pull requests beneath; the Delivery tab has the rest.{% endcomment %}
-      {% with t=delivery.totals %}
-      <a href="#tab-delivery" class="flex flex-col items-center gap-2 group" data-gauge="speed">
+      {% comment %}Delivery speed: the typical project's deploys a week on a speedometer whose arc is
+      coloured by DORA's bands (Low, Medium, High, Elite), so where the needle points says how good it
+      is; beneath it lead time (DORA's bands), open pull requests (how long they have been open), merges a
+      week (their trend) and commits checked (against the busiest of the last four weeks). Each opens the
+      Delivery tab.{% endcomment %}
+      {% with t=speed.totals %}
+      <a href="#tab-delivery" class="flex flex-col items-center gap-2 group w-full max-w-[17rem]" data-gauge="speed">
         <span class="gg-eyebrow text-center">Delivery speed</span>
-        <svg viewBox="0 0 200 200" class="w-[170px] h-[170px]" role="img"
-             aria-label="{{ speedometer.value }} deploys this week, against {{ speedometer.full_scale }} in the busiest of the last 13 weeks">
+        <svg viewBox="0 0 200 200" class="w-[150px] h-[150px]" role="img"
+             aria-label="The typical project deploys {{ t.typical_deploys_a_week|floatformat:1 }} times a week: DORA {{ speed.deploy_tier.label }}">
           <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
-          <g stroke="#5a6478" stroke-width="1.5">{% for x1, y1, x2, y2 in speedometer.ticks %}<line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>{% endfor %}</g>
-          <path d="{{ speedometer.arc_path }}" fill="none" class="gg-gauge-track" stroke-width="8" stroke-linecap="round"/>
-          {% if speedometer.value %}<path d="{{ speedometer.arc_path }}" fill="none" stroke="var(--gg-primary)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="{{ speedometer.share }} 100"/>{% endif %}
-          <line x1="100" y1="100" x2="{{ speedometer.needle_x }}" y2="{{ speedometer.needle_y }}" class="gg-needle"/>
+          {% for path, color in speed.zones %}<path d="{{ path }}" fill="none" stroke="var(--color-{{ color }})" stroke-width="8" opacity="{% if color == speed.deploys.band.css|cut:'bg-' %}1{% else %}0.3{% endif %}" data-zone="{{ color }}"/>{% endfor %}
+          <line x1="100" y1="100" x2="{{ speed.speedometer.needle_x }}" y2="{{ speed.speedometer.needle_y }}" class="gg-needle"/>
           <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
-          <text x="100" y="160" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ speedometer.value }}</text>
-          <text x="100" y="178" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.5">DEPLOYS THIS WEEK</text>
+          <text x="100" y="158" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ t.typical_deploys_a_week|floatformat:1 }}</text>
+          <text x="100" y="176" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.2">DEPLOYS / WEEK</text>
         </svg>
-        <dl class="grid grid-cols-3 gap-x-4 text-center text-xs" style="color: var(--gg-text-dim)" data-speed-readouts>
-          <div><dt>Lead time</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.lead_time|duration }}</dd></div>
-          <div><dt>Merged/wk</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.merged_per_week|floatformat:1 }}</dd></div>
-          <div><dt>Open PRs</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.open_now }}</dd></div>
+        <span class="-mt-1 text-xs" style="color: var(--gg-text-dim)">
+          typical project ·
+          <span class="badge badge-xs {% if speed.deploy_tier == 'elite' %}badge-success{% elif speed.deploy_tier == 'high' %}badge-info{% elif speed.deploy_tier == 'medium' %}badge-warning{% elif speed.deploy_tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                title="DORA: Elite deploys most days (3+ a week), High weekly, Medium monthly">{{ speed.deploy_tier.label }}</span>
+        </span>
+
+        <dl class="w-full flex flex-col gap-2 text-xs" style="color: var(--gg-text-dim)" data-speed-readouts>
+          <div class="flex flex-col gap-1" data-readout="lead">
+            <div class="flex items-baseline justify-between"><dt>Lead time</dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.lead_time|duration }}</dd></div>
+            {% include "partials/band_meter.html" with meter=speed.lead label="Lead time, by DORA's bands" %}
+          </div>
+          <div class="flex flex-col gap-1" data-readout="open">
+            <div class="flex items-baseline justify-between"><dt>Open PRs <span class="opacity-70">· {% if t.open_age %}open {{ t.open_age|duration }}{% else %}none{% endif %}</span></dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ t.open_now }}</dd></div>
+            {% include "partials/band_meter.html" with meter=speed.pull_age label="How long open pull requests have been open" %}
+          </div>
+          <div class="flex items-center justify-between gap-3" data-readout="merged">
+            <dt>Merged/wk</dt>
+            <dd class="flex items-center gap-2">
+              <span class="flex items-end gap-px h-4 w-16" aria-hidden="true">{% for height in speed.merged_bars %}<span class="flex-1 bg-secondary rounded-[1px]" style="height: {{ height|default:4 }}%"></span>{% endfor %}</span>
+              <span class="text-sm font-semibold text-base-content tabular-nums">{{ t.merged_per_week|floatformat:1 }}</span>
+              {% if speed.merged_trend_text %}<span class="tabular-nums" title="The last 4 weeks against the 4 before" data-merged-trend>{{ speed.merged_trend_text }}</span>{% endif %}
+            </dd>
+          </div>
+          <div class="flex flex-col gap-1" data-readout="checks">
+            <div class="flex items-baseline justify-between"><dt>Commits checked <span class="opacity-70">· vs 4-wk peak {{ speed.checks_peak }}</span></dt><dd class="text-sm font-semibold text-base-content tabular-nums">{{ speed.checks_this_week }}</dd></div>
+            <div class="h-1.5 w-full rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="{{ speed.checks_this_week }} commits checked this week, {{ speed.checks_share }}% of the busiest of the last 4 weeks"><span class="block h-full bg-primary" style="width: {{ speed.checks_share }}%"></span></div>
+          </div>
         </dl>
-        <span class="text-[11px]" style="color: var(--gg-text-dim)">{{ cockpit.checks_this_week }} commit{{ cockpit.checks_this_week|pluralize }} checked this week</span>
       </a>
       {% endwith %}
 

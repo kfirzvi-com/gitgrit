@@ -27,6 +27,7 @@ from app.domain.delivery.delivery_totals import DeliveryTotals
 from app.domain.delivery.deployment_event import DeploymentEvent
 from app.domain.delivery.deployment_frequency import DeploymentFrequency
 from app.domain.delivery.deployment_strategy import DeploymentStrategy
+from app.domain.delivery.dora_bands import DoraBands
 from app.domain.delivery.dora_tier import DoraTier
 from app.domain.delivery.lead_time import LeadTime
 from app.domain.delivery.lead_time_start import LeadTimeStart
@@ -50,6 +51,7 @@ __all__ = [
     "DeploymentEvent",
     "DeploymentFrequency",
     "DeploymentStrategy",
+    "DoraBands",
     "DoraTier",
     "LeadTime",
     "LeadTimeStart",
