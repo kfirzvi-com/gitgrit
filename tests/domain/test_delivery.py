@@ -282,3 +282,26 @@ class DeliveryTotalsTests(SimpleTestCase):
 
         self.assertEqual(totals.deployments, ())
         self.assertEqual(totals.deployments_per_week, 0.0)
+
+
+class PullRequestOpenTimeTests(SimpleTestCase):
+    def test_time_to_merge_is_the_median_from_opening_to_merge(self):
+        flow = PullRequestFlow.of([pr(1, opened=10, merged=9), pr(2, opened=10, merged=7), pr(3, opened=10, merged=4)], TODAY)
+
+        self.assertEqual(flow.time_to_merge, timedelta(days=3))
+        self.assertEqual(flow.weeks[-1].time_to_merge, timedelta(days=6))  # only #3 merged this week
+        self.assertEqual(flow.weeks[-2].time_to_merge, timedelta(days=2))  # #1 and #2: 1 and 3 days
+        self.assertIsNone(flow.weeks[0].time_to_merge)
+
+    def test_open_ones_are_aged_to_now(self):
+        noon = datetime.combine(TODAY, time(12), tzinfo=timezone.utc)
+
+        flow = PullRequestFlow.of([pr(1, opened=2), pr(2, opened=6), pr(3, opened=30, merged=1)], TODAY, now=noon)
+
+        self.assertEqual(flow.open_age, timedelta(days=4))
+
+    def test_nothing_merged_or_open_has_no_times(self):
+        flow = PullRequestFlow.of([], TODAY)
+
+        self.assertIsNone(flow.time_to_merge)
+        self.assertIsNone(flow.open_age)

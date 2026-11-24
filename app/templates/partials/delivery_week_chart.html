@@ -1,10 +1,10 @@
 {% comment %}A delivery chart (presentation.delivery_chart.DeliveryChart): one bar per week, newest on
 the right, and, when the chart has one, a line over them. `bar` is the bars' colour class, `noun`
-names the bar value in each week's tooltip.{% endcomment %}
+names the bar value in each week's tooltip (a column's own label, when it has one, says it instead).{% endcomment %}
 <div class="relative h-28 border-b border-base-content/15" role="img" aria-label="{{ label }}">
   <div class="absolute inset-0 flex items-end gap-1">
     {% for column in chart.columns %}
-      <div class="flex-1 h-full flex items-end" title="Week of {{ column.starts|date:'M j' }}: {{ column.value }} {{ noun }}{% if chart.has_line %}, {{ column.line_value }} open at its end{% endif %}">
+      <div class="flex-1 h-full flex items-end" title="Week of {{ column.starts|date:'M j' }}: {% if column.label %}{{ column.label }}{% else %}{{ column.value }} {{ noun }}{% endif %}{% if chart.has_line %}, {{ column.line_value }} open at its end{% endif %}">
         <div class="w-full rounded-t {% if column.value %}{{ bar }}{% else %}bg-base-content/10{% endif %}"
              style="height: {% if column.value %}{{ column.height }}%{% else %}2px{% endif %}"></div>
       </div>

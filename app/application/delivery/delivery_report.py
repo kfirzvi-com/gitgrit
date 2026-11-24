@@ -54,7 +54,7 @@ class DeliveryReport:
             frequency=DeploymentFrequency.of(events, now.date(), tz=now.tzinfo),
             recent=tuple(deployments.order_by("-deployed_at")[:RECENT]),
             running=RunningVersion.latest(events),
-            pull_requests=PullRequestFlow.of((pr.facts for pr in pulls), now.date(), tz=now.tzinfo),
+            pull_requests=PullRequestFlow.of((pr.facts for pr in pulls), now.date(), tz=now.tzinfo, now=now),
             open_pull_requests=tuple(
                 pulls.filter(state=PullRequestState.OPEN).order_by("created_at")[:OPEN_LISTED]
             ),

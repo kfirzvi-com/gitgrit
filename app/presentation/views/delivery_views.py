@@ -11,6 +11,7 @@ from app.application.delivery import DeliveryReport, DeliverySyncRequest, Delive
 from app.models import DeliverySettings, Project
 from app.presentation.delivery_chart import DeliveryChart
 from app.presentation.delivery_settings_form import DeliverySettingsForm
+from app.templatetags.time_tags import duration
 
 
 def _project(request, pk) -> Project:
@@ -35,12 +36,24 @@ def _render(request, project: Project, form: DeliverySettingsForm | None = None,
                 [week.merged for week in report.pull_requests.weeks],
                 [week.open_at_end for week in report.pull_requests.weeks],
             ),
+            "merge_chart": DeliveryChart(
+                [week.starts for week in report.pull_requests.weeks],
+                [_hours(week.time_to_merge) for week in report.pull_requests.weeks],
+                labels=[
+                    f"{week.merged} merged, open {duration(week.time_to_merge)} (median)" if week.merged else "nothing merged"
+                    for week in report.pull_requests.weeks
+                ],
+            ),
             "form": form or DeliverySettingsForm(instance=report.settings),
             "open_settings": open_settings,
             "next_refresh": _next_refresh(report.settings),
             "sync_minutes": int(DeliverySyncSchedule.policy().interval.total_seconds() // 60),
         },
     )
+
+
+def _hours(length) -> float:
+    return length.total_seconds() / 3600 if length else 0
 
 
 def _next_refresh(settings: DeliverySettings):

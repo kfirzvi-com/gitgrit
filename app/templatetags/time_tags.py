@@ -43,3 +43,25 @@ def ago(value):
     if not value:
         return ""
     return f"{timesince(value, depth=1)} ago"
+
+
+@register.filter
+def duration(value):
+    """A length of time (a ``timedelta``) as a person says it: "45 minutes",
+    "3.2 hours", "1.5 days", "6 weeks"; "—" when there is none."""
+    if value is None:
+        return "—"
+    minutes = value.total_seconds() / 60
+    if minutes < 60:
+        return f"{max(round(minutes), 1):g} minute{'' if round(minutes) == 1 else 's'}"
+    hours = minutes / 60
+    if hours < 24:
+        return f"{_tenths(hours)} hour{'' if hours == 1 else 's'}"
+    days = hours / 24
+    if days < 14:
+        return f"{_tenths(days)} day{'' if days == 1 else 's'}"
+    return f"{_tenths(days / 7)} weeks"
+
+
+def _tenths(number: float) -> str:
+    return f"{round(number, 1):g}"

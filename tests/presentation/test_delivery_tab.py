@@ -124,3 +124,16 @@ class DeliveryTabTests(TestCase):
         self.assertContains(response, '<span class="badge badge-ghost badge-sm">bot</span>', html=True)
         self.assertContains(response, "draft</span>")
         self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-open-now>2</span>', html=True)
+
+    def test_says_how_long_pull_requests_stay_open(self):
+        DeliverySettings.objects.create(project=self.project, refreshed_at=timezone.now())
+        now = timezone.now()
+        baker.make("app.PullRequest", project=self.project, number=1, state="merged", created_at=now - timedelta(days=3),
+                   merged_at=now - timedelta(days=1), closed_at=now - timedelta(days=1), updated_at=now)
+        baker.make("app.PullRequest", project=self.project, number=2, state="open", created_at=now - timedelta(hours=5),
+                   updated_at=now)
+
+        response = self.client.get(self.url())
+
+        self.assertContains(response, '<span class="text-4xl font-bold tabular-nums" data-time-to-merge>2 days</span>', html=True)
+        self.assertContains(response, "5 hours")

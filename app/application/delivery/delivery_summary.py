@@ -44,7 +44,7 @@ class DeliverySummary:
             pk: cls(
                 running=RunningVersion.latest(events[pk]),
                 frequency=DeploymentFrequency.of(events[pk], now.date(), tz=now.tzinfo),
-                pull_requests=PullRequestFlow.of(pulls[pk], now.date(), tz=now.tzinfo),
+                pull_requests=PullRequestFlow.of(pulls[pk], now.date(), tz=now.tzinfo, now=now),
                 synced=pk in settings and settings[pk].refreshed_at is not None,
             )
             for pk in ids

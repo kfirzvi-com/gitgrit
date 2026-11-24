@@ -1,4 +1,4 @@
-{# The project page's Delivery tab: what runs in production and what waits  #}
+{% load time_tags %}{# The project page's Delivery tab: what runs in production and what waits  #}
 {# to ship, DORA deployment frequency, pull request flow, open pull requests, #}
 {# the latest deployments and how they are counted (and changing that).       #}
 {# While a sync runs, the tab polls itself every 2 seconds.                   #}
@@ -115,6 +115,29 @@
     </div>
     {% endwith %}
   </div>
+
+  {# How long pull requests stay open: merged ones until merge, open ones so far #}
+  {% with flow=report.pull_requests %}
+  <div class="card bg-base-100 shadow-xl" data-pull-request-open-time>
+    <div class="card-body p-5 gap-4 [&_p]:grow-0">
+      <div>
+        <h2 class="card-title text-base">How long pull requests stay open</h2>
+        <p class="text-xs opacity-60">Last 13 weeks · from opening to merge</p>
+      </div>
+      <div class="flex flex-wrap gap-x-10 gap-y-2">
+        <div>
+          <span class="text-4xl font-bold tabular-nums" data-time-to-merge>{{ flow.time_to_merge|duration }}</span>
+          <span class="text-sm opacity-70">to merge (median)</span>
+        </div>
+        <div>
+          <span class="text-4xl font-bold tabular-nums" data-open-age>{{ flow.open_age|duration }}</span>
+          <span class="text-sm opacity-70">open so far, for the {{ flow.open_now }} still open (median)</span>
+        </div>
+      </div>
+      {% include "partials/delivery_week_chart.html" with chart=merge_chart bar="bg-secondary" label="Median time from opening to merge, per week of merge, over the last 13 weeks" noun="" %}
+    </div>
+  </div>
+  {% endwith %}
 
   {# Open pull requests, oldest first #}
   <div class="card bg-base-100 shadow-xl" data-open-pull-requests>

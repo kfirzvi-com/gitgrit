@@ -82,3 +82,14 @@ class ProjectListColumnsTests(TestCase):
         self.assertContains(response, '[data-smart-hidden~="platform"] [data-smart-column="platform"]{display:none}')
         self.assertContains(response, 'data-smart-menu="columns"')
         self.assertContains(response, '<td data-smart-column="platform">')
+
+
+class DurationFilterTests(TestCase):
+    def test_says_a_length_of_time_in_one_unit(self):
+        from app.templatetags.time_tags import duration
+
+        self.assertEqual(duration(timedelta(minutes=45)), "45 minutes")
+        self.assertEqual(duration(timedelta(hours=3, minutes=12)), "3.2 hours")
+        self.assertEqual(duration(timedelta(days=1, hours=12)), "1.5 days")
+        self.assertEqual(duration(timedelta(weeks=6)), "6 weeks")
+        self.assertEqual(duration(None), "—")
