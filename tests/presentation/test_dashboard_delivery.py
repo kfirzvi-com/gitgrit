@@ -171,3 +171,13 @@ class DeliverySpeedBarTipsTests(DashboardDeliveryTests):
         self.assertContains(response, "<title>High: weekly, 1 to 3 deploys a week</title>")
         self.assertContains(response, "Elite &lt; 1 day · High &lt; 1 week · Medium &lt; 1 month")
         self.assertContains(response, "Fresh &lt; 1 day · Aging &lt; 1 week · Stale beyond")
+
+
+class DeployChartLabelTests(DashboardDeliveryTests):
+    def test_each_week_counts_its_deploys_in_words(self):
+        response = self.client.get(reverse("dashboard"))
+
+        # The fixture's two deployments land in this week; the rest have none.
+        self.assertContains(response, ': 2 deploys"')
+        self.assertContains(response, ': 0 deploys"')
+        self.assertNotContains(response, ' deploy"')
