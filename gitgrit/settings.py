@@ -592,5 +592,13 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        # Delivery syncs' GitHub calls: one line each, with its status (304:
+        # unchanged, free) and the token's allowance left, to watch the rate
+        # limit. GITGRIT_DELIVERY_LOG_LEVEL=WARNING keeps only failures.
+        "app.infrastructure.delivery": {
+            "handlers": ["console_timestamped"],
+            "level": os.environ.get("GITGRIT_DELIVERY_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
     },
 }
