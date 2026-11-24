@@ -99,3 +99,14 @@ class DurationFilterTests(TestCase):
         self.assertEqual(duration(timedelta(days=1, hours=12)), "1.5 days")
         self.assertEqual(duration(timedelta(weeks=6)), "6 weeks")
         self.assertEqual(duration(None), "—")
+
+
+class ShortDurationFilterTests(TestCase):
+    def test_says_a_length_of_time_in_a_few_characters(self):
+        from app.templatetags.time_tags import short_duration
+
+        self.assertEqual(short_duration(timedelta(minutes=45)), "45m")
+        self.assertEqual(short_duration(timedelta(hours=19, minutes=36)), "19.6h")
+        self.assertEqual(short_duration(timedelta(days=3, hours=12)), "3.5d")
+        self.assertEqual(short_duration(timedelta(weeks=6)), "6w")
+        self.assertEqual(short_duration(None), "—")

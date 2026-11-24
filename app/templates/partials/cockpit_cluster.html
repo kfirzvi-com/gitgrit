@@ -12,17 +12,47 @@
       week (their trend) and commits checked (against the busiest of the last four weeks). Each has an ⓘ
       saying how it is counted across the workspace and what good looks like (partials/info_tip.html).{% endcomment %}
       {% with t=speed.totals %}
-      <div class="flex flex-col items-center gap-1.5 w-full max-w-[18rem] md:translate-y-10" data-gauge="speed">
+      <div class="flex flex-col items-center gap-1.5 w-full max-w-[22rem] md:translate-y-10" data-gauge="speed">
         <span class="gg-eyebrow text-center inline-flex items-center gap-1.5">Delivery speed {% include "partials/info_tip.html" with tip=speed.tips.dora key="dora" bands=speed.bands %}</span>
-        <svg viewBox="0 0 200 200" class="w-[120px] h-[120px]" role="img"
-             aria-label="The typical project deploys {{ t.typical_deploys_a_week|floatformat:1 }} times a week: DORA {{ speed.deploy_tier.label }}">
-          <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
-          {% for path, color in speed.zones %}<path d="{{ path }}" fill="none" stroke="var(--color-{{ color }})" stroke-width="8" opacity="{% if color == speed.deploys.band.css|cut:'bg-' %}1{% else %}0.3{% endif %}" data-zone="{{ color }}"/>{% endfor %}
-          <line x1="100" y1="100" x2="{{ speed.speedometer.needle_x }}" y2="{{ speed.speedometer.needle_y }}" class="gg-needle"/>
-          <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
-          <text x="100" y="158" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ t.typical_deploys_a_week|floatformat:1 }}</text>
-          <text x="100" y="176" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.2">DEPLOYS / WEEK</text>
-        </svg>
+        {% comment %}Secondary to the health dial: the gauge flanked by thin upright bars, like the
+        temperature and fuel gauges beside a car's speedometer — lead time and merges on its left, open
+        pull requests and commits checked on its right.{% endcomment %}
+        <div class="flex items-end justify-center gap-1.5" data-speed-readouts>
+          <div class="flex flex-col items-center gap-1 w-11" data-readout="lead">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="{{ t.lead_time|duration }} (median)">{{ t.lead_time|short_duration }}</span>
+            {% include "partials/band_meter_vertical.html" with meter=speed.lead label="Lead time, by DORA's bands" %}
+            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Lead {% include "partials/info_tip.html" with tip=speed.tips.lead key="lead" bands=speed.bands align="left" %}</span>
+            
+          </div>
+          <div class="flex flex-col items-center gap-1 w-11" data-readout="merged">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="Merges a week across the workspace{% if speed.merged_trend_text %}; {{ speed.merged_trend_text }} in the last 4 weeks against the 4 before{% endif %}" data-merged-trend>{{ t.merged_per_week|floatformat:1 }}{% if speed.merged_trend_arrow %}<span class="ml-px text-[9px] font-normal opacity-70">{{ speed.merged_trend_arrow }}</span>{% endif %}</span>
+            <div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="Merges in the last 4 weeks at {{ speed.merged_share }}% of the busiest week"><span class="absolute bottom-0 inset-x-0 bg-secondary/80" style="height: {{ speed.merged_share }}%"></span></div>
+            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Merged {% include "partials/info_tip.html" with tip=speed.tips.merged key="merged" align="left" %}</span>
+          </div>
+          <div class="flex flex-col items-center px-1">
+            <svg viewBox="0 0 200 200" class="w-[120px] h-[120px]" role="img"
+                 aria-label="The typical project deploys {{ t.typical_deploys_a_week|floatformat:1 }} times a week: DORA {{ speed.deploy_tier.label }}">
+              <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
+              {% for path, color in speed.zones %}<path d="{{ path }}" fill="none" stroke="var(--color-{{ color }})" stroke-width="8" opacity="{% if color == speed.deploys.band.css|cut:'bg-' %}1{% else %}0.3{% endif %}" data-zone="{{ color }}"/>{% endfor %}
+              <line x1="100" y1="100" x2="{{ speed.speedometer.needle_x }}" y2="{{ speed.speedometer.needle_y }}" class="gg-needle"/>
+              <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
+              <text x="100" y="158" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ t.typical_deploys_a_week|floatformat:1 }}</text>
+              <text x="100" y="176" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.2">DEPLOYS / WEEK</text>
+            </svg>
+          </div>
+          <div class="flex flex-col items-center gap-1 w-11" data-readout="open">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="{% if t.open_age %}Open {{ t.open_age|duration }} (median){% endif %}">{{ t.open_now }}</span>
+            {% include "partials/band_meter_vertical.html" with meter=speed.pull_age label="How long open pull requests have been open" %}
+            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">PRs {% include "partials/info_tip.html" with tip=speed.tips.open key="open" %}</span>
+            
+          </div>
+          <div class="flex flex-col items-center gap-1 w-11" data-readout="checks">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="Commits checked this week; the busiest of the last 4 weeks had {{ speed.checks_peak }}">{{ speed.checks_this_week }}</span>
+            <div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="{{ speed.checks_this_week }} commits checked this week, {{ speed.checks_share }}% of the busiest of the last 4 weeks"><span class="absolute bottom-0 inset-x-0 bg-primary/70" style="height: {{ speed.checks_share }}%"></span></div>
+            <span class="inline-flex items-center gap-0.5 text-[9px] whitespace-nowrap" style="color: var(--gg-text-dim)">Checked {% include "partials/info_tip.html" with tip=speed.tips.checks key="checks" %}</span>
+            
+          </div>
+        </div>
         <span class="-mt-1 text-[11px]" style="color: var(--gg-text-dim)">
           typical project ·
           <span class="badge badge-xs {% if speed.deploy_tier == 'elite' %}badge-success{% elif speed.deploy_tier == 'high' %}badge-info{% elif speed.deploy_tier == 'medium' %}badge-warning{% elif speed.deploy_tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
@@ -30,28 +60,6 @@
           {% include "partials/info_tip.html" with tip=speed.tips.deploys key="deploys" bands=speed.bands %}
         </span>
 
-        {% comment %}Secondary to the health dial: small, dim, two by two.{% endcomment %}
-        <dl class="w-full grid grid-cols-2 gap-x-3 gap-y-2.5 text-[11px] leading-tight whitespace-nowrap" style="color: var(--gg-text-dim)" data-speed-readouts>
-          <div class="flex flex-col gap-1 min-w-0" data-readout="lead">
-            <div class="flex items-center justify-between gap-1"><dt class="inline-flex items-center gap-1">Lead time {% include "partials/info_tip.html" with tip=speed.tips.lead key="lead" bands=speed.bands align="left" %}</dt><dd class="font-semibold text-base-content/90 tabular-nums">{{ t.lead_time|duration }}</dd></div>
-            {% include "partials/band_meter.html" with meter=speed.lead label="Lead time, by DORA's bands" %}
-          </div>
-          <div class="flex flex-col gap-1 min-w-0" data-readout="open">
-            <div class="flex items-center justify-between gap-1"><dt class="inline-flex items-center gap-1">Open PRs {% include "partials/info_tip.html" with tip=speed.tips.open key="open" %}</dt><dd class="font-semibold text-base-content/90 tabular-nums" title="{% if t.open_age %}Open {{ t.open_age|duration }} (median){% endif %}">{{ t.open_now }}</dd></div>
-            {% include "partials/band_meter.html" with meter=speed.pull_age label="How long open pull requests have been open" %}
-          </div>
-          <div class="flex flex-col gap-1 min-w-0" data-readout="merged">
-            <div class="flex items-center justify-between gap-1"><dt class="inline-flex items-center gap-1">Merged/wk {% include "partials/info_tip.html" with tip=speed.tips.merged key="merged" align="left" %}</dt><dd class="font-semibold text-base-content/90 tabular-nums">{{ t.merged_per_week|floatformat:1 }}</dd></div>
-            <div class="flex items-end gap-1.5">
-              <span class="flex items-end gap-px h-3 flex-1" aria-hidden="true">{% for height in speed.merged_bars %}<span class="flex-1 bg-secondary/70 rounded-[1px]" style="height: {{ height|default:4 }}%"></span>{% endfor %}</span>
-              {% if speed.merged_trend_text %}<span class="tabular-nums text-[10px]" title="The last 4 weeks against the 4 before" data-merged-trend>{{ speed.merged_trend_text }}</span>{% endif %}
-            </div>
-          </div>
-          <div class="flex flex-col gap-1 min-w-0" data-readout="checks">
-            <div class="flex items-center justify-between gap-1"><dt class="inline-flex items-center gap-1">Checked {% include "partials/info_tip.html" with tip=speed.tips.checks key="checks" %}</dt><dd class="font-semibold text-base-content/90 tabular-nums" title="Commits checked this week; the busiest of the last 4 weeks had {{ speed.checks_peak }}">{{ speed.checks_this_week }}</dd></div>
-            <div class="h-1 w-full rounded-full bg-base-content/10 overflow-hidden" role="img" aria-label="{{ speed.checks_this_week }} commits checked this week, {{ speed.checks_share }}% of the busiest of the last 4 weeks"><span class="block h-full bg-primary/70" style="width: {{ speed.checks_share }}%"></span></div>
-          </div>
-        </dl>
         <a href="#tab-delivery" class="link link-hover text-[10px] self-end" style="color: var(--gg-text-dim)">Delivery details &rarr;</a>
       </div>
       {% endwith %}

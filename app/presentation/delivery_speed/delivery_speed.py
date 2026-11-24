@@ -123,10 +123,27 @@ class DeliverySpeed:
         return f"{arrow} {abs(trend)}%"
 
     @property
+    def merged_trend_arrow(self) -> str:
+        trend = self.merged_trend
+        if trend is None:
+            return ""
+        return "↑" if trend > 0 else "↓" if trend < 0 else "→"
+
+    @property
     def merged_bars(self) -> list[int]:
         """The merges' weekly bars as heights in percent of the busiest."""
         most = max(self.totals.merged, default=0)
         return [round(100 * count / most) if most else 0 for count in self.totals.merged]
+
+    @property
+    def merged_share(self) -> int:
+        """The last four weeks' merges a week against the busiest week, in
+        percent: how full the merges bar stands."""
+        merged = self.totals.merged
+        most = max(merged, default=0)
+        if not most:
+            return 0
+        return round(100 * sum(merged[-TREND_WEEKS:]) / TREND_WEEKS / most)
 
     @property
     def checks_share(self) -> int:

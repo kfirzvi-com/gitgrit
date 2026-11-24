@@ -65,3 +65,21 @@ def duration(value):
 
 def _tenths(number: float) -> str:
     return f"{round(number, 1):g}"
+
+
+@register.filter
+def short_duration(value):
+    """A length of time in a few characters, for tight spaces: "45m",
+    "19.6h", "3.5d", "6w"; "—" when there is none."""
+    if value is None:
+        return "—"
+    minutes = value.total_seconds() / 60
+    if minutes < 60:
+        return f"{max(round(minutes), 1)}m"
+    hours = minutes / 60
+    if hours < 24:
+        return f"{_tenths(hours)}h"
+    days = hours / 24
+    if days < 14:
+        return f"{_tenths(days)}d"
+    return f"{_tenths(days / 7)}w"
