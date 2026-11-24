@@ -149,11 +149,12 @@ class DeliverySpeedTipsTests(DashboardDeliveryTests):
     def test_every_readout_explains_how_it_is_counted_and_dora_is_introduced(self):
         response = self.client.get(reverse("dashboard"))
 
-        for key in ("dora", "deploys", "lead", "open", "merged", "checks"):
-            self.assertContains(response, f'aria-describedby="tip-{key}"')
+        self.assertContains(response, 'aria-describedby="tip-dora"')
         self.assertContains(response, "DevOps Research and Assessment")
-        self.assertContains(response, "The gauge shows the median project")
-        self.assertContains(response, "added up across projects")
+        # Each reading says how it is counted in its own hover card.
+        self.assertContains(response, "DORA ranks projects, so the gauge shows the median one")
+        self.assertContains(response, "Open now, added up across projects")
+        self.assertNotContains(response, "typical project ·")
 
 
 class DeliverySpeedBarTipsTests(DashboardDeliveryTests):

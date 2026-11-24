@@ -33,16 +33,16 @@ TIPS = {
     ),
     "deploys": InfoTip(
         "Deploys a week",
-        "Each project's deploys a week over the last 13 weeks. The gauge shows the median project: "
-        "half deploy more often, half less.",
+        "Each project's deploys a week over 13 weeks. DORA ranks projects, so the gauge shows the "
+        "median one: half deploy more often, half less.",
         "Elite: most days (3+ a week). High: weekly. Medium: monthly. Low: less often.",
         dora=True,
         reading_label="What good looks like",
     ),
     "lead": InfoTip(
         "Lead time for changes",
-        "How long each change shipped in the last 13 weeks took to reach production, across every "
-        "project (each from its own start, the commit by default). This is the median change.",
+        "Every change shipped in 13 weeks across all projects, each from its own start (the commit "
+        "by default): the median one.",
         "Elite: under a day. High: under a week. Medium: under a month. Low: longer.",
         dora=True,
         reading_label="What good looks like",
@@ -101,26 +101,31 @@ class DeliverySpeed:
                 f"{totals.typical_deploys_a_week:.1f} deploys a week, typical project",
                 f"{tier.label}: {tier.cadence.lower()}" if totals.deployments else "No deployments yet",
                 "Projects: " + " · ".join(counted) if counted else "",
+                TIPS["deploys"].how,
             ),
             "lead": BarTip(
                 f"Lead time {duration(totals.lead_time)}",
                 f"{lead.label}: {self.lead_tier.lead_time.lower()}" if lead else "No changes shipped yet",
                 "Elite < 1 day · High < 1 week · Medium < 1 month",
+                TIPS["lead"].how,
             ),
             "merged": BarTip(
                 f"{totals.merged_per_week:.1f} merged a week",
                 f"{self.merged_trend_text} in the last 4 weeks against the 4 before" if self.merged_trend_text else "",
                 f"Bar: the last 4 weeks at {self.merged_share}% of the busiest week",
+                "Across every project, averaged over 13 weeks. No right number: watch the trend.",
             ),
             "open": BarTip(
                 f"{totals.open_now} open pull request{'' if totals.open_now == 1 else 's'}",
                 f"{age.label}: open {duration(totals.open_age)} (median)" if age else "None open",
                 "Fresh < 1 day · Aging < 1 week · Stale beyond",
+                "Open now, added up across projects. Not a DORA metric.",
             ),
             "checks": BarTip(
                 f"{self.checks_this_week} commit{'' if self.checks_this_week == 1 else 's'} checked this week",
                 f"The busiest of the last 4 weeks had {self.checks_peak}",
                 f"Bar: this week at {self.checks_share}% of that",
+                "Commits checked against your standards, across every project: activity, not delivery.",
             ),
         }
 
