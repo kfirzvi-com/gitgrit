@@ -55,8 +55,9 @@ GitGrit is not an AI code reviewer. AI reviewers such as CodeRabbit comment on o
 - [Self-hosting](https://gitgrit.dev/self-hosting/)
 
 ## Features
-- [Dashboard](https://gitgrit.dev/features/dashboard/): workspace health, warning lights, the projects that need you, AI usage
-- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, bulk edit
+- [Dashboard](https://gitgrit.dev/features/dashboard/): delivery speed, workspace health, warning lights, the projects that need you, AI usage
+- [Delivery Metrics](https://gitgrit.dev/features/delivery/): DORA deployment frequency and lead time for changes per project, pull request flow and time to merge, what runs in production and what waits to ship, read from GitHub
+- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, choose columns, bulk edit
 - [Stacks & the Stack Map](https://gitgrit.dev/features/stacks/): group projects into systems; an AI-built map of services, dependencies and infrastructure
 - [AI Standards & Budgets](https://gitgrit.dev/features/ai/): bring your own model (Anthropic, OpenAI, Bedrock, Vertex, Ollama…), LLM standards, per-model token budgets
 - [Notifications](https://gitgrit.dev/features/notifications/): who is told when standards fail, a project fails, a connection breaks or a budget runs low
@@ -102,8 +103,9 @@ ${FAQ_PLAIN}
 - [Self-hosting](https://gitgrit.dev/self-hosting/)
 
 ## Features
-- [Dashboard](https://gitgrit.dev/features/dashboard/): workspace health, warning lights, the projects that need you, AI usage
-- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, bulk edit
+- [Dashboard](https://gitgrit.dev/features/dashboard/): delivery speed, workspace health, warning lights, the projects that need you, AI usage
+- [Delivery Metrics](https://gitgrit.dev/features/delivery/): DORA deployment frequency and lead time for changes per project, pull request flow and time to merge, what runs in production and what waits to ship, read from GitHub
+- [Search & Bulk Edit](https://gitgrit.dev/features/search/): GitHub-style filters (health:failed lifecycle:production), sort, group, choose columns, bulk edit
 - [Stacks & the Stack Map](https://gitgrit.dev/features/stacks/): group projects into systems; an AI-built map of services, dependencies and infrastructure
 - [AI Standards & Budgets](https://gitgrit.dev/features/ai/): bring your own model (Anthropic, OpenAI, Bedrock, Vertex, Ollama…), LLM standards, per-model token budgets
 - [Notifications](https://gitgrit.dev/features/notifications/): who is told when standards fail, a project fails, a connection breaks or a budget runs low
