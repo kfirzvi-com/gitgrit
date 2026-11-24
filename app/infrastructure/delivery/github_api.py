@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Callable, Iterator
 
@@ -9,6 +10,9 @@ from django.core.cache import caches
 
 from app.application.delivery import RateLimited, SourceUnavailable
 from app.domain.delivery import RateLimit
+from app.infrastructure.delivery.github_not_found import GitHubNotFound
+
+logger = logging.getLogger(__name__)
 
 TIMEOUT = 15
 MAX_PAGES = 20
@@ -33,6 +37,12 @@ class GitHubApi:
     almost nothing to sync. The allowance left is remembered per token, and
     once it runs low (``RateLimit.is_low``) calls stop with ``RateLimited``
     until it resets.
+
+    Every answer GitHub gives that is not plain data becomes a
+    ``SourceUnavailable`` saying what to do (``GitHubNotFound`` for a 404 or
+    422, which some callers expect), so a sync notes it on the project
+    rather than failing. Each request logs one line: the path, the status
+    (304: unchanged, free) and what is left of the allowance.
     """
 
     def __init__(self, base_url: str, token: str, full_path: str, cache=None, now=None):
@@ -77,17 +87,37 @@ class GitHubApi:
         headers = dict(self._headers)
         if cached:
             headers["If-None-Match"] = cached["etag"]
-        response = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
+        except requests.RequestException as error:
+            logger.warning("github GET %s failed: %s", _path(url), error)
+            raise SourceUnavailable("GitHub did not answer; the next sync tries again.") from error
         self._note_allowance(response)
-        if response.status_code == 304 and cached:
+        logger.info(
+            "github GET %s -> %s (%s/%s left)",
+            _path(url), response.status_code,
+            response.headers.get("X-RateLimit-Remaining", "?"), response.headers.get("X-RateLimit-Limit", "?"),
+        )
+        status = response.status_code
+        if status == 304 and cached:
             return cached["body"], cached["next"]
-        if response.status_code == 403 and response.headers.get("X-RateLimit-Remaining") == "0":
+        if status in (403, 429) and response.headers.get("X-RateLimit-Remaining") == "0":
             raise RateLimited(_reset_time(response))
-        if response.status_code == 403:
+        if status == 401:
+            raise SourceUnavailable(
+                "GitHub refused the connection's token (expired or revoked): reconnect it in workspace settings."
+            )
+        if status == 403:
             raise SourceUnavailable(
                 f"The GitHub token can't read this repository's {permission.lower()}: give it "
                 f"{permission} read access, with this repository among those it can reach."
             )
+        if status in (404, 422):
+            raise GitHubNotFound(
+                "GitHub can't find this repository or what was asked of it: it may have been renamed or moved."
+            )
+        if status >= 500:
+            raise SourceUnavailable(f"GitHub answered with an error ({status}); the next sync tries again.")
         response.raise_for_status()
         body = response.json()
         if slim:
@@ -116,6 +146,11 @@ class GitHubApi:
             return
         allowance = RateLimit(limit=int(limit), remaining=int(remaining), resets_at=_reset_time(response))
         self._cache.set(self._allowance_key(), allowance, 3600)
+
+
+def _path(url: str) -> str:
+    """A URL without its host, for the log."""
+    return url.split("://", 1)[-1].split("/", 1)[-1]
 
 
 def _reset_time(response: requests.Response) -> datetime:

@@ -153,7 +153,9 @@ class RepositoryActivityTests(SimpleTestCase):
         from app.infrastructure.delivery.github_repository_activity import GitHubRepositoryActivity
 
         api = mock.Mock()
-        api.get.side_effect = requests.HTTPError(response=mock.Mock(status_code=404))
+        from app.infrastructure.delivery.github_not_found import GitHubNotFound
+
+        api.get.side_effect = GitHubNotFound("gone")
 
         self.assertIsNone(GitHubRepositoryActivity(api).pending_commits("gone", "main"))
 

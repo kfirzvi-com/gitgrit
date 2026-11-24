@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import requests
-
 from app.domain.delivery import PendingCommits, PullRequestFacts, ShippedCommit
 from app.infrastructure.delivery.github_api import GitHubApi, github_time
+from app.infrastructure.delivery.github_not_found import GitHubNotFound
 from app.infrastructure.delivery.github_pull_requests import pull_request_facts, slim_pull_request
 
 PULLS = "Pull requests"
@@ -25,12 +24,10 @@ class GitHubRepositoryActivity:
     def pending_commits(self, deployed_sha: str, branch: str) -> PendingCommits | None:
         try:
             compared = self._api.get(f"compare/{deployed_sha}...{branch}", slim=_slim_compare)
-        except requests.HTTPError as error:
+        except GitHubNotFound:
             # The deployed commit is gone from the repository (a force-push)
             # or the branch is: there is nothing to compare.
-            if error.response is not None and error.response.status_code in (404, 422):
-                return None
-            raise
+            return None
         if not compared["ahead_by"]:
             return PendingCommits(0)
         return PendingCommits(compared["ahead_by"], github_time(compared["oldest"]))
@@ -53,10 +50,8 @@ class GitHubRepositoryActivity:
             items = list(self._api.pages(
                 f"compare/{base_sha}...{head_sha}", {"per_page": 100}, key="commits", slim=_slim_commit
             ))
-        except requests.HTTPError as error:
-            if error.response is not None and error.response.status_code in (404, 422):
-                return None
-            raise
+        except GitHubNotFound:
+            return None
         return [
             ShippedCommit(sha=item["sha"], authored_at=github_time(item["authored_at"]), first_parent_sha=item["parent"])
             for item in items[-MAX_SHIPPED:]

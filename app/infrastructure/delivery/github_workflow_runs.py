@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import requests
-
 from app.application.delivery import SourceUnavailable
 from app.domain.delivery import DeploymentEvent, DeploymentStrategy
 from app.infrastructure.delivery.github_api import GitHubApi, github_time
+from app.infrastructure.delivery.github_not_found import GitHubNotFound
 
 _FAILED = {"failure", "timed_out"}
 
@@ -40,10 +39,8 @@ class GitHubWorkflowRuns:
                     f"actions/workflows/{self._workflow}/runs", params, permission="Actions", key="workflow_runs"
                 )
             )
-        except requests.HTTPError as error:
-            if error.response is not None and error.response.status_code == 404:
-                raise SourceUnavailable(f"The repository has no workflow named {self._workflow}.") from error
-            raise
+        except GitHubNotFound as error:
+            raise SourceUnavailable(f"The repository has no workflow named {self._workflow}.") from error
         return [self._event(run) for run in runs if run["conclusion"] == "success" or run["conclusion"] in _FAILED]
 
     def _event(self, run: dict) -> DeploymentEvent:

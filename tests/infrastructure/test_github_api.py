@@ -85,3 +85,33 @@ class GitHubApiTests(SimpleTestCase):
                 self.assertEqual(self.api().get("pulls/1"), {"n": 2})
 
         self.assertNotIn("If-None-Match", get.call_args_list[1].kwargs["headers"])
+
+    def test_a_refused_token_is_a_notice_to_reconnect_not_a_crash(self):
+        with mock.patch("requests.get", return_value=answer(status=401)):
+            with self.assertRaisesMessage(SourceUnavailable, "reconnect it in workspace settings"):
+                self.api().get("deployments")
+
+    def test_not_found_is_its_own_kind_so_callers_that_expect_it_can_catch_it(self):
+        from app.infrastructure.delivery.github_not_found import GitHubNotFound
+
+        for status in (404, 422):
+            with mock.patch("requests.get", return_value=answer(status=status)):
+                with self.assertRaises(GitHubNotFound):
+                    self.api().get("compare/a...b")
+
+    def test_server_errors_and_network_failures_wait_for_the_next_sync(self):
+        import requests
+
+        with mock.patch("requests.get", return_value=answer(status=502)):
+            with self.assertRaisesMessage(SourceUnavailable, "the next sync tries again"):
+                self.api().get("pulls")
+        with mock.patch("requests.get", side_effect=requests.ConnectionError("dns")):
+            with self.assertRaisesMessage(SourceUnavailable, "GitHub did not answer"):
+                self.api().get("pulls")
+
+    def test_each_request_logs_its_path_status_and_allowance_left(self):
+        with mock.patch("requests.get", return_value=answer(body={}, remaining=4321)):
+            with self.assertLogs("app.infrastructure.delivery.github_api", level="INFO") as logs:
+                self.api().get("pulls/1")
+
+        self.assertIn("github GET repos/acme/shop/pulls/1 -> 200 (4321/5000 left)", logs.output[0])
