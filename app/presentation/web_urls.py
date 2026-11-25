@@ -35,6 +35,11 @@ from app.presentation.views.standard_views import (
     run_standard_test,
     toggle_standard,
 )
+from app.presentation.views.delivery_views import (
+    project_delivery,
+    project_delivery_refresh,
+    project_delivery_settings,
+)
 from app.presentation.views.project_views import (
     bulk_edit_projects,
     EditProjectView,
@@ -338,6 +343,9 @@ urlpatterns = [
         name="project_standards",
     ),
     path("schedules/preview/", schedule_preview, name="schedule_preview"),
+    path("projects/<uuid:pk>/delivery/", project_delivery, name="project_delivery"),
+    path("projects/<uuid:pk>/delivery/refresh/", project_delivery_refresh, name="project_delivery_refresh"),
+    path("projects/<uuid:pk>/delivery/settings/", project_delivery_settings, name="project_delivery_settings"),
     path(
         "projects/<uuid:pk>/history/",
         project_history,

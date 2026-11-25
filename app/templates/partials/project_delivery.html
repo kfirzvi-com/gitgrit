@@ -1,0 +1,248 @@
+{% load time_tags %}{% comment %}The project page's Delivery tab, compact so it reads at a glance: a strip with
+what runs in production, what waits to ship and how delivery is measured (sync, Refresh, settings);
+one row of four metric cards (the DORA pair, deployment frequency and lead time for changes, then
+pull requests merged and open, and how long they stay open), each with a small weekly chart; then
+open pull requests beside the latest deployments. While a sync runs, the tab polls itself every 2
+seconds.{% endcomment %}
+{% with frequency=report.frequency tier=report.frequency.tier lead=report.lead_time flow=report.pull_requests %}
+<div id="project-delivery" class="flex flex-col gap-4"
+     {% if settings.refreshing %}hx-get="{% url 'project_delivery' project.pk %}" hx-trigger="every 2s" hx-swap="outerHTML" data-no-loader{% endif %}>
+
+  {# Running now and how delivery is measured #}
+  <div class="card bg-base-100 shadow-xl" data-running-now>
+    <div class="card-body p-4 gap-3 [&_p]:grow-0">
+      <div class="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <div class="min-w-0">
+          <p class="text-[11px] uppercase tracking-wide opacity-60">Running in production</p>
+          {% with running=report.running %}
+            {% if running %}
+              <p class="flex items-baseline gap-2 flex-wrap">
+                {% if project.web_url %}
+                  <a class="text-xl font-bold link link-hover {% if not running.version %}font-mono{% endif %}" data-running-version
+                     href="{{ project.web_url }}{% if running.tagged %}/releases/tag/{{ running.ref|urlencode }}{% else %}/commit/{{ running.sha }}{% endif %}"
+                     target="_blank" rel="noopener noreferrer">{{ running.label }}</a>
+                {% else %}
+                  <span class="text-xl font-bold" data-running-version>{{ running.label }}</span>
+                {% endif %}
+                {% if running.version %}<span class="font-mono text-xs opacity-60">{{ running.short_sha }}</span>{% endif %}
+                <span class="text-xs opacity-70" title="{{ running.deployed_at }}">deployed {{ running.deployed_at|ago }}{% if running.environment %} · {{ running.environment }}{% endif %}</span>
+              </p>
+            {% elif settings.refreshing %}
+              <p class="text-base opacity-60">Looking for deployments…</p>
+            {% else %}
+              <p class="text-base opacity-60">No deployment in the last 13 weeks</p>
+            {% endif %}
+          {% endwith %}
+        </div>
+        {% with pending=report.pending %}
+          {% if report.running and pending %}
+            <div class="min-w-0" data-pending-commits="{{ pending.count }}">
+              <p class="text-[11px] uppercase tracking-wide opacity-60">Waiting to ship</p>
+              <p class="flex items-baseline gap-2">
+                {% if pending.any %}
+                  <span class="text-xl font-bold tabular-nums">{% if project.web_url %}<a class="link link-hover" href="{{ project.web_url }}/compare/{{ report.running.sha }}...{{ project.default_branch|urlencode }}" target="_blank" rel="noopener noreferrer">{{ pending.count }}</a>{% else %}{{ pending.count }}{% endif %}</span>
+                  <span class="text-xs opacity-70">commit{{ pending.count|pluralize }} on {{ project.default_branch }}, oldest {{ pending.oldest_at|ago }}</span>
+                {% else %}
+                  <span class="text-xl font-bold">0</span><span class="text-xs opacity-70">{{ project.default_branch }} is all in production</span>
+                {% endif %}
+              </p>
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {% if report.strategy %}
+            <span title="{{ report.strategy.description }}">Counted by <span class="font-semibold" data-strategy-in-use="{{ report.strategy }}">{{ report.strategy.label }}</span>{% if settings.strategy == "auto" %} <span class="badge badge-ghost badge-xs">detected</span>{% endif %}</span>
+          {% endif %}
+          <span class="opacity-60 flex items-center gap-1.5">
+            {% if settings.refreshing %}<span class="loading loading-spinner loading-xs"></span> Syncing from {{ project.get_platform_display }}…
+            {% elif settings.refreshed_at %}<span data-synced>Synced {{ settings.refreshed_at|ago }} · syncs every {{ sync_minutes }} minutes</span>{% endif %}
+          </span>
+          <form hx-post="{% url 'project_delivery_refresh' project.pk %}" hx-target="#project-delivery" hx-swap="outerHTML">
+            <button type="submit" class="btn btn-xs btn-ghost border border-base-content/20 font-normal"
+                    {% if settings.refreshing or next_refresh %}disabled{% endif %}
+                    {% if next_refresh %}title="Synced moments ago; Refresh works again in {{ next_refresh|timeuntil }}"{% endif %}>Refresh</button>
+          </form>
+        <button type="button" class="btn btn-xs btn-ghost border border-base-content/20 font-normal" aria-expanded="{% if open_settings %}true{% else %}false{% endif %}"
+                aria-controls="delivery-settings-{{ project.pk }}" data-delivery-settings-toggle>Settings</button>
+        </div>
+      </div>
+      <div id="delivery-settings-{{ project.pk }}" class="border-t border-base-content/10 pt-3 max-w-xl" {% if not open_settings %}hidden{% endif %} data-delivery-settings-panel>
+              <form hx-post="{% url 'project_delivery_settings' project.pk %}" hx-target="#project-delivery" hx-swap="outerHTML"
+                    class="flex flex-col gap-3" data-delivery-settings>
+                {% for field in form %}
+                  <label class="flex flex-col gap-1" data-field="{{ field.name }}">
+                    <span class="text-xs font-semibold">{{ field.label }}</span>
+                    {{ field }}
+                    {% if field.help_text %}<span class="text-xs opacity-60">{{ field.help_text }}</span>{% endif %}
+                    {% for error in field.errors %}<span class="text-xs text-error">{{ error }}</span>{% endfor %}
+                  </label>
+                {% endfor %}
+                <div class="flex gap-2">
+                  <button type="submit" class="btn btn-sm btn-primary">Save and recount</button>
+                  <button type="button" class="btn btn-sm btn-ghost" data-delivery-settings-cancel>Never mind</button>
+                </div>
+              </form>
+      </div>
+          {% if settings.refresh_error and not settings.refreshing %}
+            <div role="alert" class="alert alert-warning alert-soft text-xs py-2 items-start">
+              <ul class="list-none">{% for line in settings.refresh_error.splitlines %}<li>{{ line }}</li>{% endfor %}</ul>
+            </div>
+          {% endif %}
+
+    </div>
+  </div>
+
+  {# Four metrics, each with its weekly chart #}
+  <div class="grid grid-cols-1 min-[701px]:grid-cols-2 min-[1201px]:grid-cols-4 gap-4">
+    <div class="card bg-base-100 shadow-xl min-w-0" data-deployment-frequency>
+      <div class="card-body p-4 gap-2 [&_p]:grow-0">
+        <div class="flex items-start justify-between gap-2">
+          <h2 class="text-sm font-semibold">Deployment frequency</h2>
+          <span class="badge badge-sm {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}" data-dora-tier="{{ tier }}" title="DORA performance band: {{ tier.cadence }}">{{ tier.label }}</span>
+        </div>
+        <p><span class="text-2xl font-bold tabular-nums" data-per-week>{{ frequency.per_week|floatformat:1 }}</span> <span class="text-xs opacity-70">deploys a week</span></p>
+        <p class="text-xs opacity-60 -mt-1">{{ frequency.total }} change{{ frequency.total|pluralize }} shipped in 13 weeks</p>
+        {% include "partials/delivery_week_chart.html" with chart=deploy_chart bar="bg-primary" height="h-12" label="Deployments per week over the last 13 weeks" noun="" %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl min-w-0" data-lead-time>
+      <div class="card-body p-4 gap-2 [&_p]:grow-0">
+        <div class="flex items-start justify-between gap-2">
+          <h2 class="text-sm font-semibold">Lead time for changes</h2>
+          <span class="badge badge-sm {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}" data-lead-tier="{{ lead.tier }}" title="DORA performance band: {{ lead.tier.lead_time|lower }}">{{ lead.tier.label }}</span>
+        </div>
+        <p><span class="text-2xl font-bold tabular-nums" data-lead-median>{{ lead.median|duration }}</span> <span class="text-xs opacity-70">median</span></p>
+        <p class="text-xs opacity-60 -mt-1 truncate" title="From {{ lead.start.phrase }} to production">from {{ lead.start.phrase }} to production · {{ lead.changes|length }} change{{ lead.changes|length|pluralize }}</p>
+        {% include "partials/delivery_week_chart.html" with chart=lead_chart bar="bg-primary" height="h-12" label="Median lead time per week of deployment, over the last 13 weeks" noun="" %}
+        {% if lead.review or lead.waiting %}
+          <p class="text-xs opacity-70" data-lead-breakdown>PRs: <span class="font-semibold">{{ lead.review|duration }}</span> in review · <span class="font-semibold">{{ lead.waiting|duration }}</span> waiting to deploy</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl min-w-0" data-pull-requests>
+      <div class="card-body p-4 gap-2 [&_p]:grow-0">
+        <h2 class="text-sm font-semibold">Pull requests</h2>
+        <p class="flex flex-wrap items-baseline gap-x-4">
+          <span><span class="text-2xl font-bold tabular-nums" data-merged-per-week>{{ flow.merged_per_week|floatformat:1 }}</span> <span class="text-xs opacity-70">merged a week</span></span>
+          <span><span class="text-2xl font-bold tabular-nums" data-open-now>{{ flow.open_now }}</span> <span class="text-xs opacity-70">open</span></span>
+        </p>
+        <p class="text-xs opacity-60 -mt-1">{{ flow.merged }} merged in 13 weeks{% if flow.oldest_open_since %} · oldest open {{ flow.oldest_open_since|ago }}{% endif %}</p>
+        {% include "partials/delivery_week_chart.html" with chart=pull_chart bar="bg-secondary" height="h-12" label="Pull requests merged per week, and open at the end of each week, over the last 13 weeks" noun="merged" %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl min-w-0" data-pull-request-open-time>
+      <div class="card-body p-4 gap-2 [&_p]:grow-0">
+        <h2 class="text-sm font-semibold">How long pull requests stay open</h2>
+        <p class="flex flex-wrap items-baseline gap-x-4">
+          <span><span class="text-2xl font-bold tabular-nums" data-time-to-merge>{{ flow.time_to_merge|duration }}</span> <span class="text-xs opacity-70">to merge</span></span>
+        </p>
+        <p class="text-xs opacity-60 -mt-1" data-open-age>Open ones so far: {{ flow.open_age|duration }} (median)</p>
+        {% include "partials/delivery_week_chart.html" with chart=merge_chart bar="bg-secondary" height="h-12" label="Median time from opening to merge, per week of merge, over the last 13 weeks" noun="" %}
+      </div>
+    </div>
+  </div>
+
+  {# Open pull requests beside the latest deployments #}
+  <div class="grid grid-cols-1 min-[1001px]:grid-cols-2 gap-4 items-start">
+    <div class="card bg-base-100 shadow-xl min-w-0" data-open-pull-requests>
+      <div class="card-body p-4 gap-2">
+        <div class="flex items-baseline justify-between gap-3">
+          <h2 class="text-sm font-semibold">Open pull requests</h2>
+          {% if project.web_url and report.pull_requests.open_now %}
+            <a class="link link-hover text-xs opacity-70" href="{{ project.web_url }}/pulls" target="_blank" rel="noopener noreferrer">All {{ report.pull_requests.open_now }} on {{ project.get_platform_display }} ↗</a>
+          {% endif %}
+        </div>
+        {% if report.open_pull_requests %}
+          <div class="overflow-x-auto">
+            <table class="table table-xs">
+              <thead><tr><th>Pull request</th><th>Author</th><th>Opened</th></tr></thead>
+              <tbody>
+                {% for pr in report.open_pull_requests %}
+                  <tr>
+                    <td class="max-w-md">
+                      <span class="font-mono opacity-60">#{{ pr.number }}</span>
+                      {% if pr.url %}<a class="link link-hover" href="{{ pr.url }}" target="_blank" rel="noopener noreferrer">{{ pr.title }}</a>{% else %}{{ pr.title }}{% endif %}
+                      {% if pr.draft %}<span class="badge badge-ghost badge-sm ml-1">draft</span>{% endif %}
+                    </td>
+                    <td class="whitespace-nowrap">{{ pr.author|default:"—" }}{% if pr.author_is_bot %} <span class="badge badge-ghost badge-sm">bot</span>{% endif %}</td>
+                    <td class="whitespace-nowrap" title="{{ pr.created_at }}">{{ pr.created_at|ago }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% elif settings.refreshing %}
+          <p class="text-sm opacity-60">Looking for pull requests…</p>
+        {% else %}
+          <p class="text-sm opacity-60">No open pull requests.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl min-w-0" data-latest-deployments>
+      <div class="card-body p-4 gap-2">
+        <h2 class="text-sm font-semibold">Latest deployments</h2>
+        {% if report.recent %}
+          <div class="overflow-x-auto">
+            <table class="table table-xs">
+              <thead><tr><th>When</th><th>Commit</th><th>{% if report.strategy == "release_tags" %}Tag{% elif report.strategy == "environments" %}Environment{% else %}Branch{% endif %}</th><th>Result</th></tr></thead>
+              <tbody>
+                {% for deployment in report.recent %}
+                  <tr>
+                    <td class="whitespace-nowrap" title="{{ deployment.deployed_at }}">{{ deployment.deployed_at|ago }}</td>
+                    <td class="font-mono">{% if project.web_url %}<a class="link link-hover" href="{{ project.web_url }}/commit/{{ deployment.sha }}" target="_blank" rel="noopener noreferrer">{{ deployment.sha|slice:":7" }}</a>{% else %}{{ deployment.sha|slice:":7" }}{% endif %}</td>
+                    <td class="font-mono truncate max-w-48">{{ deployment.environment|default:deployment.ref|default:"—" }}</td>
+                    <td>{% if deployment.succeeded %}<span class="badge badge-success badge-sm">Shipped</span>{% else %}<span class="badge badge-error badge-sm">Failed</span>{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% elif settings.refreshing %}
+          <p class="text-sm opacity-60">Looking for deployments…</p>
+        {% else %}
+          <p class="text-sm opacity-60">No deployments found in the last 13 weeks. If this project does ship, change how it is measured above.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var toggle = document.querySelector("#project-delivery [data-delivery-settings-toggle]");
+      var panel = document.querySelector("#project-delivery [data-delivery-settings-panel]");
+      if (!toggle || !panel) return;
+      function show(open) {
+        panel.hidden = !open;
+        toggle.setAttribute("aria-expanded", String(open));
+      }
+      toggle.addEventListener("click", function () { show(panel.hidden); });
+      // Never mind: close without saving, and forget what was typed.
+      panel.querySelector("[data-delivery-settings-cancel]").addEventListener("click", function () {
+        var form = panel.querySelector("form");
+        form.reset();
+        form.querySelector("[data-strategy-select]").dispatchEvent(new Event("change"));
+        show(false);
+        toggle.focus();
+      });
+    })();
+    (function () {
+      var form = document.querySelector("#project-delivery [data-delivery-settings]");
+      if (!form) return;
+      var select = form.querySelector("[data-strategy-select]");
+      function sync() {
+        form.querySelectorAll("[data-show-for]").forEach(function (input) {
+          var shown = input.dataset.showFor.split(" ").indexOf(select.value) !== -1;
+          input.closest("[data-field]").hidden = !shown;
+        });
+      }
+      select.addEventListener("change", sync);
+      sync();
+    })();
+  </script>
+</div>
+{% endwith %}

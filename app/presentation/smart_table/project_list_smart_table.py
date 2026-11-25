@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from app.domain.delivery import DoraTier
 from app.domain.models import Platform, Project
 from app.presentation.filter_search.filter_value import FilterValue
+from app.presentation.smart_table.column_option import ColumnOption
 from app.presentation.smart_table.group_option import GroupOption
 from app.presentation.smart_table.project_row import HEALTH_ORDER, ProjectRow
 from app.presentation.smart_table.smart_table import SmartTable
@@ -10,8 +12,10 @@ from app.presentation.smart_table.sort_option import SortOption
 
 class ProjectListSmartTable:
     """The Projects page's table: sorted by name, score, health (worst
-    first), owner, lifecycle, stacks or when last checked; grouped by owner,
-    stack, health, lifecycle or platform."""
+    first), owner, lifecycle, stacks, when last checked, when last deployed,
+    deploys a week, lead time or open pull requests; grouped by owner, stack, health,
+    lifecycle, platform or deploy tier. Every column but the project's may
+    be hidden; lifecycle and platform start hidden."""
 
     @classmethod
     def build(cls) -> SmartTable:
@@ -24,6 +28,10 @@ class ProjectListSmartTable:
                 SortOption("lifecycle", "Lifecycle", numeric=True),
                 SortOption("stacks", "Stacks", numeric=True, descending=True),
                 SortOption("checked", "Last checked", numeric=True, descending=True),
+                SortOption("deployed", "Last deployed", numeric=True, descending=True),
+                SortOption("deploys", "Deploys a week", numeric=True, descending=True),
+                SortOption("lead", "Lead time", numeric=True),
+                SortOption("pulls", "Open pull requests", numeric=True, descending=True),
             ),
             groups=(
                 GroupOption("owner", "Owner", empty_label="No owner"),
@@ -40,8 +48,22 @@ class ProjectListSmartTable:
                     "platform", "Platform", empty_label="",
                     values=tuple(FilterValue(v, label) for v, label in Platform.choices),
                 ),
+                GroupOption(
+                    "tier", "Deploy tier", empty_label="Not synced yet",
+                    values=tuple(FilterValue(t.value, t.label) for t in DoraTier),
+                ),
             ),
             default_sort="name",
             noun="project",
             noun_plural="projects",
+            columns=(
+                ColumnOption("score", "Score"),
+                ColumnOption("delivery", "Delivery"),
+                ColumnOption("lead", "Lead time"),
+                ColumnOption("stacks", "Stacks"),
+                ColumnOption("owner", "Owner"),
+                ColumnOption("lifecycle", "Lifecycle", shown=False),
+                ColumnOption("platform", "Platform", shown=False),
+                ColumnOption("checked", "Last checked"),
+            ),
         )

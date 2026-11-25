@@ -8,6 +8,18 @@ A workspace holds everything your team shares: platform connections, projects, s
 
 Workspaces are created by the GitGrit team (on a self-hosted install, by a [superuser](../self-hosting/operations.md#managing-access)), usually when they approve the first person from your company. That person becomes its owner.
 
+## Switching workspaces
+
+The workspace picker, top right, lists every workspace you belong to. Type to narrow it down when you have many. Hover a row and click its pin to keep it at the top: pinned workspaces lead the list, then the rest. Your pins are yours alone; pinning never changes who can open a workspace.
+
+![The workspace picker, with Northwind pinned](../images/app/workspace-picker.jpg){ .gg-shot loading=lazy }
+
+## Your time zone
+
+The messages GitGrit sends you write their times in your own time zone. GitGrit asks for it once, suggesting your device's zone; change it any time on your **profile** (click your avatar, top right), under **Time zone**. Until you pick one, times read in UTC.
+
+A [schedule](../features/schedules.md) has its own time zone, which starts as yours.
+
 ## Roles
 
 | | Owner | Admin | Member |

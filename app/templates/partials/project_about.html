@@ -1,11 +1,11 @@
 {# The project's About card: description, details, languages and tags, stacks,  #}
 {# and the other projects in its repository (a monorepo) with suggested ones.    #}
 {# Long values are cut with an ellipsis so nothing runs past the card.          #}
-<div class="card bg-base-100 shadow-xl h-full">
+<div class="card bg-base-100 shadow-xl">
   <div class="card-body p-5 gap-4 text-sm">
     <h2 class="card-title text-base">About</h2>
     {% if project.description %}<p class="break-words opacity-80">{{ project.description }}</p>{% endif %}
-    <dl class="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 gap-y-3 items-center">
+    <dl class="grid grid-cols-[110px_minmax(0,1fr)] gap-x-3 gap-y-3 items-center">
       <dt class="text-base-content/60">Platform</dt>
       <dd class="min-w-0 truncate">
         {# Only the platform's name: the repository path is in the link's tooltip. #}

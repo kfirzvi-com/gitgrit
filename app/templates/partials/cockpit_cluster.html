@@ -1,27 +1,69 @@
-{% load ai_tags %}  {% comment %}The instrument cluster, like a car's: commits checked (speedometer), project health
+{% load ai_tags time_tags %}  {% comment %}The instrument cluster, like a car's: delivery speed (speedometer: deploys this week, with lead
+  time, merges and open pull requests beneath), project health
   (the big centre dial, counts only, never one grade) and the AI fuel gauge (what is left of the
   tightest AI budget); under them the warning lamps, the trip computer (AI this month) and when the
   numbers were last checked.{% endcomment %}
   <section class="gg-cluster px-6 pt-8 pb-6 flex flex-col gap-6" aria-label="Instrument cluster" data-workspace-health>
-    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10">
+    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end justify-items-center gap-y-6 gap-x-10 md:mb-10">
 
-      <div class="flex flex-col items-center gap-2" data-gauge="checks">
-        <span class="gg-eyebrow text-center">Commits checked</span>
-        <svg viewBox="0 0 200 200" class="w-[170px] h-[170px]" role="img"
-             aria-label="{{ cockpit.checks_this_week }} commits checked this week, against {{ cockpit.checks_peak }} in the busiest of the last 4 weeks; last week {{ cockpit.checks_last_week }}">
-          <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
-          <g stroke="#5a6478" stroke-width="1.5">{% for x1, y1, x2, y2 in speedometer.ticks %}<line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>{% endfor %}</g>
-          <path d="{{ speedometer.arc_path }}" fill="none" class="gg-gauge-track" stroke-width="8" stroke-linecap="round"/>
-          {% if speedometer.value %}<path d="{{ speedometer.arc_path }}" fill="none" stroke="var(--gg-primary)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="{{ speedometer.share }} 100"/>{% endif %}
-          <line x1="100" y1="100" x2="{{ speedometer.needle_x }}" y2="{{ speedometer.needle_y }}" class="gg-needle"/>
-          <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
-          <text x="100" y="160" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ cockpit.checks_this_week }}</text>
-          <text x="100" y="178" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.5">THIS WEEK</text>
-        </svg>
-        <span class="text-xs" style="color: var(--gg-text-dim)">Last week {{ cockpit.checks_last_week }} &middot; 4-wk peak {{ cockpit.checks_peak }}</span>
+      {% comment %}Delivery speed, set low beside the health dial like a car's smaller gauges: the typical project's deploys a week on a speedometer whose arc is
+      coloured by DORA's bands (Low, Medium, High, Elite), so where the needle points says how good it
+      is; beneath it lead time (DORA's bands), open pull requests (how long they have been open), merges a
+      week (their trend) and commits checked (against the busiest of the last four weeks). Each has an ⓘ
+      on hover or focus with its reading and its band (partials/bar_tip.html); each label, dotted
+      underlined, opens a tip on how it is counted across the workspace and what good looks like, and the
+      ⓘ by the title introduces DORA (partials/info_tip.html).{% endcomment %}
+      {% with t=speed.totals %}
+      <div class="relative z-30 flex flex-col items-center gap-1.5 w-full max-w-[26rem] md:translate-y-10" data-gauge="speed">
+        <span class="gg-eyebrow text-center inline-flex items-center gap-1.5">Delivery speed {% include "partials/info_tip.html" with tip=speed.tips.dora key="dora" bands=speed.bands %}</span>
+        {% comment %}Secondary to the health dial: the gauge flanked by thin upright bars, like the
+        temperature and fuel gauges beside a car's speedometer — lead time and merges on its left, open
+        pull requests and commits checked on its right.{% endcomment %}
+        <div class="flex items-start justify-center gap-2" data-speed-readouts>
+          <div class="flex flex-col items-center gap-1.5 w-[3.25rem]" data-readout="lead">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="{{ t.lead_time|duration }} (median)">{{ t.lead_time|short_duration }}</span>
+            <div class="group/bar relative rounded-full outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-lead" data-speed-bar="lead">{% include "partials/band_meter_vertical.html" with meter=speed.lead label="Lead time, by DORA's bands" %}{% include "partials/bar_tip.html" with tip=speed.bar_tips.lead key="lead" side="start" %}</div>
+            <span class="block w-full text-center text-[10px] leading-tight" style="color: var(--gg-text-dim)">{% include "partials/info_tip.html" with tip=speed.tips.lead key="lead" text="Lead time" bands=speed.bands align="left" %}</span>
+            
+          </div>
+          <div class="flex flex-col items-center gap-1.5 w-[3.25rem]" data-readout="merged">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="Merges a week across the workspace{% if speed.merged_trend_text %}; {{ speed.merged_trend_text }} in the last 4 weeks against the 4 before{% endif %}" data-merged-trend>{{ t.merged_per_week|floatformat:1 }}{% if speed.merged_trend_arrow %}<span class="ml-px text-[9px] font-normal opacity-70">{{ speed.merged_trend_arrow }}</span>{% endif %}</span>
+            <div class="group/bar relative rounded-full outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-merged" data-speed-bar="merged"><div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden transition-transform duration-150 group-hover/bar:scale-x-125 group-focus-visible/bar:scale-x-125" role="img" aria-label="Merges in the last 4 weeks at {{ speed.merged_share }}% of the busiest week"><span class="absolute bottom-0 inset-x-0 bg-secondary/80" style="height: {{ speed.merged_share }}%"></span></div>{% include "partials/bar_tip.html" with tip=speed.bar_tips.merged key="merged" side="start" %}</div>
+            <span class="block w-full text-center text-[10px] leading-tight" style="color: var(--gg-text-dim)">{% include "partials/info_tip.html" with tip=speed.tips.merged key="merged" text="Merged weekly" align="left" %}</span>
+          </div>
+          <div class="flex flex-col items-center px-1">
+            <div class="group/bar relative rounded-full outline-none focus-visible:ring-1 focus-visible:ring-primary" tabindex="0" aria-describedby="bar-tip-deploys" data-speed-bar="deploys">
+              <svg viewBox="0 0 200 200" class="w-[120px] h-[120px]" role="img"
+                   aria-label="The typical project deploys {{ t.typical_deploys_a_week|floatformat:1 }} times a week: DORA {{ speed.deploy_tier.label }}">
+                <circle cx="100" cy="100" r="97" class="gg-dial-face"/>
+                {% for path, color, meaning in speed.zones %}<path d="{{ path }}" fill="none" stroke="var(--color-{{ color }})" stroke-width="8" class="cursor-default transition-[opacity,stroke-width] duration-150 hover:!opacity-100 hover:[stroke-width:12px]" style="pointer-events: stroke" opacity="{% if color == speed.deploys.band.css|cut:'bg-' %}1{% else %}0.3{% endif %}" data-zone="{{ color }}"><title>{{ meaning }}</title></path>{% endfor %}
+                <line x1="100" y1="100" x2="{{ speed.speedometer.needle_x }}" y2="{{ speed.speedometer.needle_y }}" class="gg-needle"/>
+                <circle cx="100" cy="100" r="7" fill="#e2e8f0"/><circle cx="100" cy="100" r="3" fill="#0c0e13"/>
+                <text x="100" y="158" text-anchor="middle" class="gg-dial-digits" font-size="28">{{ t.typical_deploys_a_week|floatformat:1 }}</text>
+                <text x="100" y="176" text-anchor="middle" fill="#8892a4" font-size="9" letter-spacing="1.2">DEPLOYS / WEEK</text>
+              </svg>
+              {% include "partials/bar_tip.html" with tip=speed.bar_tips.deploys key="deploys" side="center" %}
+            </div>
+          </div>
+          <div class="flex flex-col items-center gap-1.5 w-[3.25rem]" data-readout="open">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="{% if t.open_age %}Open {{ t.open_age|duration }} (median){% endif %}">{{ t.open_now }}</span>
+            <div class="group/bar relative rounded-full outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-open" data-speed-bar="open">{% include "partials/band_meter_vertical.html" with meter=speed.pull_age label="How long open pull requests have been open" %}{% include "partials/bar_tip.html" with tip=speed.bar_tips.open key="open" side="end" %}</div>
+            <span class="block w-full text-center text-[10px] leading-tight" style="color: var(--gg-text-dim)">{% include "partials/info_tip.html" with tip=speed.tips.open key="open" text="Open PRs" align="right" %}</span>
+            
+          </div>
+          <div class="flex flex-col items-center gap-1.5 w-[3.25rem]" data-readout="checks">
+            <span class="text-[11px] font-semibold text-base-content/90 tabular-nums whitespace-nowrap" title="Commits checked this week; the busiest of the last 4 weeks had {{ speed.checks_peak }}">{{ speed.checks_this_week }}</span>
+            <div class="group/bar relative rounded-full outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-default" tabindex="0" aria-describedby="bar-tip-checks" data-speed-bar="checks"><div class="relative h-[84px] w-2.5 rounded-full bg-base-content/10 overflow-hidden transition-transform duration-150 group-hover/bar:scale-x-125 group-focus-visible/bar:scale-x-125" role="img" aria-label="{{ speed.checks_this_week }} commits checked this week, {{ speed.checks_share }}% of the busiest of the last 4 weeks"><span class="absolute bottom-0 inset-x-0 bg-primary/70" style="height: {{ speed.checks_share }}%"></span></div>{% include "partials/bar_tip.html" with tip=speed.bar_tips.checks key="checks" side="end" %}</div>
+            <span class="block w-full text-center text-[10px] leading-tight" style="color: var(--gg-text-dim)">{% include "partials/info_tip.html" with tip=speed.tips.checks key="checks" text="Commits checked" align="right" %}</span>
+            
+          </div>
+        </div>
+
+        <a href="#tab-delivery" class="link link-hover text-[10px] self-end" style="color: var(--gg-text-dim)">Delivery details &rarr;</a>
       </div>
+      {% endwith %}
 
-      <div class="flex flex-col items-center gap-1.5 w-[22rem] max-w-full" data-gauge="health">
+      <div class="flex flex-col items-center gap-1.5 w-[27rem] max-w-full" data-gauge="health">
         <span class="gg-eyebrow">Workspace health</span>
         <svg viewBox="0 0 300 175" class="w-full h-auto" role="img"
              aria-label="Project health: {{ h.healthy }} healthy, {{ h.needs_attention }} {{ h.needs_attention|pluralize:"needs attention,need attention" }}, {{ h.failed }} failed, out of {{ h.total }} projects">
@@ -42,30 +84,30 @@
         </div>
       </div>
 
-      {% comment %}AI fuel: a vertical tank per budgeted provider and model, filled to what is left
-      of its budget. Models are priced apart, so no tank adds up another's tokens.{% endcomment %}
-      <a href="#tab-ai" class="flex flex-col items-center gap-2 group self-stretch justify-end" data-gauge="fuel">
+      {% comment %}AI fuel, set low and small beside the health dial like a car's side gauge: a vertical
+      tank per budgeted provider and model, filled to what is left of its budget. Models are priced apart, so no tank adds up another's tokens.{% endcomment %}
+      <a href="#tab-ai" class="flex flex-col items-center gap-1.5 group md:translate-y-10" data-gauge="fuel">
         <span class="gg-eyebrow text-center">AI budget left</span>
         {% if fuel.has_budget %}
-          <div class="flex items-end gap-3">
-            <div class="flex flex-col justify-between h-[120px] text-[10px] font-bold mb-7" style="color: #5a6478" aria-hidden="true"><span>F</span><span>E</span></div>
+          <div class="flex items-end gap-2">
+            <div class="flex flex-col justify-between h-[80px] text-[9px] font-bold mb-6" style="color: #5a6478" aria-hidden="true"><span>F</span><span>E</span></div>
             {% for tank in fuel.tanks %}
-              <div class="flex flex-col items-center gap-1 w-12" data-tank data-level="{{ tank.level }}"
+              <div class="flex flex-col items-center gap-1 w-8" data-tank data-level="{{ tank.level }}"
                    title="{{ tank.row.budget.provider.display_name }} {{ tank.row.budget.model }}, {{ tank.row.period.label|lower }} budget ({{ tank.row.window }}): {{ tank.percent_left }}% left, resets {{ tank.row.resets|date:'M j, H:i' }}{% if tank.row.budget.stop_at_limit %}; stops runs when used up{% endif %}">
-                <span class="text-[10px] tabular-nums gg-dial-digits-text gg-tank-{{ tank.level }}">{{ tank.percent_left }}%</span>
+                <span class="text-[9px] tabular-nums gg-dial-digits-text gg-tank-{{ tank.level }}">{{ tank.percent_left }}%</span>
                 <div class="gg-tank">
                   <span class="gg-tank-fill gg-tank-{{ tank.level }}" style="height: {{ tank.percent_left }}%"></span>
                   {% if tank.low_at_percent %}<span class="gg-tank-mark" style="bottom: {{ tank.low_at_percent }}%" title="Low at {{ tank.low_at_percent }}% left: owners and admins are warned here" data-low-mark></span>{% endif %}
                 </div>
-                <span class="text-[10px] leading-tight text-center w-full h-6 overflow-hidden break-words" style="color: var(--gg-text-dim)">{{ tank.row.budget.model|short_model }}</span>
+                <span class="text-[9px] leading-tight text-center w-full h-5 overflow-hidden break-words" style="color: var(--gg-text-dim)">{{ tank.row.budget.model|short_model }}</span>
               </div>
             {% endfor %}
           </div>
-          <span class="text-[11px] group-hover:underline" style="color: var(--gg-text-dim)">{% if fuel.more %}+{{ fuel.more }} more &middot; {% endif %}see all budgets</span>
+          <span class="text-[10px] group-hover:underline" style="color: var(--gg-text-dim)">{% if fuel.more %}+{{ fuel.more }} more &middot; {% endif %}see all budgets</span>
         {% else %}
-          <div class="flex items-end gap-3 opacity-60" aria-hidden="true">
-            <div class="flex flex-col justify-between h-[120px] text-[10px] font-bold" style="color: #5a6478"><span>F</span><span>E</span></div>
-            {% for _ in "123" %}<div class="w-12"><div class="gg-tank"></div></div>{% endfor %}
+          <div class="flex items-end gap-2 opacity-60" aria-hidden="true">
+            <div class="flex flex-col justify-between h-[80px] text-[9px] font-bold" style="color: #5a6478"><span>F</span><span>E</span></div>
+            {% for _ in "123" %}<div class="w-8"><div class="gg-tank"></div></div>{% endfor %}
           </div>
           <span class="text-xs text-center" style="color: var(--gg-text-dim)">No budgets: AI models can't run</span>
         {% endif %}

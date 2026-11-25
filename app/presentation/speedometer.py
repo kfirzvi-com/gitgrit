@@ -37,6 +37,15 @@ class Speedometer:
         large = 1 if self.sweep > 180 else 0
         return f"M {x0} {y0} A {self.radius} {self.radius} 0 {large} 1 {x1} {y1}"
 
+    def zone_path(self, start: float, end: float, radius: float | None = None) -> str:
+        """The stretch of the arc from ``start`` to ``end`` (fractions of the
+        full scale), to colour a band of it."""
+        r = radius or self.radius
+        x0, y0 = self._point(self.start - self.sweep * start, r)
+        x1, y1 = self._point(self.start - self.sweep * end, r)
+        large = 1 if self.sweep * (end - start) > 180 else 0
+        return f"M {x0} {y0} A {r} {r} 0 {large} 1 {x1} {y1}"
+
     @property
     def needle(self) -> tuple[float, float]:
         return self._point(self.start - self.sweep * self.fraction, self.needle_length)

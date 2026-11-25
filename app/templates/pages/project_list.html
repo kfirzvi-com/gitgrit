@@ -16,7 +16,7 @@
       {% project_list_filter_search rows as list_filter_search %}
       {% filter_search list_filter_search label="Filter projects" %}
       {% project_list_smart_table as table %}
-      <div data-smart-table>
+      <div data-smart-table data-smart-hidden="{{ table.hidden_columns }}">
         {% smart_table_toolbar table %}
         <div class="overflow-x-auto lg:overflow-visible">
           <table class="table gg-smart-table">
@@ -24,17 +24,19 @@
               <tr data-bulk-header>
                 {% include "partials/bulk_select_cell.html" with noun="project" %}
                 <th data-smart-sort="name">Project</th>
-                <th data-smart-sort="score" class="text-center">Score</th>
-                <th data-smart-sort="stacks">Stacks</th>
-                <th data-smart-sort="owner">Owner</th>
-                <th data-smart-sort="lifecycle">Lifecycle</th>
-                <th>Platform</th>
-                <th data-smart-sort="checked">Last checked</th>
+                <th data-smart-sort="score" data-smart-column="score" class="text-center">Score</th>
+                <th data-smart-sort="deployed" data-smart-column="delivery">Delivery</th>
+                <th data-smart-sort="lead" data-smart-column="lead">Lead time</th>
+                <th data-smart-sort="stacks" data-smart-column="stacks">Stacks</th>
+                <th data-smart-sort="owner" data-smart-column="owner">Owner</th>
+                <th data-smart-sort="lifecycle" data-smart-column="lifecycle">Lifecycle</th>
+                <th data-smart-column="platform">Platform</th>
+                <th data-smart-sort="checked" data-smart-column="checked">Last checked</th>
               </tr>
               {# Replaces the header row while any project is selected (bulk edit). #}
               <tr class="hidden gg-bulk-bar" data-bulk-bar>
                 {% include "partials/bulk_select_cell.html" with noun="project" %}
-                <th colspan="7">
+                <th colspan="9">
                   {% url 'bulk_edit_projects' as bulk_url %}
                   <div class="flex flex-wrap items-center gap-2 font-normal normal-case text-sm">
                     <span class="mr-2 font-semibold"><span data-selected-count></span> selected</span>
@@ -134,6 +136,11 @@
                     data-sort-lifecycle="{{ row.sort_lifecycle }}"
                     data-sort-stacks="{{ row.stacks|length }}"
                     data-sort-checked="{{ row.sort_checked }}"
+                    data-sort-deployed="{{ row.sort_deployed }}"
+                    data-sort-deploys="{{ row.sort_deploys }}"
+                    data-sort-lead="{{ row.sort_lead }}"
+                    data-sort-pulls="{{ row.sort_open_pulls }}"
+                    data-group-tier="{{ row.tier_value }}"
                     data-group-owner="{{ row.owner_value }}"
                     data-group-stack="{{ row.stack_names }}"
                     data-group-health="{{ row.health_value }}"
@@ -142,25 +149,60 @@
                   <td class="gg-smart-select"><input type="checkbox" class="checkbox checkbox-sm" data-row-select value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
                   <td class="max-w-sm">
                     <a href="{% url 'project_detail' project.pk %}" class="link link-hover font-medium break-words">{{ project.name }}</a>
-                    <p class="text-xs opacity-60 truncate font-mono">{{ project.repository_label }}</p>
+                    <p class="text-xs opacity-60 truncate font-mono max-w-64" title="{{ project.repository_label }}">{{ project.repository_label }}</p>
                   </td>
-                  <td class="text-center" data-project-score>
+                  <td class="text-center" data-smart-column="score" data-project-score>
                     <span class="text-2xl">{% if row.head.outcome == "checking" or row.head.outcome == "no_score" %}{% include "partials/no_grade.html" with subject=row.head size="sm" %}{% else %}{% score row.score_value failed=row.score.failed %}{% endif %}</span>
                     {% if row.score.failed %}
                       <span class="gg-required-failed block text-xs leading-tight" data-project-failed>Project failed!</span>
                     {% endif %}
                   </td>
-                  <td>
+                  {# What runs in production and since when; its deploy tier and open pull requests. #}
+                  {% with delivery=row.delivery %}
+                  <td class="whitespace-nowrap" data-smart-column="delivery" data-project-delivery>
+                    {% if delivery.synced %}
+                      <div class="flex items-center gap-2">
+                        {% if delivery.running %}
+                          <a href="{% url 'project_detail' project.pk %}#delivery" class="link link-hover text-sm font-medium {% if not delivery.running.version %}font-mono{% endif %}" data-project-running>{{ delivery.running.label }}</a>
+                        {% else %}
+                          <span class="text-sm opacity-40">Not deployed</span>
+                        {% endif %}
+                        {% with tier=delivery.frequency.tier %}
+                          <span class="badge badge-xs {% if tier == 'elite' %}badge-success{% elif tier == 'high' %}badge-info{% elif tier == 'medium' %}badge-warning{% elif tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                                title="DORA deploy frequency: {{ delivery.frequency.per_week|floatformat:1 }} a week ({{ tier.cadence }})" data-project-tier="{{ tier }}">{{ tier.label }}</span>
+                        {% endwith %}
+                      </div>
+                      <p class="text-xs opacity-60">
+                        {% if delivery.running %}<span title="{{ delivery.running.deployed_at }}">{{ delivery.running.deployed_at|ago }}</span> · {% endif %}<span data-project-open-pulls="{{ delivery.pull_requests.open_now }}">{{ delivery.pull_requests.open_now }} open PR{{ delivery.pull_requests.open_now|pluralize }}</span>
+                      </p>
+                    {% else %}
+                      <span class="text-sm opacity-40">—</span>
+                    {% endif %}
+                  </td>
+                  {% endwith %}
+                  {# Median lead time for changes and its DORA tier. #}
+                  <td class="whitespace-nowrap" data-smart-column="lead" data-project-lead>
+                    {% with lead=row.delivery.lead_time %}
+                      {% if row.delivery.synced and lead.median is not None %}
+                        <span class="text-sm font-medium">{{ lead.median|duration }}</span>
+                        <span class="badge badge-xs {% if lead.tier == 'elite' %}badge-success{% elif lead.tier == 'high' %}badge-info{% elif lead.tier == 'medium' %}badge-warning{% elif lead.tier == 'low' %}badge-error{% else %}badge-ghost{% endif %}"
+                              title="DORA lead time for changes, from {{ lead.start.phrase }}: {{ lead.tier.lead_time|lower }}">{{ lead.tier.label }}</span>
+                      {% else %}
+                        <span class="text-sm opacity-40">—</span>
+                      {% endif %}
+                    {% endwith %}
+                  </td>
+                  <td data-smart-column="stacks">
                     <div class="flex flex-wrap gap-1">
                       {% for stack in row.stacks %}
-                        <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this stack"
+                        <button type="button" class="badge badge-outline badge-sm cursor-pointer whitespace-nowrap" title="Filter by this stack"
                                 data-filter-toggle="stack" data-filter-value="{{ stack.name|lower }}">{{ stack.name }}</button>
                       {% empty %}
                         <span class="text-sm opacity-40">—</span>
                       {% endfor %}
                     </div>
                   </td>
-                  <td>
+                  <td data-smart-column="owner">
                     {% if project.owner %}
                       <button type="button" class="link link-hover text-sm text-left whitespace-nowrap" title="Filter by this owner"
                               data-filter-toggle="owner" data-filter-value="{{ row.owner_value|lower }}">{{ project.owner }}</button>
@@ -168,23 +210,23 @@
                       <span class="text-sm opacity-40">—</span>
                     {% endif %}
                   </td>
-                  <td>
+                  <td data-smart-column="lifecycle">
                     <button type="button" class="badge badge-outline badge-sm cursor-pointer" title="Filter by this lifecycle"
                             data-filter-toggle="lifecycle" data-filter-value="{{ project.lifecycle }}">{{ project.get_lifecycle_display }}</button>
                   </td>
-                  <td>
+                  <td data-smart-column="platform">
                     <button type="button" class="badge {% if project.platform == 'github' %}badge-neutral{% else %}badge-primary{% endif %} badge-sm cursor-pointer"
                             title="Filter by this platform"
                             data-filter-toggle="platform" data-filter-value="{{ project.platform }}">{{ project.get_platform_display }}</button>
                   </td>
-                  <td class="text-sm whitespace-nowrap opacity-70">
+                  <td class="text-sm whitespace-nowrap opacity-70" data-smart-column="checked">
                     {% if row.checked_at %}{% local_time row.checked_at "j M Y, H:i" %}{% else %}<span class="opacity-60">Never</span>{% endif %}
                   </td>
                 </tr>
                 {% endwith %}
               {% endfor %}
               <tr class="hidden" data-filter-empty>
-                <td colspan="8"><p class="text-sm opacity-70">No projects match these filters.</p></td>
+                <td colspan="10"><p class="text-sm opacity-70">No projects match these filters.</p></td>
               </tr>
             </tbody>
           </table>

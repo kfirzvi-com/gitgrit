@@ -1,0 +1,38 @@
+{% comment %}An ⓘ with a short explanation (presentation.delivery_speed.InfoTip): opens on hover and on
+keyboard focus, closes when either leaves. A small card, one idea per line: the title (with a DORA chip
+for DORA's metrics), how it is counted, and what good looks like; DORA's metrics show their bands as a
+row of coloured dots rather than more words. `tip` is the InfoTip; `bands` DORA's bands, best first;
+`text`, when given, is the trigger instead of an ⓘ: that text with a dotted underline (a label that
+explains itself, where an icon would crowd). `align` "left" opens it towards the right (for an ⓘ near a left edge), "right" towards the left (near a
+right edge), else centred.{% endcomment %}
+<span class="relative inline-flex align-middle group/tip" data-info-tip>
+  {% if text %}
+    <button type="button" class="cursor-help underline decoration-dotted decoration-from-font underline-offset-2 hover:text-base-content focus-visible:text-base-content focus-visible:outline-none"
+            aria-describedby="tip-{{ key }}">{{ text }}</button>
+  {% else %}
+    <button type="button" class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold leading-none opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            aria-label="About {{ tip.title|lower }}" aria-describedby="tip-{{ key }}">i</button>
+  {% endif %}
+  <span id="tip-{{ key }}" role="tooltip"
+        style="font-family: var(--gg-font-sans)"
+        class="pointer-events-none invisible opacity-0 group-hover/tip:visible group-hover/tip:opacity-100 group-focus-within/tip:visible group-focus-within/tip:opacity-100 transition-opacity duration-150
+               absolute z-50 top-full mt-2 {% if align == 'left' %}left-0{% elif align == 'right' %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %} w-72 max-w-[80vw]
+               rounded-lg border border-base-content/15 bg-base-300 p-3 shadow-xl text-left normal-case tracking-normal font-normal text-xs leading-relaxed text-base-content whitespace-normal">
+    <span class="flex items-center gap-2 mb-1.5">
+      <span class="text-sm font-semibold">{{ tip.title }}</span>
+      {% if tip.dora %}<span class="rounded px-1.5 py-px text-[10px] font-bold tracking-wide bg-primary/15 text-primary">DORA</span>{% endif %}
+    </span>
+    <span class="block opacity-80">{{ tip.how }}</span>
+    {% if tip.good %}
+      <span class="mt-2 block border-t border-base-content/10 pt-2">
+        <span class="block text-[10px] font-semibold uppercase tracking-wide opacity-60 mb-0.5">{{ tip.reading_label|default:"Reading it" }}</span>
+        <span class="block opacity-80">{{ tip.good }}</span>
+      </span>
+    {% endif %}
+    {% if tip.dora %}
+      <span class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] opacity-80" aria-hidden="true">
+        {% for band in bands %}<span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full {{ band.css }}"></span>{{ band.label }}</span>{% endfor %}
+      </span>
+    {% endif %}
+  </span>
+</span>

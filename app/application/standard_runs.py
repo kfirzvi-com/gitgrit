@@ -293,6 +293,18 @@ def enqueue_manual_run(
     return enqueue_run(project, runnable, triggered_by=triggered_by, user=user)
 
 
+def _tell_delivery(event: DomainEvent, projects) -> None:
+    """Let delivery syncs hear about the event too. Never fails the webhook:
+    the scheduled sync catches up on anything missed here."""
+    from app.application.delivery import DeliveryWebhook
+    from app.infrastructure.delivery import pull_request_from_payload
+
+    try:
+        DeliveryWebhook.receive(event, projects.select_related("delivery"), pull_request_from_payload)
+    except Exception:
+        logger.exception("Delivery could not take webhook event %s", event.event_type)
+
+
 def enqueue_for_event(
     event: DomainEvent, installation_id: int | None = None
 ) -> list[dict]:
@@ -313,6 +325,7 @@ def enqueue_for_event(
     # The push moved, added or deleted a branch: the project page must not
     # keep showing the branch and commit lists it cached before it.
     forget_platform_lists(projects)
+    _tell_delivery(event, projects)
 
     if event.deleted:
         logger.info(

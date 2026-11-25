@@ -33,6 +33,11 @@ servers:
   # down on 2026-10-26. Jobs queue up and finish slower, but never take the
   # app down. Notifications have a higher priority, so they wait only for
   # the job already running, not for the whole queue.
+  #
+  # Liveness (CloudWatch worker-heartbeat-missing) is a thread inside this
+  # process, not a queued job, so a long standards run does not look like a
+  # dead worker. Do not raise concurrency to quiet that alarm. See
+  # app/worker_heartbeat.py.
   worker:
     hosts:
       - <SERVER_IP>

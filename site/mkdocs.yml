@@ -65,6 +65,7 @@ nav:
     - Writing Standards: getting-started/standards.md
   - Features:
     - Dashboard: features/dashboard.md
+    - Delivery Metrics: features/delivery.md
     - Search & Bulk Edit: features/search.md
     - Stacks & the Stack Map: features/stacks.md
     - AI Standards & Budgets: features/ai.md

@@ -6,7 +6,7 @@ description: "Filter projects, stacks, standards and the marketplace with GitHub
 
 The Projects, Stacks, Standards and Marketplace lists all work the same way: a **filter box** that understands GitHub-style qualifiers, menus that build the query for you, **sort** and **group** controls, and **bulk edit** for the rows you check.
 
-<video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/projects-grouped.jpg" aria-label="Grouping projects by stack, filtering, and selecting rows to bulk edit">
+<video class="gg-video" controls muted playsinline preload="metadata" poster="../../images/app/projects-grouped.jpg" aria-label="Filtering projects, grouping them, turning a column on and off, and selecting rows to bulk edit">
   <source src="../../videos/search_bulk.webm" type="video/webm">
 </video>
 
@@ -51,12 +51,22 @@ For example, on Standards, `label:ai` lists the AI-powered ones:
 
 | List | Group by |
 |---|---|
-| Projects | owner, stack, lifecycle, platform, health |
+| Projects | owner, stack, lifecycle, platform, health, deploy tier |
 | Stacks | owner |
 | Standards | label, event, status, source |
 | Marketplace | pack, label, author, status |
 
+On Projects, sort also reaches [delivery](delivery.md): **Last deployed**, **Deploys a week**, **Lead time** and **Open pull requests**.
+
 Filters, sort and grouping stay in the page's URL, so you can bookmark a view or send it to a teammate.
+
+## Columns
+
+On Projects, **Columns** picks which columns show: **Score**, **Delivery**, **Lead time**, **Stacks**, **Owner**, **Lifecycle**, **Platform** and **Last checked**. Lifecycle and platform start hidden. The menu stays open, so you can turn several on or off at once:
+
+![The Columns menu on Projects](../images/app/projects-columns.jpg){ .gg-shot loading=lazy }
+
+Your columns are kept in your browser, for you alone; a link you share doesn't carry them.
 
 ## Bulk edit
 

@@ -1,6 +1,7 @@
-"""The project page's three tabs: Overview (health score, its pass / fail /
-error breakdown, and About), Results (by commit, loaded when opened) and
-Standards (the embedded picker, loaded when opened).
+"""The project page's four tabs: Overview (health score, its pass / fail /
+error breakdown, and About), Results (by commit, loaded when opened),
+Delivery (deployment frequency, loaded when opened) and Standards (the
+embedded picker, loaded when opened).
 
 ``#compliance``, where ``standards.failing`` notifications link, is the
 Results tab's panel, so those links open it.
@@ -105,11 +106,12 @@ class ProjectTabsTests(TestCase):
         self.assertIn(f"The newest commit, aaaaaaa, has no score: {errored.standard_name} errored.", body)
         self.assertIn('data-open-tab="results">See results', body)
 
-    def test_results_and_standards_load_when_first_opened(self):
+    def test_results_delivery_and_standards_load_when_first_opened(self):
         body = self._page().content.decode()
         self.assertIn(f'hx-get="{reverse("project_history", args=[self.project.pk])}"', body)
+        self.assertIn(f'hx-get="{reverse("project_delivery", args=[self.project.pk])}"', body)
         self.assertIn(f'hx-get="{reverse("project_standards", args=[self.project.pk])}?embed=tab"', body)
-        self.assertEqual(body.count('hx-trigger="tab-open once"'), 2)
+        self.assertEqual(body.count('hx-trigger="tab-open once"'), 3)
 
     def test_saving_standards_returns_to_the_standards_tab(self):
         standard = baker.make("app.Standard", tenant=self.tenant, enabled=True, draft=False)

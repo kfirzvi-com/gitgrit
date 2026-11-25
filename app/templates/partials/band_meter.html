@@ -1,0 +1,13 @@
+{% comment %}A band meter (presentation.delivery_speed.BandMeter): a thin bar of equal parts, worst on
+the left, best on the right, each in its colour, and a marker where the value falls. The part it falls
+in is lit; the rest stay faint. `label` says what it measures, for screen readers.{% endcomment %}
+<div class="relative h-1.5 w-full flex gap-px" role="img"
+     aria-label="{{ label }}: {% if meter.band %}{{ meter.band.label }}{% else %}not known yet{% endif %}">
+  {% for band in meter.bands %}
+    <span class="h-full first:rounded-l-full last:rounded-r-full {{ band.css }} {% if band != meter.band %}opacity-25{% endif %}"
+          style="width: {{ meter.width }}%" title="{{ band.label }}"></span>
+  {% endfor %}
+  {% if meter.known %}
+    <span class="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-base-content" style="left: {{ meter.marker }}%" aria-hidden="true"></span>
+  {% endif %}
+</div>

@@ -1,0 +1,52 @@
+{% comment %}The Overview's Standards card (presentation.project_overview.StandardsSummary): how many
+standards are attached and active, how they split by importance, what runs them and when the next
+scheduled run is, and where they came from. Links to the Standards tab.{% endcomment %}
+{% load time_tags %}
+{% with s=standards_summary %}
+<div class="card bg-base-100 shadow-xl min-w-0" data-overview-standards>
+  <div class="card-body p-5 gap-4 [&_p]:grow-0">
+    <div class="flex items-baseline justify-between gap-3">
+      <h2 class="card-title text-base">Standards</h2>
+      <a href="#standards" class="link link-hover text-primary text-[13px]" data-open-tab="standards">Manage standards &rarr;</a>
+    </div>
+    {% if s.attached %}
+      <div class="flex items-baseline gap-2">
+        <span class="text-2xl font-bold tabular-nums" data-standards-attached>{{ s.attached }}</span>
+        <span class="text-sm opacity-70">attached{% if s.inactive %} · {{ s.active }} active, {{ s.inactive }} off or draft{% else %}, all active{% endif %}</span>
+      </div>
+
+      <section aria-label="By importance" class="flex flex-col gap-1.5">
+        <h3 class="text-[11px] font-semibold uppercase tracking-wide opacity-60">By importance</h3>
+        <div class="grid grid-cols-3 gap-px rounded-box overflow-hidden bg-base-content/10" data-standards-importance>
+          {% for importance, count in s.by_importance %}
+            <div class="bg-base-100 p-2.5 flex items-center gap-2 {% if not count %}opacity-50{% endif %}">
+              {% include "partials/importance_icon.html" with value=importance.value %}
+              <span class="text-lg font-bold tabular-nums">{{ count }}</span>
+              <span class="text-xs opacity-70">{{ importance.label }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section aria-label="What runs them" class="flex flex-col gap-1.5">
+        <h3 class="text-[11px] font-semibold uppercase tracking-wide opacity-60">What runs them</h3>
+        <div class="grid grid-cols-2 gap-px rounded-box overflow-hidden bg-base-content/10" data-standards-triggers>
+          <div class="bg-base-100 p-2.5">
+            <p class="text-lg font-bold tabular-nums">{{ s.on_changes }}</p>
+            <p class="text-xs opacity-70">on every change</p>
+          </div>
+          <div class="bg-base-100 p-2.5">
+            <p class="text-lg font-bold tabular-nums">{{ s.scheduled }}</p>
+            <p class="text-xs opacity-70 truncate">on a schedule{% if s.schedule_only %} ({{ s.schedule_only }} only){% endif %}{% if s.next_scheduled_run %} · next {{ s.next_scheduled_run|timeuntil }}{% endif %}</p>
+          </div>
+        </div>
+      </section>
+
+      <p class="text-xs opacity-60" data-standards-sources>{{ s.from_marketplace }} from the marketplace · {{ s.written_here }} written in this workspace</p>
+    {% else %}
+      <p class="text-sm opacity-70">No standards attached yet. Nothing checks this project.</p>
+      <div><a href="#standards" class="btn btn-primary btn-sm" data-open-tab="standards">Attach standards</a></div>
+    {% endif %}
+  </div>
+</div>
+{% endwith %}
