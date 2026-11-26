@@ -102,14 +102,15 @@
       {% include "partials/alternate.html" %}
     {% endif %}
     {# No search in the bar (too crowded). The repo badge is a compact
-       GitHub icon + star count: Material's source component still fetches
-       the facts into .md-source__repository; custom.css hides version and
-       forks. #}
+       GitHub icon + star count. The count comes from hooks/repo_stars.py at
+       build time: no data-md-component="source", so Material never fetches
+       api.github.com from the visitor's browser (their IP would reach GitHub
+       before any consent). #}
     {% if config.repo_url %}
       <div class="md-header__source gg-header__source">
-        <a href="{{ config.repo_url }}" class="md-source" data-md-component="source" aria-label="GitGrit on GitHub" title="GitGrit on GitHub">
+        <a href="{{ config.repo_url }}" class="md-source" aria-label="GitGrit on GitHub" title="GitGrit on GitHub">
           <div class="md-source__icon md-icon">{% include ".icons/fontawesome/brands/github.svg" %}</div>
-          <div class="md-source__repository"></div>
+          <div class="md-source__repository">{% if config.extra.github_stars is not none %}<ul class="md-source__facts"><li class="md-source__fact md-source__fact--stars">{{ config.extra.github_stars }}</li></ul>{% endif %}</div>
         </a>
       </div>
     {% endif %}

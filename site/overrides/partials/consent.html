@@ -1,14 +1,14 @@
 {#
   Cookie consent banner. Hidden until the analytics script
   (partials/integrations/analytics/custom.html) finds no valid choice, so it
-  only ever shows on production. Accept and Reject look the same on purpose:
+  only ever shows on production. Nothing analytics-related loads until Accept. Accept and Reject look the same on purpose:
   refusing must be as easy as accepting (EU ePrivacy / UK PECR). Closing it
-  any other way is not consent; the visitor stays cookieless.
+  any other way is not consent; nothing loads.
 #}
 <div class="gg-consent" role="region" aria-label="Cookie consent" hidden>
   <p class="gg-consent__text">
-    May we use cookies for analytics and session replay? They show us how the site is used, across visits.
-    If you say no, we still count visits anonymously, with nothing stored on your device.
+    May we use cookies and analytics, including session replay? They show us how the site is used, across visits.
+    If you say no, no analytics runs and nothing is stored on your device except your choice.
     <a href="{{ 'legal/cookies/' | url }}">Cookie notice</a>
   </p>
   <div class="gg-consent__actions">

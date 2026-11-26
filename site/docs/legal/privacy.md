@@ -8,11 +8,13 @@ title: Privacy Policy
 
 ## 1. About this notice
 
-This Privacy Policy explains how Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730) ("GitGrit", "we", "us") collects, uses, and shares personal data in connection with the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service"). It applies to visitors, registered users, and people whose data is processed because their organization uses the Service. It does not apply to self-hosted deployments of GitGrit, which are controlled by the organization that runs them.
+This Privacy Policy explains how Kfir Zvi, self-employed (autónomo) in Spain, NIF Z5107624L ("GitGrit", "we", "us") collects, uses, and shares personal data in connection with our website [gitgrit.dev](https://gitgrit.dev) and the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service"). It applies to website visitors, registered users, and people who book a demo. It does not apply to self-hosted deployments of GitGrit, which are controlled by the organization that runs them.
+
+When your organization connects its repositories, GitGrit processes the personal data in them (for example, commit authors' names and email addresses) on your organization's behalf, as a processor under our [Data Processing Agreement](dpa.md). For that data your organization is the controller; contact it to exercise your rights.
 
 ## 2. Controller and contact
 
-The controller of personal data processed through the Service is Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel. Privacy contact: [kfir@praktical.dev](mailto:kfir@praktical.dev).
+The controller is Kfir Zvi, self-employed (autónomo) in Spain, NIF Z5107624L, Calle Arquitectos Alamo y Ceballos 1, 26006 Logroño, La Rioja, Spain. Privacy contact: [kfir@praktical.dev](mailto:kfir@praktical.dev). We have not appointed a data protection officer, as the GDPR does not require one for our processing.
 
 ## 3. What we collect
 
@@ -24,8 +26,8 @@ The controller of personal data processed through the Service is Kfir Zvi, Israe
 - **Standard execution records.** Inputs, outputs, status, score, and timing of each standard run.
 - **Service logs.** IP address, user-agent, request path, and timestamps for security, debugging, and abuse prevention.
 - **Support correspondence.** Messages you send to our support, security, or privacy mailboxes.
-- **Website analytics.** On [gitgrit.dev](https://gitgrit.dev): pages viewed, clicks, scroll depth, referrer, campaign (UTM) tags, approximate country, and browser and device type, collected by PostHog. By default this runs in cookieless mode: no cookies are set and the IP address is not stored; visits are counted with a daily-rotating salted hash, so visitors can't be recognized across days.
-- **Analytics cookies and session replay (only with your consent).** If you accept analytics cookies on [gitgrit.dev](https://gitgrit.dev), PostHog also stores an anonymous visitor ID in a cookie, so your visits on different days are linked to one another, and records your sessions on the site: mouse movements, clicks, scrolling, the pages you see, and browser console and network timings. Form inputs are masked and never recorded. The IP address is still not stored, and we never link this data to your name or email address.
+- **Website analytics and session replay (only with your consent).** If you accept analytics on [gitgrit.dev](https://gitgrit.dev), PostHog collects the pages you view, clicks, scroll depth, referrer, campaign (UTM) tags, approximate location (country and region), and browser and device type; stores an anonymous visitor ID in a cookie, so your visits on different days are linked to one another; and records your sessions on the site: mouse movements, clicks, scrolling, the pages you see, and browser console and network timings. Form inputs are masked and never recorded. Your approximate location is looked up from your IP address, and the IP address is then deleted before anything is stored. We never link this data to your name or email address. Until you accept, no analytics runs at all.
+- **Demo bookings.** If you book a demo, the name, email address, time slot, and any notes you enter in the Cal.com booking form.
 
 ## 4. How and why we use it
 
@@ -36,8 +38,8 @@ We process personal data for the following purposes and on the following legal b
 | Provide the Service (account creation, standard execution, badges, API, CLI). | Performance of a contract with you or your organization. |
 | Secure the Service (rate limiting, abuse detection, fraud prevention, audit logging). | Legitimate interests in keeping the Service available and trustworthy. |
 | Operate, maintain, and improve the Service (debugging, performance tuning, aggregate usage analysis). | Legitimate interests in operating and improving the Service. |
-| Understand how visitors find and use our website (cookieless website analytics). | Legitimate interests in understanding and improving our website. |
-| Recognize returning visitors and replay sessions on our website (analytics cookies and session replay). | Consent, which you can withdraw at any time with **Cookie settings** in the site footer. |
+| Understand how visitors find and use our website (website analytics and session replay). | Consent, which you can withdraw at any time with **Cookie settings** in the site footer. |
+| Arrange and hold a demo you booked. | Steps taken at your request before entering into a contract. |
 | Respond to support, security, or privacy requests. | Performance of a contract; legitimate interests; legal obligation where applicable. |
 | Comply with law and respond to lawful requests. | Legal obligation. |
 
@@ -47,7 +49,7 @@ We share personal data with the sub-processors listed on our [sub-processors pag
 
 ## 6. International transfers
 
-The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm, Sweden). Some sub-processors are located in the United States or operate global edge networks. Where personal data is transferred outside the European Economic Area or the United Kingdom, we rely on the European Commission's Standard Contractual Clauses (and the UK Addendum where applicable) and apply supplementary technical measures — including encryption of access tokens at rest and TLS in transit — informed by a transfer-impact assessment. You may request a copy of the relevant transfer mechanism by emailing [kfir@praktical.dev](mailto:kfir@praktical.dev).
+The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm, Sweden). Some sub-processors are located in the United States or operate global edge networks. Where personal data is transferred outside the European Economic Area or the United Kingdom, we rely on an adequacy decision (including the EU–US Data Privacy Framework, for recipients certified under it) or on the European Commission's Standard Contractual Clauses (and the UK Addendum where applicable) and apply supplementary technical measures — including encryption of access tokens at rest and TLS in transit — informed by a transfer-impact assessment. You may request a copy of the relevant transfer mechanism by emailing [kfir@praktical.dev](mailto:kfir@praktical.dev).
 
 ## 7. Retention
 
@@ -60,6 +62,7 @@ The Service is hosted in the European Union (AWS region `eu-north-1`, Stockholm,
 - **Security audit logs.** Twelve (12) months for integrity and incident-investigation purposes.
 - **Support correspondence.** Twenty-four (24) months from the last message in the thread.
 - **Website analytics.** Twelve (12) months.
+- **Demo bookings.** Twenty-four (24) months from the meeting, unless it leads to a contract.
 - **Session replays.** Thirty (30) days.
 
 ## 8. Backups
@@ -68,11 +71,13 @@ Backups containing personal data are retained for up to ninety (90) days in encr
 
 ## 9. Your rights
 
-Subject to your jurisdiction's law, you have rights to: access your personal data; correct inaccurate data; have your data erased; restrict or object to processing based on legitimate interests; receive your data in a portable format; and withdraw consent where processing is based on consent. To exercise any of these rights, email [kfir@praktical.dev](mailto:kfir@praktical.dev). We will respond within thirty (30) days. If you are in the EU, EEA, UK, or Switzerland, you may also lodge a complaint with your supervisory authority.
+Under the GDPR and Spain's Organic Law 3/2018 (LOPDGDD) you have the right to: access your personal data; correct inaccurate data; have your data erased; restrict processing; object to processing based on legitimate interests; receive your data in a portable format; and withdraw consent at any time, without affecting processing carried out before you withdrew it. To exercise any of these rights, email [kfir@praktical.dev](mailto:kfir@praktical.dev). We respond within one month; we may ask you to confirm your identity first.
+
+You also have the right to lodge a complaint with a supervisory authority. Our lead authority is the Spanish Data Protection Agency (Agencia Española de Protección de Datos, C/ Jorge Juan 6, 28001 Madrid, [www.aepd.es](https://www.aepd.es)). You may also complain to the authority where you live or work.
 
 ## 10. Cookies
 
-The Service sets only cookies that are strictly necessary to operate it. Our website sets an analytics cookie only if you accept it, and you can withdraw that consent at any time with **Cookie settings** in the site footer. See our [cookies notice](cookies.md) for the full list and lifetimes.
+The Service sets only cookies that are strictly necessary to operate it. Our website runs analytics and sets analytics cookies only if you accept them, and you can withdraw that consent at any time with **Cookie settings** in the site footer. See our [cookies notice](cookies.md) for the full list and lifetimes.
 
 ## 11. Security
 

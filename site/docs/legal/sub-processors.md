@@ -17,9 +17,8 @@ A sub-processor is a third party engaged by GitGrit that processes customer pers
 | GitHub, Inc. — OAuth & REST API | OAuth sign-in and repository data access for connected GitHub projects. | United States |
 | GitLab Inc. | OAuth sign-in and repository data access for connected GitLab projects. | United States |
 | Google LLC — OAuth | OAuth sign-in for users authenticating with a Google account. | United States |
-| Google LLC — Fonts | CDN delivery of typefaces used by the web UI. | Global edge |
-| PostHog Inc. | Website analytics for [gitgrit.dev](https://gitgrit.dev) (pages viewed, clicks, referrers): cookieless by default, plus an analytics cookie and session replay for visitors who accept them. Reached through `e.gitgrit.dev`, a PostHog-operated proxy. Not used in the app. | EU — Frankfurt, Germany |
-| Public CDNs (jsDelivr, unpkg) | Delivery of front-end libraries (DaisyUI, Tailwind, HTMX) when the application is not running in airgapped mode. No personal data is submitted; the CDN sees the visitor's IP address and user-agent. | Global edge |
+| PostHog Inc. | Website analytics and session replay for [gitgrit.dev](https://gitgrit.dev), only for visitors who accept them. Reached through `e.gitgrit.dev`, a PostHog-operated proxy. Not used in the app. | EU — Frankfurt, Germany |
+| Cal.com, Inc. | Demo bookings: the name, email address, and notes someone enters when booking a demo. | United States |
 
 ## Optional sub-processors
 
@@ -31,4 +30,4 @@ The following sub-processors are engaged only if the corresponding feature is us
 
 ## Notice of new sub-processors
 
-We will update this page before adding a new sub-processor. Customers on a written agreement that requires advance notice will be notified via the contact on file. To subscribe to changes, email [kfir@praktical.dev](mailto:kfir@praktical.dev).
+We will update this page at least thirty (30) days before adding a new sub-processor; customers may object as described in our [Data Processing Agreement](dpa.md). Customers on a written agreement that requires advance notice will be notified via the contact on file. To subscribe to changes, email [kfir@praktical.dev](mailto:kfir@praktical.dev).

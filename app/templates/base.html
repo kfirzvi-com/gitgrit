@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}GitGrit{% endblock %}</title>
 
-  <!-- Loading screen: style + script BEFORE CDN resources so the 200ms timer
+  <!-- Loading screen: style + script BEFORE the vendored resources so the 200ms timer
        starts before parser-blocking scripts stall the page. The element is
        created dynamically because <body> doesn't exist yet at this point. -->
   <style>
@@ -50,7 +50,7 @@
     var THRESHOLD = 150;
     var MASCOT_SRC = "{% static 'app/images/loading-mascot.svg' %}";
 
-    // Build and inject the loader element now, before CDN scripts block parsing.
+    // Build and inject the loader element now, before the vendored scripts block parsing.
     // Using inline styles because Tailwind/DaisyUI haven't loaded yet.
     var el = document.createElement('div');
     el.id = 'loading-screen';
@@ -213,20 +213,14 @@
   {% load score_tags %}{% score_tone_styles %}
   <link href="{% static 'app/scores.css' %}" rel="stylesheet" type="text/css" />
 
-  {% if airgapped %}
-    <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
-    <link href="{% static 'app/vendor/daisyui.css' %}" rel="stylesheet" type="text/css" />
-    <script src="{% static 'app/vendor/tailwindcss-browser.js' %}"></script>
-    <script src="{% static 'app/vendor/htmx.js' %}"></script>
-    <link href="{% static 'app/vendor/fonts/fonts.css' %}" rel="stylesheet" type="text/css" />
-  {% else %}
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://unpkg.com/htmx.org@2"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  {% endif %}
+  {% comment %}Always the local copies (scripts/vendor-libs.sh, scripts/vendor-fonts.sh),
+     never a CDN or Google Fonts: a page view sends the visitor's IP address
+     to no third party, and air-gapped installs work the same way.{% endcomment %}
+  <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
+  <link href="{% static 'app/vendor/daisyui.css' %}" rel="stylesheet" type="text/css" />
+  <script src="{% static 'app/vendor/tailwindcss-browser.js' %}"></script>
+  <script src="{% static 'app/vendor/htmx.js' %}"></script>
+  <link href="{% static 'app/vendor/fonts/fonts.css' %}" rel="stylesheet" type="text/css" />
   <link href="{% static 'app/importance.css' %}" rel="stylesheet" type="text/css" />
   <script src="{% static 'app/local-time.js' %}" defer></script>
   <link href="{% static 'app/filter_search.css' %}" rel="stylesheet" type="text/css" />
@@ -314,11 +308,13 @@
   <footer class="mt-8 py-4 border-t text-center text-xs" style="border-color:var(--gg-border);color:var(--gg-text-dim)">
     <div>GitGrit &mdash; Repository Standards &amp; Compliance</div>
     <nav aria-label="Footer" class="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+      <a class="link" href="https://gitgrit.dev/legal/legal-notice/" target="_blank" rel="noopener">Legal notice</a>
       <a class="link" href="https://gitgrit.dev/legal/terms/" target="_blank" rel="noopener">Terms</a>
       <a class="link" href="https://gitgrit.dev/legal/privacy/" target="_blank" rel="noopener">Privacy</a>
       <a class="link" href="https://gitgrit.dev/legal/cookies/" target="_blank" rel="noopener">Cookies</a>
       <a class="link" href="https://gitgrit.dev/legal/accessibility/" target="_blank" rel="noopener">Accessibility</a>
       <a class="link" href="https://gitgrit.dev/legal/sub-processors/" target="_blank" rel="noopener">Sub-processors</a>
+      <a class="link" href="https://gitgrit.dev/legal/dpa/" target="_blank" rel="noopener">DPA</a>
       <a class="link" href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
     </nav>
     {% if git_sha %}

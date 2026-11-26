@@ -35,6 +35,13 @@ watch:
 # Declaring plugins replaces MkDocs' default list. Search is left out on
 # purpose: the header has no search field.
 plugins:
+  # Self-hosts every external asset the pages reference (Google Fonts, the
+  # Tailwind runtime from jsDelivr): downloaded at build time and served from
+  # gitgrit.dev, so a page view sends nothing to Google or a CDN before
+  # consent. Visitor IPs reaching Google Fonts is a known GDPR problem in the
+  # EU. Downloads cache in site/.cache (gitignored).
+  - privacy:
+      cache_dir: site/.cache/privacy
   # Share cards (og:image / twitter:image) for every page, rendered at build
   # time from the page's own title and description with our layouts in
   # layouts/. The landing page picks its own layout in its front matter.
@@ -46,6 +53,7 @@ plugins:
 
 hooks:
   - hooks/whats_new.py   # generates whats-new.md from GitHub releases
+  - hooks/repo_stars.py  # header star count at build time, not from the visitor's browser
   - hooks/cache_bust.py  # ?v=<hash> on extra_css so a deploy never pairs new HTML with cached CSS
   - hooks/social_cards.py  # palette-compresses share cards over 300 KB
   - hooks/faq_schema.py    # FAQPage JSON-LD for the homepage, use cases, and compare pages
@@ -103,6 +111,8 @@ not_in_nav: |
   /legal/cookies.md
   /legal/accessibility.md
   /legal/sub-processors.md
+  /legal/legal-notice.md
+  /legal/dpa.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -138,7 +148,7 @@ extra:
     host: gitgrit.dev
     key: phc_pFw4gWovt4B6yCG8sTYxVGjjovLkEPqrDFgJyguogM7N
     api_host: https://e.gitgrit.dev
-    consent_version: "2026-11-26"
+    consent_version: "2026-11-26.2"
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/kfirzvi-com/gitgrit

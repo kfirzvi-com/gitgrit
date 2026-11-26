@@ -1,31 +1,30 @@
 {#
   PostHog web analytics (Material's "custom" analytics provider, enabled by
-  extra.analytics in mkdocs.yml), with a consent banner for cookies.
+  extra.analytics in mkdocs.yml), strictly after consent.
 
-  - Consent (partials/consent.html is the banner): cookieless until the
-    visitor accepts. cookieless_mode "on_reject" plus
-    opt_out_capturing_by_default: a visitor with no choice, or one who
-    rejected, is counted with a server-side hash of IP + user agent and a
-    salt that rotates daily; nothing analytics-related is stored in the
-    browser. "Accept" calls opt_in_capturing(): PostHog then sets its
-    ph_<key>_posthog cookie (365 days, this host only) and session replay
-    starts, with every input masked. "Reject" calls opt_out_capturing().
-    Needs "cookieless tracking" enabled in the PostHog project's Web
-    analytics settings, or PostHog drops the cookieless events.
+  - Nothing loads before consent: no PostHog script, no request, nothing
+    stored. EU rules (ePrivacy Art. 5(3), in Spain LSSI-CE Art. 22.2, read
+    with EDPB Guidelines 2/2023) treat a tracking script as access to the
+    device even without cookies, so even cookieless counting waits for
+    "Accept". The banner is partials/consent.html.
+  - "Accept" loads PostHog on the spot: its ph_<key>_posthog cookie
+    (365 days, this host only) and session replay with every input masked.
+    "Reject" opts out if PostHog is already running and deletes its cookies
+    and storage (purge()); PostHog never loads again for that visitor.
   - The choice is ours to remember: gg_consent in localStorage holds
-    {v, choice, at}. It is void after 365 days or when consent_version in
-    mkdocs.yml changes (bump it whenever legal/cookies.md changes what we
-    set), and the banner asks again. If PostHog still holds an old opt-in
-    then, we opt out first, so the cookie goes until the visitor accepts
-    again. "Cookie settings" in the footer reopens the banner.
+    {v, choice, at}, strictly necessary. It is void after 365 days or when
+    consent_version in mkdocs.yml changes (bump it whenever
+    legal/cookies.md changes what we set), and the banner asks again. Until
+    a new "Accept", any old PostHog cookie or storage is purged on load.
+    "Cookie settings" in the footer reopens the banner.
   - Never call identify(): visitors stay anonymous even with a cookie.
   - Production only: runs on gitgrit.dev, not staging or local mkdocs serve.
     before_send is a second guard and drops every event unless the hostname
     is still that host, so nothing is sent from localhost, 127.0.0.1,
     staging, or www. Off production the banner never shows.
   - api_host is PostHog's managed reverse proxy on our own subdomain
-    (extra.analytics.api_host), so tracker blocklists don't drop the
-    events. The loader fetches the SDK from <api_host>/static/array.js.
+    (extra.analytics.api_host). The loader fetches the SDK from
+    <api_host>/static/array.js.
   - Named events sit alongside autocapture (contact_clicked, app_clicked,
     get_started_clicked, github_clicked, demo_clicked). demo_booked fires from
     the Cal.com embed (partials/cal-embed.html) when a booking completes.
@@ -45,83 +44,104 @@
 <script>
   function __md_analytics() {
     if (location.hostname !== "{{ config.extra.analytics.host }}") return;
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],Object.defineProperty(u,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e}}),Object.defineProperty(u.people,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(){return u.toString(1)+".people (stub)"}}),o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init("{{ config.extra.analytics.key }}", {
-      api_host: "{{ config.extra.analytics.api_host }}",
-      ui_host: "https://eu.posthog.com",
-      defaults: "2026-08-30",
-      cookieless_mode: "on_reject",
-      opt_out_capturing_by_default: true,
-      cross_subdomain_cookie: false,
-      enable_heatmaps: true,
-      session_recording: { maskAllInputs: true },
-      loaded: function (ph) { ggConsent.sync(ph); },
-      // Defence in depth: never send from localhost, 127.0.0.1, staging or www.
-      before_send: function (event) {
-        return location.hostname === "{{ config.extra.analytics.host }}" ? event : null;
-      },
-    });
 
-    // ── Consent ── (the banner is partials/consent.html)
-    var ggConsent = (function () {
-      var KEY = "gg_consent";
-      var VERSION = "{{ config.extra.analytics.consent_version }}";
-      var MAX_AGE = 365 * 24 * 60 * 60 * 1000;
+    var KEY = "gg_consent";
+    var VERSION = "{{ config.extra.analytics.consent_version }}";
+    var MAX_AGE = 365 * 24 * 60 * 60 * 1000;
+    var PH = "ph_{{ config.extra.analytics.key }}_posthog";
+    var started = false;
 
-      // "accepted", "rejected", or null: none yet, expired, or an older notice.
-      function choice() {
-        try {
-          var c = JSON.parse(localStorage.getItem(KEY) || "null");
-          if (c && c.v === VERSION && (c.choice === "accepted" || c.choice === "rejected")
-              && Date.now() - c.at < MAX_AGE) return c.choice;
-        } catch (e) {}
-        return null;
-      }
+    // "accepted", "rejected", or null: none yet, expired, or an older notice.
+    function choice() {
+      try {
+        var c = JSON.parse(localStorage.getItem(KEY) || "null");
+        if (c && c.v === VERSION && (c.choice === "accepted" || c.choice === "rejected")
+            && Date.now() - c.at < MAX_AGE) return c.choice;
+      } catch (e) {}
+      return null;
+    }
 
-      function banner(show) {
-        var el = document.querySelector(".gg-consent");
-        if (!el) return;
-        if (show) el.removeAttribute("hidden");
-        else el.setAttribute("hidden", "");
-      }
-
-      function decide(value) {
-        try { localStorage.setItem(KEY, JSON.stringify({ v: VERSION, choice: value, at: Date.now() })); } catch (e) {}
-        if (value === "accepted") posthog.opt_in_capturing();
-        else posthog.opt_out_capturing();
-        banner(false);
-      }
-
-      function wire() {
-        if (!document.querySelector(".gg-consent")) return;
-        var open = document.querySelector("[data-gg-consent-open]");
-        if (open) open.removeAttribute("hidden");
-        if (!choice()) banner(true);
-        document.addEventListener("click", function (ev) {
-          var btn = ev.target && ev.target.closest ? ev.target.closest("[data-gg-consent]") : null;
-          if (!btn) return;
-          var action = btn.getAttribute("data-gg-consent");
-          if (action === "accept") decide("accepted");
-          else if (action === "reject") decide("rejected");
-          else if (action === "open") banner(true);
-        });
-      }
-
-      // Once the SDK has loaded: bring PostHog's own opt-in state in line
-      // with our record (a voided record must not leave an old cookie live).
-      function sync(ph) {
-        var c = choice();
-        if (c === "accepted") {
-          if (!ph.has_opted_in_capturing()) ph.opt_in_capturing();
-        } else if (ph.has_opted_in_capturing()) {
-          ph.opt_out_capturing();
+    // Delete whatever PostHog left behind (its cookies and storage).
+    function purge() {
+      try {
+        if (document.cookie.indexOf(PH) !== -1) {
+          [PH, PH + "_cpm"].forEach(function (name) {
+            document.cookie = name + "=; Max-Age=0; path=/; SameSite=Lax";
+          });
         }
+      } catch (e) {}
+      try {
+        [PH, PH + "__flags", "__ph_opt_in_out_{{ config.extra.analytics.key }}"].forEach(function (name) {
+          localStorage.removeItem(name);
+        });
+      } catch (e) {}
+    }
+
+    function start() {
+      if (started) return;
+      started = true;
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],Object.defineProperty(u,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e}}),Object.defineProperty(u.people,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(){return u.toString(1)+".people (stub)"}}),o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+      posthog.init("{{ config.extra.analytics.key }}", {
+        api_host: "{{ config.extra.analytics.api_host }}",
+        ui_host: "https://eu.posthog.com",
+        defaults: "2026-08-30",
+        cross_subdomain_cookie: false,
+        enable_heatmaps: true,
+        session_recording: { maskAllInputs: true },
+        // Defence in depth: never send from localhost, 127.0.0.1, staging or www.
+        before_send: function (event) {
+          return location.hostname === "{{ config.extra.analytics.host }}" ? event : null;
+        },
+      });
+      whenReady(track);
+    }
+
+    function banner(show) {
+      var el = document.querySelector(".gg-consent");
+      if (!el) return;
+      if (show) el.removeAttribute("hidden");
+      else el.setAttribute("hidden", "");
+    }
+
+    function decide(value) {
+      try { localStorage.setItem(KEY, JSON.stringify({ v: VERSION, choice: value, at: Date.now() })); } catch (e) {}
+      if (value === "accepted") {
+        start();
+        posthog.opt_in_capturing();
+      } else {
+        if (started) posthog.opt_out_capturing();
+        purge();
       }
+      banner(false);
+    }
 
-      return { choice: choice, wire: wire, sync: sync };
-    })();
+    function wire() {
+      if (!document.querySelector(".gg-consent")) return;
+      var open = document.querySelector("[data-gg-consent-open]");
+      if (open) open.removeAttribute("hidden");
+      if (!choice()) banner(true);
+      document.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-gg-consent]") : null;
+        if (!btn) return;
+        var action = btn.getAttribute("data-gg-consent");
+        if (action === "accept") decide("accepted");
+        else if (action === "reject") decide("rejected");
+        else if (action === "open") banner(true);
+      });
+    }
 
-    (function () {
+    // This script runs in <head>, so wait for the body.
+    function whenReady(fn) {
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
+      else fn();
+    }
+
+    if (choice() === "accepted") start();
+    else purge();
+    whenReady(wire);
+
+    // ── Tracking: named CTA events and the pricing page (only once PostHog runs) ──
+    function track() {
       var UTM = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
       var params = new URLSearchParams(location.search);
 
@@ -179,13 +199,7 @@
         posthog.capture(name, props, { transport: "sendBeacon" });
       }, true);
 
-      // ── Consent banner + pricing page ── (this script runs in <head>, so wait for the body)
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { ggConsent.wire(); trackPricing(); });
-      } else {
-        ggConsent.wire();
-        trackPricing();
-      }
+      trackPricing();
 
       function trackPricing() {
         if (!document.querySelector(".gg-pr-grid")) return;
@@ -229,6 +243,6 @@
           observer.observe(t[0]);
         });
       }
-    })();
+    }
   }
 </script>
