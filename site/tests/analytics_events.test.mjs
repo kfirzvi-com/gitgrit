@@ -1008,6 +1008,11 @@ test("consent: withdrawing after Accept opts out and purges", () => {
   assert.equal(c.banner.getAttribute("hidden"), null);
   c.click(c.button("reject"));
   assert.equal(c.calls("opt_out_capturing").length, 1);
+  assert.equal(c.calls("stopSessionRecording").length, 1, "replay stops on the spot");
+  const [, settings] = c.calls("set_config")[0];
+  assert.equal(settings.disable_persistence, true, "PostHog stops rewriting its storage");
+  assert.equal(settings.disable_session_recording, true);
+  assert.equal(settings.before_send({ event: "$pageview" }), null, "nothing more is sent from this page");
   assert.equal(c.storage.record.choice, "rejected");
   assert.deepEqual(c.storage.removed, POSTHOG_KEYS(config.key));
   assert.equal(c.page.cookieWrites.length, 2);

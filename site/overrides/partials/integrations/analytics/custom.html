@@ -109,7 +109,18 @@
         start();
         posthog.opt_in_capturing();
       } else {
-        if (started) posthog.opt_out_capturing();
+        if (started) {
+          // Withdrawing on a page where PostHog already runs. Opting out alone
+          // leaves its cookies and storage, and the running SDK rewrites them
+          // after purge(): stop replay, stop persisting, drop anything queued.
+          posthog.opt_out_capturing();
+          posthog.stopSessionRecording();
+          posthog.set_config({
+            disable_persistence: true,
+            disable_session_recording: true,
+            before_send: function () { return null; },
+          });
+        }
         purge();
       }
       banner(false);
