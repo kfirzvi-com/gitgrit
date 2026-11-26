@@ -52,16 +52,18 @@ function extractScript(html) {
 function analyticsConfig() {
   const yml = read(mkdocsPath);
   const match = yml.match(
-    /analytics:\s*\n\s*provider:\s*custom\s*\n\s*host:\s*(\S+)\s*\n\s*key:\s*(\S+)/,
+    /analytics:\s*\n\s*provider:\s*custom\s*\n\s*host:\s*(\S+)\s*\n\s*key:\s*(\S+)\s*\n\s*api_host:\s*(\S+)\s*\n\s*consent_version:\s*"([^"]+)"/,
   );
-  assert.ok(match, "extra.analytics host and key were not found in site/mkdocs.yml");
-  return { host: match[1], key: match[2] };
+  assert.ok(match, "extra.analytics host, key, api_host and consent_version were not found in site/mkdocs.yml");
+  return { host: match[1], key: match[2], apiHost: match[3], consentVersion: match[4] };
 }
 
-function render(script, { host, key }) {
+function render(script, { host, key, apiHost, consentVersion }) {
   const rendered = script
     .replaceAll("{{ config.extra.analytics.host }}", host)
-    .replaceAll("{{ config.extra.analytics.key }}", key);
+    .replaceAll("{{ config.extra.analytics.key }}", key)
+    .replaceAll("{{ config.extra.analytics.api_host }}", apiHost)
+    .replaceAll("{{ config.extra.analytics.consent_version }}", consentVersion);
   assert.equal(rendered.includes("{{"), false, "unrendered Jinja left in the analytics script");
   return rendered;
 }
@@ -85,6 +87,10 @@ class El {
 
   getAttribute(name) {
     return this.attrs.has(name) ? this.attrs.get(name) : null;
+  }
+
+  removeAttribute(name) {
+    this.attrs.delete(name);
   }
 
   get dataset() {
@@ -177,7 +183,28 @@ function bomb(name) {
   );
 }
 
-function boot(script, loc, setup) {
+// localStorage that only lets the consent record through.
+function consentStorage(initial) {
+  const data = new Map(initial === undefined ? [] : [["gg_consent", JSON.stringify(initial)]]);
+  const writes = [];
+  return {
+    writes,
+    get record() {
+      return data.has("gg_consent") ? JSON.parse(data.get("gg_consent")) : null;
+    },
+    getItem(key) {
+      assert.equal(key, "gg_consent", `localStorage.getItem(${key})`);
+      return data.has(key) ? data.get(key) : null;
+    },
+    setItem(key, value) {
+      assert.equal(key, "gg_consent", `localStorage.setItem(${key})`);
+      writes.push(key);
+      data.set(key, String(value));
+    },
+  };
+}
+
+function boot(script, loc, setup, storage) {
   const listeners = [];
   const html = new El("html");
   const body = new El("body");
@@ -227,8 +254,10 @@ function boot(script, loc, setup) {
     URL,
     URLSearchParams,
     console,
-    localStorage: bomb("localStorage"),
+    localStorage: storage ?? bomb("localStorage"),
     sessionStorage: bomb("sessionStorage"),
+    Date,
+    JSON,
   };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
@@ -239,9 +268,8 @@ function boot(script, loc, setup) {
 }
 
 function fire(listeners, target) {
-  const click = listeners.filter((listener) => listener.type === "click");
+  const click = listeners.filter((listener) => listener.type === "click" && listener.capture === true);
   assert.equal(click.length, 1);
-  assert.equal(click[0].capture, true);
   click[0].fn({ target });
 }
 
@@ -291,16 +319,24 @@ function assertSnippet(script, { key }) {
   const [initKey, options, name] = queued[0];
   assert.equal(initKey, key);
   assert.equal(name, "posthog");
-  assert.equal(options.api_host, "https://eu.i.posthog.com");
+  assert.equal(options.api_host, "https://e.gitgrit.dev");
+  assert.equal(options.ui_host, "https://eu.posthog.com");
   assert.equal(options.defaults, "2026-08-30");
-  assert.equal(options.cookieless_mode, "always");
-  assert.equal(options.disable_session_recording, true);
+  assert.equal(options.cookieless_mode, "on_reject");
+  assert.equal(options.opt_out_capturing_by_default, true);
+  assert.equal(options.cross_subdomain_cookie, false);
   assert.equal(options.enable_heatmaps, true);
+  assert.equal(options.session_recording.maskAllInputs, true);
+  assert.equal(typeof options.loaded, "function");
   assert.equal(typeof options.before_send, "function");
   assert.deepEqual(
     Object.keys(options).sort(),
-    ["api_host", "before_send", "cookieless_mode", "defaults", "disable_session_recording", "enable_heatmaps"],
+    [
+      "api_host", "before_send", "cookieless_mode", "cross_subdomain_cookie", "defaults",
+      "enable_heatmaps", "loaded", "opt_out_capturing_by_default", "session_recording", "ui_host",
+    ],
   );
+  assert.equal(options.disable_session_recording, undefined);
   assert.equal(options.autocapture, undefined);
 
   const event = { event: "$pageview", properties: { distinct_id: "daily-hash" } };
@@ -313,7 +349,7 @@ function assertSnippet(script, { key }) {
   assert.equal(options.before_send(event), event);
 
   const loaded = collect(page.body, "SCRIPT").find((node) => node.src);
-  assert.equal(loaded.src, "https://eu-assets.i.posthog.com/static/array.js");
+  assert.equal(loaded.src, "https://e.gitgrit.dev/static/array.js");
 
   const header = new El("header");
   const main = new El("main");
@@ -522,7 +558,7 @@ const partial = read(partialPath);
 const sourceScript = extractScript(partial);
 const config = analyticsConfig();
 
-test("loader stub, cookieless init, and storage ban stay intact", () => {
+test("loader stub, consent-gated init, and storage limits stay intact", () => {
   const stub = sourceScript.split("\n").find((line) => line.includes("!function(t,e)"));
   assert.ok(stub);
   assert.equal(
@@ -532,9 +568,18 @@ test("loader stub, cookieless init, and storage ban stay intact", () => {
   assert.equal(sourceScript.split("!function(t,e)").length, 2);
   assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.host \}\}/g)].length, 2);
   assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.key \}\}/g)].length, 1);
-  assert.match(sourceScript, /cookieless_mode: "always"/);
-  assert.match(sourceScript, /disable_session_recording: true/);
-  assert.doesNotMatch(sourceScript, /localStorage|sessionStorage|document\.cookie|\.cookie\b|identify\(/);
+  assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.api_host \}\}/g)].length, 1);
+  assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.consent_version \}\}/g)].length, 1);
+  assert.match(sourceScript, /cookieless_mode: "on_reject"/);
+  assert.match(sourceScript, /opt_out_capturing_by_default: true/);
+  assert.match(sourceScript, /maskAllInputs: true/);
+  // Our own storage is the consent record only; cookies are PostHog's, after opt-in.
+  assert.deepEqual(
+    [...sourceScript.matchAll(/localStorage\.(\w+)\(([^,)]*)/g)].map((m) => `${m[1]}(${m[2]})`),
+    ["getItem(KEY)", "setItem(KEY)"],
+  );
+  assert.match(sourceScript, /var KEY = "gg_consent";/);
+  assert.doesNotMatch(sourceScript, /sessionStorage|document\.cookie|\.cookie\b|identify\(/);
   assert.doesNotMatch(sourceScript, /autocapture:\s*false/);
   assert.equal(config.host, "gitgrit.dev");
 });
@@ -635,7 +680,7 @@ test("built HTML renders the production host and the same snippet", (t) => {
     assert.match(script, /location\.hostname === "gitgrit\.dev"/);
     assert.match(script, new RegExp(config.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.doesNotMatch(script, /\{\{|config\.extra\.analytics/);
-    assert.doesNotMatch(script, /@praktical\.dev|localStorage|sessionStorage/);
+    assert.doesNotMatch(script, /@praktical\.dev|sessionStorage/);
     assert.match(html, /<section class="gg-hero">|Sign in|Quick Start/);
     if (file === builtHome) {
       assert.match(html, /<section class="gg-hero">[\s\S]*Book a demo[\s\S]*Get started/);
@@ -860,3 +905,140 @@ async function waitJson(url) {
   }
   throw lastError || new Error(`timed out waiting for ${url}`);
 }
+
+// ── Consent banner ──────────────────────────────────────────────────────
+
+function withBanner(body) {
+  const banner = new El("div");
+  banner.setAttribute("class", "gg-consent");
+  banner.setAttribute("hidden", "");
+  const reject = new El("button");
+  reject.setAttribute("data-gg-consent", "reject");
+  const accept = new El("button");
+  accept.setAttribute("data-gg-consent", "accept");
+  banner.append(reject);
+  banner.append(accept);
+  const settingsItem = new El("li");
+  settingsItem.setAttribute("data-gg-consent-open", "");
+  settingsItem.setAttribute("hidden", "");
+  const settings = new El("button");
+  settings.setAttribute("data-gg-consent", "open");
+  settingsItem.append(settings);
+  body.append(banner);
+  body.append(settingsItem);
+}
+
+function consentPage(stored) {
+  const storage = consentStorage(stored);
+  const page = boot(render(sourceScript, config), productionPage, withBanner, storage);
+  const banner = find(page.body, ".gg-consent");
+  const settingsItem = find(page.body, "[data-gg-consent-open]");
+  const button = (action) =>
+    banner.childNodes.find((b) => b.getAttribute("data-gg-consent") === action) ??
+    settingsItem.childNodes[0];
+  const click = (target) => {
+    const consent = page.listeners.filter((l) => l.type === "click" && !l.capture);
+    assert.equal(consent.length, 1);
+    consent[0].fn({ target });
+  };
+  const calls = (name) => [...page.sandbox.posthog].filter((e) => Array.isArray(e) && e[0] === name);
+  const options = page.sandbox.posthog._i[0][1];
+  return { page, storage, banner, settingsItem, button, click, calls, options };
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+test("consent: no choice yet shows the banner and stores nothing", () => {
+  const c = consentPage();
+  assert.equal(c.banner.getAttribute("hidden"), null);
+  assert.equal(c.settingsItem.getAttribute("hidden"), null, "Cookie settings is shown in production");
+  assert.deepEqual(c.storage.writes, []);
+  assert.deepEqual(c.calls("opt_in_capturing"), []);
+  assert.deepEqual(c.calls("opt_out_capturing"), []);
+});
+
+test("consent: Accept stores the choice, opts in, and hides the banner", () => {
+  const c = consentPage();
+  c.click(c.button("accept"));
+  assert.equal(c.storage.record.choice, "accepted");
+  assert.equal(c.storage.record.v, config.consentVersion);
+  assert.equal(typeof c.storage.record.at, "number");
+  assert.equal(c.calls("opt_in_capturing").length, 1);
+  assert.equal(c.calls("opt_out_capturing").length, 0);
+  assert.equal(c.banner.getAttribute("hidden"), "");
+});
+
+test("consent: Reject stores the choice, opts out, and hides the banner", () => {
+  const c = consentPage();
+  c.click(c.button("reject"));
+  assert.equal(c.storage.record.choice, "rejected");
+  assert.equal(c.calls("opt_out_capturing").length, 1);
+  assert.equal(c.calls("opt_in_capturing").length, 0);
+  assert.equal(c.banner.getAttribute("hidden"), "");
+});
+
+test("consent: Cookie settings reopens the banner without changing the choice", () => {
+  const c = consentPage({ v: config.consentVersion, choice: "rejected", at: Date.now() });
+  assert.equal(c.banner.getAttribute("hidden"), "");
+  c.click(c.settingsItem.childNodes[0]);
+  assert.equal(c.banner.getAttribute("hidden"), null);
+  assert.deepEqual(c.storage.writes, []);
+});
+
+test("consent: a valid choice keeps the banner hidden; expired or older notices ask again", () => {
+  const now = Date.now();
+  assert.equal(consentPage({ v: config.consentVersion, choice: "accepted", at: now }).banner.getAttribute("hidden"), "");
+  assert.equal(consentPage({ v: config.consentVersion, choice: "accepted", at: now - 366 * DAY }).banner.getAttribute("hidden"), null);
+  assert.equal(consentPage({ v: "2000-01-01", choice: "accepted", at: now }).banner.getAttribute("hidden"), null);
+  assert.equal(consentPage({ v: config.consentVersion, choice: "maybe", at: now }).banner.getAttribute("hidden"), null);
+});
+
+test("consent: once loaded, PostHog's opt-in follows our record", () => {
+  function sdk(optedIn) {
+    const log = [];
+    return {
+      log,
+      has_opted_in_capturing: () => optedIn,
+      opt_in_capturing: () => log.push("in"),
+      opt_out_capturing: () => log.push("out"),
+    };
+  }
+  const now = Date.now();
+  const cases = [
+    [{ v: config.consentVersion, choice: "accepted", at: now }, false, ["in"]],
+    [{ v: config.consentVersion, choice: "accepted", at: now }, true, []],
+    [{ v: config.consentVersion, choice: "rejected", at: now }, true, ["out"]],
+    [{ v: config.consentVersion, choice: "rejected", at: now }, false, []],
+    [undefined, true, ["out"]], // no record but an old opt-in: drop the cookie
+    [{ v: "2000-01-01", choice: "accepted", at: now }, true, ["out"]], // notice changed
+    [undefined, false, []],
+  ];
+  for (const [stored, optedIn, expected] of cases) {
+    const c = consentPage(stored);
+    const ph = sdk(optedIn);
+    c.options.loaded(ph);
+    assert.deepEqual(ph.log, expected, JSON.stringify({ stored, optedIn }));
+  }
+});
+
+test("consent banner markup: equal buttons, notice link, footer settings", () => {
+  const consent = read(path.join(root, "site/overrides/partials/consent.html"));
+  assert.match(consent, /<div class="gg-consent"[^>]*\bhidden>/);
+  const buttons = [...consent.matchAll(/<button type="button" class="([^"]+)" data-gg-consent="(\w+)">/g)];
+  assert.deepEqual(buttons.map((m) => m[2]), ["reject", "accept"]);
+  assert.equal(new Set(buttons.map((m) => m[1])).size, 1, "Accept and Reject must look the same");
+  assert.match(consent, /legal\/cookies\//);
+
+  const footer = read(footerPath);
+  assert.match(footer, /<li data-gg-consent-open hidden><button type="button" class="gg-footer__link-btn" data-gg-consent="open">Cookie settings<\/button><\/li>/);
+  assert.match(footer, /\{% include "partials\/consent\.html" %\}/);
+});
+
+test("staging and local never show the banner or touch storage", () => {
+  for (const hostname of ["127.0.0.1", "staging.gitgrit.dev", "www.gitgrit.dev"]) {
+    // localStorage is the bomb here: any access would throw.
+    const page = boot(render(sourceScript, config), { hostname, href: `https://${hostname}/` }, withBanner);
+    assert.equal(find(page.body, ".gg-consent").getAttribute("hidden"), "");
+    assert.equal(find(page.body, "[data-gg-consent-open]").getAttribute("hidden"), "");
+  }
+});
