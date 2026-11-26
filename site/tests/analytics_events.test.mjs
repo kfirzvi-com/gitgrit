@@ -183,12 +183,21 @@ function bomb(name) {
   );
 }
 
-// localStorage that only lets the consent record through.
+// localStorage that only lets the consent record through, plus removal of
+// PostHog's own keys (purge).
+const POSTHOG_KEYS = (key) => [`ph_${key}_posthog`, `ph_${key}_posthog__flags`, `__ph_opt_in_out_${key}`];
 function consentStorage(initial) {
   const data = new Map(initial === undefined ? [] : [["gg_consent", JSON.stringify(initial)]]);
   const writes = [];
+  const removed = [];
   return {
     writes,
+    removed,
+    removeItem(key) {
+      assert.ok(POSTHOG_KEYS(config.key).includes(key), `localStorage.removeItem(${key})`);
+      removed.push(key);
+      data.delete(key);
+    },
     get record() {
       return data.has("gg_consent") ? JSON.parse(data.get("gg_consent")) : null;
     },
@@ -204,7 +213,16 @@ function consentStorage(initial) {
   };
 }
 
-function boot(script, loc, setup, storage) {
+// A valid "accepted" record: PostHog loads on page load.
+function accepted() {
+  return consentStorage({ v: config.consentVersion, choice: "accepted", at: Date.now() });
+}
+
+// storage: a consentStorage, a bomb, or undefined (production: accepted; elsewhere: bomb).
+// cookie: what document.cookie reads; writes are recorded, and must expire a PostHog cookie.
+function boot(script, loc, setup, storage, cookie) {
+  if (storage === undefined) storage = loc.hostname === "gitgrit.dev" ? accepted() : bomb("localStorage");
+  const cookieWrites = [];
   const listeners = [];
   const html = new El("html");
   const body = new El("body");
@@ -235,10 +253,12 @@ function boot(script, loc, setup, storage) {
   Object.defineProperty(document, "cookie", {
     configurable: true,
     get() {
-      throw new Error("document.cookie was read");
+      if (cookie === undefined) throw new Error("document.cookie was read");
+      return cookie;
     },
-    set() {
-      throw new Error("document.cookie was written");
+    set(value) {
+      assert.match(value, new RegExp(`^ph_${config.key}_posthog(_cpm)?=; Max-Age=0; path=/; SameSite=Lax$`));
+      cookieWrites.push(value);
     },
   });
 
@@ -254,7 +274,7 @@ function boot(script, loc, setup, storage) {
     URL,
     URLSearchParams,
     console,
-    localStorage: storage ?? bomb("localStorage"),
+    localStorage: storage,
     sessionStorage: bomb("sessionStorage"),
     Date,
     JSON,
@@ -264,7 +284,7 @@ function boot(script, loc, setup, storage) {
   vm.runInContext(script, sandbox, { filename: "custom.html" });
   assert.equal(typeof sandbox.__md_analytics, "function");
   sandbox.__md_analytics();
-  return { sandbox, listeners, location, body };
+  return { sandbox, listeners, location, body, cookieWrites };
 }
 
 function fire(listeners, target) {
@@ -322,20 +342,15 @@ function assertSnippet(script, { key }) {
   assert.equal(options.api_host, "https://e.gitgrit.dev");
   assert.equal(options.ui_host, "https://eu.posthog.com");
   assert.equal(options.defaults, "2026-08-30");
-  assert.equal(options.cookieless_mode, "on_reject");
-  assert.equal(options.opt_out_capturing_by_default, true);
   assert.equal(options.cross_subdomain_cookie, false);
   assert.equal(options.enable_heatmaps, true);
   assert.equal(options.session_recording.maskAllInputs, true);
-  assert.equal(typeof options.loaded, "function");
   assert.equal(typeof options.before_send, "function");
   assert.deepEqual(
     Object.keys(options).sort(),
-    [
-      "api_host", "before_send", "cookieless_mode", "cross_subdomain_cookie", "defaults",
-      "enable_heatmaps", "loaded", "opt_out_capturing_by_default", "session_recording", "ui_host",
-    ],
+    ["api_host", "before_send", "cross_subdomain_cookie", "defaults", "enable_heatmaps", "session_recording", "ui_host"],
   );
+  assert.equal(options.cookieless_mode, undefined, "no tracking of any kind before consent");
   assert.equal(options.disable_session_recording, undefined);
   assert.equal(options.autocapture, undefined);
 
@@ -567,19 +582,23 @@ test("loader stub, consent-gated init, and storage limits stay intact", () => {
   );
   assert.equal(sourceScript.split("!function(t,e)").length, 2);
   assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.host \}\}/g)].length, 2);
-  assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.key \}\}/g)].length, 1);
+  assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.key \}\}/g)].length, 3);
   assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.api_host \}\}/g)].length, 1);
   assert.equal([...sourceScript.matchAll(/\{\{ config\.extra\.analytics\.consent_version \}\}/g)].length, 1);
-  assert.match(sourceScript, /cookieless_mode: "on_reject"/);
-  assert.match(sourceScript, /opt_out_capturing_by_default: true/);
+  assert.doesNotMatch(sourceScript, /cookieless_mode|opt_out_capturing_by_default/);
   assert.match(sourceScript, /maskAllInputs: true/);
-  // Our own storage is the consent record only; cookies are PostHog's, after opt-in.
+  // Our own storage: the consent record, and removing PostHog's keys.
   assert.deepEqual(
     [...sourceScript.matchAll(/localStorage\.(\w+)\(([^,)]*)/g)].map((m) => `${m[1]}(${m[2]})`),
-    ["getItem(KEY)", "setItem(KEY)"],
+    ["getItem(KEY)", "removeItem(name)", "setItem(KEY)"],
   );
   assert.match(sourceScript, /var KEY = "gg_consent";/);
-  assert.doesNotMatch(sourceScript, /sessionStorage|document\.cookie|\.cookie\b|identify\(/);
+  // The only cookie we write is an expiry for PostHog's.
+  assert.deepEqual(
+    [...sourceScript.matchAll(/document\.cookie = (.+);$/gm)].map((m) => m[1]),
+    ['name + "=; Max-Age=0; path=/; SameSite=Lax"'],
+  );
+  assert.doesNotMatch(sourceScript, /sessionStorage|identify\(/);
   assert.doesNotMatch(sourceScript, /autocapture:\s*false/);
   assert.equal(config.host, "gitgrit.dev");
 });
@@ -928,9 +947,9 @@ function withBanner(body) {
   body.append(settingsItem);
 }
 
-function consentPage(stored) {
+function consentPage(stored, cookie = "") {
   const storage = consentStorage(stored);
-  const page = boot(render(sourceScript, config), productionPage, withBanner, storage);
+  const page = boot(render(sourceScript, config), productionPage, withBanner, storage, cookie);
   const banner = find(page.body, ".gg-consent");
   const settingsItem = find(page.body, "[data-gg-consent-open]");
   const button = (action) =>
@@ -941,84 +960,76 @@ function consentPage(stored) {
     assert.equal(consent.length, 1);
     consent[0].fn({ target });
   };
-  const calls = (name) => [...page.sandbox.posthog].filter((e) => Array.isArray(e) && e[0] === name);
-  const options = page.sandbox.posthog._i[0][1];
-  return { page, storage, banner, settingsItem, button, click, calls, options };
+  const calls = (name) => [...(page.sandbox.posthog ?? [])].filter((e) => Array.isArray(e) && e[0] === name);
+  return { page, storage, banner, settingsItem, button, click, calls };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
 
-test("consent: no choice yet shows the banner and stores nothing", () => {
+test("consent: no choice yet shows the banner and loads nothing", () => {
   const c = consentPage();
   assert.equal(c.banner.getAttribute("hidden"), null);
   assert.equal(c.settingsItem.getAttribute("hidden"), null, "Cookie settings is shown in production");
+  assert.equal(c.page.sandbox.posthog, undefined, "PostHog must not load before consent");
+  assert.equal(collect(c.page.body, "SCRIPT").some((n) => n.src), false, "no script fetched");
   assert.deepEqual(c.storage.writes, []);
-  assert.deepEqual(c.calls("opt_in_capturing"), []);
-  assert.deepEqual(c.calls("opt_out_capturing"), []);
+  assert.equal(c.page.listeners.filter((l) => l.capture === true).length, 0, "no tracking listener");
 });
 
-test("consent: Accept stores the choice, opts in, and hides the banner", () => {
+test("consent: Accept stores the choice, loads PostHog, opts in, and starts tracking", () => {
   const c = consentPage();
   c.click(c.button("accept"));
   assert.equal(c.storage.record.choice, "accepted");
   assert.equal(c.storage.record.v, config.consentVersion);
   assert.equal(typeof c.storage.record.at, "number");
+  assert.ok(c.page.sandbox.posthog, "PostHog loads on Accept");
+  assert.equal(c.page.sandbox.posthog._i.length, 1);
   assert.equal(c.calls("opt_in_capturing").length, 1);
-  assert.equal(c.calls("opt_out_capturing").length, 0);
   assert.equal(c.banner.getAttribute("hidden"), "");
+  assert.equal(c.page.listeners.filter((l) => l.capture === true).length, 1, "tracking listener registered");
 });
 
-test("consent: Reject stores the choice, opts out, and hides the banner", () => {
-  const c = consentPage();
+test("consent: Reject stores the choice, loads nothing, and clears PostHog's storage", () => {
+  const c = consentPage(undefined, `ph_${config.key}_posthog=x; other=1`);
   c.click(c.button("reject"));
   assert.equal(c.storage.record.choice, "rejected");
-  assert.equal(c.calls("opt_out_capturing").length, 1);
-  assert.equal(c.calls("opt_in_capturing").length, 0);
+  assert.equal(c.page.sandbox.posthog, undefined);
   assert.equal(c.banner.getAttribute("hidden"), "");
+  assert.deepEqual(c.storage.removed.slice(-3), POSTHOG_KEYS(config.key));
+  assert.equal(c.page.cookieWrites.length >= 2, true, "both PostHog cookies expired");
 });
 
-test("consent: Cookie settings reopens the banner without changing the choice", () => {
-  const c = consentPage({ v: config.consentVersion, choice: "rejected", at: Date.now() });
+test("consent: withdrawing after Accept opts out and purges", () => {
+  const c = consentPage({ v: config.consentVersion, choice: "accepted", at: Date.now() }, `ph_${config.key}_posthog=x`);
+  assert.ok(c.page.sandbox.posthog, "a valid Accept loads PostHog on page load");
   assert.equal(c.banner.getAttribute("hidden"), "");
+  assert.deepEqual(c.page.cookieWrites, [], "nothing purged while consent holds");
   c.click(c.settingsItem.childNodes[0]);
   assert.equal(c.banner.getAttribute("hidden"), null);
-  assert.deepEqual(c.storage.writes, []);
+  c.click(c.button("reject"));
+  assert.equal(c.calls("opt_out_capturing").length, 1);
+  assert.equal(c.storage.record.choice, "rejected");
+  assert.deepEqual(c.storage.removed, POSTHOG_KEYS(config.key));
+  assert.equal(c.page.cookieWrites.length, 2);
 });
 
-test("consent: a valid choice keeps the banner hidden; expired or older notices ask again", () => {
+test("consent: expired or older notices ask again, load nothing, and purge", () => {
   const now = Date.now();
-  assert.equal(consentPage({ v: config.consentVersion, choice: "accepted", at: now }).banner.getAttribute("hidden"), "");
-  assert.equal(consentPage({ v: config.consentVersion, choice: "accepted", at: now - 366 * DAY }).banner.getAttribute("hidden"), null);
-  assert.equal(consentPage({ v: "2000-01-01", choice: "accepted", at: now }).banner.getAttribute("hidden"), null);
-  assert.equal(consentPage({ v: config.consentVersion, choice: "maybe", at: now }).banner.getAttribute("hidden"), null);
-});
-
-test("consent: once loaded, PostHog's opt-in follows our record", () => {
-  function sdk(optedIn) {
-    const log = [];
-    return {
-      log,
-      has_opted_in_capturing: () => optedIn,
-      opt_in_capturing: () => log.push("in"),
-      opt_out_capturing: () => log.push("out"),
-    };
+  for (const stored of [
+    { v: config.consentVersion, choice: "accepted", at: now - 366 * DAY },
+    { v: "2000-01-01", choice: "accepted", at: now },
+    { v: config.consentVersion, choice: "maybe", at: now },
+  ]) {
+    const c = consentPage(stored, `ph_${config.key}_posthog=old`);
+    assert.equal(c.banner.getAttribute("hidden"), null, JSON.stringify(stored));
+    assert.equal(c.page.sandbox.posthog, undefined);
+    assert.equal(c.page.cookieWrites.length, 2, "the old PostHog cookies are expired");
+    assert.deepEqual(c.storage.removed, POSTHOG_KEYS(config.key));
   }
-  const now = Date.now();
-  const cases = [
-    [{ v: config.consentVersion, choice: "accepted", at: now }, false, ["in"]],
-    [{ v: config.consentVersion, choice: "accepted", at: now }, true, []],
-    [{ v: config.consentVersion, choice: "rejected", at: now }, true, ["out"]],
-    [{ v: config.consentVersion, choice: "rejected", at: now }, false, []],
-    [undefined, true, ["out"]], // no record but an old opt-in: drop the cookie
-    [{ v: "2000-01-01", choice: "accepted", at: now }, true, ["out"]], // notice changed
-    [undefined, false, []],
-  ];
-  for (const [stored, optedIn, expected] of cases) {
-    const c = consentPage(stored);
-    const ph = sdk(optedIn);
-    c.options.loaded(ph);
-    assert.deepEqual(ph.log, expected, JSON.stringify({ stored, optedIn }));
-  }
+  const rejected = consentPage({ v: config.consentVersion, choice: "rejected", at: now }, "");
+  assert.equal(rejected.banner.getAttribute("hidden"), "");
+  assert.equal(rejected.page.sandbox.posthog, undefined);
+  assert.deepEqual(rejected.page.cookieWrites, [], "no PostHog cookie, nothing to expire");
 });
 
 test("consent banner markup: equal buttons, notice link, footer settings", () => {
