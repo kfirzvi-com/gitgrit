@@ -4,11 +4,17 @@ title: Terms of Service
 
 # Terms of Service
 
-*Effective 2026-05-04.*
+*Effective 2026-11-26.*
 
 ## 1. Agreement
 
-These Terms of Service ("Terms") govern access to and use of the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service") operated by Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730) of Habustan 4, Acre, Israel ("GitGrit", "we", "us"). By creating an account or otherwise using the Service, you ("you", "User") agree to these Terms. If you do not agree, do not use the Service.
+These Terms of Service ("Terms") govern access to and use of the hosted GitGrit service at [app.gitgrit.dev](https://app.gitgrit.dev) (the "Service") operated by Kfir Zvi, self-employed (autónomo), NIF Z5107624L, Calle Arquitectos Alamo y Ceballos 1, 26006 Logroño, La Rioja, Spain ("GitGrit", "we", "us"). By creating an account or otherwise using the Service, you ("you", "User") agree to these Terms. If you do not agree, do not use the Service.
+
+The Service is intended for businesses and professionals. If you use it as a consumer, the mandatory consumer protections of the country where you live still apply, and nothing in these Terms limits them.
+
+### How the contract is concluded
+
+The contract is concluded electronically, in English, when you complete sign-up and accept these Terms. Before you do, you can review and correct your details on the sign-in provider's screen. We keep each version of these Terms: the current one is on this page, and earlier versions are in the public history of our [repository](https://github.com/kfirzvi-com/gitgrit/commits/main/site/docs/legal/terms.md).
 
 ## 2. The Service
 
@@ -33,6 +39,14 @@ You must not, and must not permit any other party to:
 ## 5. Standards and User Content
 
 "User Content" means standards, test cases, configuration, and any other material you upload, author, or transmit through the Service. You retain all rights to your User Content. You grant GitGrit a worldwide, non-exclusive, royalty-free license to host, copy, transmit, execute, display, and create derivative works of User Content solely as required to operate, secure, and improve the Service. Marketplace contributions are governed by the license they ship with (typically MIT or Apache 2.0); installing a Marketplace standard grants you the rights stated in that license.
+
+### Personal data you process through the Service
+
+When you connect repositories or upload artifacts, we process the personal data in them on your behalf. Our [Data Processing Agreement](dpa.md) forms part of these Terms and governs that processing.
+
+### Content moderation and illegal content
+
+We may remove or disable access to User Content, including public Marketplace standards, or suspend an account, when the content is illegal or breaches section 4. Anyone can report content they consider illegal as described in our [legal notice](legal-notice.md#reporting-illegal-content). Our decisions are made by a person, not by automated tools. If we restrict your content or account, we tell you which content and why, and on what basis; you can contest the decision by replying to that email, and we will review it. You may also use any out-of-court dispute settlement body certified under the EU Digital Services Act, or the courts.
 
 ## 6. AI-assisted authoring
 
@@ -68,14 +82,14 @@ We may update these Terms from time to time. The "Effective" date at the top of 
 
 ## 14. Governing law and disputes
 
-These Terms are governed by the laws of Israel, without regard to its conflict-of-laws rules. The parties submit to the exclusive jurisdiction of the courts located in Tel Aviv-Yafo, Israel for the resolution of any dispute arising out of or related to these Terms or the Service. Nothing in this section prevents either party from seeking injunctive or other equitable relief in any court of competent jurisdiction.
+These Terms are governed by the laws of Spain. The courts of Logroño, Spain, have jurisdiction over any dispute arising out of or related to these Terms or the Service. If you are a consumer, you may also bring proceedings in the courts where you live, and the mandatory laws of your country of residence still protect you. Nothing in this section prevents either party from seeking injunctive or other equitable relief in any court of competent jurisdiction.
 
 ## 15. Miscellaneous
 
-These Terms, together with the [Privacy Policy](privacy.md) and any other policies referenced from the Service, constitute the entire agreement between you and GitGrit regarding the Service and supersede any prior agreements on the same subject. If any provision is held unenforceable, the remaining provisions remain in full effect. Our failure to enforce a provision is not a waiver of that provision. You may not assign these Terms without our prior written consent; we may assign them as part of a corporate reorganization or sale of substantially all assets to which the Service relates.
+These Terms, together with the [Data Processing Agreement](dpa.md), the [Privacy Policy](privacy.md), and any other policies referenced from the Service, constitute the entire agreement between you and GitGrit regarding the Service and supersede any prior agreements on the same subject. If any provision is held unenforceable, the remaining provisions remain in full effect. Our failure to enforce a provision is not a waiver of that provision. You may not assign these Terms without our prior written consent; we may assign them as part of a corporate reorganization or sale of substantially all assets to which the Service relates.
 
 ## 16. Contact
 
-Kfir Zvi, Israeli sole proprietor (Osek Murshe No. 318238730), Habustan 4, Acre, Israel.
+Kfir Zvi, self-employed (autónomo), NIF Z5107624L, Calle Arquitectos Alamo y Ceballos 1, 26006 Logroño, La Rioja, Spain. See also our [legal notice](legal-notice.md).
 
 Contact: [kfir@praktical.dev](mailto:kfir@praktical.dev).
