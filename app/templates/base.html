@@ -213,9 +213,9 @@
   {% load score_tags %}{% score_tone_styles %}
   <link href="{% static 'app/scores.css' %}" rel="stylesheet" type="text/css" />
 
-  {# Always the local copies (scripts/vendor-libs.sh, scripts/vendor-fonts.sh),
+  {% comment %}Always the local copies (scripts/vendor-libs.sh, scripts/vendor-fonts.sh),
      never a CDN or Google Fonts: a page view sends the visitor's IP address
-     to no third party, and air-gapped installs work the same way. #}
+     to no third party, and air-gapped installs work the same way.{% endcomment %}
   <link href="{% static 'app/vendor/daisyui-themes.css' %}" rel="stylesheet" type="text/css" />
   <link href="{% static 'app/vendor/daisyui.css' %}" rel="stylesheet" type="text/css" />
   <script src="{% static 'app/vendor/tailwindcss-browser.js' %}"></script>
