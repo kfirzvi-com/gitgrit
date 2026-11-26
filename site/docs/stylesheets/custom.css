@@ -318,6 +318,22 @@
   color: var(--gg-text);
 }
 
+/* "Cookie settings": a button that reads as a footer link */
+.gg-footer__link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--md-footer-fg-color--light);  /* what Material gives the footer links */
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.gg-footer__link-btn:hover {
+  color: var(--gg-text);
+}
+
 .gg-footer__base {
   border-top: 1px solid var(--gg-border);
   padding: 1.25rem 0.8rem;
@@ -1241,4 +1257,61 @@
   .md-typeset .gg-faq details.gg-faq__item { padding: 1rem; }
   .md-typeset .gg-faq .gg-faq__item h3 { font-size: 1rem; }
   .md-typeset .gg-faq .gg-faq__item p { font-size: 0.95rem; line-height: 1.5; }
+}
+
+/* ── Cookie consent banner (overrides/partials/consent.html) ──
+   Accept and Reject share one style: refusing must be as easy as accepting. */
+.gg-consent {
+  position: fixed;
+  z-index: 10;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  max-width: 34rem;
+  margin-left: auto;
+  padding: 1rem 1.125rem;
+  background: var(--gg-surface);
+  border: 1px solid var(--gg-border);
+  border-radius: var(--gg-radius-lg);
+  box-shadow: var(--gg-shadow-card);
+  color: var(--site-text-body);
+  font-family: var(--gg-font-sans);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.gg-consent__text {
+  margin: 0 0 0.75rem;
+}
+
+.gg-consent__text a {
+  color: var(--gg-primary);
+}
+
+.gg-consent__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.gg-consent__btn {
+  min-width: 6.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--gg-primary);
+  border-radius: var(--gg-radius);
+  background: transparent;
+  color: var(--gg-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gg-consent__btn:hover {
+  background: var(--gg-primary-glow);
+}
+
+.gg-consent__btn:focus-visible,
+.gg-footer__link-btn:focus-visible {
+  outline: 2px solid var(--gg-primary);
+  outline-offset: 2px;
 }

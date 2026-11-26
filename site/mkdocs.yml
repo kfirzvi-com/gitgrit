@@ -125,12 +125,20 @@ extra_css:
 
 extra:
   is_staging: !ENV [DOCS_IS_STAGING, false]
-  # PostHog, cookieless (overrides/partials/integrations/analytics/custom.html).
-  # Loads only on `host`, so staging and local serve send nothing.
+  # PostHog, cookieless until the visitor accepts cookies
+  # (overrides/partials/integrations/analytics/custom.html, banner in
+  # overrides/partials/consent.html). Loads only on `host`, so staging and
+  # local serve send nothing.
+  #   api_host: PostHog's managed reverse proxy (CNAME in infra's
+  #     production dns unit).
+  #   consent_version: bump it whenever docs/legal/cookies.md changes what we
+  #     set; every stored choice is then void and the banner asks again.
   analytics:
     provider: custom
     host: gitgrit.dev
     key: phc_pFw4gWovt4B6yCG8sTYxVGjjovLkEPqrDFgJyguogM7N
+    api_host: https://e.gitgrit.dev
+    consent_version: "2026-11-26"
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/kfirzvi-com/gitgrit

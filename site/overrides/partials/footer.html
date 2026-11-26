@@ -88,6 +88,7 @@
           <li><a href="{{ 'legal/terms/' | url }}">Terms</a></li>
           <li><a href="{{ 'legal/privacy/' | url }}">Privacy</a></li>
           <li><a href="{{ 'legal/cookies/' | url }}">Cookies</a></li>
+          <li data-gg-consent-open hidden><button type="button" class="gg-footer__link-btn" data-gg-consent="open">Cookie settings</button></li>
           <li><a href="{{ 'legal/accessibility/' | url }}">Accessibility</a></li>
           <li><a href="{{ 'legal/sub-processors/' | url }}">Sub-processors</a></li>
           <li><a href="https://github.com/kfirzvi-com/gitgrit/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a></li>
@@ -101,3 +102,5 @@
     </div>
   </div>
 </footer>
+
+{% include "partials/consent.html" %}
