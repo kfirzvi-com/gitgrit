@@ -1,0 +1,13 @@
+{#
+  Repo badge in the mobile menu (partials/nav.html). Overrides Material's
+  source.html, which carries data-md-component="source" and so fetches the
+  repo facts from api.github.com in the visitor's browser. The star count
+  comes from hooks/repo_stars.py at build time instead.
+#}
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source">
+  <div class="md-source__icon md-icon">{% include ".icons/fontawesome/brands/github.svg" %}</div>
+  <div class="md-source__repository">
+    {{ config.repo_name }}
+    {% if config.extra.github_stars is not none %}<ul class="md-source__facts"><li class="md-source__fact md-source__fact--stars">{{ config.extra.github_stars }}</li></ul>{% endif %}
+  </div>
+</a>

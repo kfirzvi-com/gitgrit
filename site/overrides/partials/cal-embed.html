@@ -1,34 +1,56 @@
 {#
-  Book a demo: Cal.com element-click embed, loaded on every page.
-  Any element with data-cal-link="gitgrit-demo/30min" data-cal-namespace="30min"
-  opens the booking modal. Give it href="https://cal.com/gitgrit-demo/30min" too:
-  the plain booking page is the fallback when JS is off.
+  Book a demo: Cal.com modal, loaded on the first click only.
+  Any element with data-cal-link="gitgrit-demo/30min" (optionally
+  data-cal-config='{...}') opens the booking modal. Give it
+  href="https://cal.com/gitgrit-demo/30min" too: the plain booking page is the
+  fallback when JS is off.
+
+  Nothing from Cal.com loads until someone clicks: a page view sends no
+  request to a third party (see legal/cookies.md). The click is the visitor
+  asking for the booking service, so loading Cal.com then needs no consent.
 #}
 <script type="text/javascript">
-  (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
-  Cal("init", "30min", { origin: "https://app.cal.com" });
-  Cal.config = Cal.config || {};
-  Cal.config.forwardQueryParams = true;
-  Cal.ns["30min"]("ui", {
-    theme: "dark",
-    cssVarsPerTheme: { dark: { "cal-brand": "#06b6d4" } },  // GitGrit --gg-primary
-    hideEventTypeDetails: false,
-    layout: "month_view"
-  });
-  // Funnel end: a booking completed in the modal. demo_clicked (the opening click) is captured
-  // by the analytics partial. window.posthog exists only on production (see analytics/custom.html),
-  // and no attendee details are sent: never the name or email someone typed into Cal.
-  Cal.ns["30min"]("on", {
-    action: "bookingSuccessfulV2",
-    callback: function () {
-      if (window.posthog && window.posthog.capture) {
-        window.posthog.capture("demo_booked", { page_path: location.pathname });
-      }
+  (function () {
+    var NS = "30min";
+    var loaded = false;
+
+    function load() {
+      if (loaded) return;
+      loaded = true;
+      // Cal.com's official loader stub (cal.com/docs/embed), unchanged.
+      (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+      Cal("init", NS, { origin: "https://app.cal.com" });
+      Cal.config = Cal.config || {};
+      Cal.config.forwardQueryParams = true;
+      Cal.ns[NS]("ui", {
+        theme: "dark",
+        cssVarsPerTheme: { dark: { "cal-brand": "#06b6d4" } },  // GitGrit --gg-primary
+        hideEventTypeDetails: false,
+        layout: "month_view"
+      });
+      // Funnel end: a booking completed in the modal. demo_clicked (the opening click) is captured
+      // by the analytics partial. window.posthog exists only after analytics consent (see
+      // analytics/custom.html), and no attendee details are sent: never the name or email
+      // someone typed into Cal.
+      Cal.ns[NS]("on", {
+        action: "bookingSuccessfulV2",
+        callback: function () {
+          if (window.posthog && window.posthog.capture) {
+            window.posthog.capture("demo_booked", { page_path: location.pathname });
+          }
+        }
+      });
     }
-  });
-  // Cal opens the modal from its own click listener but leaves the link's default
-  // navigation alone, so stop it here (delegated: this runs before the body exists).
-  document.addEventListener("click", function (e) {
-    if (e.target.closest && e.target.closest("[data-cal-link]")) { e.preventDefault(); }
-  });
+
+    // Delegated: this runs in <head>, before the links exist.
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest ? e.target.closest("[data-cal-link]") : null;
+      if (!a) return;
+      e.preventDefault();
+      load();
+      var config = {};
+      try { config = JSON.parse(a.getAttribute("data-cal-config") || "{}"); } catch (err) {}
+      Cal.ns[NS]("modal", { calLink: a.getAttribute("data-cal-link"), config: config });
+    });
+  })();
 </script>
