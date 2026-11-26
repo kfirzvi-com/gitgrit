@@ -191,9 +191,9 @@ and the install is not actually air-gapped.
 
 Browser-side: open the app in a browser with DevTools → Network. Filter
 for `googleapis`, `jsdelivr`, `unpkg`, `github.com`, `fonts.gstatic.com`
-— there should be zero requests outside `${SITE_URL}`. The vendored
-fonts under `app/static/app/vendor/fonts/` are why; the `{% if
-airgapped %}` template branch in `base.html` is what gates the swap.
+— there should be zero requests outside `${SITE_URL}`. Every GitGrit
+install, air-gapped or not, serves its fonts and front-end libraries from
+`app/static/app/vendor/`, never from a CDN.
 
 ## Managing access
 
